@@ -46,13 +46,13 @@ export default function Navbar() {
           </div>
 
           {/* Login / Register Button */}
-          <button 
-            type="button"
+          <Link 
+            to="/login"
             className="bg-white hover:bg-slate-100 text-[#005596] font-semibold text-xs sm:text-sm px-4 py-2 rounded-lg shadow transition duration-200 flex items-center space-x-1.5 cursor-pointer"
           >
             <User className="w-4 h-4" />
             <span>Iniciar Sesión / Registrarse</span>
-          </button>
+          </Link>
         </div>
       </div>
     </header>

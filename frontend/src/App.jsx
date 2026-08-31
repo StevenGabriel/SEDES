@@ -2,6 +2,7 @@ import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import LandingPage from './pages/LandingPage';
 import RequisitosPage from './pages/RequisitosPage';
+import LoginPage from './pages/loginPage';
 
 function App() {
   return (
@@ -9,6 +10,8 @@ function App() {
       <Route path="/" element={<LandingPage />} />
       <Route path="/landingpage" element={<LandingPage />} />
       <Route path="/requisitos" element={<RequisitosPage />} />
+      <Route path="/login" element={<LoginPage />} />
+      <Route path="/loginpage" element={<LoginPage />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
