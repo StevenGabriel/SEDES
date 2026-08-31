@@ -1,5 +1,3 @@
-print('Claros Tapia Steven Gabriel')
-
 from fastapi import FastAPI
 
 app = FastAPI(title="API SEDES Lab")
