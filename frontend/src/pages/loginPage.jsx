@@ -238,13 +238,12 @@ export default function LoginPage() {
           <div className="mt-7 text-center">
             <p className="text-xs sm:text-sm text-slate-500 font-normal">
               ¿No tiene cuenta?{' '}
-              <button
-                type="button"
-                onClick={() => alert('El registro de nuevos regentes y establecimientos estará disponible próximamente.')}
+              <Link
+                to="/register"
                 className="text-[#0073c6] font-bold hover:text-[#005596] hover:underline transition-colors cursor-pointer"
               >
                 Registrarse aquí
-              </button>
+              </Link>
             </p>
           </div>
 
