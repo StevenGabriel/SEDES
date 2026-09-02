@@ -57,7 +57,7 @@ export default function RegisterPage() {
 
   const strength = calculatePasswordStrength(formData.password);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setErrorMessage('');
     setSuccessMessage('');
@@ -74,14 +74,49 @@ export default function RegisterPage() {
 
     setIsLoading(true);
 
-    // Simulación de creación de cuenta
-    setTimeout(() => {
-      setIsLoading(false);
-      setSuccessMessage('¡Cuenta creada exitosamente! Redirigiendo a inicio de sesión...');
+    try {
+      const response = await fetch('http://localhost:8000/api/auth/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          nombres: formData.nombres,
+          apellidos: formData.apellidos,
+          ci_nit: formData.ciNit,
+          email: formData.email,
+          telefono: formData.telefono || null,
+          password: formData.password,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.detail || 'Ocurrió un error al registrar la cuenta.');
+      }
+
+      setSuccessMessage('¡Cuenta de Propietario creada exitosamente! Redirigiendo a inicio de sesión...');
+      setFormData({
+        nombres: '',
+        apellidos: '',
+        ciNit: '',
+        email: '',
+        telefono: '',
+        password: '',
+        confirmPassword: '',
+        acceptTerms: false
+      });
+
       setTimeout(() => {
         navigate('/login');
       }, 1500);
-    }, 1200);
+
+    } catch (err) {
+      setErrorMessage(err.message || 'No se pudo conectar con el servidor backend.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
