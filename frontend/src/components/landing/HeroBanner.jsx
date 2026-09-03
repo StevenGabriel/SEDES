@@ -30,7 +30,7 @@ export default function HeroBanner() {
           {/* Action Buttons */}
           <div className="flex flex-wrap items-center gap-3 pt-4">
             <Link 
-              to="/requisitos"
+              to="/laboratorio/3L0267"
               className="bg-white hover:bg-slate-100 text-[#005596] font-bold text-xs sm:text-sm tracking-wide px-5 py-2.5 rounded-lg shadow-lg flex items-center space-x-2 transition cursor-pointer"
             >
               <Eye className="w-4 h-4 text-[#005596]" />

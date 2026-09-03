@@ -5,7 +5,7 @@ from typing import Optional
 from pydantic import BaseModel, Field, field_validator
 
 # ==============================================================================
-# SCHEMAS DE AUTENTICACIÓN Y REGISTRO DE USUARIOS
+# SCHEMAS DE AUTENTICACIÓN Y RECUPERACIÓN DE CONTRASEÑAS
 # ==============================================================================
 
 EMAIL_REGEX = r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$"
@@ -26,6 +26,49 @@ class UsuarioRegistro(BaseModel):
             raise ValueError("El correo electrónico no tiene un formato válido.")
         return v
 
+class UsuarioLogin(BaseModel):
+    email: str = Field(..., description="Correo electrónico registrado")
+    password: str = Field(..., min_length=1, description="Contraseña del usuario")
+
+# --- Flujo de Recuperación por Correo y Token (10 minutos) ---
+
+class SolicitarResetPasswordRequest(BaseModel):
+    email: str = Field(..., max_length=150, description="Correo electrónico registrado")
+
+    @field_validator("email")
+    @classmethod
+    def validar_email(cls, v: str) -> str:
+        v = v.strip().lower()
+        if not re.match(EMAIL_REGEX, v):
+            raise ValueError("El correo electrónico no tiene un formato válido.")
+        return v
+
+class RestablecerPasswordConTokenRequest(BaseModel):
+    token: str = Field(..., min_length=10, description="Token firmado de recuperación")
+    nueva_password: str = Field(..., min_length=6, description="Nueva contraseña (mínimo 6 caracteres)")
+
+class VerificarTokenResponse(BaseModel):
+    valido: bool
+    email: Optional[str] = None
+    mensaje: Optional[str] = None
+
+# --- Establecimientos y Laboratorios ---
+
+class EstablecimientoUpdate(BaseModel):
+    horario: Optional[str] = None
+    telefono: Optional[str] = None
+    email_contacto: Optional[str] = None
+    descripcion: Optional[str] = None
+    servicios: Optional[str] = None
+    direccion: Optional[str] = None
+    responsable_laboratorio: Optional[str] = None
+    responsables_areas: Optional[str] = None
+    latitud: Optional[float] = None
+    longitud: Optional[float] = None
+    imagen_url: Optional[str] = None
+
+# --- Respuestas Generales ---
+
 class UsuarioResponse(BaseModel):
     id: uuid.UUID
     rol_id: int
@@ -41,6 +84,11 @@ class UsuarioResponse(BaseModel):
     class Config:
         from_attributes = True
 
+class LoginResponse(BaseModel):
+    mensaje: str
+    usuario: UsuarioResponse
+
 class MensajeRespuesta(BaseModel):
     mensaje: str
     usuario: Optional[UsuarioResponse] = None
+    dev_link: Optional[str] = None

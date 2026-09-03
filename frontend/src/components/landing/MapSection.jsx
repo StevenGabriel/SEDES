@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { 
   MapPin, 
   Navigation, 
@@ -10,23 +11,33 @@ import {
   Activity, 
   Scale, 
   TestTube2, 
-  Stethoscope 
+  Stethoscope,
+  Eye,
+  Building2
 } from 'lucide-react';
 
 export default function MapSection() {
-  const [selectedCategory, setSelectedCategory] = useState('Todos los tipos');
+  const [selectedMunicipio, setSelectedMunicipio] = useState('Todos');
+  const [laboratorios, setLaboratorios] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const mapMarkers = [
-    { id: 1, name: 'Laboratorio MAXILAB', type: 'Endocrinología', status: 'Abierto', x: '35%', y: '25%', color: 'bg-emerald-500' },
-    { id: 2, name: 'Laboratorio del Norte', type: 'Clínico General', status: 'Abierto', x: '52%', y: '22%', color: 'bg-emerald-500' },
-    { id: 3, name: 'Laboratorio Umbrella', type: 'Microbiológico', status: 'Abierto', x: '20%', y: '34%', color: 'bg-rose-500' },
-    { id: 4, name: 'Laboratorio San Juan', type: 'Hematología', status: 'Abierto', x: '62%', y: '39%', color: 'bg-emerald-500' },
-    { id: 5, name: 'Laboratorio Central', type: 'Hematología', status: 'Cerrado', x: '42%', y: '44%', color: 'bg-rose-600' },
-    { id: 6, name: 'Laboratorio Universo', type: 'Genética', status: 'Abierto', x: '21%', y: '52%', color: 'bg-amber-500' },
-    { id: 7, name: 'Laboratorio España', type: 'Inmunología', status: 'Abierto', x: '34%', y: '57%', color: 'bg-sky-500' },
-    { id: 8, name: 'Laboratorio del Sol', type: 'Toxicología', status: 'Abierto', x: '13%', y: '64%', color: 'bg-orange-500' },
-    { id: 9, name: 'Laboratorio Los Ángeles', type: 'Anatomía Patológica', status: 'Abierto', x: '55%', y: '62%', color: 'bg-purple-600' },
-  ];
+  useEffect(() => {
+    const fetchEstablecimientos = async () => {
+      try {
+        const res = await fetch('http://localhost:8000/api/establecimientos');
+        if (res.ok) {
+          const data = await res.json();
+          setLaboratorios(data);
+        }
+      } catch (err) {
+        console.error('Error al cargar establecimientos:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchEstablecimientos();
+  }, []);
 
   const categories = [
     { id: 1, name: 'LABORATORIO CLÍNICO GENERAL', icon: Microscope, color: 'bg-teal-700' },
@@ -39,28 +50,26 @@ export default function MapSection() {
     { id: 8, name: 'LABORATORIO DE TOXICOLOGÍA', icon: TestTube2, color: 'bg-amber-600' },
   ];
 
-  const labList = [
-    { id: 1, name: 'Laboratorio San Juan', status: 'Abierto', address: 'Av. Heroínas #450, Cochabamba' },
-    { id: 2, name: 'Laboratorio del Norte', status: 'Abierto', address: 'Av. Circunvalación, Zona Temporal' },
-    { id: 3, name: 'Laboratorio Central', status: 'Cerrado', address: 'Calle España #120, Cochabamba' },
-  ];
+  const filteredLabs = selectedMunicipio === 'Todos' 
+    ? laboratorios 
+    : laboratorios.filter(lab => lab.municipio.toUpperCase() === selectedMunicipio.toUpperCase());
 
   return (
     <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-8">
       {/* Title & Subtitle */}
       <div className="space-y-1">
         <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
-          Mapa de Laboratorios
+          Mapa Georreferenciado de Laboratorios
         </h2>
         <p className="text-sm sm:text-base text-slate-500 font-medium">
-          Consulte la ubicación, tipo y estado de los laboratorios habilitados en Cochabamba.
+          Consulte la ubicación, nivel y estado de los laboratorios habilitados en el departamento de Cochabamba.
         </p>
       </div>
 
       {/* Grid: Map + Sidebar Filters */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* Map Container */}
-        <div className="lg:col-span-8 bg-slate-100 rounded-2xl overflow-hidden border border-slate-200 shadow-sm relative min-h-[460px] flex flex-col justify-between">
+        <div className="lg:col-span-8 bg-slate-100 rounded-2xl overflow-hidden border border-slate-200 shadow-sm relative min-h-[480px] flex flex-col justify-between">
           {/* Stylized SVG Street Map of Cochabamba */}
           <div className="absolute inset-0 bg-[#e5e9ec] overflow-hidden">
             {/* River Rocha Vector */}
@@ -97,102 +106,121 @@ export default function MapSection() {
             <span className="absolute top-[35%] left-[68%] text-[10px] font-semibold text-slate-400">Hospital Viedma</span>
             <span className="absolute top-[8%] left-[28%] text-[10px] font-semibold text-cyan-700">Río Rocha</span>
 
-            {/* Dynamic Map Pins */}
-            {mapMarkers.map((marker) => (
-              <div 
-                key={marker.id}
-                className="absolute transform -translate-x-1/2 -translate-y-1/2 group cursor-pointer z-10 hover:z-30 transition-all"
-                style={{ left: marker.x, top: marker.y }}
-              >
-                {/* Pin Label Badge */}
-                <div className="flex items-center space-x-1.5 bg-white/95 backdrop-blur-md px-2.5 py-1 rounded-full shadow-md border border-slate-200/80 text-[11px] font-bold text-slate-800 whitespace-nowrap mb-1 hover:scale-105 transition-transform">
-                  <span className={`w-2 h-2 rounded-full ${marker.color}`} />
-                  <span>{marker.name}</span>
-                </div>
-
-                {/* Map Pointer Icon */}
-                <div className="flex justify-center -mt-1">
-                  <div className="bg-white p-1 rounded-full shadow-md">
-                    <MapPin className="w-5 h-5 text-red-600 fill-red-500" />
+            {/* Marcadores de Laboratorios Reales */}
+            {filteredLabs.map((lab, index) => {
+              // Distribuir visualmente en el mapa según sus coordenadas relativas
+              const posX = `${20 + (index * 15) % 65}%`;
+              const posY = `${25 + (index * 18) % 55}%`;
+              
+              return (
+                <Link 
+                  to={`/laboratorio/${encodeURIComponent(lab.codigo_cue !== 'Nuevo' ? lab.codigo_cue : lab.id)}`}
+                  key={lab.id}
+                  className="absolute transform -translate-x-1/2 -translate-y-1/2 group cursor-pointer z-10 hover:z-30 transition-all"
+                  style={{ left: posX, top: posY }}
+                  title={`Ver detalle de ${lab.nombre_comercial}`}
+                >
+                  <div className="flex items-center space-x-1.5 bg-white/95 backdrop-blur-md px-2.5 py-1 rounded-full shadow-md border border-slate-200/80 text-[11px] font-bold text-slate-800 whitespace-nowrap mb-1 hover:scale-105 transition-transform">
+                    <span className={`w-2 h-2 rounded-full ${lab.estado_operativo === 'Habilitado' ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+                    <span>{lab.nombre_comercial}</span>
                   </div>
-                </div>
-              </div>
-            ))}
+
+                  <div className="flex justify-center -mt-1">
+                    <div className="bg-white p-1 rounded-full shadow-md group-hover:scale-110 transition-transform">
+                      <MapPin className="w-5 h-5 text-red-600 fill-red-500" />
+                    </div>
+                  </div>
+                </Link>
+              );
+            })}
           </div>
 
-          {/* Map Controls Watermark */}
+          {/* Watermark de Mapa */}
           <div className="relative p-4 flex justify-between items-end pointer-events-none mt-auto">
-            <div className="bg-white/80 backdrop-blur-md text-[11px] font-medium text-slate-600 px-3 py-1.5 rounded-lg shadow-xs border border-white">
-              Cochabamba, Bolivia • Vista de Mapa Habilitada
+            <div className="bg-white/90 backdrop-blur-md text-[11px] font-bold text-slate-700 px-3 py-1.5 rounded-xl shadow-xs border border-white">
+              📍 PostGIS SRID:4326 • Cochabamba, Bolivia
             </div>
           </div>
         </div>
 
         {/* Sidebar Filters & Results Panel */}
-        <div className="lg:col-span-4 bg-white rounded-2xl p-5 border border-slate-200 shadow-sm space-y-6">
+        <div className="lg:col-span-4 bg-white rounded-2xl p-5 border border-slate-200 shadow-sm space-y-5">
           <div>
             <h3 className="text-lg font-bold text-slate-900">Filtros Espaciales</h3>
-            <p className="text-xs text-slate-500">Filtre por tipo de centro y estado de habilitación.</p>
+            <p className="text-xs text-slate-500">Consulte por municipio y estado de habilitación.</p>
           </div>
 
           <div className="space-y-1.5">
             <label className="text-[11px] font-bold tracking-wider text-slate-400 uppercase">
-              TIPO DE LABORATORIOS
+              MUNICIPIO
             </label>
             <div className="relative">
               <select
-                value={selectedCategory}
-                onChange={(e) => setSelectedCategory(e.target.value)}
+                value={selectedMunicipio}
+                onChange={(e) => setSelectedMunicipio(e.target.value)}
                 className="w-full bg-slate-50 border border-slate-200 text-slate-800 text-sm rounded-xl px-3.5 py-2.5 appearance-none focus:outline-none focus:ring-2 focus:ring-[#0077be] cursor-pointer font-medium"
               >
-                <option value="Todos los tipos">Todos los tipos</option>
-                <option value="Clínico General">Clínico General</option>
-                <option value="Microbiológico">Microbiológico</option>
-                <option value="Hematología">Hematología</option>
-                <option value="Inmunología">Inmunología</option>
-                <option value="Endocrinología">Endocrinología</option>
-                <option value="Genética">Genética</option>
+                <option value="Todos">Todos los Municipios</option>
+                <option value="CERCADO">Cercado</option>
+                <option value="QUILLACOLLO">Quillacollo</option>
+                <option value="PUNATA">Punata</option>
+                <option value="SHINAHOTA">Shinahota</option>
+                <option value="VILLA TUNARI">Villa Tunari</option>
               </select>
               <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-3.5 pointer-events-none" />
             </div>
           </div>
 
           <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-xs">
-            <span className="font-bold tracking-wide text-slate-400 uppercase">RESULTADOS EN MAPA</span>
-            <span className="font-bold text-slate-900 bg-slate-100 px-2.5 py-0.5 rounded-full">5 encontrados</span>
+            <span className="font-bold tracking-wide text-slate-400 uppercase">LABORATORIOS OFICIALES</span>
+            <span className="font-bold text-[#005596] bg-blue-50 px-2.5 py-0.5 rounded-full border border-blue-100">
+              {filteredLabs.length} registrados
+            </span>
           </div>
 
-          <div className="space-y-3">
-            {labList.map((lab) => (
-              <div 
-                key={lab.id} 
-                className="bg-slate-50/80 rounded-xl p-3.5 border border-slate-100 space-y-2.5 hover:border-slate-300 transition"
-              >
-                <div className="flex items-center justify-between">
-                  <h4 className="font-bold text-sm text-slate-900">{lab.name}</h4>
-                  <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full flex items-center gap-1 ${
-                    lab.status === 'Abierto' 
-                      ? 'bg-emerald-100 text-emerald-700' 
-                      : 'bg-rose-100 text-rose-700'
-                  }`}>
-                    <span className={`w-1.5 h-1.5 rounded-full ${lab.status === 'Abierto' ? 'bg-emerald-600' : 'bg-rose-600'}`} />
-                    {lab.status}
-                  </span>
-                </div>
-                
-                <p className="text-xs text-slate-500 font-normal">{lab.address}</p>
+          {/* Lista de Laboratorios Reales */}
+          <div className="space-y-3 max-h-[380px] overflow-y-auto pr-1">
+            {isLoading ? (
+              <p className="text-xs text-slate-400 text-center py-4">Cargando laboratorios...</p>
+            ) : filteredLabs.length === 0 ? (
+              <p className="text-xs text-slate-500 text-center py-4">No se encontraron laboratorios para este filtro.</p>
+            ) : (
+              filteredLabs.map((lab) => (
+                <div 
+                  key={lab.id} 
+                  className="bg-slate-50/80 rounded-xl p-3.5 border border-slate-100 space-y-2 hover:border-slate-300 transition"
+                >
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-bold text-sm text-slate-900">{lab.nombre_comercial}</h4>
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 ${
+                      lab.estado_operativo === 'Habilitado' 
+                        ? 'bg-emerald-100 text-emerald-800' 
+                        : 'bg-amber-100 text-amber-800'
+                    }`}>
+                      <span className={`w-1.5 h-1.5 rounded-full ${lab.estado_operativo === 'Habilitado' ? 'bg-emerald-600' : 'bg-amber-600'}`} />
+                      {lab.estado_operativo}
+                    </span>
+                  </div>
+                  
+                  <p className="text-xs text-slate-500 font-normal line-clamp-1">{lab.direccion}</p>
+                  
+                  <div className="text-[11px] text-[#005596] font-semibold flex items-center justify-between">
+                    <span>CUE: {lab.codigo_cue}</span>
+                    <span>{lab.municipio} • {lab.nivel}</span>
+                  </div>
 
-                {lab.status === 'Abierto' && (
-                  <button 
-                    type="button"
-                    className="w-full bg-white hover:bg-slate-100 text-slate-700 text-xs font-semibold py-1.5 px-3 rounded-lg border border-slate-200 flex items-center justify-center space-x-1.5 transition shadow-2xs cursor-pointer"
-                  >
-                    <Navigation className="w-3.5 h-3.5 text-[#005596]" />
-                    <span>Iniciar Navegación</span>
-                  </button>
-                )}
-              </div>
-            ))}
+                  <div className="pt-1">
+                    <Link
+                      to={`/laboratorio/${encodeURIComponent(lab.codigo_cue !== 'Nuevo' ? lab.codigo_cue : lab.id)}`}
+                      className="w-full bg-white hover:bg-slate-100 text-[#005596] text-xs font-bold py-1.5 px-3 rounded-lg border border-slate-200 flex items-center justify-center space-x-1.5 transition shadow-2xs cursor-pointer"
+                    >
+                      <Eye className="w-3.5 h-3.5 text-[#005596]" />
+                      <span>Ver Detalles Oficiales</span>
+                    </Link>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </div>
       </div>

@@ -10,20 +10,57 @@ export default function LoginPage() {
   const [rememberMe, setRememberMe] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
     setSuccessMessage('');
+    setErrorMessage('');
 
-    // Simulación de autenticación
-    setTimeout(() => {
-      setIsLoading(false);
-      setSuccessMessage('Inicio de sesión exitoso. Redirigiendo...');
+    try {
+      const response = await fetch('http://localhost:8000/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: email.trim(),
+          password: password,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.detail || 'Error al iniciar sesión.');
+      }
+
+      // Guardar información del usuario en almacenamiento local
+      localStorage.setItem('usuario', JSON.stringify(data.usuario));
+      if (rememberMe) {
+        localStorage.setItem('recordarEmail', email.trim());
+      } else {
+        localStorage.removeItem('recordarEmail');
+      }
+
+      setSuccessMessage('Inicio de sesión exitoso. Redirigiendo a su panel...');
+
       setTimeout(() => {
-        navigate('/');
-      }, 1200);
-    }, 1000);
+        // Redirigir a la vista del propietario si es propietario
+        if (data.usuario.rol_nombre === 'Propietario') {
+          navigate('/propietario');
+        } else {
+          // Para otros roles o vista general
+          navigate('/propietario');
+        }
+      }, 1000);
+
+    } catch (err) {
+      setErrorMessage(err.message || 'No se pudo conectar con el servidor backend.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -125,6 +162,14 @@ export default function LoginPage() {
             </div>
           )}
 
+          {/* Mensaje de Error */}
+          {errorMessage && (
+            <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 text-xs sm:text-sm rounded-xl flex items-center gap-2 animate-fadeIn">
+              <span className="w-4 h-4 rounded-full bg-red-500 text-white flex items-center justify-center text-[10px] font-bold">!</span>
+              <span>{errorMessage}</span>
+            </div>
+          )}
+
           {/* Formulario */}
           <form onSubmit={handleSubmit} className="space-y-4">
             {/* Campo: Correo Electrónico */}
@@ -203,13 +248,12 @@ export default function LoginPage() {
                 </span>
               </label>
 
-              <button
-                type="button"
-                onClick={() => alert('Función de recuperación de contraseña en proceso de habilitación.')}
+              <Link
+                to="/recuperar-password"
                 className="text-[#0073c6] hover:text-[#005596] font-medium text-xs sm:text-sm hover:underline transition-colors cursor-pointer"
               >
                 ¿Olvidó su contraseña?
-              </button>
+              </Link>
             </div>
 
             {/* Botón de Iniciar Sesión */}

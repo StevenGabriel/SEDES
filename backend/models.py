@@ -72,13 +72,23 @@ class Establecimiento(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
     propietario_id = Column(UUID(as_uuid=True), ForeignKey("usuarios.id"), nullable=False)
+    codigo_cue = Column(String(50), nullable=True, index=True)  # Código CUE oficial (ej: '3L0267', 'Nuevo')
     nombre_comercial = Column(String(200), nullable=False)
-    tipo = Column(String(100), nullable=False)  # Ej: 'Laboratorio Clínico', 'Farmacia'
-    nivel = Column(String(50), nullable=False)  # Ej: 'Primer Nivel', 'Segundo Nivel', 'Tercer Nivel'
-    municipio = Column(String(100), nullable=False) # Ej: 'Cochabamba', 'Quillacollo', 'Sacaba'
+    tipo = Column(String(100), nullable=False)  # Ej: 'Laboratorio Clínico Privado', 'Privado'
+    nivel = Column(String(50), nullable=False)  # Ej: 'Nivel 1', 'Nivel 2'
+    municipio = Column(String(100), nullable=False) # Ej: 'CERCADO', 'QUILLACOLLO', 'PUNATA'
+    responsable_laboratorio = Column(String(200), nullable=True) # Responsable técnico
+    responsables_areas = Column(String(255), nullable=True) # Especialidades/Áreas
     direccion = Column(Text, nullable=False)
     coordenadas = Column(Geometry(geometry_type='POINT', srid=4326), nullable=True)  # PostGIS Point (Lat/Lng)
-    estado_operativo = Column(String(50), default="En Trámite", nullable=False) # 'Habilitado', 'En Trámite', 'Suspendido', 'Clausurado'
+    horario = Column(String(100), default="Lun-Vie 7:00 - 19:00, Sáb 8:00 - 13:00", nullable=True)
+    telefono = Column(String(50), nullable=True)
+    email_contacto = Column(String(150), nullable=True)
+    descripcion = Column(Text, nullable=True)
+    imagen_url = Column(Text, nullable=True)
+    servicios = Column(Text, nullable=True)
+    observaciones = Column(Text, nullable=True)
+    estado_operativo = Column(String(50), default="Habilitado", nullable=False) # 'Habilitado', 'En Trámite', 'Renovación', 'Clausurado'
 
     # Columnas de Auditoría
     estado = Column(Boolean, default=True, nullable=False)

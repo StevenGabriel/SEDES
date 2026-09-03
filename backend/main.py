@@ -8,6 +8,7 @@ from database import get_db, engine
 from init_db import init_database
 import models
 import auth
+import establecimientos
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -34,8 +35,16 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+from fastapi.staticfiles import StaticFiles
+import os
+
+# Crear directorio de subidas si no existe y servir archivos estáticos
+os.makedirs("uploads", exist_ok=True)
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+
 # Incluir Rutas del Sistema
 app.include_router(auth.router)
+app.include_router(establecimientos.router)
 
 @app.get("/", tags=["Diagnóstico"])
 def leer_raiz():
