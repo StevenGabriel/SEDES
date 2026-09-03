@@ -20,3 +20,11 @@ body {
   margin: 0;
   padding: 0;
 }
+
+/* Quitar recuadros de foco negros por defecto en elementos SVG del mapa */
+.leaflet-container path,
+.leaflet-interactive:focus,
+path.leaflet-interactive:focus,
+.leaflet-pane svg path:focus {
+  outline: none !important;
+}

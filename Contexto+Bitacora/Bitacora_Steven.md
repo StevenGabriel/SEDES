@@ -601,10 +601,223 @@ Estructurar el enrutamiento con React Router para que cada sección del menú la
 ### 📊 Verificación y Pruebas Realizadas
 * **Navegación Dinámica:** Al hacer clic entre opciones, la barra del navegador se actualiza instantáneamente con su URL respectiva.
 * **Historial y Recarga:** Se probó recargar en `/propietario/tasas-arancelarias` y el navegador se mantiene en dicha vista.
-* **Compilación:** `npm run build` ejecutado exitosamente sin errores.
+---
+
+## [2026-09-03] Carrusel Dinámico de Laboratorios en el Landing Page
+
+### 📌 Objetivo
+Transformar el banner principal del Landing Page (`HeroBanner.jsx`) en un **carrusel interactivo y dinámico** conectado al backend FastAPI, que presenta los laboratorios acreditados de la base de datos PostgreSQL con autoplay, controles de navegación y enlaces directos a sus respectivas fichas públicas.
+
+---
+
+### 🛠️ Archivos Creados y Modificados
+
+#### 1. `frontend/src/components/landing/HeroBanner.jsx` [MODIFICADO]
+* **Descripción:**
+  * **Conexión a la API:** Carga en tiempo real los laboratorios registrados mediante `GET /api/establecimientos`.
+  * **Autoplay inteligente:** Transición automática cada 6 segundos, con pausa al pasar el cursor del mouse (*hover*).
+  * **Controles completos:** Botones anterior/siguiente (`ChevronLeft`, `ChevronRight`) y barra de puntos indicadores interactivos con conteo de diapositivas (`1 / 10`).
+  * **Contenido Reactivo:** Muestra el nombre comercial, insignia de acreditación SEDES, municipio, nivel, código CUE y la descripción de cada laboratorio.
+  * **Imágenes y Enlaces:** Carga la fotografía personalizada del laboratorio (`imagen_url`) o el fondo institucional, con el botón **"VER DETALLES"** apuntando a `/laboratorio/{cue}`.
+
+---
+
+### 📊 Verificación y Pruebas Realizadas
+* **Rotación y Transiciones:** Verificación de rotación automática entre los 10 laboratorios de la base de datos (*A.T.M.*, *ALQUIMIA*, *ALCAZAR*, *ADONAI*, *ALINE*, etc.).
+* **Navegación al Detalle:** Comprobación de que al hacer clic en "VER DETALLES" de cualquier diapositiva, se accede a la página pública del laboratorio correspondiente.
+---
+
+## [2026-09-03] Mapa Cartográfico Real Multi-Laboratorio con Leaflet en el Landing Page
+
+### 📌 Objetivo
+Reemplazar la ilustración estática/vectorial de la sección de mapa por un **mapa interactivo real** con azulejos de OpenStreetMap mediante Leaflet, que renderiza automáticamente los 10 laboratorios registrados en Cochabamba con sus coordenadas PostGIS, pines personalizados, popups informativos y sincronización con los filtros espaciales por municipio.
+
+---
+
+### 🛠️ Archivos Creados y Modificados
+
+#### 1. `frontend/src/components/common/RealMultiMapView.jsx` [NUEVO]
+* **Descripción:**
+  * Componente especializado para la visualización simultánea de múltiples establecimientos en el departamento de Cochabamba.
+  * Marcadores personalizados con insignia flotante del nombre del laboratorio y color semántico según su estado (*Habilitado* en verde/rojo, *En Trámite* en ámbar).
+  * Popups interactivos con nombre, municipio, nivel, dirección y botón de acceso directo a la ficha pública.
+  * Auto-ajuste de límites (*fitBounds*) y animación de paneo/zoom al seleccionar un laboratorio.
+
+#### 2. `frontend/src/components/landing/MapSection.jsx` [MODIFICADO]
+* **Descripción:**
+  * Integración de `RealMultiMapView` en el contenedor principal.
+  * Sincronización con el selector de municipios (*Todos, Cercado, Quillacollo, Punata, Shinahota, Villa Tunari*), filtrando tanto la lista como los pines del mapa.
+  * Al hacer clic en cualquier tarjeta de la lista derecha (o en el botón de ubicación), el mapa se desplaza suavemente al laboratorio seleccionado y abre su popup.
+
+---
+
+### 📊 Verificación y Pruebas Realizadas
+* **Carga de Pines:** Verificación de despliegue de los 10 laboratorios en sus ubicaciones geográficas reales (Cercado, Quillacollo, Punata, Chapare).
+* **Filtros por Municipio:** Comprobación de que al seleccionar *"Quillacollo"*, el mapa se reajusta y muestra únicamente los laboratorios de ese municipio (*ALCAZAR*, *ALVAREZ*).
+---
+
+## [2026-09-03] Pines de Mapa Clasificados por Tipo de Laboratorio y Filtro Interactivo de Especialidades
+
+### 📌 Objetivo
+Asignar a cada marcador del mapa cartográfico el **color exacto y el icono representativo** de su especialidad médica autorizada (según el catálogo oficial del SEDES), y transformar la **"Leyenda de Tipos de Laboratorio"** en un filtro interactivo que permite explorar establecimientos por categoría de análisis.
+
+---
+
+### 🛠️ Archivos Creados y Modificados
+
+#### 1. `frontend/src/components/common/RealMultiMapView.jsx` [MODIFICADO]
+* **Descripción:**
+  * Implementación del diccionario de 8 especialidades (`ESPECIALIDADES_MAPA`) con sus colores hex e iconos vectoriales SVG (*Microscopio, Biohazard, Estetoscopio, Gota, Pulso, Balanza, ADN, Tubo de ensayo*).
+  * Función `getLabSpecialty(lab)` para clasificar automáticamente cada establecimiento según sus servicios autorizados.
+  * Generación de marcadores Leaflet con el color temático de la especialidad, el icono SVG incrustado y popups enriquecidos con badge de especialidad.
+
+#### 2. `frontend/src/components/landing/MapSection.jsx` [MODIFICADO]
+* **Descripción:**
+  * La **Leyenda de Tipos de Laboratorio** ahora es interactiva: al hacer clic en cualquier categoría (*Clínico General, Microbiológico, Patología, Hematología, Inmunología, etc.*), el mapa y la lista se filtran en tiempo real.
+  * Se añadió una insignia con el color de especialidad dentro de cada tarjeta en el panel lateral derecho.
+
+---
+
+### 📊 Verificación y Pruebas Realizadas
+* **Diferenciación Visual:** Los pines en el mapa ahora se muestran con colores distintivos e iconos según la especialidad de cada laboratorio (*Verde azulado, Índigo, Púrpura, Rojo, Celeste, etc.*).
+* **Corrección de Renderizado:** Se limpiaron comentarios de texto dentro del HTML de los pines de Leaflet para garantizar etiquetas completamente limpias y nítidas.
+* **Filtro por Leyenda:** Se probó hacer clic en *"Laboratorio de Inmunología"* y *"Laboratorio Clínico Microbiológico"*, verificando que tanto los pines como la lista lateral se ajustan de inmediato.
+---
+
+## [2026-09-03] Integración de Función de Indicaciones GPS en las Tarjetas de Laboratorio
+
+### 📌 Objetivo
+Reemplazar el botón redundante de "Ver Detalles Oficiales" en las tarjetas laterales del mapa por la funcionalidad de navegación **"Cómo llegar (GPS)"**, permitiendo a los ciudadanos abrir directamente la ruta de navegación satelital en Google Maps hacia las coordenadas geográficas del laboratorio seleccionado, manteniendo el acceso a la ficha técnica oficial a través de los popups del mapa.
+
+---
+
+### 🛠️ Archivos Creados y Modificados
+
+#### 1. `frontend/src/components/landing/MapSection.jsx` [MODIFICADO]
+* **Descripción:**
+  * Se importó el icono `Navigation` de Lucide.
+  * Se transformó el botón principal de cada tarjeta lateral en un enlace externo georreferenciado hacia Google Maps (`https://www.google.com/maps/dir/?api=1&destination={lat},{lng}`).
+  * El botón auxiliar con el pin 📍 mantiene la función de enfocar y abrir el popup informativo en el mapa interactivo.
+
+---
+
+### 📊 Verificación y Pruebas Realizadas
+---
+
+## [2026-09-03] Cálculo en Tiempo Real del Estado Abierto/Cerrado según Horario de Atención
+
+### 📌 Objetivo
+Reemplazar los estados estáticos y administrativos de habilitación (*Habilitado / En Trámite*) en las tarjetas de laboratorios y popups del mapa por el estado operativo en tiempo real: **"Abierto Ahora"** (verde esmeralda con indicador animado) o **"Cerrado"** (rojo/carmesí), evaluado automáticamente contra la hora y día actual del usuario y el horario de atención oficial del laboratorio.
+
+---
+
+### 🛠️ Archivos Creados y Modificados
+
+#### 1. `frontend/src/components/common/RealMultiMapView.jsx` [MODIFICADO]
+* **Descripción:**
+  * Se implementó el analizador temporal `checkEstaAbierto(horarioStr)` que procesa días de la semana (Lunes a Viernes, Sábados, Domingos), atención continua 24 horas y rangos horarios en minutos.
+  * Los pines del mapa y sus popups ahora reflejan el punto y badge de **"● Abierto Ahora"** / **"● Cerrado"** con el horario detallado.
+
+#### 2. `frontend/src/components/landing/MapSection.jsx` [MODIFICADO]
+* **Descripción:**
+  * En cada tarjeta lateral se sustituyó la insignia de trámite por la insignia dinámica de estado de apertura (`Abierto Ahora` / `Cerrado`).
+  * Se añadió una línea compacta con el icono de reloj `Clock` y el horario textual del establecimiento.
+
+---
+
+### 📊 Verificación y Pruebas Realizadas
+* **Evaluación en Tiempo Real:** El sistema detecta la hora y día del sistema y calcula con precisión si el establecimiento está en horario de atención.
+---
+
+## [2026-09-03] Delimitación Territorial y Polígonos GIS por Municipio y Departamento
+
+### 📌 Objetivo
+Incorporar capas de **geocercas y polígonos territoriales (GIS)** sobre el mapa de Leaflet: cuando no hay un filtro seleccionado, el mapa resalta los límites del **Departamento de Cochabamba**; al seleccionar un municipio específico (*Punata, Cercado, Quillacollo, Shinahota, Villa Tunari*), dibuja el polígono de su jurisdicción sanitaria con bordes segmentados (`dashArray`), relleno suave institucional, tooltips informativos y auto-zoom adaptativo (*flyToBounds*).
+
+---
+
+### 🛠️ Archivos Creados y Modificados
+
+#### 1. `frontend/src/components/common/RealMultiMapView.jsx` [MODIFICADO]
+* **Descripción:**
+  * Se definió la estructura de límites espaciales `LIMITES_TERRITORIALES` con coordenadas perimetrales de Cochabamba y sus principales municipios.
+  * Se implementó una capa vectorial `boundaryLayer` que dibuja polígonos Leaflet con tooltips dinámicos (`📍 Jurisdicción Municipal: {nombre}`).
+  * Al cambiar de municipio, el mapa re-encuadra automáticamente la cámara para abarcar todo el territorio seleccionado.
+
+#### 2. `frontend/src/components/landing/MapSection.jsx` [MODIFICADO]
+* **Descripción:** Se conectó la propiedad `selectedMunicipio` para activar la delimitación espacial al cambiar el selector de municipios.
+
+---
+
+### 📊 Verificación y Pruebas Realizadas
+* **Vista General:** Al ingresar con *"Todos los Municipios"*, se traza el polígono del Departamento de Cochabamba.
+* **Filtro de Punata:** Al elegir *"Punata"*, el mapa dibuja el polígono del Valle Alto y enfoca los laboratorios de dicha jurisdicción.
+---
+
+## [2026-09-03] Implementación de la Vista 'Nueva Solicitud de Apertura' para Propietarios
+
+### 📌 Objetivo
+Desarrollar de forma integral la sección de **"Nueva Solicitud de Apertura"** (`/propietario/nueva-solicitud`) en el panel de propietarios: permitiendo registrar un nuevo establecimiento con todos sus datos institucionales y públicos, fotografía de cabecera, píldoras de especialidades oficiales, georreferenciación GPS interactiva con Leaflet, carga agrupada de requisitos documentales oficiales en PDF (*Legales, Infraestructura, Administrativos, Técnicos y Regencia*) y persistencia en base de datos con inicio automático de trámite.
+
+---
+
+### 🛠️ Archivos Creados y Modificados
+
+#### 1. `backend/schemas.py` [MODIFICADO]
+* **Descripción:** Se añadió el esquema `EstablecimientoCreate` con validación de campos obligatorios y opcionales.
+
+#### 2. `backend/establecimientos.py` [MODIFICADO]
+* **Descripción:** Se implementó el endpoint `POST /api/establecimientos` que registra el nuevo establecimiento con geometría PostGIS (`SRID=4326;POINT(lng lat)`), genera su código inicial y crea el registro de `Tramite` en estado *Pendiente*.
+
+#### 3. `frontend/src/pages/PropietarioPage.jsx` [MODIFICADO]
+* **Descripción:**
+  * Se configuró el formulario interactivo para `seccionActiva === 'nueva-solicitud'`.
+  * **Card 1 (Datos):** Municipio, Tipo, Nombre, Nivel, Dirección, Teléfono, Responsable Bioquímico, Horario, Correo, Descripción, subida de fotografía con previsualización y selector de las 8 especialidades.
+  * **Card 2 (Ubicación):** Integración de `RealMapPicker` para fijar coordenadas GPS en el mapa de Cochabamba.
+  * **Card 3 (Requisitos PDF):** Clasificación en 5 categorías oficiales con selectores de archivos `.pdf`, badges de confirmación y tamaño.
+  * **Acciones:** Botón de "Guardar Borrador", botón "Enviar Solicitud" con feedback visual y pantalla de éxito con enlaces directos.
+
+---
+
+---
+
+## [2026-09-03] Implementación de HorarioPicker: Selector Asistido de Horarios sin Errores de Tipeo
+
+### 📌 Objetivo
+Reemplazar los campos de texto libre de horarios por un componente interactivo y asistido **`HorarioPicker`** que previene errores ortográficos o formatos inconsistentes, garantizando que el cálculo en tiempo real de **"Abierto Ahora / Cerrado"** del mapa y landing page funcione siempre con 100% de precisión.
+
+---
+
+### 🛠️ Archivos Creados y Modificados
+
+#### 1. `frontend/src/components/common/HorarioPicker.jsx` [NUEVO]
+* **Descripción:**
+  * Ofrece **4 Presets Rápidos**: *Estándar SEDES (Lun-Vie 7-19h, Sáb 8-13h)*, *24 Horas (24/7)*, *Lun-Sáb Corrido (7-19h)* y *Personalizado*.
+  * Si el usuario selecciona **Personalizado**, se despliega un configurador por días con checkboxes y selectores de tiempo (`<input type="time" />`) para Lunes a Viernes, Sábados y Domingos/Feriados.
+  * Muestra una previsualización reactiva con badge de validación: `🕒 Horario Oficial Generado: ...`.
+
+#### 2. `frontend/src/pages/PropietarioPage.jsx` [MODIFICADO]
+* **Descripción:**
+  * Se integró `HorarioPicker` en el formulario de **"Nueva Solicitud de Apertura"**.
+  * Se integró `HorarioPicker` en el modal de **"Editar Información Pública"**.
+
+---
+
+### 📊 Verificación y Pruebas Realizadas
+* **Cero Errores de Tipeo:** El usuario genera formatos limpios e institucionales con 1 solo clic o mediante selectores de tiempo.
+* **Compatibilidad Total:** La cadena producida es compatible inmediatamente con `checkEstaAbierto(...)`.
+* **Compilación:** `npm run build` ejecutado en 532ms con código de salida 0.
 
 ---
 *Bitácora actualizada por: Steven*
+
+
+
+
+
+
+
+
 
 
 

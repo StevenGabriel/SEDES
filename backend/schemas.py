@@ -52,7 +52,23 @@ class VerificarTokenResponse(BaseModel):
     email: Optional[str] = None
     mensaje: Optional[str] = None
 
-# --- Establecimientos y Laboratorios ---
+class EstablecimientoCreate(BaseModel):
+    propietario_id: str
+    nombre_comercial: str
+    municipio: str
+    tipo: Optional[str] = "Laboratorio Clínico Privado"
+    nivel: Optional[str] = "Nivel 1"
+    direccion: str
+    telefono: Optional[str] = None
+    email_contacto: Optional[str] = None
+    responsable_laboratorio: Optional[str] = None
+    responsables_areas: Optional[str] = None
+    horario: Optional[str] = "Lun-Vie 7:00 - 19:00, Sáb 8:00 - 13:00"
+    descripcion: Optional[str] = None
+    servicios: Optional[str] = None
+    imagen_url: Optional[str] = None
+    latitud: Optional[float] = -17.3895
+    longitud: Optional[float] = -66.1568
 
 class EstablecimientoUpdate(BaseModel):
     horario: Optional[str] = None

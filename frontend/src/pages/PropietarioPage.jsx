@@ -27,13 +27,87 @@ import {
   Camera,
   Trash2,
   UploadCloud,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Upload,
+  Paperclip,
+  FileUp,
+  FileCheck2,
+  ChevronRight,
+  Send,
+  Loader2,
+  FolderOpen
 } from 'lucide-react';
 
 import logoL1 from '../assets/L1.png';
 import logoL2 from '../assets/L2.png';
 import heroBg from '../assets/hero_bg.jpg';
 import RealMapPicker from '../components/common/RealMapPicker';
+import HorarioPicker from '../components/common/HorarioPicker';
+
+// Requisitos Documentales Oficiales para Habilitación y Apertura (SEDES)
+const REQUISITOS_SOLICITUD_GRUPOS = [
+  {
+    codigo: '2.1',
+    titulo: 'LEGALES',
+    descripcion: 'Documentación legal y acreditación institucional.',
+    requisitos: [
+      { id: 'leg_1', nombre: 'Formulario de solicitud oficial FORM. USD-DOSS/CONALAB-001 debidamente llenado' },
+      { id: 'leg_2', nombre: 'NIT / Certificado de Inscripción al Padrón Nacional Biométrico Digital' },
+      { id: 'leg_3', nombre: 'Cédula de Identidad del Propietario / Representante Legal (fotocopia a color)' },
+      { id: 'leg_4', nombre: 'Testimonio de Poder Notarial del Representante Legal (si corresponde)' },
+      { id: 'leg_5', nombre: 'Matrícula de Comercio vigente emitida por SEPREC' },
+      { id: 'leg_6', nombre: 'Certificado de No Quiebra y Solvencia Fiscal' }
+    ]
+  },
+  {
+    codigo: '2.2',
+    titulo: 'INFRAESTRUCTURA Y AMBIENTES',
+    descripcion: 'Planos visados y condiciones técnico-sanitarias.',
+    requisitos: [
+      { id: 'inf_1', nombre: 'Plano arquitectónico a escala con distribución de ambientes visado por Colegio de Arquitectos' },
+      { id: 'inf_2', nombre: 'Diagrama de flujo de circulación para personal, pacientes y muestras biológicas' },
+      { id: 'inf_3', nombre: 'Sistema de ventilación, iluminación y climatización por áreas analíticas' },
+      { id: 'inf_4', nombre: 'Sistema de tratamiento, almacenamiento temporal y desecho de residuos biocontaminados' },
+      { id: 'inf_5', nombre: 'Certificado de seguridad y prevención contra incendios (Bomberos de la Policía)' }
+    ]
+  },
+  {
+    codigo: '2.3',
+    titulo: 'ASPECTOS ADMINISTRATIVOS',
+    descripcion: 'Manuales organizacionales y acreditaciones de calidad.',
+    requisitos: [
+      { id: 'adm_1', nombre: 'Organigrama funcional y jerárquico del establecimiento' },
+      { id: 'adm_2', nombre: 'Manual de organización y funciones del personal (MOF)' },
+      { id: 'adm_3', nombre: 'Tarifario de aranceles y catálogo de pruebas ofrecidas a la población' },
+      { id: 'adm_4', nombre: 'Certificado de participación activa en el PEEC (Programa de Evaluación Externa de Calidad)' },
+      { id: 'adm_5', nombre: 'Contrato vigente con empresa autorizada para el recojo y disposición de residuos biológicos' }
+    ]
+  },
+  {
+    codigo: '2.4',
+    titulo: 'REQUISITOS TÉCNICOS Y BIOSEGURIDAD',
+    descripcion: 'Inventarios, calibraciones y procedimientos operativos.',
+    requisitos: [
+      { id: 'tec_1', nombre: 'Inventario de mobiliario, equipos médicos y certificados de calibración vigentes' },
+      { id: 'tec_2', nombre: 'Manual de bioseguridad del laboratorio aprobado por el Comité Departamental' },
+      { id: 'tec_3', nombre: 'Manuales de Procedimientos Operativos Estandarizados (POEs) de cada sección' },
+      { id: 'tec_4', nombre: 'Plan de control de calidad interno y externo con registros de validación' }
+    ]
+  },
+  {
+    codigo: '2.5',
+    titulo: 'DOCUMENTOS OBLIGATORIOS DE REGENCIA',
+    descripcion: 'Acreditación profesional del Director Técnico o Regente Bioquímico.',
+    requisitos: [
+      { id: 'reg_1', nombre: 'Certificado de Regencia Técnica emitido por el SEDES Cochabamba' },
+      { id: 'reg_2', nombre: 'Título en Provisión Nacional del Bioquímico Responsable (fotocopia legalizada)' },
+      { id: 'reg_3', nombre: 'Diploma Académico de Licenciatura en Bioquímica y Farmacia' },
+      { id: 'reg_4', nombre: 'Matrícula Profesional emitida por el Ministerio de Salud y Deportes' },
+      { id: 'reg_5', nombre: 'Carnet del Colegio Departamental de Bioquímica y Farmacia al día' },
+      { id: 'reg_6', nombre: 'Certificado de compatibilidad horaria otorgado por el SEDES' }
+    ]
+  }
+];
 
 // 8 Especialidades Oficiales del SEDES (según diseño Figma)
 const ESPECIALIDADES_OFICIALES = [
@@ -114,6 +188,30 @@ export default function PropietarioPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState('');
   const [saveError, setSaveError] = useState('');
+
+  // =========================================================================
+  // Estado para la Vista: "Nueva Solicitud de Apertura"
+  // =========================================================================
+  const [formNueva, setFormNueva] = useState({
+    municipio: 'CERCADO',
+    tipo: 'Laboratorio Clínico Privado',
+    nombre_comercial: '',
+    nivel: 'Nivel 1',
+    direccion: '',
+    telefono: '',
+    responsable_laboratorio: '',
+    horario: 'Lun-Vie 7:00 - 19:00, Sáb 8:00 - 13:00',
+    email_contacto: '',
+    descripcion: '',
+    servicios: ['Clínico General'],
+    latitud: -17.3895,
+    longitud: -66.1568
+  });
+  const [nuevaFotoFile, setNuevaFotoFile] = useState(null);
+  const [nuevaFotoPreview, setNuevaFotoPreview] = useState(null);
+  const [documentosAdjuntos, setDocumentosAdjuntos] = useState({});
+  const [isSubmittingNueva, setIsSubmittingNueva] = useState(false);
+  const [solicitudEnviadaExito, setSolicitudEnviadaExito] = useState(false);
 
   // 1. Cargar sesión de usuario
   useEffect(() => {
@@ -370,6 +468,142 @@ export default function PropietarioPage() {
     }
   };
 
+  // =========================================================================
+  // Manejadores para la Vista: "Nueva Solicitud de Apertura"
+  // =========================================================================
+  const handleToggleEspecialidadNueva = (esp) => {
+    setFormNueva((prev) => {
+      const existe = prev.servicios.includes(esp);
+      const nuevos = existe 
+        ? prev.servicios.filter(s => s !== esp) 
+        : [...prev.servicios, esp];
+      return { ...prev, servicios: nuevos.length > 0 ? nuevos : [esp] };
+    });
+  };
+
+  const handleFotoNuevaChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.match('image.*')) {
+      alert('Por favor seleccione una imagen válida (JPG, PNG o WEBP).');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      alert('La imagen no debe superar los 5 MB.');
+      return;
+    }
+
+    setNuevaFotoFile(file);
+    setNuevaFotoPreview(URL.createObjectURL(file));
+  };
+
+  const handleAdjuntarPdf = (reqId, e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.name.toLowerCase().endsWith('.pdf')) {
+      alert('Solo se admiten documentos en formato PDF.');
+      return;
+    }
+
+    setDocumentosAdjuntos(prev => ({
+      ...prev,
+      [reqId]: {
+        nombre: file.name,
+        size: `${(file.size / 1024 / 1024).toFixed(2)} MB`,
+        file: file
+      }
+    }));
+  };
+
+  const handleQuitarPdf = (reqId) => {
+    setDocumentosAdjuntos(prev => {
+      const copy = { ...prev };
+      delete copy[reqId];
+      return copy;
+    });
+  };
+
+  const handleGuardarBorrador = () => {
+    alert('Borrador guardado localmente en su navegador.');
+  };
+
+  const handleEnviarNuevaSolicitud = async (e) => {
+    e.preventDefault();
+    if (!formNueva.nombre_comercial.trim()) {
+      alert('Por favor ingrese el Nombre Comercial del establecimiento.');
+      return;
+    }
+    if (!formNueva.direccion.trim()) {
+      alert('Por favor ingrese la Dirección del establecimiento.');
+      return;
+    }
+
+    setIsSubmittingNueva(true);
+    try {
+      // 1. Crear el establecimiento en PostgreSQL
+      const payload = {
+        propietario_id: usuario?.id || '987556ee-60cb-4672-887e-d958564db7bd',
+        nombre_comercial: formNueva.nombre_comercial.trim(),
+        municipio: formNueva.municipio,
+        tipo: formNueva.tipo,
+        nivel: formNueva.nivel,
+        direccion: formNueva.direccion.trim(),
+        telefono: formNueva.telefono.trim(),
+        email_contacto: formNueva.email_contacto.trim(),
+        responsable_laboratorio: formNueva.responsable_laboratorio.trim(),
+        responsables_areas: formNueva.servicios.join(', '),
+        horario: formNueva.horario.trim(),
+        descripcion: formNueva.descripcion.trim(),
+        servicios: formNueva.servicios.join(', '),
+        latitud: formNueva.latitud,
+        longitud: formNueva.longitud
+      };
+
+      const res = await fetch('http://localhost:8000/api/establecimientos', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.detail || 'Error al registrar el establecimiento.');
+      }
+
+      const resData = await res.json();
+      const nuevoId = resData.establecimiento.id;
+
+      // 2. Si subió fotografía, asociarla al nuevo laboratorio
+      if (nuevaFotoFile && nuevoId) {
+        const formData = new FormData();
+        formData.append('file', nuevaFotoFile);
+        await fetch(`http://localhost:8000/api/establecimientos/${nuevoId}/imagen`, {
+          method: 'POST',
+          body: formData
+        });
+      }
+
+      // 3. Confirmación de éxito
+      setSolicitudEnviadaExito(true);
+
+      // 4. Actualizar lista de establecimientos del usuario
+      if (usuario?.id) {
+        const labsRes = await fetch(`http://localhost:8000/api/establecimientos/propietario/${usuario.id}`);
+        if (labsRes.ok) {
+          const labsData = await labsRes.json();
+          setMisEstablecimientos(labsData);
+        }
+      }
+    } catch (err) {
+      console.error('Error al enviar solicitud:', err);
+      alert(err.message || 'Ocurrió un error al registrar la solicitud. Verifique los datos e intente nuevamente.');
+    } finally {
+      setIsSubmittingNueva(false);
+    }
+  };
+
   // Menú lateral estructurado
   const menuItems = [
     {
@@ -390,8 +624,8 @@ export default function PropietarioPage() {
       id: 'nueva-solicitud',
       label: 'Nueva Solicitud',
       icon: PlusCircle,
-      titulo: 'Nueva Solicitud',
-      subtitulo: 'Inicie una nueva solicitud de apertura, traslado o renovación para su establecimiento de salud.'
+      titulo: 'Nueva Solicitud de Apertura',
+      subtitulo: 'Complete el formulario y adjunte los documentos requeridos en PDF.'
     },
     {
       id: 'tasas-arancelarias',
@@ -788,8 +1022,479 @@ export default function PropietarioPage() {
             </div>
           )}
 
+          {/* VISTA 3: NUEVA SOLICITUD DE APERTURA */}
+          {seccionActiva === 'nueva-solicitud' && (
+            <div className="space-y-6 animate-fadeIn">
+              
+              {/* Modal / Banner de Éxito al Enviar Solicitud */}
+              {solicitudEnviadaExito ? (
+                <div className="bg-white rounded-3xl p-8 sm:p-12 border border-emerald-200 shadow-xl text-center space-y-5 max-w-2xl mx-auto animate-fadeIn">
+                  <div className="w-16 h-16 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto shadow-inner">
+                    <CheckCircle2 className="w-9 h-9" />
+                  </div>
+                  <div className="space-y-2">
+                    <h3 className="text-2xl font-black text-slate-900 tracking-tight">
+                      ¡Solicitud de Apertura Enviada Exitosamente!
+                    </h3>
+                    <p className="text-sm text-slate-600 max-w-lg mx-auto leading-relaxed">
+                      Su trámite de apertura para <strong className="text-slate-900">{formNueva.nombre_comercial}</strong> ha sido registrado en el sistema del SEDES Cochabamba en estado <span className="text-amber-700 bg-amber-50 font-bold px-2 py-0.5 rounded-md border border-amber-200">En Trámite</span>.
+                    </p>
+                  </div>
+
+                  <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/80 text-left text-xs space-y-2 text-slate-600">
+                    <div className="flex justify-between">
+                      <span className="font-semibold text-slate-400">Establecimiento:</span>
+                      <span className="font-bold text-slate-800">{formNueva.nombre_comercial}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="font-semibold text-slate-400">Municipio:</span>
+                      <span className="font-bold text-slate-800">{formNueva.municipio}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="font-semibold text-slate-400">Documentos Adjuntos:</span>
+                      <span className="font-bold text-emerald-700">{Object.keys(documentosAdjuntos).length} archivos PDF</span>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
+                    <Link
+                      to="/propietario/mis-establecimientos"
+                      onClick={() => setSolicitudEnviadaExito(false)}
+                      className="w-full sm:w-auto bg-[#005596] hover:bg-[#003e6d] text-white text-xs font-bold px-6 py-3 rounded-xl transition shadow-md cursor-pointer"
+                    >
+                      Ir a Mis Establecimientos
+                    </Link>
+                    <Link
+                      to="/"
+                      className="w-full sm:w-auto bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold px-6 py-3 rounded-xl transition cursor-pointer"
+                    >
+                      Ver en Landing Page (Mapa)
+                    </Link>
+                  </div>
+                </div>
+              ) : (
+                <form onSubmit={handleEnviarNuevaSolicitud} className="space-y-6">
+                  
+                  {/* ================================================================= */}
+                  {/* CARD 1: DATOS DEL ESTABLECIMIENTO                                 */}
+                  {/* ================================================================= */}
+                  <div className="bg-white rounded-2xl p-6 sm:p-8 border border-slate-200/90 shadow-2xs space-y-6">
+                    <div className="border-b border-slate-100 pb-4">
+                      <h3 className="text-base sm:text-lg font-black text-slate-900 tracking-tight">
+                        Datos del Establecimiento
+                      </h3>
+                      <p className="text-xs text-slate-500 font-medium">
+                        Información institucional y comercial que se registrará ante el SEDES.
+                      </p>
+                    </div>
+
+                    {/* Grid de Campos Principales */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                      
+                      {/* Municipio */}
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-bold text-slate-700">
+                          MUNICIPIO <span className="text-rose-500">*</span>
+                        </label>
+                        <select
+                          value={formNueva.municipio}
+                          onChange={(e) => setFormNueva({ ...formNueva, municipio: e.target.value })}
+                          className="w-full bg-slate-50 border border-slate-200 text-slate-800 text-sm rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#0077be] font-medium cursor-pointer"
+                        >
+                          <option value="CERCADO">Cochabamba (Cercado)</option>
+                          <option value="QUILLACOLLO">Quillacollo</option>
+                          <option value="SACABA">Sacaba</option>
+                          <option value="PUNATA">Punata</option>
+                          <option value="SHINAHOTA">Shinahota</option>
+                          <option value="VILLA TUNARI">Villa Tunari</option>
+                          <option value="COLCAPIRHUA">Colcapirhua</option>
+                          <option value="TIQUIPAYA">Tiquipaya</option>
+                          <option value="ARANI">Arani</option>
+                          <option value="TARATA">Tarata</option>
+                          <option value="CLIZA">Cliza</option>
+                          <option value="SIPE SIPE">Sipe Sipe</option>
+                        </select>
+                      </div>
+
+                      {/* Tipo de Laboratorio */}
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-bold text-slate-700">
+                          TIPO DE LABORATORIO <span className="text-rose-500">*</span>
+                        </label>
+                        <select
+                          value={formNueva.tipo}
+                          onChange={(e) => setFormNueva({ ...formNueva, tipo: e.target.value })}
+                          className="w-full bg-slate-50 border border-slate-200 text-slate-800 text-sm rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#0077be] font-medium cursor-pointer"
+                        >
+                          <option value="Laboratorio Clínico Privado">Laboratorio Clínico Privado</option>
+                          <option value="Laboratorio Clínico Público">Laboratorio Clínico Público</option>
+                          <option value="Laboratorio de Referencia">Laboratorio de Referencia</option>
+                          <option value="Laboratorio de Seguridad Social a Corto Plazo">Laboratorio de Seguridad Social a Corto Plazo</option>
+                        </select>
+                      </div>
+
+                      {/* Nombre Comercial */}
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-bold text-slate-700">
+                          NOMBRE COMERCIAL <span className="text-rose-500">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          value={formNueva.nombre_comercial}
+                          onChange={(e) => setFormNueva({ ...formNueva, nombre_comercial: e.target.value })}
+                          placeholder="Ej: LABORATORIO CLÍNICO BIOMEDICAL"
+                          className="w-full bg-slate-50 border border-slate-200 text-slate-800 text-sm rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#0077be] font-medium"
+                        />
+                      </div>
+
+                      {/* Nivel */}
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-bold text-slate-700">
+                          NIVEL DE COMPLEJIDAD <span className="text-rose-500">*</span>
+                        </label>
+                        <select
+                          value={formNueva.nivel}
+                          onChange={(e) => setFormNueva({ ...formNueva, nivel: e.target.value })}
+                          className="w-full bg-slate-50 border border-slate-200 text-slate-800 text-sm rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#0077be] font-medium cursor-pointer"
+                        >
+                          <option value="Nivel 1">Nivel 1 (Baja Complejidad)</option>
+                          <option value="Nivel 2">Nivel 2 (Mediana Complejidad)</option>
+                          <option value="Nivel 3">Nivel 3 (Alta Complejidad)</option>
+                          <option value="Nivel 4">Nivel 4 (Referencia e Investigación)</option>
+                        </select>
+                      </div>
+
+                      {/* Dirección del Establecimiento */}
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-bold text-slate-700">
+                          DIRECCIÓN DEL ESTABLECIMIENTO <span className="text-rose-500">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          value={formNueva.direccion}
+                          onChange={(e) => setFormNueva({ ...formNueva, direccion: e.target.value })}
+                          placeholder="Ej: Av. Heroínas #456, entre San Martín y 25 de Mayo"
+                          className="w-full bg-slate-50 border border-slate-200 text-slate-800 text-sm rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#0077be] font-medium"
+                        />
+                      </div>
+
+                      {/* Teléfono de Contacto */}
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-bold text-slate-700">
+                          TELÉFONO / CELULAR DE CONTACTO <span className="text-rose-500">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={formNueva.telefono}
+                          onChange={(e) => setFormNueva({ ...formNueva, telefono: e.target.value })}
+                          placeholder="Ej: +591 4 4258900 / 71458920"
+                          className="w-full bg-slate-50 border border-slate-200 text-slate-800 text-sm rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#0077be] font-medium"
+                        />
+                      </div>
+
+                      {/* Responsable Técnico */}
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-bold text-slate-700">
+                          RESPONSABLE TÉCNICO / BIOQUÍMICO REGENTE <span className="text-rose-500">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={formNueva.responsable_laboratorio}
+                          onChange={(e) => setFormNueva({ ...formNueva, responsable_laboratorio: e.target.value })}
+                          placeholder="Ej: DRA. MARIA ELENA VARGAS ROJAS - 5489632 CBBA"
+                          className="w-full bg-slate-50 border border-slate-200 text-slate-800 text-sm rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#0077be] font-medium"
+                        />
+                      </div>
+
+                      {/* Horario de Atención Asistido */}
+                      <div className="space-y-2 sm:col-span-2">
+                        <label className="text-xs font-bold text-slate-700 uppercase">
+                          HORARIO DE ATENCIÓN AL PÚBLICO
+                        </label>
+                        <HorarioPicker
+                          value={formNueva.horario}
+                          onChange={(nuevoHorario) => setFormNueva({ ...formNueva, horario: nuevoHorario })}
+                        />
+                      </div>
+
+                      {/* Correo Electrónico */}
+                      <div className="space-y-1.5 sm:col-span-2">
+                        <label className="text-xs font-bold text-slate-700">
+                          CORREO ELECTRÓNICO INSTITUCIONAL
+                        </label>
+                        <input
+                          type="email"
+                          value={formNueva.email_contacto}
+                          onChange={(e) => setFormNueva({ ...formNueva, email_contacto: e.target.value })}
+                          placeholder="Ej: contacto@laboratoriobiomedical.com"
+                          className="w-full bg-slate-50 border border-slate-200 text-slate-800 text-sm rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#0077be] font-medium"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Descripción / Presentación */}
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-slate-700">
+                        DESCRIPCIÓN / PRESENTACIÓN DEL LABORATORIO (FICHA PÚBLICA)
+                      </label>
+                      <textarea
+                        rows="3"
+                        value={formNueva.descripcion}
+                        onChange={(e) => setFormNueva({ ...formNueva, descripcion: e.target.value })}
+                        placeholder="Describa la infraestructura, áreas especializadas y servicios que ofrece su laboratorio para los pacientes..."
+                        className="w-full bg-slate-50 border border-slate-200 text-slate-800 text-sm rounded-xl p-3.5 focus:outline-none focus:ring-2 focus:ring-[#0077be] font-medium resize-y"
+                      />
+                    </div>
+
+                    {/* Fotografía de Portada */}
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold text-slate-700 flex items-center justify-between">
+                        <span>FOTOGRAFÍA DEL ESTABLECIMIENTO (IMAGEN DE LA FICHA PÚBLICA)</span>
+                        <span className="text-[11px] font-normal text-slate-400">JPG, PNG o WEBP (Máx. 5 MB)</span>
+                      </label>
+                      
+                      <div className="flex flex-col sm:flex-row items-center gap-4 bg-slate-50 p-4 rounded-2xl border border-slate-200">
+                        <div className="w-24 h-20 rounded-xl overflow-hidden bg-slate-200 border border-slate-300 shrink-0 relative">
+                          <img
+                            src={nuevaFotoPreview || heroBg}
+                            alt="Previsualización"
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+
+                        <div className="flex-1 space-y-1 text-center sm:text-left">
+                          <p className="text-xs text-slate-600 font-medium">
+                            Esta imagen se mostrará en la cabecera de la página de su laboratorio para los pacientes y el SEDES.
+                          </p>
+                          <label className="inline-flex items-center space-x-2 bg-[#005596] hover:bg-[#003e6d] text-white text-xs font-bold px-4 py-2 rounded-xl transition cursor-pointer shadow-xs">
+                            <UploadCloud className="w-3.5 h-3.5" />
+                            <span>{nuevaFotoFile ? 'Cambiar Fotografía' : 'Subir Fotografía'}</span>
+                            <input
+                              type="file"
+                              accept="image/jpeg,image/png,image/webp"
+                              onChange={handleFotoNuevaChange}
+                              className="hidden"
+                            />
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Servicios y Especialidades Autorizados (Píldoras) */}
+                    <div className="space-y-2 pt-2 border-t border-slate-100">
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs font-bold text-slate-700 uppercase">
+                          SERVICIOS Y ESPECIALIDADES AUTORIZADOS
+                        </label>
+                        <span className="text-[11px] font-bold text-[#005596] bg-blue-50 px-2 py-0.5 rounded-md border border-blue-100">
+                          {formNueva.servicios.length} seleccionada(s)
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-500">
+                        Haga clic para activar o desactivar las áreas autorizadas de su laboratorio:
+                      </p>
+
+                      <div className="flex flex-wrap gap-2 pt-1">
+                        {ESPECIALIDADES_OFICIALES.map((esp) => {
+                          const isSelected = formNueva.servicios.includes(esp);
+                          return (
+                            <button
+                              key={esp}
+                              type="button"
+                              onClick={() => handleToggleEspecialidadNueva(esp)}
+                              className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition flex items-center space-x-1.5 cursor-pointer ${
+                                isSelected
+                                  ? 'bg-[#0f172a] text-white shadow-xs'
+                                  : 'bg-white text-slate-700 border border-slate-200 hover:border-slate-400 hover:bg-slate-50'
+                              }`}
+                            >
+                              {isSelected && <Check className="w-3.5 h-3.5 text-white" />}
+                              <span>{esp}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* ================================================================= */}
+                  {/* CARD 2: UBICACIÓN DEL ESTABLECIMIENTO (MAPA GPS)                 */}
+                  {/* ================================================================= */}
+                  <div className="bg-white rounded-2xl p-6 sm:p-8 border border-slate-200/90 shadow-2xs space-y-5">
+                    <div className="border-b border-slate-100 pb-4">
+                      <h3 className="text-base sm:text-lg font-black text-slate-900 tracking-tight">
+                        Ubicación del Establecimiento
+                      </h3>
+                      <p className="text-xs text-slate-500 font-medium">
+                        Haga clic en el mapa o arrastre el pin para capturar las coordenadas exactas de su laboratorio.
+                      </p>
+                    </div>
+
+                    <div className="space-y-3">
+                      <RealMapPicker
+                        latitud={formNueva.latitud}
+                        longitud={formNueva.longitud}
+                        onChangeCoordenadas={(nuevaLat, nuevaLng) => {
+                          setFormNueva(prev => ({
+                            ...prev,
+                            latitud: nuevaLat,
+                            longitud: nuevaLng
+                          }));
+                        }}
+                        height="360px"
+                      />
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-50 p-3.5 rounded-xl border border-slate-200 text-xs">
+                        <div>
+                          <span className="font-bold text-slate-500">Latitud: </span>
+                          <span className="font-mono font-bold text-slate-800">{formNueva.latitud}</span>
+                        </div>
+                        <div>
+                          <span className="font-bold text-slate-500">Longitud: </span>
+                          <span className="font-mono font-bold text-slate-800">{formNueva.longitud}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* ================================================================= */}
+                  {/* CARD 3: REQUISITOS DOCUMENTALES EN PDF                            */}
+                  {/* ================================================================= */}
+                  <div className="bg-white rounded-2xl p-6 sm:p-8 border border-slate-200/90 shadow-2xs space-y-6">
+                    <div className="border-b border-slate-100 pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <div>
+                        <h3 className="text-base sm:text-lg font-black text-slate-900 tracking-tight">
+                          Requisitos para Habilitación, Apertura y Funcionamiento de Laboratorios
+                        </h3>
+                        <p className="text-xs font-bold text-[#005596] uppercase tracking-wider mt-0.5">
+                          ADJUNTE CADA DOCUMENTO EN FORMATO PDF (MÁXIMO 10MB POR ARCHIVO)
+                        </p>
+                      </div>
+
+                      <span className="text-xs font-bold text-slate-600 bg-slate-100 px-3 py-1 rounded-full border border-slate-200 self-start sm:self-auto">
+                        {Object.keys(documentosAdjuntos).length} adjuntados
+                      </span>
+                    </div>
+
+                    {/* Grupos de Requisitos */}
+                    <div className="space-y-6">
+                      {REQUISITOS_SOLICITUD_GRUPOS.map((grupo) => (
+                        <div key={grupo.codigo} className="space-y-3">
+                          
+                          {/* Encabezado del Grupo */}
+                          <div className="flex items-center space-x-2.5 pb-1 border-b border-slate-100">
+                            <span className="bg-[#005596] text-white text-[11px] font-bold px-2 py-0.5 rounded-md">
+                              {grupo.codigo}
+                            </span>
+                            <h4 className="text-xs sm:text-sm font-extrabold text-slate-900 tracking-tight uppercase">
+                              {grupo.titulo}
+                            </h4>
+                          </div>
+
+                          {/* Lista de Requisitos del Grupo */}
+                          <div className="divide-y divide-slate-100 bg-slate-50/50 rounded-xl border border-slate-200/80 overflow-hidden">
+                            {grupo.requisitos.map((req) => {
+                              const docAdjunto = documentosAdjuntos[req.id];
+
+                              return (
+                                <div 
+                                  key={req.id} 
+                                  className="p-3 sm:px-4 sm:py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-white transition"
+                                >
+                                  <div className="flex items-start space-x-2.5 flex-1 min-w-0">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-slate-400 mt-2 shrink-0"></span>
+                                    <p className="text-xs font-medium text-slate-700 leading-snug">
+                                      {req.nombre}
+                                    </p>
+                                  </div>
+
+                                  <div className="flex items-center space-x-2 shrink-0 self-end sm:self-center">
+                                    {docAdjunto ? (
+                                      <div className="flex items-center space-x-2 bg-emerald-50 text-emerald-800 border border-emerald-200 px-2.5 py-1 rounded-lg text-xs font-bold">
+                                        <FileCheck2 className="w-3.5 h-3.5 text-emerald-600" />
+                                        <span className="max-w-[130px] truncate">{docAdjunto.nombre}</span>
+                                        <span className="text-[10px] text-emerald-600 font-normal">({docAdjunto.size})</span>
+                                        <button
+                                          type="button"
+                                          onClick={() => handleQuitarPdf(req.id)}
+                                          className="p-0.5 text-emerald-700 hover:text-rose-600 rounded transition cursor-pointer"
+                                          title="Eliminar archivo adjunto"
+                                        >
+                                          <X className="w-3 h-3" />
+                                        </button>
+                                      </div>
+                                    ) : (
+                                      <label className="inline-flex items-center space-x-1.5 bg-white hover:bg-blue-50 text-[#005596] border border-slate-200 hover:border-[#005596]/40 text-xs font-bold px-3 py-1.5 rounded-lg transition shadow-2xs cursor-pointer">
+                                        <Upload className="w-3 h-3 text-[#005596]" />
+                                        <span>Subir Archivo</span>
+                                        <input
+                                          type="file"
+                                          accept=".pdf"
+                                          onChange={(e) => handleAdjuntarPdf(req.id, e)}
+                                          className="hidden"
+                                        />
+                                      </label>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* ================================================================= */}
+                  {/* BARRA DE ACCIONES INFERIOR                                        */}
+                  {/* ================================================================= */}
+                  <div className="bg-[#fffbeb] border border-[#fef08a] rounded-2xl p-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-2xs">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-3.5 h-3.5 rounded-full bg-[#f59e0b] shrink-0" />
+                      <p className="text-xs sm:text-sm font-medium text-amber-900">
+                        Recuerde completar todos los campos requeridos antes de enviar la solicitud.
+                      </p>
+                    </div>
+
+                    <div className="flex items-center space-x-3 shrink-0 w-full sm:w-auto">
+                      <button
+                        type="button"
+                        onClick={handleGuardarBorrador}
+                        className="flex-1 sm:flex-none bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 text-xs font-bold px-4 py-2.5 rounded-xl transition cursor-pointer shadow-2xs"
+                      >
+                        Guardar Borrador
+                      </button>
+
+                      <button
+                        type="submit"
+                        disabled={isSubmittingNueva}
+                        className="flex-1 sm:flex-none bg-[#005596] hover:bg-[#003e6d] text-white text-xs font-bold px-6 py-2.5 rounded-xl transition shadow-md flex items-center justify-center space-x-2 cursor-pointer disabled:opacity-50"
+                      >
+                        {isSubmittingNueva ? (
+                          <>
+                            <Loader2 className="w-3.5 h-3.5 animate-spin text-white" />
+                            <span>Enviando...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Send className="w-3.5 h-3.5 text-white" />
+                            <span>Enviar Solicitud</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+
+                </form>
+              )}
+
+            </div>
+          )}
+
           {/* OTRAS VISTAS DEL MENÚ LATERAL (LIENZO LIMPIO) */}
-          {seccionActiva !== 'mis-establecimientos' && seccionActiva !== 'tasas-arancelarias' && (
+          {seccionActiva !== 'mis-establecimientos' && seccionActiva !== 'tasas-arancelarias' && seccionActiva !== 'nueva-solicitud' && (
             <div className="bg-white rounded-3xl p-8 sm:p-12 border border-slate-200/80 shadow-[0_10px_30px_rgba(0,35,70,0.03)] min-h-[420px] flex flex-col items-center justify-center text-center space-y-3">
               <div className="w-16 h-16 rounded-2xl bg-blue-50 text-[#0073c6] flex items-center justify-center">
                 <itemActivo.icon className="w-8 h-8" />
@@ -902,22 +1607,15 @@ export default function PropietarioPage() {
               {/* ============================================================= */}
               <div className="space-y-4 pt-2 border-t border-slate-100">
                 
-                {/* Horario */}
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                {/* Horario de Atención Asistido */}
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
                     Horario de Atención al Público
                   </label>
-                  <div className="relative flex items-center">
-                    <Clock className="w-4 h-4 text-slate-400 absolute left-3 pointer-events-none" />
-                    <input
-                      type="text"
-                      required
-                      value={formEdit.horario}
-                      onChange={(e) => setFormEdit({ ...formEdit, horario: e.target.value })}
-                      placeholder="Ej. Lun-Vie 7:00 - 19:00, Sáb 8:00 - 13:00"
-                      className="w-full pl-9 pr-3.5 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#0073c6]/20 focus:border-[#0073c6]"
-                    />
-                  </div>
+                  <HorarioPicker
+                    value={formEdit.horario}
+                    onChange={(nuevoHorario) => setFormEdit({ ...formEdit, horario: nuevoHorario })}
+                  />
                 </div>
 
                 {/* Teléfono y Email */}

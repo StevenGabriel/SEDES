@@ -53,6 +53,74 @@ def serializar_establecimiento(e: models.Establecimiento, db: Session) -> dict:
         "fecha_modificacion": e.fecha_modificacion.isoformat() if e.fecha_modificacion else None
     }
 
+@router.post(
+    "",
+    status_code=status.HTTP_201_CREATED,
+    summary="Registrar una nueva solicitud de apertura de establecimiento"
+)
+def crear_establecimiento(
+    datos: schemas.EstablecimientoCreate,
+    db: Session = Depends(get_db)
+):
+    try:
+        prop_uuid = uuid.UUID(datos.propietario_id)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="ID de propietario inválido."
+        )
+
+    propietario = db.query(models.Usuario).filter(models.Usuario.id == prop_uuid).first()
+    if not propietario:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Propietario no encontrado en el sistema."
+        )
+
+    lat = datos.latitud if datos.latitud is not None else -17.3895
+    lng = datos.longitud if datos.longitud is not None else -66.1568
+
+    nuevo_estab = models.Establecimiento(
+        id=uuid.uuid4(),
+        propietario_id=prop_uuid,
+        codigo_cue="Nuevo",
+        nombre_comercial=datos.nombre_comercial.strip(),
+        tipo=datos.tipo.strip() if datos.tipo else "Laboratorio Clínico Privado",
+        nivel=datos.nivel.strip() if datos.nivel else "Nivel 1",
+        municipio=datos.municipio.strip().upper(),
+        responsable_laboratorio=datos.responsable_laboratorio.strip() if datos.responsable_laboratorio else f"{propietario.nombres} {propietario.apellidos}",
+        responsables_areas=datos.responsables_areas.strip() if datos.responsables_areas else datos.servicios,
+        direccion=datos.direccion.strip(),
+        coordenadas=f"SRID=4326;POINT({lng} {lat})",
+        horario=datos.horario.strip() if datos.horario else "Lun-Vie 7:00 - 19:00, Sáb 8:00 - 13:00",
+        telefono=datos.telefono.strip() if datos.telefono else propietario.telefono,
+        email_contacto=datos.email_contacto.strip().lower() if datos.email_contacto else propietario.email,
+        descripcion=datos.descripcion.strip() if datos.descripcion else "Establecimiento de salud acreditado para la toma de muestras y diagnóstico clínico bajo normativa sanitaria de Cochabamba.",
+        imagen_url=datos.imagen_url,
+        servicios=datos.servicios.strip() if datos.servicios else "Clínico General",
+        estado_operativo="En Trámite",
+        estado=True
+    )
+
+    db.add(nuevo_estab)
+    db.flush()
+
+    # Crear el trámite de Apertura asociado
+    nuevo_tramite = models.Tramite(
+        id=uuid.uuid4(),
+        establecimiento_id=nuevo_estab.id,
+        tipo_tramite="Apertura",
+        estado_tramite="Pendiente"
+    )
+    db.add(nuevo_tramite)
+    db.commit()
+    db.refresh(nuevo_estab)
+
+    return {
+        "mensaje": "Solicitud de apertura registrada exitosamente.",
+        "establecimiento": serializar_establecimiento(nuevo_estab, db)
+    }
+
 @router.get(
     "",
     summary="Listar todos los laboratorios con filtros y georreferenciación PostGIS"
