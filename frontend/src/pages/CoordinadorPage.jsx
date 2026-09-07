@@ -32,7 +32,9 @@ import {
   Award,
   Layers,
   Sparkles,
-  ExternalLink
+  ExternalLink,
+  FlaskConical,
+  Bell
 } from 'lucide-react';
 
 import logoL1 from '../assets/L1.png';
@@ -81,82 +83,25 @@ const INITIAL_TRAMITES = [
     estado: 'Esperando Revisión',
     estadoColor: 'bg-amber-100 text-amber-800 border-amber-300',
     supervisorAsignado: 'Ing. Carlos Ruiz',
-    fechaInspeccion: '14/08/2026',
-    veredictoSupervisor: 'OBSERVADO',
-    plazoSubsanacion: '5 días hábiles',
+    fechaInspeccion: '11/08/2026',
+    veredictoSupervisor: 'CON OBSERVACIONES',
     documentos: [
-      { id: 'lic_mun', nombre: 'Licencia Municipal', estado: 'Aprobado', numRegistro: 'MUN-CBA-2026-8942', fechaEmision: '15 de Enero de 2026' },
-      { id: 'plan_arq', nombre: 'Plano Arquitectónico', estado: 'Aprobado', numRegistro: 'COL-ARQ-6029', fechaEmision: '10 de Enero de 2026' },
-      { id: 'cert_san', nombre: 'Certificado Sanitario', estado: 'Aprobado', numRegistro: 'CS-SEDES-2026-441', fechaEmision: '12 de Febrero de 2026' },
-      { id: 'cont_alq', nombre: 'Contrato de Alquiler', estado: 'Aprobado', numRegistro: 'NOT-04-REG-119', fechaEmision: '05 de Enero de 2026' },
-      { id: 'senasag', nombre: 'Registro de SENASAG', estado: 'Aprobado', numRegistro: 'SENASAG-CBA-4491', fechaEmision: '20 de Enero de 2026' }
+      { id: 'lic_mun', nombre: 'Licencia de Funcionamiento', estado: 'Aprobado', numRegistro: 'MUN-CBA-2026-9912', fechaEmision: '10 de Enero de 2026' },
+      { id: 'plan_arq', nombre: 'Plano de Infraestructura', estado: 'Aprobado', numRegistro: 'COL-ARQ-3310', fechaEmision: '12 de Enero de 2026' },
+      { id: 'cert_san', nombre: 'Certificado de Bioseguridad', estado: 'Pendiente', numRegistro: 'CS-SEDES-2026-550', fechaEmision: '01 de Agosto de 2026' },
+      { id: 'cont_alq', nombre: 'Contrato Notariado de Regencia', estado: 'Aprobado', numRegistro: 'NOT-04-REG-102', fechaEmision: '05 de Enero de 2026' },
+      { id: 'senasag', nombre: 'Certificación Ambiental', estado: 'Rechazado', numRegistro: 'AMB-CBA-4401', fechaEmision: '15 de Mayo de 2026' }
     ],
     observacionesSupervisor: [
-      'Se detectó falla en la cadena de frío del área de vacunación. Temperatura registrada: 12°C (rango permitido: 2-8°C).',
-      'Ausencia de basurero diferenciado para residuos infecciosos en el consultorio 3.',
-      'El extintor del pasillo principal se encuentra vencido (última revisión: marzo 2025).'
+      'Cadena de frío en sala de reactivos presentó fluctuaciones de temperatura.',
+      'Manejo de residuos biológicos requiere actualizar contrato de recolección.',
+      'Personal técnico cuenta con vacunas y credenciales al día.'
     ]
   },
   {
-    id: 'REQ-0040',
-    tipo: 'Renovación',
-    tipoBadgeColor: 'bg-sky-50 text-sky-700 border-sky-200',
-    fecha: '10 Ago 2026',
-    fechaISO: '2026-08-10',
-    establecimiento: 'Laboratorio BioTest',
-    categoria: 'Laboratorio de Análisis Clínico Nivel 2',
-    propietario: 'Dra. Jimena Montes Camacho',
-    direccion: 'Calle Jordán #450 entre San Martín y 25 de Mayo',
-    estado: 'Esperando Revisión',
-    estadoColor: 'bg-amber-100 text-amber-800 border-amber-300',
-    supervisorAsignado: 'Lic. Andrea Torrico',
-    fechaInspeccion: '09/08/2026',
-    veredictoSupervisor: 'OBSERVADO',
-    plazoSubsanacion: '3 días hábiles',
-    documentos: [
-      { id: 'lic_mun', nombre: 'Licencia Municipal', estado: 'Aprobado', numRegistro: 'MUN-CBA-2026-5120', fechaEmision: '11 de Enero de 2026' },
-      { id: 'plan_arq', nombre: 'Plano Arquitectónico', estado: 'Aprobado', numRegistro: 'COL-ARQ-3319', fechaEmision: '14 de Febrero de 2026' },
-      { id: 'cert_san', nombre: 'Certificado Sanitario', estado: 'Observado', numRegistro: 'CS-SEDES-2026-118', fechaEmision: '02 de Febrero de 2026' },
-      { id: 'cont_alq', nombre: 'Contrato de Alquiler', estado: 'Aprobado', numRegistro: 'NOT-08-CBA-771', fechaEmision: '01 de Febrero de 2026' },
-      { id: 'senasag', nombre: 'Registro de SENASAG', estado: 'Aprobado', numRegistro: 'SENASAG-CBA-8820', fechaEmision: '15 de Febrero de 2026' }
-    ],
-    observacionesSupervisor: [
-      'Certificado de calibración de centrífuga principal pendiente de visado.',
-      'Manual de POEs requiere actualización a la versión 2026.'
-    ]
-  },
-  {
-    id: 'REQ-0039',
-    tipo: 'Renovación',
-    tipoBadgeColor: 'bg-sky-50 text-sky-700 border-sky-200',
-    fecha: '09 Ago 2026',
-    fechaISO: '2026-08-09',
-    establecimiento: 'Centro Dental Smile',
-    categoria: 'Centro Odontológico Especializado',
-    propietario: 'Dr. Javier Villarroel Tapia',
-    direccion: 'Av. Libertador Bolívar #1290, Edificio Olimpo',
-    estado: 'Observado',
-    estadoColor: 'bg-rose-100 text-rose-700 border-rose-200',
-    supervisorAsignado: 'Ing. Carlos Ruiz',
-    fechaInspeccion: '08/08/2026',
-    veredictoSupervisor: 'OBSERVADO',
-    plazoSubsanacion: '4 días hábiles',
-    documentos: [
-      { id: 'lic_mun', nombre: 'Licencia Municipal', estado: 'Aprobado', numRegistro: 'MUN-CBA-2026-1209', fechaEmision: '10 de Enero de 2026' },
-      { id: 'plan_arq', nombre: 'Plano Arquitectónico', estado: 'Observado', numRegistro: 'COL-ARQ-9912', fechaEmision: '12 de Enero de 2026' },
-      { id: 'cert_san', nombre: 'Certificado Sanitario', estado: 'Aprobado', numRegistro: 'CS-SEDES-2026-092', fechaEmision: '15 de Enero de 2026' },
-      { id: 'cont_alq', nombre: 'Contrato de Alquiler', estado: 'Aprobado', numRegistro: 'NOT-02-ALQ-341', fechaEmision: '04 de Enero de 2026' },
-      { id: 'senasag', nombre: 'Registro de SENASAG', estado: 'Aprobado', numRegistro: 'SENASAG-CBA-3390', fechaEmision: '18 de Enero de 2026' }
-    ],
-    observacionesSupervisor: [
-      'Blindaje de plomo en sala de Rayos X dental requiere peritaje actualizado.',
-      'Falta señalética de riesgo radiológico en acceso principal.'
-    ]
-  },
-  {
-    id: 'REQ-0038',
-    tipo: 'Renovación',
-    tipoBadgeColor: 'bg-sky-50 text-sky-700 border-sky-200',
+    id: 'REQ-0043',
+    tipo: 'Apertura',
+    tipoBadgeColor: 'bg-cyan-50 text-cyan-700 border-cyan-200',
     fecha: '08 Ago 2026',
     fechaISO: '2026-08-08',
     establecimiento: 'Clínica Esperanza',
@@ -186,9 +131,42 @@ export default function CoordinadorPage() {
   const navigate = useNavigate();
   const { seccion } = useParams();
 
-  // Sección activa en el menú lateral
-  const [seccionActiva, setSeccionActiva] = useState(seccion || 'bandeja');
+  // Normalizar la sección activa según la URL
+  const rawSeccion = seccion || 'bandeja';
+  const seccionActiva = (rawSeccion === 'supervisores' || rawSeccion === 'asignar-supervisores')
+    ? 'asignar-supervisores'
+    : (rawSeccion === 'historial' || rawSeccion === 'historial-trazabilidad')
+      ? 'historial-trazabilidad'
+      : 'bandeja';
+
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // Menú lateral estructurado con URLs reales
+  const menuItems = [
+    {
+      id: 'bandeja',
+      path: '/coordinador/bandeja',
+      label: 'Bandeja de Entrada',
+      icon: Inbox,
+      tituloBreadcrumb: 'Bandeja de Trámites Pendientes'
+    },
+    {
+      id: 'asignar-supervisores',
+      path: '/coordinador/asignar-supervisores',
+      label: 'Asignar Supervisores',
+      icon: UserCheck,
+      tituloBreadcrumb: 'Asignación y Gestión de Supervisores'
+    },
+    {
+      id: 'historial-trazabilidad',
+      path: '/coordinador/historial-trazabilidad',
+      label: 'Historial y Trazabilidad',
+      icon: History,
+      tituloBreadcrumb: 'Historial y Trazabilidad de Trámites'
+    }
+  ];
+
+  const itemActivo = menuItems.find(item => item.id === seccionActiva) || menuItems[0];
 
   // Lista de trámites y trámite activo seleccionado
   const [tramites, setTramites] = useState(INITIAL_TRAMITES);
@@ -262,10 +240,10 @@ export default function CoordinadorPage() {
       }
       return t;
     }));
-    mostrarToast(`Documento "${docActual.nombre}" marcado como ${nuevoEstado}.`);
+    mostrarToast(`Documento "${docActual.nombre}" marcado como: ${nuevoEstado}`, nuevoEstado === 'Aprobado' ? 'success' : 'warning');
   };
 
-  // Confirmar Re-Inspección
+  // Guardar re-inspección programada
   const handleGuardarReinspeccion = (e) => {
     e.preventDefault();
     setTramites(prev => prev.map(t => {
@@ -273,7 +251,7 @@ export default function CoordinadorPage() {
         return {
           ...t,
           estado: 'Re-Inspección Programada',
-          estadoColor: 'bg-blue-100 text-blue-800 border-blue-300',
+          estadoColor: 'bg-purple-100 text-purple-800 border-purple-300',
           supervisorAsignado: reinspeccionData.supervisor,
           fechaInspeccion: reinspeccionData.fecha
         };
@@ -281,10 +259,10 @@ export default function CoordinadorPage() {
       return t;
     }));
     setModalReinspeccionOpen(false);
-    mostrarToast(`Re-inspección agendada para el ${reinspeccionData.fecha} con ${reinspeccionData.supervisor}.`, 'info');
+    mostrarToast(`Re-inspección asignada a ${reinspeccionData.supervisor} para el ${reinspeccionData.fecha}.`, 'success');
   };
 
-  // Confirmar Aprobación Final de Trámite
+  // Confirmar aprobación final del trámite
   const handleConfirmarAprobacion = (e) => {
     e.preventDefault();
     setTramites(prev => prev.map(t => {
@@ -302,7 +280,7 @@ export default function CoordinadorPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#f3f6f9] flex font-sans text-slate-800 antialiased overflow-x-hidden">
+    <div className="min-h-screen bg-[#f3f6f9] flex font-sans text-slate-800 antialiased overflow-hidden">
 
       {/* ========================================================================= */}
       {/* 1. SIDEBAR LATERAL (Estilo institucional SEDES SI_Lab)                   */}
@@ -318,22 +296,19 @@ export default function CoordinadorPage() {
 
       <aside className={`
         fixed lg:static top-0 bottom-0 left-0 z-50
-        w-64 sm:w-72 bg-[#0077c8] text-white
-        flex flex-col justify-between p-5 shadow-2xl lg:shadow-none
+        w-72 bg-[#0060a8] text-white
+        flex flex-col justify-between shadow-2xl lg:shadow-none
         transition-transform duration-300 ease-in-out shrink-0
         ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
       `}>
         {/* Contenido superior de Sidebar */}
-        <div>
+        <div className="p-6 space-y-8">
+          
           {/* Logo SI_Lab */}
-          <div className="flex items-center justify-between pb-7 pt-1">
-            <Link to="/" className="flex items-center space-x-3 group" title="Ir al Portal Principal">
+          <div className="flex items-center justify-between">
+            <Link to="/" className="flex items-center space-x-3 group cursor-pointer" title="Ir a la página principal">
               <div className="bg-white/20 p-2.5 rounded-2xl backdrop-blur-md border border-white/30 group-hover:bg-white/30 transition shadow-inner">
-                {/* Ícono de nube/matraz como en el mockup */}
-                <div className="relative flex items-center justify-center">
-                  <Layers className="w-6 h-6 text-white" />
-                  <Sparkles className="w-3.5 h-3.5 text-cyan-200 absolute -top-1 -right-1" />
-                </div>
+                <FlaskConical className="w-6 h-6 text-white" />
               </div>
               <span className="font-black text-2xl tracking-tight text-white flex items-center">
                 SI<span className="text-cyan-200 font-extrabold">_Lab</span>
@@ -342,71 +317,50 @@ export default function CoordinadorPage() {
 
             <button
               onClick={() => setSidebarOpen(false)}
-              className="lg:hidden p-1.5 rounded-xl bg-white/15 text-white hover:bg-white/25"
+              className="lg:hidden p-1.5 rounded-lg bg-white/15 text-white hover:bg-white/25 cursor-pointer"
             >
               <X className="w-5 h-5" />
             </button>
           </div>
 
           {/* Menú de Navegación Lateral */}
-          <nav className="space-y-2 mt-2">
-            {/* Opción 1: Bandeja de Entrada */}
-            <button
-              onClick={() => setSeccionActiva('bandeja')}
-              className={`
-                w-full flex items-center space-x-3.5 px-4 py-3 rounded-xl font-bold text-sm tracking-wide transition-all duration-200 cursor-pointer text-left
-                ${seccionActiva === 'bandeja'
-                  ? 'bg-white/20 text-white shadow-sm border-l-4 border-cyan-300 backdrop-blur-md font-extrabold'
-                  : 'text-white/80 hover:bg-white/10 hover:text-white'
-                }
-              `}
-            >
-              <Inbox className={`w-5 h-5 ${seccionActiva === 'bandeja' ? 'text-cyan-200' : 'text-white/70'}`} />
-              <span>Bandeja de Entrada</span>
-            </button>
+          <nav className="space-y-1.5">
+            {menuItems.map((item) => {
+              const Icon = item.icon;
+              const isActive = seccionActiva === item.id;
 
-            {/* Opción 2: Asignar Supervisores */}
-            <button
-              onClick={() => setSeccionActiva('supervisores')}
-              className={`
-                w-full flex items-center space-x-3.5 px-4 py-3 rounded-xl font-bold text-sm tracking-wide transition-all duration-200 cursor-pointer text-left
-                ${seccionActiva === 'supervisores'
-                  ? 'bg-white/20 text-white shadow-sm border-l-4 border-cyan-300 backdrop-blur-md font-extrabold'
-                  : 'text-white/80 hover:bg-white/10 hover:text-white'
-                }
-              `}
-            >
-              <UserCheck className={`w-5 h-5 ${seccionActiva === 'supervisores' ? 'text-cyan-200' : 'text-white/70'}`} />
-              <span>Asignar Supervisores</span>
-            </button>
-
-            {/* Opción 3: Historial y Trazabilidad */}
-            <button
-              onClick={() => setSeccionActiva('historial')}
-              className={`
-                w-full flex items-center space-x-3.5 px-4 py-3 rounded-xl font-bold text-sm tracking-wide transition-all duration-200 cursor-pointer text-left
-                ${seccionActiva === 'historial'
-                  ? 'bg-white/20 text-white shadow-sm border-l-4 border-cyan-300 backdrop-blur-md font-extrabold'
-                  : 'text-white/80 hover:bg-white/10 hover:text-white'
-                }
-              `}
-            >
-              <History className={`w-5 h-5 ${seccionActiva === 'historial' ? 'text-cyan-200' : 'text-white/70'}`} />
-              <span>Historial y Trazabilidad</span>
-            </button>
+              return (
+                <Link
+                  key={item.id}
+                  to={item.path}
+                  onClick={() => setSidebarOpen(false)}
+                  className={`
+                    w-full flex items-center space-x-3 px-4 py-3 rounded-xl font-bold text-xs sm:text-sm tracking-wide transition-all duration-200 cursor-pointer text-left
+                    ${isActive
+                      ? 'bg-[#004b85] text-white shadow-inner font-extrabold border-l-4 border-white'
+                      : 'text-blue-100/90 hover:bg-white/10 hover:text-white'
+                    }
+                  `}
+                >
+                  <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-white' : 'text-blue-200'}`} />
+                  <span className="truncate">{item.label}</span>
+                </Link>
+              );
+            })}
           </nav>
         </div>
 
-        {/* Footer del Sidebar: Sellos Institucionales */}
-        <div className="pt-6 border-t border-white/20 space-y-3">
-          <div className="flex items-center space-x-3 justify-center bg-white/10 p-2.5 rounded-xl border border-white/15">
-            <img src={logoL1} alt="Escudo de Bolivia" className="h-10 w-auto object-contain drop-shadow" />
-            <div className="h-8 w-px bg-white/25" />
-            <img src={logoL2} alt="SEDES Cochabamba" className="h-10 w-auto object-contain drop-shadow" />
+        {/* Footer del Sidebar con Escudos Institucionales */}
+        <div className="p-6 space-y-4 border-t border-white/10 bg-[#00518f] mt-auto">
+          <div className="flex items-center justify-center space-x-4 opacity-90">
+            <img src={logoL1} alt="Escudo de Bolivia" className="h-9 object-contain" />
+            <div className="h-6 w-px bg-white/20" />
+            <img src={logoL2} alt="Gobernación de Cochabamba" className="h-9 object-contain" />
           </div>
-          <div className="text-center text-[10px] text-white/75 font-medium leading-tight tracking-wider uppercase">
-            <p className="font-bold text-white tracking-widest">ESTADO PLURINACIONAL</p>
-            <p className="text-white/70">Ministerio de Salud y Deportes · Bolivia</p>
+
+          <div className="text-center text-[10px] text-blue-200/80 leading-snug">
+            <p className="font-bold text-white tracking-wider">ESTADO PLURINACIONAL</p>
+            <p>Ministerio de Salud y Deportes - Bolivia</p>
           </div>
         </div>
       </aside>
@@ -416,14 +370,14 @@ export default function CoordinadorPage() {
       {/* ========================================================================= */}
       <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
         
-        {/* Header Superior Blanco */}
+        {/* Header Superior Blanco Sticky */}
         <header className="bg-white border-b border-slate-200 h-16 flex items-center justify-between px-4 sm:px-8 shrink-0 shadow-xs z-30">
           
           {/* Breadcrumb y botón menú móvil */}
           <div className="flex items-center space-x-3">
             <button
               onClick={() => setSidebarOpen(true)}
-              className="lg:hidden p-2 rounded-xl text-slate-600 hover:bg-slate-100"
+              className="lg:hidden p-2 rounded-xl text-slate-600 hover:bg-slate-100 cursor-pointer"
             >
               <Menu className="w-5 h-5" />
             </button>
@@ -432,9 +386,7 @@ export default function CoordinadorPage() {
               <span className="hover:text-slate-700 cursor-pointer">Consola del Coordinador</span>
               <span className="text-slate-300">/</span>
               <span className="font-bold text-slate-800">
-                {seccionActiva === 'bandeja' && 'Bandeja de Trámites Pendientes'}
-                {seccionActiva === 'supervisores' && 'Asignación y Gestión de Supervisores'}
-                {seccionActiva === 'historial' && 'Historial y Trazabilidad de Trámites'}
+                {itemActivo.tituloBreadcrumb}
               </span>
             </div>
           </div>
@@ -447,19 +399,19 @@ export default function CoordinadorPage() {
             </div>
             
             <div className="relative group cursor-pointer">
-              <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-[#0077c8] to-cyan-400 text-white flex items-center justify-center font-bold text-xs shadow-md border-2 border-white">
+              <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-[#005596] to-[#0080d0] text-white flex items-center justify-center font-bold text-xs shadow-md border-2 border-white">
                 CM
               </div>
               <div className="absolute right-0 top-11 w-48 bg-white border border-slate-200 rounded-xl shadow-xl py-2 hidden group-hover:block z-50">
                 <div className="px-4 py-2 border-b border-slate-100">
                   <p className="text-xs font-bold text-slate-800">Dra. Claudia Morales</p>
-                  <p className="text-[10px] text-slate-400">coordinacion@sedes.gob.bo</p>
+                  <p className="text-[10px] text-slate-400">coordinador@sedes.gob.bo</p>
                 </div>
                 <Link to="/propietario" className="w-full text-left px-4 py-2 text-xs text-slate-700 hover:bg-slate-50 flex items-center space-x-2">
                   <Building2 className="w-3.5 h-3.5 text-slate-400" />
                   <span>Ver Portal Propietarios</span>
                 </Link>
-                <Link to="/" className="w-full text-left px-4 py-2 text-xs text-rose-600 hover:bg-rose-50 flex items-center space-x-2">
+                <Link to="/login" className="w-full text-left px-4 py-2 text-xs text-rose-600 hover:bg-rose-50 flex items-center space-x-2">
                   <LogOut className="w-3.5 h-3.5 text-rose-500" />
                   <span>Cerrar Sesión</span>
                 </Link>
@@ -1037,7 +989,7 @@ export default function CoordinadorPage() {
         {/* ========================================================================= */}
         {/* 4. VISTA 2: ASIGNAR SUPERVISORES                                         */}
         {/* ========================================================================= */}
-        {seccionActiva === 'supervisores' && (
+        {(seccionActiva === 'asignar-supervisores' || seccionActiva === 'supervisores') && (
           <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-[#f8fafc]">
             <div className="max-w-5xl mx-auto space-y-6">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
@@ -1102,7 +1054,7 @@ export default function CoordinadorPage() {
         {/* ========================================================================= */}
         {/* 5. VISTA 3: HISTORIAL Y TRAZABILIDAD                                     */}
         {/* ========================================================================= */}
-        {seccionActiva === 'historial' && (
+        {(seccionActiva === 'historial-trazabilidad' || seccionActiva === 'historial') && (
           <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-[#f8fafc]">
             <div className="max-w-4xl mx-auto space-y-6">
               <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">

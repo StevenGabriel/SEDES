@@ -835,8 +835,8 @@ Desarrollar la interfaz oficial del **Panel del Supervisor Técnico** (`/supervi
 * **Redirección de Rutas:** Acceso directo mediante URL `/supervisor/mi-agenda` o login con credenciales de supervisor.
 * **Usuario Supervisor Oficial:** Se creó y sembró en PostgreSQL el usuario `supervisor@sedes.gob.bo` (Marco Antonio Vargas Rojas) con rol `Supervisor Técnico`.
 * **Unificación de Identidad Visual en Sidebars:** Se actualizó el sidebar del portal de propietarios (`PropietarioPage.jsx`) para homologar el diseño del pie institucional (`ESTADO PLURINACIONAL / Ministerio de Salud y Deportes - Bolivia`), separación simétrica de escudos y esquema de color azul oficial (`#0060a8` y `#00518f`).
-* **Integración de Enrutamiento por Roles Pos-Merge:** Se ajustó la lógica de redirección en `loginPage.jsx` para despachar con precisión según el rol autenticado: `Supervisor Técnico` ➔ `/supervisor`, `Coordinador SEDES` / `Admin` ➔ `/coordinador`, y `Propietario` ➔ `/propietario`.
-* **Compilación:** `npm run build` ejecutado exitosamente en 950ms con código de salida 0.
+* **Homologación de URLs y Menú Lateral del Coordinador:** Se corrigió la navegación de `CoordinadorPage.jsx` para que refleje las rutas en la URL del navegador (`/coordinador/bandeja`, `/coordinador/asignar-supervisores`, `/coordinador/historial-trazabilidad`), unificando además el sidebar institucional con el matraz oficial `SI_Lab` y el pie con los escudos de Bolivia y SEDES Cochabamba.
+* **Compilación:** `npm run build` ejecutado exitosamente en 782ms con código de salida 0.
 
 ---
 *Bitácora actualizada por: Steven*

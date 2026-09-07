@@ -37,10 +37,9 @@ function App() {
       <Route path="/dashboard" element={<Navigate to="/propietario/mis-establecimientos" replace />} />
       <Route path="/supervisor" element={<Navigate to="/supervisor/mi-agenda" replace />} />
       <Route path="/supervisor/:seccion" element={<SupervisorPage />} />
-      <Route path="/supervisorpage" element={<Navigate to="/supervisor/mi-agenda" replace />} />
-      <Route path="/coordinador" element={<CoordinadorPage />} />
+      <Route path="/coordinador" element={<Navigate to="/coordinador/bandeja" replace />} />
       <Route path="/coordinador/:seccion" element={<CoordinadorPage />} />
-      <Route path="/coordinadorpage" element={<Navigate to="/coordinador" replace />} />
+      <Route path="/coordinadorpage" element={<Navigate to="/coordinador/bandeja" replace />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
