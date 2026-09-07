@@ -47,14 +47,15 @@ export default function LoginPage() {
       setSuccessMessage('Inicio de sesión exitoso. Redirigiendo a su panel...');
 
       setTimeout(() => {
-        // Redirección inteligente por rol
+        // Redirigir según el rol del usuario
         const rol = (data.usuario.rol_nombre || '').toLowerCase();
-        if (rol.includes('supervisor')) {
-          navigate('/supervisor');
+        if (rol.includes('coordinador') || rol.includes('admin')) {
+          navigate('/coordinador');
         } else if (rol.includes('propietario')) {
           navigate('/propietario');
         } else {
-          navigate('/propietario');
+          // Por defecto para roles de gestión
+          navigate('/coordinador');
         }
       }, 1000);
 
