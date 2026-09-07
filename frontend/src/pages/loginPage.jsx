@@ -47,12 +47,15 @@ export default function LoginPage() {
       setSuccessMessage('Inicio de sesión exitoso. Redirigiendo a su panel...');
 
       setTimeout(() => {
-        // Redirigir a la vista del propietario si es propietario
-        if (data.usuario.rol_nombre === 'Propietario') {
+        // Redirigir según el rol del usuario
+        const rol = (data.usuario.rol_nombre || '').toLowerCase();
+        if (rol.includes('coordinador') || rol.includes('admin')) {
+          navigate('/coordinador');
+        } else if (rol.includes('propietario')) {
           navigate('/propietario');
         } else {
-          // Para otros roles o vista general
-          navigate('/propietario');
+          // Por defecto para roles de gestión
+          navigate('/coordinador');
         }
       }, 1000);
 

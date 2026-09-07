@@ -2,6 +2,73 @@
 
 ---
 
+## [2026-09-07] Implementación de la Vista CoordinadorPage (Consola del Coordinador) con Bitácoras Legal y de Campo
+
+### 📌 Objetivo
+Desarrollar la vista completa de la **Consola del Coordinador (CoordinadorPage)** conforme al diseño institucional de SEDES Cochabamba / SI_Lab provisto en los mockups de diseño. La vista integra de manera interactiva la gestión de trámites en proceso, la bitácora de **Documentación Legal** con visor interactivo de resoluciones/patentes municipales, la bitácora de **Inspección de Campo** con dictamen técnico in situ del supervisor, y los flujos de trabajo para agendar re-inspecciones y emitir aprobaciones oficiales. Asimismo, registrar un usuario con rol de **Coordinador SEDES** en la base de datos PostgreSQL para pruebas de autenticación y flujo integral.
+
+---
+
+### 🛠️ Archivos Creados y Modificados
+
+#### 1. `frontend/src/pages/CoordinadorPage.jsx` [CREADO / IMPLEMENTADO]
+* **Descripción:** Panel de control para coordinadores y fiscalizadores del SEDES con estructura modular e interactiva:
+  * **Barra Lateral Institucional (Sidebar):**
+    * Logotipo **`SI_Lab`** interactivo con distintivos visuales.
+    * Navegación por módulos: **Bandeja de Entrada**, **Asignar Supervisores** e **Historial y Trazabilidad**.
+    * Sellos oficiales del Escudo de Bolivia y SEDES Cochabamba con acreditación del Ministerio de Salud y Deportes.
+  * **Bandeja de Trámites en Proceso (Columna Izquierda):**
+    * Contador dinámico de trámites pendientes (`12 pendientes`).
+    * Buscador en tiempo real por código (`REQ-0042`, `REQ-0041`, etc.) o nombre comercial.
+    * Tarjetas de trámites con badges de tipo (*Apertura*, *Renovación*), fecha de ingreso y estados de avance (*Esperando Revisión*, *Observado*, *Aprobado*).
+  * **Bitácora 1: Documentación Legal (Pestaña 1):**
+    * Listado de los 5 requisitos legales normativos (*Licencia Municipal*, *Plano Arquitectónico*, *Certificado Sanitario*, *Contrato de Alquiler* y *Registro de SENASAG*).
+    * **Visor Interactivo de Documentos:** Renderizado del certificado oficial de funcionamiento del Gobierno Autónomo Municipal de Cochabamba con razón social, propietario, dirección, actividad, fecha, sello de verificación de la Alcaldía y firma autorizada.
+    * Botones interactivos de dictamen por documento (**Aprobado** / **Rechazado**).
+    * Acciones globales: **Agendar Re-Inspección** y **Aprobar Trámite**.
+  * **Bitácora 2: Inspección de Campo (Pestaña 2):**
+    * Banner de alerta con el veredicto del supervisor: `Veredicto del Supervisor: OBSERVADO` (*Realizado por: Ing. Carlos Ruiz - 14/08/2026*).
+    * Sección de Documentación Requerida con acceso al acta y plazo de subsanación (*5 días hábiles*).
+    * **Visor del Acta de Inspección in situ:** Planilla técnica de evaluación con checklist de bioseguridad, cadena de frío, extintores y sellos de fiscalización.
+    * Panel de **Notas del Supervisor** con las observaciones críticas identificadas in situ.
+  * **Modales y Diálogos:**
+    * Modal de **Agendar Re-Inspección Técnica** (asignación de inspector, prioridad, fecha, hora y motivo).
+    * Modal de **Aprobación Oficial y Emisión de Resolución Administrativa** con código correlativo y firma digital.
+    * Modal de **Visor de Expediente Técnico Completo** en pantalla completa.
+
+#### 2. `frontend/src/App.jsx` [MODIFICADO]
+* **Enrutamiento:** Se importó `CoordinadorPage` y se agregaron las siguientes rutas en el switch de `<Routes>`:
+  * `http://localhost:5173/coordinador` ➡️ Renderiza la vista `<CoordinadorPage />`.
+  * `http://localhost:5173/coordinador/:seccion` ➡️ Permite navegar directamente a las secciones de la consola.
+  * `http://localhost:5173/coordinadorpage` ➡️ Alias que redirige a `/coordinador`.
+
+#### 3. `frontend/src/pages/loginPage.jsx` [MODIFICADO]
+* **Redirección por Rol:** Se actualizó la lógica de inicio de sesión para que los usuarios con rol de **Coordinador** o **Administrador** sean redirigidos automáticamente a la ruta `/coordinador` al autenticarse.
+
+#### 4. `backend/models.py` & Base de Datos PostgreSQL [ACTUALIZADO / REGISTRADO]
+* **Usuario de Prueba Creado:** Se registró un usuario oficial con rol de **Coordinador SEDES** en la base de datos para pruebas funcionales.
+
+---
+
+### 🔑 Credenciales de Prueba para Coordinador
+
+```text
+Rol:              Coordinador SEDES
+Nombre Completo:  Dra. Claudia Morales Valenzuela
+Correo / Email:   coordinador@sedes.gob.bo
+Contraseña:       Sedes2026!
+CI / Documento:   4589201 CB
+```
+
+---
+
+### 🎨 Tecnologías y Estilos Aplicados
+* **React 19 & React Router 7:** Enrutamiento dinámico, pestañas de bitácoras, estados locales reactivos y modales interactivos.
+* **Tailwind CSS v4:** Maquetación responsiva a dos columnas (*Master-Detail*), componentes institucionales, badges de estado y diseño adaptativo.
+* **Lucide React:** Iconografía vectorial institucional (`Inbox`, `UserCheck`, `History`, `FileText`, `ShieldCheck`, `AlertTriangle`, `Calendar`, `Award`).
+
+---
+
 ## [2026-08-31] Implementación de la Vista RegisterPage (Crear Cuenta) y Enrutamiento
 
 ### 📌 Objetivo
