@@ -10,6 +10,7 @@ import RestablecerPasswordPage from './pages/RestablecerPasswordPage';
 import DetalleLaboratorioPage from './pages/DetalleLaboratorioPage';
 import SupervisorPage from './pages/SupervisorPage';
 import CoordinadorPage from './pages/CoordinadorPage';
+import AdminPage from './pages/AdminPage';
 
 function App() {
   return (
@@ -40,6 +41,11 @@ function App() {
       <Route path="/coordinador" element={<Navigate to="/coordinador/bandeja" replace />} />
       <Route path="/coordinador/:seccion" element={<CoordinadorPage />} />
       <Route path="/coordinadorpage" element={<Navigate to="/coordinador/bandeja" replace />} />
+      <Route path="/admin" element={<Navigate to="/admin/usuarios" replace />} />
+      <Route path="/admin/:seccion" element={<AdminPage />} />
+      <Route path="/adminpage" element={<Navigate to="/admin/usuarios" replace />} />
+      <Route path="/administrador" element={<Navigate to="/admin/usuarios" replace />} />
+      <Route path="/administrador/:seccion" element={<AdminPage />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

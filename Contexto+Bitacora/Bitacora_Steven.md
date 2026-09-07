@@ -835,33 +835,112 @@ Desarrollar la interfaz oficial del **Panel del Supervisor Técnico** (`/supervi
 * **Redirección de Rutas:** Acceso directo mediante URL `/supervisor/mi-agenda` o login con credenciales de supervisor.
 * **Usuario Supervisor Oficial:** Se creó y sembró en PostgreSQL el usuario `supervisor@sedes.gob.bo` (Marco Antonio Vargas Rojas) con rol `Supervisor Técnico`.
 * **Unificación de Identidad Visual en Sidebars:** Se actualizó el sidebar del portal de propietarios (`PropietarioPage.jsx`) para homologar el diseño del pie institucional (`ESTADO PLURINACIONAL / Ministerio de Salud y Deportes - Bolivia`), separación simétrica de escudos y esquema de color azul oficial (`#0060a8` y `#00518f`).
-* **Homologación de URLs y Menú Lateral del Coordinador:** Se corrigió la navegación de `CoordinadorPage.jsx` para que refleje las rutas en la URL del navegador (`/coordinador/bandeja`, `/coordinador/asignar-supervisores`, `/coordinador/historial-trazabilidad`), unificando además el sidebar institucional con el matraz oficial `SI_Lab` y el pie con los escudos de Bolivia y SEDES Cochabamba.
-* **Compilación:** `npm run build` ejecutado exitosamente en 782ms con código de salida 0.
+* **Homologación del Menú Superior del Coordinador:** Se eliminó el menú flotante tipo popover en `CoordinadorPage.jsx` y se reemplazó por la barra estándar homologada con campana de notificaciones, avatar con las iniciales `CM` y botón directo de cierre de sesión (`LogOut`), igual que en Propietario y Supervisor.
+* **Compilación:** `npm run build` ejecutado exitosamente en 703ms con código de salida 0.
+
+---
+
+## [2026-09-07] Implementación del Panel de Administración IT (Gestión de Usuarios, Roles y Permisos)
+
+### 📌 Objetivo
+Desarrollar la interfaz oficial del **Panel de Administración de Sistemas IT** (`/admin/usuarios`) según el diseño de Figma: incorporando el menú lateral homologado (*Gestión de Usuarios, Roles y Permisos, Requisitos*), las tarjetas de métricas KPI (*Usuarios Totales, Activos, Inactivos, Conectados Ahora*), el buscador con filtros por rol y estado, la tabla interactiva de usuarios registrados con acciones de bloqueo/edición/eliminación, el modal de creación de usuarios y la barra de navegación superior estandarizada.
+
+---
+
+### 🛠️ Archivos Creados y Modificados
+
+#### 1. `frontend/src/pages/AdminPage.jsx` [NUEVO]
+* **Descripción:**
+  * **Sidebar y Header Homologados:** Matraz oficial `SI_Lab` con cyan `_Lab`, pie institucional `#00518f` con escudos de Bolivia y SEDES Cochabamba, y barra superior sticky con avatar (*Ing. Carlos Quispe*), notificaciones y botón directo de logout.
+  * **KPIs Estadísticos:** 4 tarjetas informativas con indicadores de color para 48 usuarios totales, 42 activos, 6 inactivos y 3 conectados ahora.
+  * **Filtros y Búsqueda en Vivo:** Búsqueda textual por nombre/email y selectores de rol y estado.
+  * **Tabla de Gestión de Usuarios:** Listado con avatares, correos, roles, última conexión, badges de estado y botones de acción (editar, bloquear/desbloquear con cambio reactivo y eliminar).
+  * **Modales:** Formularios para registrar nuevos usuarios con validación y visualizador de matriz de permisos.
+
+#### 2. `frontend/src/App.jsx` [MODIFICADO]
+* **Descripción:** Se registraron las rutas `/admin` y `/admin/:seccion` con redirección por defecto a `/admin/usuarios`.
+
+#### 3. `frontend/src/pages/loginPage.jsx` [MODIFICADO]
+* **Descripción:** Se configuró la redirección para que las cuentas con rol `Administrador` o `Admin` sean dirigidas inmediatamente a `/admin`.
+
+---
+
+### 📊 Verificación y Pruebas Realizadas
+* **Diseño Figma Fiel:** Coincidencia exacta con la maqueta subida por el usuario.
+* **Redirección de Rutas:** Acceso directo mediante URL `/admin/usuarios` o login con `admin@sedes.gob.bo`.
+* **Compilación:** `npm run build` ejecutado exitosamente en 651ms con código de salida 0.
+
+---
+
+## [2026-09-07] Integración Backend Real (API CRUD) para Gestión de Usuarios en Base de Datos
+
+### 📌 Objetivo
+Convertir la tabla de **Gestión de Usuarios** del panel de Administración (`/admin/usuarios`) en una tabla 100% funcional y conectada en tiempo real con la base de datos PostgreSQL, implementando los endpoints CRUD en FastAPI y sincronizando las acciones de creación, edición, alternancia de estado (Activo/Inactivo), eliminación y paginación reactiva.
+
+---
+
+### 🛠️ Archivos Creados y Modificados
+
+#### 1. `backend/admin_usuarios.py` [NUEVO]
+* **Endpoints Desarrollados:**
+  * `GET /api/admin/usuarios`: Retorna los usuarios registrados en PostgreSQL (excluyendo cuentas de propietarios por defecto mediante filtro `solo_institucionales=true`).
+  * `POST /api/admin/usuarios`: Registra un nuevo funcionario en la base de datos con contraseña cifrada y validación de unicidad de CI y correo institucional.
+  * `PUT /api/admin/usuarios/{id}`: Permite actualizar nombres, apellidos, CI, teléfono, rol y estado de un usuario existente.
+  * `PATCH /api/admin/usuarios/{id}/toggle-estado`: Alterna atómicamente el estado `Activo` / `Inactivo` (`True`/`False`) en la base de datos.
+  * `DELETE /api/admin/usuarios/{id}`: Elimina permanentemente al usuario de la base de datos.
+
+#### 2. `backend/schemas.py` [MODIFICADO]
+* **Esquemas Pydantic:** Se crearon `UsuarioAdminCreate`, `UsuarioAdminUpdate` y `UsuarioAdminResponse` para tipado y validación de solicitudes.
+
+#### 3. `backend/main.py` [MODIFICADO]
+* **Registro de Router:** Se importó e incluyó `admin_usuarios.router` en la aplicación FastAPI.
+
+#### 4. `backend/init_db.py` [MODIFICADO]
+* **Semillero Completo de Personal SEDES:** Se aseguraron las 8 cuentas institucionales en el seeder automático: *Dr. Fernando Castillo, Dra. Claudia Morales Valenzuela, Ing. Carlos Quispe, Ing. Marco Antonio Vargas Rojas, Ing. Carlos Ruiz Mendoza, Dra. Patricia Valenzuela, Lic. Andrea Torrico y Lic. Roberto Quiroga*.
+
+#### 5. `frontend/src/pages/AdminPage.jsx` [MODIFICADO]
+* **Consumo de API Real:** Hook `useEffect` que carga los datos desde `http://localhost:8000/api/admin/usuarios`.
+* **Acciones Conectadas a la BD:**
+  * Bloquear / Activar usuario mediante `PATCH /toggle-estado`.
+  * Modal interactivo para **Editar Usuario** mediante `PUT`.
+  * Modal para **Crear Usuario Institucional** mediante `POST`.
+  * Acción de **Eliminar Usuario** mediante `DELETE`.
+* **Paginación y Filtros Reactivos:** Paginador dinámico con botones numéricos, anterior y siguiente adaptados al total de registros.
+
+---
+
+### 📊 Verificación y Pruebas Realizadas
+* **Prueba de Endpoint API:** `GET /api/admin/usuarios` retornando con éxito los 8 funcionarios institucionales desde PostgreSQL.
+* **Compilación Frontend:** `npm run build` ejecutado exitosamente con 0 errores (dist generado en 639ms).
+
+---
+
+## [2026-09-07] Estandarización de Roles Oficiales del Sistema SEDES
+
+### 📌 Objetivo
+Simplificar y estandarizar la nomenclatura de los roles en todo el ecosistema (PostgreSQL, FastAPI y React) a los 5 roles canónicos sin sufijos ni adiciones: **Director**, **Coordinador**, **Supervisor**, **Administrador** y **Propietario**.
+
+---
+
+### 🛠️ Archivos Modificados
+
+#### 1. `backend/init_db.py` [MODIFICADO]
+* **Depuración del Catálogo de Roles:** Se actualizaron los `roles_oficiales` a `['Administrador', 'Coordinador', 'Supervisor', 'Director', 'Propietario']`.
+* **Actualización del Personal Institucional:** Se asignaron los roles canónicos (`Director`, `Coordinador`, `Administrador`, `Supervisor`) a los 8 funcionarios del SEDES.
+
+#### 2. `frontend/src/pages/AdminPage.jsx` [MODIFICADO]
+* **Filtros y Formularios:** Se actualizaron el desplegable de filtro por rol, el modal de creación y el modal de edición para contener estrictamente `Supervisor`, `Coordinador`, `Director` y `Administrador`.
+* **Matriz de Roles:** Se actualizaron las tarjetas de la sección "Roles y Permisos" con la nueva nomenclatura oficial.
+
+#### 3. `README.md` [MODIFICADO]
+* Se actualizó la tabla de credenciales de acceso institucional con los roles estandarizados.
+
+---
+
+### 📊 Verificación y Pruebas Realizadas
+* **Base de Datos:** Se ejecutó `init_db.py` reestructurando los roles y usuarios en PostgreSQL.
+* **API Backend:** `GET /api/admin/usuarios` retorna a los 8 funcionarios con sus roles simplificados (`Director`, `Coordinador`, `Supervisor`, `Administrador`).
+* **Frontend:** `npm run build` compilado sin errores en 674ms.
 
 ---
 *Bitácora actualizada por: Steven*
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

@@ -1,5 +1,3 @@
-cd cd
-
 # SEDES - Práctica Profesional 2026-1
 
 Sistema de gestión e información geográfica para el SEDES.
@@ -148,7 +146,7 @@ Respuesta esperada:
   "status": "Conectado",
   "base_de_datos": "PostgreSQL + PostGIS",
   "postgis_version": "3.3 USE_GEOS=1 USE_PROJ=1 USE_STATS=1",
-  "roles_registrados": 6,
+  "roles_registrados": 5,
   "requisitos_catalogo": 10
 }
 ```
@@ -197,16 +195,39 @@ Comandos útiles dentro de `psql`:
 
 ## 👥 Cuentas de Acceso Precargadas para Pruebas
 
-Al inicializar la base de datos con `init_db.py`, se crean automáticamente las siguientes cuentas:
+Al inicializar la base de datos con `docker compose exec backend python init_db.py`, se crean automáticamente las siguientes cuentas con contraseña unificada **`Sedes2026!`**:
+
+### 🏛️ Personal Institucional SEDES
 
 | Rol | Nombre | Correo Electrónico | Contraseña | Redirección al Iniciar Sesión |
 | :--- | :--- | :--- | :--- | :--- |
-| **Coordinador SEDES** | Dra. Claudia Morales Valenzuela | `coordinador@sedes.gob.bo` | `Sedes2026!` | `/coordinador` (Consola del Coordinador) |
-| **Administrador** | Administrador General SEDES | `admin@sedes.gob.bo` | `Sedes2026!` | `/coordinador` (Consola del Coordinador) |
-| **Supervisor Técnico** | Ing. Carlos Ruiz Mendoza | `supervisor@sedes.gob.bo` | `Sedes2026!` | `/coordinador` |
-| **Propietario de Laboratorio** | Dra. Claudia Silvia Alvarez Lopez | `claudia.alvarez@propietario.sedes.bo` | `Sedes2026!` | `/propietario` (Portal de Propietarios) |
+| **Director** | Dr. Fernando Castillo | `f.castillo@sedes.gob.bo` | `Sedes2026!` | ➔ `/admin/usuarios` |
+| **Coordinador** | Dra. Claudia Morales Valenzuela | `coordinador@sedes.gob.bo` | `Sedes2026!` | ➔ `/coordinador/bandeja` |
+| **Administrador** | Ing. Carlos Quispe | `admin@sedes.gob.bo` | `Sedes2026!` | ➔ `/admin/usuarios` |
+| **Supervisor** | Ing. Marco Antonio Vargas Rojas | `supervisor@sedes.gob.bo` | `Sedes2026!` | ➔ `/supervisor/mi-agenda` |
+| **Supervisor** | Ing. Carlos Ruiz Mendoza | `carlos.ruiz@sedes.gob.bo` | `Sedes2026!` | ➔ `/supervisor/mi-agenda` |
+| **Supervisor** | Dra. Patricia Valenzuela | `patricia.valenzuela@sedes.gob.bo` | `Sedes2026!` | ➔ `/supervisor/mi-agenda` |
+| **Supervisor** | Lic. Andrea Torrico | `andrea.torrico@sedes.gob.bo` | `Sedes2026!` | ➔ `/supervisor/mi-agenda` |
+| **Supervisor** | Lic. Roberto Quiroga | `r.quiroga@sedes.gob.bo` | `Sedes2026!` | ➔ `/supervisor/mi-agenda` |
 
 ---
+
+### 🧪 Propietarios de Establecimientos (Laboratorios Oficiales)
+
+Todos los propietarios ingresan con la contraseña **`Sedes2026!`** y son redirigidos automáticamente a **`/propietario/mis-establecimientos`**:
+
+| Laboratorio | Municipio | Correo del Propietario | Representante Legal |
+| :--- | :--- | :--- | :--- |
+| **Laboratorio Central BioTest** | Cercado | `labcentralbiotest@gmail.com` | Dra. Claudia Silvia Alvarez Lopez |
+| **Laboratorio Clínico San Martín** | Cercado | `laboratoriosanmartin.cba@gmail.com` | Dr. Jorge Antonio Mendoza Rojas |
+| **Laboratorio de Diagnóstico Génesis** | Cercado | `labgenesis.cbba@gmail.com` | Lic. Mariana Patricia Torrico Guzman |
+| **Laboratorio Clínico del Valle** | Quillacollo | `labclinicovalle.qll@gmail.com` | Dr. Fernando Gonzalo Aguilar Rios |
+| **Laboratorio Especializado San Simón** | Cercado | `labbiomedicosansimon@gmail.com` | Dra. Jimena Beatriz Morales Castro |
+| **Laboratorio Clínico San José** | Punata | `labsanjose.punata@gmail.com` | Dr. Roberto Carlos Vargas Sanchez |
+| **Laboratorio Metropolitano Cochabamba** | Cercado | `labmetropolitano.cba@gmail.com` | Lic. Sofia Valeria Quiroga Soliz |
+| **Laboratorio Trópico Salud** | Villa Tunari | `tropicosalud.lab@gmail.com` | Dr. Mario Alejandro Gutierrez Peña |
+| **Laboratorio Bio-Análisis Shinahota** | Shinahota | `bioanalisis.shinahota@gmail.com` | Dra. Elena Maria Flores Terrazas |
+| **Laboratorio Clínico América** | Cercado | `laboratorio.america.cbba@gmail.com` | Dr. Walter Rodrigo Salvatierra Paz |
 
 ## 📋 Comandos Útiles de Docker
 

@@ -279,6 +279,11 @@ export default function CoordinadorPage() {
     mostrarToast(`¡Trámite ${tramiteActual.id} (${tramiteActual.establecimiento}) APROBADO exitosamente! Se emitió la resolución ${aprobacionData.codigoResolucion}.`, 'success');
   };
 
+  const handleLogout = () => {
+    localStorage.removeItem('usuario');
+    navigate('/login');
+  };
+
   return (
     <div className="min-h-screen bg-[#f3f6f9] flex font-sans text-slate-800 antialiased overflow-hidden">
 
@@ -391,32 +396,47 @@ export default function CoordinadorPage() {
             </div>
           </div>
 
-          {/* Perfil del Coordinador */}
-          <div className="flex items-center space-x-3 sm:space-x-4">
-            <div className="text-right hidden sm:block">
-              <div className="text-xs font-bold text-slate-800">Dra. Claudia Morales V.</div>
-              <div className="text-[11px] text-slate-400 font-semibold">Coordinadora SEDES</div>
-            </div>
+          {/* Perfil del Coordinador & Notificaciones */}
+          <div className="flex items-center space-x-3 sm:space-x-5">
             
-            <div className="relative group cursor-pointer">
-              <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-[#005596] to-[#0080d0] text-white flex items-center justify-center font-bold text-xs shadow-md border-2 border-white">
+            {/* Campana de Notificaciones con Badge */}
+            <button 
+              type="button" 
+              className="relative p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition cursor-pointer"
+              title="3 Notificaciones pendientes"
+            >
+              <Bell className="w-5 h-5" />
+              <span className="absolute top-1.5 right-1.5 w-4 h-4 bg-red-500 text-white rounded-full text-[10px] font-extrabold flex items-center justify-center ring-2 ring-white">
+                3
+              </span>
+            </button>
+
+            {/* Perfil del Coordinador */}
+            <div className="flex items-center space-x-3 pl-2 sm:pl-4 border-l border-slate-200">
+              <div className="text-right hidden sm:block">
+                <p className="text-xs sm:text-sm font-bold text-slate-900 leading-tight">
+                  Dra. Claudia Morales V.
+                </p>
+                <p className="text-[11px] text-slate-400 font-medium">
+                  Coordinadora SEDES
+                </p>
+              </div>
+
+              {/* Avatar */}
+              <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-[#005596] to-[#0080d0] text-white flex items-center justify-center font-bold text-sm shadow-sm ring-2 ring-slate-100">
                 CM
               </div>
-              <div className="absolute right-0 top-11 w-48 bg-white border border-slate-200 rounded-xl shadow-xl py-2 hidden group-hover:block z-50">
-                <div className="px-4 py-2 border-b border-slate-100">
-                  <p className="text-xs font-bold text-slate-800">Dra. Claudia Morales</p>
-                  <p className="text-[10px] text-slate-400">coordinador@sedes.gob.bo</p>
-                </div>
-                <Link to="/propietario" className="w-full text-left px-4 py-2 text-xs text-slate-700 hover:bg-slate-50 flex items-center space-x-2">
-                  <Building2 className="w-3.5 h-3.5 text-slate-400" />
-                  <span>Ver Portal Propietarios</span>
-                </Link>
-                <Link to="/login" className="w-full text-left px-4 py-2 text-xs text-rose-600 hover:bg-rose-50 flex items-center space-x-2">
-                  <LogOut className="w-3.5 h-3.5 text-rose-500" />
-                  <span>Cerrar Sesión</span>
-                </Link>
-              </div>
+
+              {/* Botón Salir */}
+              <button
+                onClick={handleLogout}
+                className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition ml-1 cursor-pointer"
+                title="Cerrar sesión"
+              >
+                <LogOut className="w-4 h-4" />
+              </button>
             </div>
+
           </div>
         </header>
 

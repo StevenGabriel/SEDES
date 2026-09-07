@@ -29,10 +29,10 @@ def init_database(reset_tables: bool = False):
         # 3. Poblar roles oficiales actualizados
         roles_oficiales = [
             "Administrador",
-            "Coordinador SEDES",
-            "Supervisor Técnico",
-            "Propietario",
-            "Director General"
+            "Coordinador",
+            "Supervisor",
+            "Director",
+            "Propietario"
         ]
 
         for nombre_rol in roles_oficiales:
@@ -43,24 +43,9 @@ def init_database(reset_tables: bool = False):
         logger.info("✅ Roles del sistema actualizados (5 roles oficiales).")
 
         rol_propietario = db.query(Role).filter(Role.nombre == "Propietario").first()
-        rol_supervisor = db.query(Role).filter(Role.nombre == "Supervisor Técnico").first()
+        rol_supervisor = db.query(Role).filter(Role.nombre == "Supervisor").first()
 
         password_default_hash = hash_password("password123")
-
-        # Crear usuario Supervisor Técnico por defecto
-        if rol_supervisor and not db.query(Usuario).filter(Usuario.email == "supervisor@sedes.gob.bo").first():
-            db.add(Usuario(
-                rol_id=rol_supervisor.id,
-                nombres="Marco Antonio",
-                apellidos="Vargas Rojas",
-                ci_nit="6549871",
-                email="supervisor@sedes.gob.bo",
-                password_hash=password_default_hash,
-                telefono="+591 4 4258900",
-                estado=True
-            ))
-            db.commit()
-            logger.info("✅ Usuario Supervisor Técnico oficial (supervisor@sedes.gob.bo) registrado.")
 
         # 4. Poblar catálogo base de requisitos si está vacío
         if db.query(CatalogoRequisito).count() == 0:
@@ -84,33 +69,81 @@ def init_database(reset_tables: bool = False):
             db.commit()
             logger.info("✅ Catálogo inicial de requisitos normativos registrado.")
 
-        # 5. Poblar Cuentas Administrativas Oficiales del SEDES (Coordinador, Administrador, Supervisor)
+        # 5. Poblar Cuentas Administrativas Oficiales del SEDES (Coordinador, Administrador, Supervisores, Director)
         password_default_hash = hash_password("Sedes2026!")
 
         personal_sedes = [
             {
+                "email": "f.castillo@sedes.gob.bo",
+                "rol": "Director",
+                "nombres": "Dr. Fernando",
+                "apellidos": "Castillo",
+                "ci_nit": "3489102 CB",
+                "telefono": "72210045",
+                "estado": True
+            },
+            {
                 "email": "coordinador@sedes.gob.bo",
-                "rol": "Coordinador SEDES",
-                "nombres": "Claudia",
+                "rol": "Coordinador",
+                "nombres": "Dra. Claudia",
                 "apellidos": "Morales Valenzuela",
                 "ci_nit": "4589201 CB",
-                "telefono": "71789012"
+                "telefono": "71789012",
+                "estado": True
             },
             {
                 "email": "admin@sedes.gob.bo",
                 "rol": "Administrador",
-                "nombres": "Administrador General",
-                "apellidos": "SEDES Cochabamba",
+                "nombres": "Ing. Carlos",
+                "apellidos": "Quispe",
                 "ci_nit": "1000001 CB",
-                "telefono": "70000001"
+                "telefono": "70000001",
+                "estado": True
             },
             {
                 "email": "supervisor@sedes.gob.bo",
-                "rol": "Supervisor Técnico",
-                "nombres": "Carlos",
+                "rol": "Supervisor",
+                "nombres": "Ing. Marco Antonio",
+                "apellidos": "Vargas Rojas",
+                "ci_nit": "6549871 CB",
+                "telefono": "71239845",
+                "estado": True
+            },
+            {
+                "email": "carlos.ruiz@sedes.gob.bo",
+                "rol": "Supervisor",
+                "nombres": "Ing. Carlos",
                 "apellidos": "Ruiz Mendoza",
                 "ci_nit": "5921840 CB",
-                "telefono": "71239845"
+                "telefono": "71239846",
+                "estado": True
+            },
+            {
+                "email": "patricia.valenzuela@sedes.gob.bo",
+                "rol": "Supervisor",
+                "nombres": "Dra. Patricia",
+                "apellidos": "Valenzuela",
+                "ci_nit": "4892103 CB",
+                "telefono": "71239847",
+                "estado": True
+            },
+            {
+                "email": "andrea.torrico@sedes.gob.bo",
+                "rol": "Supervisor",
+                "nombres": "Lic. Andrea",
+                "apellidos": "Torrico",
+                "ci_nit": "5291048 CB",
+                "telefono": "71239848",
+                "estado": True
+            },
+            {
+                "email": "r.quiroga@sedes.gob.bo",
+                "rol": "Supervisor",
+                "nombres": "Lic. Roberto",
+                "apellidos": "Quiroga",
+                "ci_nit": "5192834 CB",
+                "telefono": "71239849",
+                "estado": False
             }
         ]
 
@@ -127,16 +160,18 @@ def init_database(reset_tables: bool = False):
                     email=p["email"],
                     password_hash=password_default_hash,
                     telefono=p["telefono"],
-                    estado=True
+                    estado=p.get("estado", True)
                 )
                 db.add(nuevo_personal)
             elif usuario_existente and rol_obj:
                 usuario_existente.password_hash = password_default_hash
                 usuario_existente.rol_id = rol_obj.id
-                usuario_existente.estado = True
+                usuario_existente.nombres = p["nombres"]
+                usuario_existente.apellidos = p["apellidos"]
+                usuario_existente.estado = p.get("estado", True)
 
         db.commit()
-        logger.info("✅ Cuentas de Personal SEDES (Coordinador, Administrador, Supervisor) inicializadas.")
+        logger.info("✅ Cuentas de Personal SEDES (Coordinador, Administrador, Supervisores Oficiales) inicializadas con correos únicos.")
 
         # 6. Poblar los 10 Laboratorios Oficiales y sus Cuentas de Propietario (Opción B)
         laboratorios_data = [

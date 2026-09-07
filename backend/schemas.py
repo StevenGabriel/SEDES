@@ -108,3 +108,49 @@ class MensajeRespuesta(BaseModel):
     mensaje: str
     usuario: Optional[UsuarioResponse] = None
     dev_link: Optional[str] = None
+
+# ==============================================================================
+# SCHEMAS PARA GESTIÓN DE USUARIOS (PANEL ADMINISTRADOR)
+# ==============================================================================
+
+class UsuarioAdminCreate(BaseModel):
+    nombres: str = Field(..., min_length=2, max_length=100)
+    apellidos: str = Field(..., min_length=2, max_length=100)
+    ci_nit: str = Field(..., min_length=4, max_length=30)
+    email: str = Field(..., max_length=150)
+    telefono: Optional[str] = Field(None, max_length=30)
+    rol: str = Field(..., description="Nombre del rol (ej: Supervisor Técnico, Coordinador SEDES)")
+    password: Optional[str] = Field("Sedes2026!", min_length=6)
+
+    @field_validator("email")
+    @classmethod
+    def validar_email(cls, v: str) -> str:
+        v = v.strip().lower()
+        if not re.match(EMAIL_REGEX, v):
+            raise ValueError("El correo electrónico no tiene un formato válido.")
+        return v
+
+class UsuarioAdminUpdate(BaseModel):
+    nombres: Optional[str] = None
+    apellidos: Optional[str] = None
+    ci_nit: Optional[str] = None
+    email: Optional[str] = None
+    telefono: Optional[str] = None
+    rol: Optional[str] = None
+    estado: Optional[bool] = None
+
+class UsuarioAdminResponse(BaseModel):
+    id: str
+    nombres: str
+    apellidos: str
+    nombreCompleto: str
+    ci: str
+    email: str
+    telefono: Optional[str] = None
+    rol: str
+    rolBadgeColor: str
+    ultimaConexion: str
+    estado: str
+    avatar: str
+    fecha_creacion: Optional[str] = None
+
