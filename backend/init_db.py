@@ -43,6 +43,24 @@ def init_database(reset_tables: bool = False):
         logger.info("✅ Roles del sistema actualizados (5 roles oficiales).")
 
         rol_propietario = db.query(Role).filter(Role.nombre == "Propietario").first()
+        rol_supervisor = db.query(Role).filter(Role.nombre == "Supervisor Técnico").first()
+
+        password_default_hash = hash_password("password123")
+
+        # Crear usuario Supervisor Técnico por defecto
+        if rol_supervisor and not db.query(Usuario).filter(Usuario.email == "supervisor@sedes.gob.bo").first():
+            db.add(Usuario(
+                rol_id=rol_supervisor.id,
+                nombres="Marco Antonio",
+                apellidos="Vargas Rojas",
+                ci_nit="6549871",
+                email="supervisor@sedes.gob.bo",
+                password_hash=password_default_hash,
+                telefono="+591 4 4258900",
+                estado=True
+            ))
+            db.commit()
+            logger.info("✅ Usuario Supervisor Técnico oficial (supervisor@sedes.gob.bo) registrado.")
 
         # 4. Poblar catálogo base de requisitos si está vacío
         if db.query(CatalogoRequisito).count() == 0:

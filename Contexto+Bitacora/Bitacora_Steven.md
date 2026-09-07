@@ -803,13 +803,44 @@ Reemplazar los campos de texto libre de horarios por un componente interactivo y
 
 ---
 
+---
+
+## [2026-09-07] Implementación del Panel del Supervisor Técnico (Mi Agenda y Programación Semanal)
+
+### 📌 Objetivo
+Desarrollar la interfaz oficial del **Panel del Supervisor Técnico** (`/supervisor/mi-agenda`) según los diseños de Figma: incorporando el menú lateral de gestión (*Mi Agenda, Rutas de Inspección, Actas Emitidas, Citaciones Emitidas*), la columna de **Inspecciones Pendientes**, el **Calendario Semanal Interactivo** (Lunes a Viernes de 08:00 a 17:00), el modal de detalle de inspección para iniciar actas en campo y el botón de acción para nuevo registro de inspección.
+
+---
+
+### 🛠️ Archivos Creados y Modificados
+
+#### 1. `frontend/src/pages/SupervisorPage.jsx` [NUEVO]
+* **Descripción:**
+  * **Sidebar Supervisor:** Logo SI_Lab, navegación por subsecciones y footer institucional con los escudos oficiales de Bolivia y Cochabamba.
+  * **Header Superior:** Breadcrumbs interactivos, perfil del supervisor con avatar (*Ing. Marco Vargas*) y control de notificaciones y cierre de sesión.
+  * **Columna de Inspecciones Pendientes:** Tarjetas informativas clasificadas por tipo de trámite (*Apertura, Renovación*) con código de color naranja/azul y conteo en tiempo real.
+  * **Calendario Semanal Interactivo:** Grilla de 5 días laborales con ranuras de horas (08:00 - 17:00), posicionamiento proporcional de bloques de inspección y modales reactivos para iniciar actas en campo.
+  * **Botón Flotante:** Botón oscuro institucional `+ Nuevo Registro de Inspección`.
+
+#### 2. `frontend/src/App.jsx` [MODIFICADO]
+* **Descripción:** Se configuraron las rutas `/supervisor` y `/supervisor/:seccion` con redirección por defecto a `/supervisor/mi-agenda`.
+
+#### 3. `frontend/src/pages/loginPage.jsx` [MODIFICADO]
+* **Descripción:** Se actualizó la redirección posterior al inicio de sesión para dirigir a los usuarios con rol *Supervisor Técnico* directamente a `/supervisor`.
+
+---
+
 ### 📊 Verificación y Pruebas Realizadas
-* **Cero Errores de Tipeo:** El usuario genera formatos limpios e institucionales con 1 solo clic o mediante selectores de tiempo.
-* **Compatibilidad Total:** La cadena producida es compatible inmediatamente con `checkEstaAbierto(...)`.
-* **Compilación:** `npm run build` ejecutado en 532ms con código de salida 0.
+* **Diseño Figma Fiel:** Coincidencia exacta con la maqueta subida por el usuario.
+* **Redirección de Rutas:** Acceso directo mediante URL `/supervisor/mi-agenda` o login con credenciales de supervisor.
+* **Usuario Supervisor Oficial:** Se creó y sembró en PostgreSQL el usuario `supervisor@sedes.gob.bo` (Marco Antonio Vargas Rojas) con rol `Supervisor Técnico`.
+* **Unificación de Identidad Visual en Sidebars:** Se actualizó el sidebar del portal de propietarios (`PropietarioPage.jsx`) para homologar el diseño del pie institucional (`ESTADO PLURINACIONAL / Ministerio de Salud y Deportes - Bolivia`), separación simétrica de escudos y esquema de color azul oficial (`#0060a8` y `#00518f`).
+* **Homologación del Menú Superior (Sticky Top Header):** Se integró la misma barra superior fija de 64px (`h-16`) en `SupervisorPage.jsx` con botón responsivo para móviles, migas de pan institucionales, campana de notificaciones con badge e información del perfil activo y botón de cierre de sesión.
+* **Compilación:** `npm run build` ejecutado exitosamente en 712ms con código de salida 0.
 
 ---
 *Bitácora actualizada por: Steven*
+
 
 
 

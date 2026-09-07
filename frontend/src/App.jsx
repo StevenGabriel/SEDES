@@ -8,6 +8,7 @@ import PropietarioPage from './pages/PropietarioPage';
 import RecuperarPasswordPage from './pages/RecuperarPasswordPage';
 import RestablecerPasswordPage from './pages/RestablecerPasswordPage';
 import DetalleLaboratorioPage from './pages/DetalleLaboratorioPage';
+import SupervisorPage from './pages/SupervisorPage';
 
 function App() {
   return (
@@ -33,6 +34,9 @@ function App() {
       <Route path="/propietario/:seccion" element={<PropietarioPage />} />
       <Route path="/propietariopage" element={<Navigate to="/propietario/mis-establecimientos" replace />} />
       <Route path="/dashboard" element={<Navigate to="/propietario/mis-establecimientos" replace />} />
+      <Route path="/supervisor" element={<Navigate to="/supervisor/mi-agenda" replace />} />
+      <Route path="/supervisor/:seccion" element={<SupervisorPage />} />
+      <Route path="/supervisorpage" element={<Navigate to="/supervisor/mi-agenda" replace />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

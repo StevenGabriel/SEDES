@@ -662,18 +662,18 @@ export default function PropietarioPage() {
       )}
 
       <aside className={`
-        fixed lg:static top-0 bottom-0 left-0 z-50
-        w-64 sm:w-72 bg-gradient-to-b from-[#0077c8] via-[#0080d0] to-[#0062a8] text-white
-        flex flex-col justify-between p-6 shadow-2xl lg:shadow-none
-        transition-transform duration-300 ease-in-out shrink-0
+        fixed lg:static inset-y-0 left-0 z-40
+        w-72 bg-[#0060a8] text-white flex flex-col justify-between
+        transform transition-transform duration-300 ease-in-out
+        shadow-xl lg:shadow-none shrink-0
         ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
       `}>
-        
-        {/* Superior del Sidebar: Logo SI_Lab */}
-        <div>
-          <div className="flex items-center justify-between pb-8">
-            <Link to="/" className="flex items-center space-x-3 group" title="Ir a la página principal">
-              <div className="bg-white/20 p-2 rounded-xl backdrop-blur-md border border-white/30 group-hover:bg-white/30 transition">
+        <div className="p-6 space-y-8">
+          
+          {/* Logo SI_Lab */}
+          <div className="flex items-center justify-between">
+            <Link to="/" className="flex items-center space-x-3 group cursor-pointer" title="Ir a la página principal">
+              <div className="bg-white/20 p-2.5 rounded-2xl backdrop-blur-md border border-white/30 group-hover:bg-white/30 transition shadow-inner">
                 <FlaskConical className="w-6 h-6 text-white" />
               </div>
               <span className="font-black text-2xl tracking-tight text-white flex items-center">
@@ -683,14 +683,14 @@ export default function PropietarioPage() {
 
             <button 
               onClick={() => setSidebarOpen(false)} 
-              className="lg:hidden p-1.5 rounded-lg bg-white/15 text-white hover:bg-white/25"
+              className="lg:hidden p-1.5 rounded-lg bg-white/15 text-white hover:bg-white/25 cursor-pointer"
             >
               <X className="w-5 h-5" />
             </button>
           </div>
 
           {/* Opciones de Navegación Lateral */}
-          <nav className="space-y-2">
+          <nav className="space-y-1.5">
             {menuItems.map((item) => {
               const Icon = item.icon;
               const estaSeleccionado = seccionActiva === item.id;
@@ -701,39 +701,32 @@ export default function PropietarioPage() {
                   to={`/propietario/${item.id}`}
                   onClick={() => setSidebarOpen(false)}
                   className={`
-                    w-full flex items-center space-x-3.5 px-4 py-3.5 rounded-xl font-bold text-xs sm:text-sm tracking-wide transition-all duration-200 cursor-pointer text-left
+                    w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-xs font-bold transition-all text-left cursor-pointer
                     ${estaSeleccionado 
-                      ? 'bg-black/20 text-white shadow-inner border-l-4 border-cyan-300 backdrop-blur-md font-extrabold' 
-                      : 'text-white/80 hover:bg-white/10 hover:text-white'
+                      ? 'bg-[#004b85] text-white shadow-inner font-extrabold border-l-4 border-white' 
+                      : 'text-blue-100/90 hover:bg-white/10 hover:text-white'
                     }
                   `}
                 >
-                  <Icon className={`w-5 h-5 ${estaSeleccionado ? 'text-cyan-200' : 'text-white/70'}`} />
-                  <span>{item.label}</span>
+                  <Icon className={`w-4 h-4 shrink-0 ${estaSeleccionado ? 'text-white' : 'text-blue-200'}`} />
+                  <span className="truncate">{item.label}</span>
                 </Link>
               );
             })}
           </nav>
         </div>
 
-        {/* Inferior del Sidebar: Logos y Branding Institucional */}
-        <div className="pt-8 border-t border-white/15 space-y-4">
-          <div className="flex items-center space-x-3">
-            <img 
-              src={logoL1} 
-              alt="Escudo de Bolivia" 
-              className="h-10 w-auto object-contain drop-shadow-sm opacity-95" 
-            />
-            <img 
-              src={logoL2} 
-              alt="Escudo SEDES Cochabamba" 
-              className="h-10 w-auto object-contain drop-shadow-sm opacity-95" 
-            />
+        {/* Footer del Sidebar con Escudos Institucionales */}
+        <div className="p-6 space-y-4 border-t border-white/10 bg-[#00518f] mt-auto">
+          <div className="flex items-center justify-center space-x-4 opacity-90">
+            <img src={logoL1} alt="Escudo de Bolivia" className="h-9 object-contain" />
+            <div className="h-6 w-px bg-white/20" />
+            <img src={logoL2} alt="Gobernación de Cochabamba" className="h-9 object-contain" />
           </div>
 
-          <div className="text-[10px] uppercase tracking-wider text-cyan-100 font-semibold leading-relaxed">
-            <p className="font-extrabold text-white">ESTADO PLURINACIONAL</p>
-            <p className="text-cyan-200/90 text-[9px] lowercase first-letter:uppercase">Ministerio de Salud y Deportes - Bolivia</p>
+          <div className="text-center text-[10px] text-blue-200/80 leading-snug">
+            <p className="font-bold text-white tracking-wider">ESTADO PLURINACIONAL</p>
+            <p>Ministerio de Salud y Deportes - Bolivia</p>
           </div>
         </div>
 
