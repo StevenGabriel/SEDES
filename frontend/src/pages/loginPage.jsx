@@ -49,13 +49,15 @@ export default function LoginPage() {
       setTimeout(() => {
         // Redirigir según el rol del usuario
         const rol = (data.usuario.rol_nombre || '').toLowerCase();
-        if (rol.includes('coordinador') || rol.includes('admin')) {
+        if (rol.includes('supervisor')) {
+          navigate('/supervisor');
+        } else if (rol.includes('coordinador') || rol.includes('admin')) {
           navigate('/coordinador');
         } else if (rol.includes('propietario')) {
           navigate('/propietario');
         } else {
-          // Por defecto para roles de gestión
-          navigate('/coordinador');
+          // Por defecto
+          navigate('/propietario');
         }
       }, 1000);
 
