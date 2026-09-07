@@ -44,6 +44,53 @@ import heroBg from '../assets/hero_bg.jpg';
 import RealMapPicker from '../components/common/RealMapPicker';
 import HorarioPicker from '../components/common/HorarioPicker';
 
+// Obtener iniciales de 2 a 4 letras a partir de nombres y apellidos (ej: Steven Claros Tapia -> SCT, Claudia Silvia Alvarez Lopez -> CSAL)
+const getInitials = (u) => {
+  if (!u) return 'U';
+  let text = '';
+  if (u.nombres && u.apellidos) {
+    text = `${u.nombres} ${u.apellidos}`;
+  } else if (u.nombreCompleto) {
+    text = u.nombreCompleto;
+  } else if (u.nombres) {
+    text = u.nombres;
+  } else if (u.nombre) {
+    text = u.nombre;
+  } else if (u.email) {
+    return u.email.slice(0, 2).toUpperCase();
+  }
+
+  // Quitar prefijos de títulos comunes (Dr., Dra., Ing., Lic., etc.)
+  const clean = text.replace(/^(Dr\.|Dra\.|Ing\.|Lic\.|MSc\.|Ph\.D\.|Abg\.)\s+/i, '').trim();
+  const words = clean.split(/\s+/).filter(Boolean);
+  
+  if (words.length === 0) return 'U';
+  if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
+  if (words.length === 2) return (words[0][0] + words[1][0]).toUpperCase();
+  // 3 o más palabras (ej: Steven Claros Tapia -> SCT, Claudia Silvia Alvarez Lopez -> CSAL)
+  return words.slice(0, 4).map(w => w[0]).join('').toUpperCase();
+};
+
+// Generar paleta de colores vibrantes y elegantes para el avatar
+const getAvatarColor = (nombre) => {
+  const colors = [
+    'bg-gradient-to-tr from-[#0060a8] to-[#008fe6] text-white',
+    'bg-gradient-to-tr from-indigo-600 to-indigo-800 text-white',
+    'bg-gradient-to-tr from-sky-600 to-cyan-700 text-white',
+    'bg-gradient-to-tr from-teal-600 to-emerald-700 text-white',
+    'bg-gradient-to-tr from-slate-700 to-slate-900 text-white',
+    'bg-gradient-to-tr from-blue-700 to-indigo-900 text-white',
+    'bg-gradient-to-tr from-emerald-600 to-teal-800 text-white'
+  ];
+  if (!nombre) return colors[0];
+  let hash = 0;
+  for (let i = 0; i < nombre.length; i++) {
+    hash = nombre.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const index = Math.abs(hash) % colors.length;
+  return colors[index];
+};
+
 // Requisitos Documentales Oficiales para Habilitación y Apertura (SEDES)
 const REQUISITOS_SOLICITUD_GRUPOS = [
   {
@@ -784,9 +831,9 @@ export default function PropietarioPage() {
                   </p>
                 </div>
 
-                {/* Avatar */}
-                <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-[#005596] to-[#0080d0] text-white flex items-center justify-center font-bold text-sm shadow-sm ring-2 ring-slate-100">
-                  {usuario ? usuario.nombres?.charAt(0).toUpperCase() : 'C'}
+                {/* Avatar de Iniciales */}
+                <div className={`w-9 h-9 rounded-full ${getAvatarColor(nombreCompleto)} text-white flex items-center justify-center font-bold text-xs shadow-sm ring-2 ring-slate-100 select-none tracking-tight`}>
+                  <span>{getInitials(usuario || { nombreCompleto })}</span>
                 </div>
 
                 {/* Botón Salir */}

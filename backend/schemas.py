@@ -153,4 +153,6 @@ class UsuarioAdminResponse(BaseModel):
     estado: str
     avatar: str
     fecha_creacion: Optional[str] = None
+    dev_link: Optional[str] = None
+    mensaje: Optional[str] = None
 

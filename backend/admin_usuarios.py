@@ -8,6 +8,8 @@ import models
 import schemas
 from database import get_db
 from security import hash_password
+from tokens import generate_password_reset_token
+from email_service import send_user_invitation_email
 
 router = APIRouter(prefix="/api/admin/usuarios", tags=["Gestión de Usuarios - Admin"])
 
@@ -121,7 +123,20 @@ def crear_usuario(
     db.commit()
     db.refresh(nuevo)
 
-    return serializar_usuario(nuevo)
+    # Generar token de activación y enviar correo de bienvenida
+    token = generate_password_reset_token(nuevo.email, str(nuevo.id))
+    resultado_email = send_user_invitation_email(
+        to_email=nuevo.email,
+        nombres=nuevo.nombres,
+        rol=rol_obj.nombre,
+        token=token
+    )
+
+    respuesta = serializar_usuario(nuevo)
+    respuesta.dev_link = resultado_email.get("activation_link")
+    respuesta.mensaje = f"Usuario registrado exitosamente y correo de activación enviado a {nuevo.email}"
+
+    return respuesta
 
 # ==============================================================================
 # 3. ACTUALIZAR USUARIO

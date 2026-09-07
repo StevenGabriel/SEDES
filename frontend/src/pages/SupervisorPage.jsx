@@ -30,6 +30,51 @@ import {
 import logoL1 from '../assets/L1.png';
 import logoL2 from '../assets/L2.png';
 
+// Obtener iniciales de 2 a 4 letras a partir de nombres y apellidos
+const getInitials = (u) => {
+  if (!u) return 'U';
+  let text = '';
+  if (u.nombres && u.apellidos) {
+    text = `${u.nombres} ${u.apellidos}`;
+  } else if (u.nombreCompleto) {
+    text = u.nombreCompleto;
+  } else if (u.nombres) {
+    text = u.nombres;
+  } else if (u.nombre) {
+    text = u.nombre;
+  } else if (u.email) {
+    return u.email.slice(0, 2).toUpperCase();
+  }
+
+  const clean = text.replace(/^(Dr\.|Dra\.|Ing\.|Lic\.|MSc\.|Ph\.D\.|Abg\.)\s+/i, '').trim();
+  const words = clean.split(/\s+/).filter(Boolean);
+  
+  if (words.length === 0) return 'U';
+  if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
+  if (words.length === 2) return (words[0][0] + words[1][0]).toUpperCase();
+  return words.slice(0, 4).map(w => w[0]).join('').toUpperCase();
+};
+
+// Generar paleta de colores para el avatar
+const getAvatarColor = (nombre) => {
+  const colors = [
+    'bg-gradient-to-tr from-[#0060a8] to-[#008fe6] text-white',
+    'bg-gradient-to-tr from-indigo-600 to-indigo-800 text-white',
+    'bg-gradient-to-tr from-sky-600 to-cyan-700 text-white',
+    'bg-gradient-to-tr from-teal-600 to-emerald-700 text-white',
+    'bg-gradient-to-tr from-slate-700 to-slate-900 text-white',
+    'bg-gradient-to-tr from-blue-700 to-indigo-900 text-white',
+    'bg-gradient-to-tr from-emerald-600 to-teal-800 text-white'
+  ];
+  if (!nombre) return colors[0];
+  let hash = 0;
+  for (let i = 0; i < nombre.length; i++) {
+    hash = nombre.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const index = Math.abs(hash) % colors.length;
+  return colors[index];
+};
+
 export default function SupervisorPage() {
   const navigate = useNavigate();
   const { seccion } = useParams();
@@ -387,17 +432,9 @@ export default function SupervisorPage() {
                   </p>
                 </div>
 
-                {/* Avatar */}
-                <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-[#005596] to-[#0080d0] text-white flex items-center justify-center font-bold text-sm shadow-sm ring-2 ring-slate-100 overflow-hidden">
-                  <img
-                    src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80"
-                    alt="Supervisor Avatar"
-                    className="w-full h-full object-cover"
-                    onError={(e) => {
-                      e.currentTarget.style.display = 'none';
-                    }}
-                  />
-                  <span>{usuario ? usuario.nombres?.charAt(0).toUpperCase() : 'M'}</span>
+                {/* Avatar de Iniciales */}
+                <div className={`w-9 h-9 rounded-full ${getAvatarColor(nombreSupervisor)} text-white flex items-center justify-center font-bold text-xs shadow-sm ring-2 ring-slate-100 select-none tracking-tight`}>
+                  <span>{getInitials(usuario || { nombreCompleto: nombreSupervisor })}</span>
                 </div>
 
                 {/* Botón Salir */}

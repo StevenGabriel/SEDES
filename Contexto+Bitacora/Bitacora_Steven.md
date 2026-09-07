@@ -943,4 +943,89 @@ Simplificar y estandarizar la nomenclatura de los roles en todo el ecosistema (P
 * **Frontend:** `npm run build` compilado sin errores en 674ms.
 
 ---
+
+## [2026-09-07] Automatización de Correo de Invitación y Activación de Cuenta para Nuevos Usuarios
+
+### 📌 Objetivo
+Implementar el flujo de seguridad mediante el cual el Administrador registra los datos del nuevo funcionario y el sistema envía automáticamente un correo electrónico con una plantilla institucional y un token firmado para que el nuevo usuario active su cuenta y defina su contraseña privada de acceso.
+
+---
+
+### 🛠️ Archivos Creados y Modificados
+
+#### 1. `backend/email_service.py` [MODIFICADO]
+* **Plantilla HTML Institucional:** Se diseñó la plantilla `build_invitation_email_html` con branding del SEDES Cochabamba, badge del rol asignado y botón de acción directa.
+* **Servicio de Envío:** Se implementó `send_user_invitation_email` con soporte SMTP y logging en consola para desarrollo.
+
+#### 2. `backend/admin_usuarios.py` [MODIFICADO]
+* **Integración en `POST /api/admin/usuarios`:** Al registrar un funcionario, genera un token HMAC-SHA256 con `generate_password_reset_token` y dispara automáticamente la invitación por correo.
+
+#### 3. `backend/schemas.py` [MODIFICADO]
+* Se enriqueció `UsuarioAdminResponse` con los campos `dev_link` y `mensaje`.
+
+#### 4. `frontend/src/pages/AdminPage.jsx` [MODIFICADO]
+* **Modal de Creación:** Se añadió una alerta informativa explicando que el funcionario recibirá su enlace de activación por correo.
+* **Feedback Reactivo:** Notificación tipo toast indicando el registro exitoso y el envío del correo de activación.
+
+---
+
+### 📊 Verificación y Pruebas Realizadas
+* **Prueba de Creación y Token:** Se verificó la generación del token y la construcción del enlace `http://localhost:5173/restablecer-password?token=...`.
+* **Compilación Frontend:** `npm run build` ejecutado exitosamente con 0 errores.
+
+---
+
+## [2026-09-07] Generador Dinámico de Avatares por Iniciales del Usuario
+
+### 📌 Objetivo
+Reemplazar las fotos de stock genéricas en la tabla de usuarios y en el encabezado institucional por insignias circulares dinámicas con las iniciales del nombre de cada funcionario (ej: *Steven Claros Tapia* ➔ `SCT`, *Carlos Quispe* ➔ `CQ`, *Claudia Morales Valenzuela* ➔ `CMV`), con gradientes de color consistentes y elegantes.
+
+---
+
+### 🛠️ Archivos Modificados
+
+#### 1. `frontend/src/pages/AdminPage.jsx` [MODIFICADO]
+* **Helper `getInitials(u)`:** Función inteligente que extrae entre 2 y 3 letras mayúsculas de los nombres y apellidos, depurando automáticamente títulos académicos como *Dr., Dra., Ing., Lic., MSc., etc.*
+* **Helper `getAvatarColor(nombre)`:** Función determinista basada en hash para asignar una paleta de degradados vibrantes y profesionales a cada usuario.
+* **Componente de Avatar en Tabla y Header:** Se reemplazaron las etiquetas `<img>` por badges circulares estilizados con tipografía en negrita y bordes finos.
+
+---
+
+### 📊 Verificación y Pruebas Realizadas
+* **Extracción de Iniciales:** Probado con nombres compuestos (ej: *Steven Claros Tapia* ➔ `SCT`, *Dra. Claudia Morales Valenzuela* ➔ `CMV`, *Dr. Fernando Castillo* ➔ `FC`, *Ing. Carlos Quispe* ➔ `CQ`).
+* **Compilación Frontend:** `npm run build` ejecutado exitosamente con 0 errores (dist generado en 633ms).
+
+## [2026-09-07] Unificación de Avatares Dinámicos por Iniciales en Todos los Paneles del Sistema
+
+### 📌 Objetivo
+Extender el generador inteligente de avatares por iniciales (`getInitials` y `getAvatarColor`) al encabezado superior del panel de **Propietarios** (`/propietario`), así como a los paneles de **Supervisores** (`/supervisor`) y **Coordinadores** (`/coordinador`), logrando una experiencia visual homogénea y profesional en todo el ecosistema SEDES.
+
+---
+
+### 🛠️ Archivos Modificados
+
+#### 1. `frontend/src/pages/PropietarioPage.jsx` [MODIFICADO]
+* **Helper de Iniciales:** Implementación de `getInitials(u)` soportando de 2 a 4 palabras (ej: *Steven Claros Tapia* ➔ `SCT`, *Claudia Silvia Alvarez Lopez* ➔ `CSAL`) y limpiando prefijos de títulos (*Dr., Dra., Ing., Lic.*).
+* **Paleta de Colores Dinámica:** Función `getAvatarColor(nombre)` que genera degradados armónicos consistentes por usuario.
+* **Header Superior:** Sustitución de la letra fija `'C'` por el badge de iniciales dinámico asociado al usuario en sesión.
+
+#### 2. `frontend/src/pages/SupervisorPage.jsx` [MODIFICADO]
+* Integración de `getInitials` y `getAvatarColor`, sustituyendo la imagen genérica del header por el badge de iniciales del supervisor logueado.
+
+#### 3. `frontend/src/pages/CoordinadorPage.jsx` [MODIFICADO]
+* Lectura del usuario autenticado en `localStorage` e integración de `getInitials` y `getAvatarColor` en el header principal.
+
+#### 4. `frontend/src/pages/AdminPage.jsx` [MODIFICADO]
+* Soporte ampliado en `getInitials` para procesar hasta 4 iniciales en nombres largos y compuestos.
+
+---
+
+### 📊 Verificación y Pruebas Realizadas
+* **Prueba de Renderizado:** Nombres como *"CLAUDIA SILVIA ALVAREZ LOPEZ"* generan de forma precisa las 4 iniciales `CSAL`.
+* **Compilación Frontend:** `npm run build` ejecutado exitosamente con 0 errores (dist generado en 618ms).
+
+---
 *Bitácora actualizada por: Steven*
+
+
+

@@ -127,6 +127,51 @@ const INITIAL_TRAMITES = [
   }
 ];
 
+// Obtener iniciales de 2 a 4 letras a partir de nombres y apellidos
+const getInitials = (u) => {
+  if (!u) return 'U';
+  let text = '';
+  if (u.nombres && u.apellidos) {
+    text = `${u.nombres} ${u.apellidos}`;
+  } else if (u.nombreCompleto) {
+    text = u.nombreCompleto;
+  } else if (u.nombres) {
+    text = u.nombres;
+  } else if (u.nombre) {
+    text = u.nombre;
+  } else if (u.email) {
+    return u.email.slice(0, 2).toUpperCase();
+  }
+
+  const clean = text.replace(/^(Dr\.|Dra\.|Ing\.|Lic\.|MSc\.|Ph\.D\.|Abg\.)\s+/i, '').trim();
+  const words = clean.split(/\s+/).filter(Boolean);
+  
+  if (words.length === 0) return 'U';
+  if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
+  if (words.length === 2) return (words[0][0] + words[1][0]).toUpperCase();
+  return words.slice(0, 4).map(w => w[0]).join('').toUpperCase();
+};
+
+// Generar paleta de colores para el avatar
+const getAvatarColor = (nombre) => {
+  const colors = [
+    'bg-gradient-to-tr from-[#0060a8] to-[#008fe6] text-white',
+    'bg-gradient-to-tr from-indigo-600 to-indigo-800 text-white',
+    'bg-gradient-to-tr from-sky-600 to-cyan-700 text-white',
+    'bg-gradient-to-tr from-teal-600 to-emerald-700 text-white',
+    'bg-gradient-to-tr from-slate-700 to-slate-900 text-white',
+    'bg-gradient-to-tr from-blue-700 to-indigo-900 text-white',
+    'bg-gradient-to-tr from-emerald-600 to-teal-800 text-white'
+  ];
+  if (!nombre) return colors[0];
+  let hash = 0;
+  for (let i = 0; i < nombre.length; i++) {
+    hash = nombre.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const index = Math.abs(hash) % colors.length;
+  return colors[index];
+};
+
 export default function CoordinadorPage() {
   const navigate = useNavigate();
   const { seccion } = useParams();
@@ -139,7 +184,20 @@ export default function CoordinadorPage() {
       ? 'historial-trazabilidad'
       : 'bandeja';
 
+  const [usuario, setUsuario] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // Cargar sesión de usuario
+  useEffect(() => {
+    const sessionUser = localStorage.getItem('usuario');
+    if (sessionUser) {
+      try {
+        setUsuario(JSON.parse(sessionUser));
+      } catch (e) {
+        console.error('Error al leer sesión:', e);
+      }
+    }
+  }, []);
 
   // Menú lateral estructurado con URLs reales
   const menuItems = [
@@ -167,6 +225,10 @@ export default function CoordinadorPage() {
   ];
 
   const itemActivo = menuItems.find(item => item.id === seccionActiva) || menuItems[0];
+
+  const nombreCoordinador = usuario 
+    ? `${usuario.nombres} ${usuario.apellidos}` 
+    : 'Dra. Claudia Morales V.';
 
   // Lista de trámites y trámite activo seleccionado
   const [tramites, setTramites] = useState(INITIAL_TRAMITES);
@@ -415,16 +477,16 @@ export default function CoordinadorPage() {
             <div className="flex items-center space-x-3 pl-2 sm:pl-4 border-l border-slate-200">
               <div className="text-right hidden sm:block">
                 <p className="text-xs sm:text-sm font-bold text-slate-900 leading-tight">
-                  Dra. Claudia Morales V.
+                  {nombreCoordinador}
                 </p>
                 <p className="text-[11px] text-slate-400 font-medium">
                   Coordinadora SEDES
                 </p>
               </div>
 
-              {/* Avatar */}
-              <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-[#005596] to-[#0080d0] text-white flex items-center justify-center font-bold text-sm shadow-sm ring-2 ring-slate-100">
-                CM
+              {/* Avatar de Iniciales */}
+              <div className={`w-9 h-9 rounded-full ${getAvatarColor(nombreCoordinador)} text-white flex items-center justify-center font-bold text-xs shadow-sm ring-2 ring-slate-100 select-none tracking-tight`}>
+                <span>{getInitials(usuario || { nombreCompleto: nombreCoordinador })}</span>
               </div>
 
               {/* Botón Salir */}

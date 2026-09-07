@@ -34,6 +34,49 @@ import {
 import logoL1 from '../assets/L1.png';
 import logoL2 from '../assets/L2.png';
 
+// Obtener iniciales de 2 a 3 letras a partir de nombres y apellidos (ej: Steven Claros Tapia -> SCT)
+const getInitials = (u) => {
+  if (!u) return 'U';
+  let text = '';
+  if (u.nombres && u.apellidos) {
+    text = `${u.nombres} ${u.apellidos}`;
+  } else if (u.nombreCompleto) {
+    text = u.nombreCompleto;
+  } else if (u.email) {
+    return u.email.slice(0, 2).toUpperCase();
+  }
+
+  // Quitar prefijos de títulos comunes (Dr., Dra., Ing., Lic., etc.)
+  const clean = text.replace(/^(Dr\.|Dra\.|Ing\.|Lic\.|MSc\.|Ph\.D\.|Abg\.)\s+/i, '').trim();
+  const words = clean.split(/\s+/).filter(Boolean);
+  
+  if (words.length === 0) return 'U';
+  if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
+  if (words.length === 2) return (words[0][0] + words[1][0]).toUpperCase();
+  // 3 o más palabras (ej: Steven Claros Tapia -> SCT, Claudia Silvia Alvarez Lopez -> CSAL)
+  return words.slice(0, 4).map(w => w[0]).join('').toUpperCase();
+};
+
+// Generar paleta de colores vibrantes y elegantes para el avatar
+const getAvatarColor = (nombre) => {
+  const colors = [
+    'bg-gradient-to-tr from-[#0060a8] to-[#008fe6] text-white',
+    'bg-gradient-to-tr from-indigo-600 to-indigo-800 text-white',
+    'bg-gradient-to-tr from-sky-600 to-cyan-700 text-white',
+    'bg-gradient-to-tr from-teal-600 to-emerald-700 text-white',
+    'bg-gradient-to-tr from-slate-700 to-slate-900 text-white',
+    'bg-gradient-to-tr from-blue-700 to-indigo-900 text-white',
+    'bg-gradient-to-tr from-emerald-600 to-teal-800 text-white'
+  ];
+  if (!nombre) return colors[0];
+  let hash = 0;
+  for (let i = 0; i < nombre.length; i++) {
+    hash = nombre.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const index = Math.abs(hash) % colors.length;
+  return colors[index];
+};
+
 // Datos oficiales de usuarios del personal institucional SEDES (excluyendo propietarios)
 const INITIAL_USERS = [
   {
@@ -341,7 +384,7 @@ export default function AdminPage() {
           rol: 'Supervisor',
           password: ''
         });
-        mostrarToast(`Usuario ${nuevo.nombreCompleto} registrado exitosamente en la base de datos.`, 'success');
+        mostrarToast(`Usuario ${nuevo.nombreCompleto} registrado. Correo de activación enviado a ${nuevo.email}.`, 'success');
         return;
       } else {
         const errData = await res.json();
@@ -567,17 +610,9 @@ export default function AdminPage() {
                   </p>
                 </div>
 
-                {/* Avatar */}
-                <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-[#005596] to-[#0080d0] text-white flex items-center justify-center font-bold text-sm shadow-sm ring-2 ring-slate-100 overflow-hidden">
-                  <img
-                    src="https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&auto=format&fit=crop&q=80"
-                    alt="Admin Avatar"
-                    className="w-full h-full object-cover"
-                    onError={(e) => {
-                      e.currentTarget.style.display = 'none';
-                    }}
-                  />
-                  <span>CQ</span>
+                {/* Avatar de Iniciales */}
+                <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-[#005596] to-[#0080d0] text-white flex items-center justify-center font-bold text-xs shadow-sm ring-2 ring-slate-100 select-none tracking-tight">
+                  <span>{getInitials(usuarioLogueado || { nombreCompleto: nombreAdmin })}</span>
                 </div>
 
                 {/* Botón Salir */}
@@ -775,14 +810,12 @@ export default function AdminPage() {
                         usuariosPaginados.map((u) => (
                           <tr key={u.id} className="hover:bg-slate-50/70 transition">
                             
-                            {/* Nombre / Avatar */}
+                            {/* Nombre / Avatar de Iniciales */}
                             <td className="py-4 px-5">
                               <div className="flex items-center space-x-3">
-                                <img
-                                  src={u.avatar}
-                                  alt={u.nombreCompleto}
-                                  className="w-9 h-9 rounded-full object-cover shadow-2xs border border-slate-200 shrink-0"
-                                />
+                                <div className={`w-9 h-9 rounded-full ${getAvatarColor(u.nombreCompleto || u.nombres)} flex items-center justify-center font-black text-xs shadow-2xs border border-white/40 shrink-0 tracking-tight select-none`}>
+                                  {getInitials(u)}
+                                </div>
                                 <div>
                                   <h4 className="font-bold text-slate-900 leading-tight">
                                     {u.nombreCompleto}
@@ -1081,6 +1114,14 @@ export default function AdminPage() {
                   <option value="Director">Director</option>
                   <option value="Administrador">Administrador</option>
                 </select>
+              </div>
+
+              {/* Aviso de activación por correo */}
+              <div className="p-3 bg-sky-50 border border-sky-200/80 rounded-xl flex items-start space-x-2.5 text-sky-900">
+                <Mail className="w-4 h-4 text-[#0077c8] shrink-0 mt-0.5" />
+                <p className="text-[11px] leading-relaxed">
+                  <strong>Invitación por Correo:</strong> Se enviará un correo automático a la cuenta del funcionario con un enlace para que active su cuenta y configure su contraseña privada de forma segura.
+                </p>
               </div>
 
               <div className="flex items-center justify-end space-x-3 pt-4 border-t border-slate-100">
