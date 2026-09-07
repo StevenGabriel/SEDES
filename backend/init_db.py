@@ -66,9 +66,61 @@ def init_database(reset_tables: bool = False):
             db.commit()
             logger.info("✅ Catálogo inicial de requisitos normativos registrado.")
 
-        # 5. Poblar los 10 Laboratorios Oficiales y sus Cuentas de Propietario (Opción B)
+        # 5. Poblar Cuentas Administrativas Oficiales del SEDES (Coordinador, Administrador, Supervisor)
         password_default_hash = hash_password("Sedes2026!")
 
+        personal_sedes = [
+            {
+                "email": "coordinador@sedes.gob.bo",
+                "rol": "Coordinador SEDES",
+                "nombres": "Claudia",
+                "apellidos": "Morales Valenzuela",
+                "ci_nit": "4589201 CB",
+                "telefono": "71789012"
+            },
+            {
+                "email": "admin@sedes.gob.bo",
+                "rol": "Administrador",
+                "nombres": "Administrador General",
+                "apellidos": "SEDES Cochabamba",
+                "ci_nit": "1000001 CB",
+                "telefono": "70000001"
+            },
+            {
+                "email": "supervisor@sedes.gob.bo",
+                "rol": "Supervisor Técnico",
+                "nombres": "Carlos",
+                "apellidos": "Ruiz Mendoza",
+                "ci_nit": "5921840 CB",
+                "telefono": "71239845"
+            }
+        ]
+
+        for p in personal_sedes:
+            usuario_existente = db.query(Usuario).filter(Usuario.email == p["email"]).first()
+            rol_obj = db.query(Role).filter(Role.nombre == p["rol"]).first()
+            
+            if not usuario_existente and rol_obj:
+                nuevo_personal = Usuario(
+                    rol_id=rol_obj.id,
+                    nombres=p["nombres"],
+                    apellidos=p["apellidos"],
+                    ci_nit=p["ci_nit"],
+                    email=p["email"],
+                    password_hash=password_default_hash,
+                    telefono=p["telefono"],
+                    estado=True
+                )
+                db.add(nuevo_personal)
+            elif usuario_existente and rol_obj:
+                usuario_existente.password_hash = password_default_hash
+                usuario_existente.rol_id = rol_obj.id
+                usuario_existente.estado = True
+
+        db.commit()
+        logger.info("✅ Cuentas de Personal SEDES (Coordinador, Administrador, Supervisor) inicializadas.")
+
+        # 6. Poblar los 10 Laboratorios Oficiales y sus Cuentas de Propietario (Opción B)
         laboratorios_data = [
             {
                 "prop_nombre": "CLAUDIA SILVIA",

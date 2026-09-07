@@ -173,6 +173,19 @@ Comandos útiles dentro de `psql`:
 
 ---
 
+## 👥 Cuentas de Acceso Precargadas para Pruebas
+
+Al inicializar la base de datos con `init_db.py`, se crean automáticamente las siguientes cuentas:
+
+| Rol | Nombre | Correo Electrónico | Contraseña | Redirección al Iniciar Sesión |
+| :--- | :--- | :--- | :--- | :--- |
+| **Coordinador SEDES** | Dra. Claudia Morales Valenzuela | `coordinador@sedes.gob.bo` | `Sedes2026!` | `/coordinador` (Consola del Coordinador) |
+| **Administrador** | Administrador General SEDES | `admin@sedes.gob.bo` | `Sedes2026!` | `/coordinador` (Consola del Coordinador) |
+| **Supervisor Técnico** | Ing. Carlos Ruiz Mendoza | `supervisor@sedes.gob.bo` | `Sedes2026!` | `/coordinador` |
+| **Propietario de Laboratorio** | Dra. Claudia Silvia Alvarez Lopez | `claudia.alvarez@propietario.sedes.bo` | `Sedes2026!` | `/propietario` (Portal de Propietarios) |
+
+---
+
 ## 📋 Comandos Útiles de Docker
 
 - **Ver logs de todos los servicios en tiempo real:**
