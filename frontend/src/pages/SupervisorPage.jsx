@@ -387,7 +387,7 @@ export default function SupervisorPage() {
         
         {/* Barra Superior (Top Header Sticky) */}
         <header className="bg-white border-b border-slate-200/80 sticky top-0 z-30 shadow-2xs">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+          <div className="w-full px-4 sm:px-8 h-16 flex items-center justify-between">
             
             {/* Breadcrumb / Ruta Actual */}
             <div className="flex items-center space-x-3 truncate">

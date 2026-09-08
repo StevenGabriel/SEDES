@@ -10,11 +10,19 @@ logger = logging.getLogger(__name__)
 
 def init_database(reset_tables: bool = False):
     try:
-        # 1. Habilitar extensión espacial PostGIS
+        # 1. Habilitar extensión espacial PostGIS y columnas nuevas
         with engine.connect() as conn:
             conn.execute(text("CREATE EXTENSION IF NOT EXISTS postgis;"))
+            # Migraciones idempotentes para columnas de secciones en catalogo_requisitos
+            conn.execute(text("ALTER TABLE catalogo_requisitos ADD COLUMN IF NOT EXISTS seccion_codigo VARCHAR(20) DEFAULT '2.1';"))
+            conn.execute(text("ALTER TABLE catalogo_requisitos ADD COLUMN IF NOT EXISTS seccion_titulo VARCHAR(300);"))
+            conn.execute(text("ALTER TABLE catalogo_requisitos ADD COLUMN IF NOT EXISTS seccion_subtitulo TEXT;"))
+            conn.execute(text("ALTER TABLE catalogo_requisitos ADD COLUMN IF NOT EXISTS es_subtitulo BOOLEAN DEFAULT FALSE;"))
+            conn.execute(text("ALTER TABLE catalogo_requisitos ADD COLUMN IF NOT EXISTS orden INTEGER DEFAULT 1;"))
+            conn.execute(text("ALTER TABLE catalogo_requisitos ALTER COLUMN nombre_documento TYPE TEXT;"))
+            conn.execute(text("ALTER TABLE catalogo_requisitos ALTER COLUMN seccion_subtitulo TYPE TEXT;"))
             conn.commit()
-            logger.info("✅ Extensión PostGIS verificada/habilitada exitosamente.")
+            logger.info("✅ Extensión PostGIS y esquema de catálogo de requisitos (con TEXT sin límite) verificados.")
 
         # 2. Recrear o crear tablas según corresponda
         if reset_tables:
@@ -45,29 +53,25 @@ def init_database(reset_tables: bool = False):
         rol_propietario = db.query(Role).filter(Role.nombre == "Propietario").first()
         rol_supervisor = db.query(Role).filter(Role.nombre == "Supervisor").first()
 
-        password_default_hash = hash_password("password123")
-
-        # 4. Poblar catálogo base de requisitos si está vacío
-        if db.query(CatalogoRequisito).count() == 0:
-            requisitos_base = [
-                # Requisitos Legales
-                CatalogoRequisito(nombre_documento="Título en Provisión Nacional del Regente", categoria="Legal", aplica_a="Todos", es_obligatorio=True),
-                CatalogoRequisito(nombre_documento="Matrícula Profesional del Ministerio de Salud", categoria="Legal", aplica_a="Todos", es_obligatorio=True),
-                CatalogoRequisito(nombre_documento="Contrato de Trabajo o Regencia Notariado", categoria="Legal", aplica_a="Todos", es_obligatorio=True),
-                # Requisitos Administrativos
-                CatalogoRequisito(nombre_documento="Número de Identificación Tributaria (NIT)", categoria="Administrativo", aplica_a="Todos", es_obligatorio=True),
-                CatalogoRequisito(nombre_documento="Plano Arquitectónico a Escala del Establecimiento", categoria="Administrativo", aplica_a="Todos", es_obligatorio=True),
-                CatalogoRequisito(nombre_documento="Convenio de Manejo y Disposición de Residuos Biológicos", categoria="Administrativo", aplica_a="Todos", es_obligatorio=True),
-                # Requisitos Técnicos
-                CatalogoRequisito(nombre_documento="Manual de Procedimientos Técnicos y de Bioseguridad", categoria="Técnico", aplica_a="Todos", es_obligatorio=True),
-                CatalogoRequisito(nombre_documento="Inventario y Calibración de Equipos Médicos/Bioquímicos", categoria="Técnico", aplica_a="Todos", es_obligatorio=True),
-                CatalogoRequisito(nombre_documento="Cartera de Pruebas y Servicios Ofertados", categoria="Técnico", aplica_a="Todos", es_obligatorio=True),
-                # Requisitos Financieros
-                CatalogoRequisito(nombre_documento="Comprobante de Pago de Tasa Departamental SEDES", categoria="Financiero", aplica_a="Todos", es_obligatorio=True),
-            ]
-            db.add_all(requisitos_base)
+        # 4. Poblar catálogo base completo de requisitos estructurados por secciones 2.1 a 2.5
+        from requisitos import DEFAULT_SECCIONES_DATA
+        if db.query(CatalogoRequisito).count() == 0 or db.query(CatalogoRequisito).filter(CatalogoRequisito.seccion_codigo.isnot(None)).count() == 0:
+            db.query(CatalogoRequisito).delete()
+            for sec in DEFAULT_SECCIONES_DATA:
+                for idx, r in enumerate(sec["requisitos"]):
+                    db.add(CatalogoRequisito(
+                        seccion_codigo=sec["codigo"],
+                        seccion_titulo=sec["titulo"],
+                        seccion_subtitulo=sec["subtitulo"],
+                        nombre_documento=r["texto"],
+                        categoria=sec["categoria"],
+                        es_obligatorio=r.get("es_obligatorio", True),
+                        es_subtitulo=r.get("es_subtitulo", False),
+                        orden=idx + 1,
+                        estado=True
+                    ))
             db.commit()
-            logger.info("✅ Catálogo inicial de requisitos normativos registrado.")
+            logger.info("✅ Catálogo oficial de requisitos por secciones (2.1 a 2.5) registrado.")
 
         # 5. Poblar Cuentas Administrativas Oficiales del SEDES (Coordinador, Administrador, Supervisores, Director)
         password_default_hash = hash_password("Sedes2026!")

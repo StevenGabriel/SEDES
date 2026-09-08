@@ -377,7 +377,6 @@ const INITIAL_SECCIONES_REQUISITOS = [
     requisitos: [
       { id: 'req-2.4-1', texto: 'Lista oficial de exámenes y pruebas bioquímicas habilitadas por nivel.' },
       { id: 'req-2.4-2', texto: 'Inventario certificado de mobiliario técnico, equipos de análisis, material de vidrio y reactivos.' },
-      { id: 'req-2.4-sub', texto: 'Manuales Documentados Obligatorios:', esSubtitulo: true },
       { id: 'req-2.4-3', texto: 'Manual de Procedimientos Técnicos por área de análisis.' },
       { id: 'req-2.4-4', texto: 'Manual de Organización y Funciones del personal administrativo y técnico.' },
       { id: 'req-2.4-5', texto: 'Manual de Control de Calidad interno y externo.' },
@@ -519,41 +518,71 @@ export default function AdminPage() {
   const [modalNuevoRequisitoOpen, setModalNuevoRequisitoOpen] = useState(false);
   const [seccionDestinoId, setSeccionDestinoId] = useState(null);
   const [textoNuevoRequisito, setTextoNuevoRequisito] = useState('');
+  const [esObligatorioNuevo, setEsObligatorioNuevo] = useState(true);
   const [modalEditarRequisitoOpen, setModalEditarRequisitoOpen] = useState(false);
   const [requisitoEnEdicion, setRequisitoEnEdicion] = useState(null);
   const [modalNuevaSeccionOpen, setModalNuevaSeccionOpen] = useState(false);
   const [formNuevaSeccion, setFormNuevaSeccion] = useState({ codigo: '2.6', titulo: '', subtitulo: '' });
 
+  // Cargar requisitos desde el backend
+  const cargarRequisitosDesdeBD = async () => {
+    try {
+      const res = await fetch('http://localhost:8000/api/admin/requisitos');
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data) && data.length > 0) {
+          setSeccionesRequisitos(data);
+        }
+      }
+    } catch (err) {
+      console.warn('Backend offline, usando catálogo local de requisitos:', err);
+    }
+  };
+
   // Abrir modal de nuevo requisito
   const handleAbrirAgregarRequisito = (seccionId) => {
     setSeccionDestinoId(seccionId);
     setTextoNuevoRequisito('');
+    setEsObligatorioNuevo(true);
     setModalNuevoRequisitoOpen(true);
   };
 
   // Guardar nuevo requisito en la sección correspondiente
-  const handleGuardarNuevoRequisito = (e) => {
+  const handleGuardarNuevoRequisito = async (e) => {
     e.preventDefault();
     if (!seccionDestinoId || !textoNuevoRequisito.trim()) return;
 
-    const nuevoReq = {
-      id: `req-${Date.now()}`,
-      texto: textoNuevoRequisito.trim()
-    };
+    const sec = seccionesRequisitos.find(s => s.id === seccionDestinoId);
+    const codigoSec = sec ? sec.codigo : '2.1';
 
-    setSeccionesRequisitos(prev => prev.map(sec => {
-      if (sec.id === seccionDestinoId) {
-        return {
-          ...sec,
-          requisitos: [...sec.requisitos, nuevoReq]
-        };
+    try {
+      const res = await fetch('http://localhost:8000/api/admin/requisitos', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          seccion_codigo: codigoSec,
+          seccion_titulo: sec?.titulo,
+          seccion_subtitulo: sec?.subtitulo,
+          texto: textoNuevoRequisito.trim(),
+          es_obligatorio: esObligatorioNuevo
+        })
+      });
+
+      if (res.ok) {
+        await cargarRequisitosDesdeBD();
+        setModalNuevoRequisitoOpen(false);
+        setTextoNuevoRequisito('');
+        mostrarToast('Requisito guardado exitosamente en la base de datos.', 'success');
+        return;
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        mostrarToast(errData.detail || 'Error al guardar el requisito.', 'error');
+        return;
       }
-      return sec;
-    }));
-
-    setModalNuevoRequisitoOpen(false);
-    setTextoNuevoRequisito('');
-    mostrarToast('Requisito agregado exitosamente.', 'success');
+    } catch (err) {
+      console.error('Error de conexión al guardar requisito en BD:', err);
+      mostrarToast('Error de conexión con el servidor.', 'error');
+    }
   };
 
   // Abrir modal de editar requisito
@@ -561,38 +590,69 @@ export default function AdminPage() {
     setRequisitoEnEdicion({
       seccionId,
       reqId: req.id,
-      texto: req.texto
+      texto: req.texto,
+      es_obligatorio: req.es_obligatorio !== undefined ? req.es_obligatorio : true
     });
     setModalEditarRequisitoOpen(true);
   };
 
   // Guardar edición de un requisito
-  const handleGuardarEdicionRequisito = (e) => {
+  const handleGuardarEdicionRequisito = async (e) => {
     e.preventDefault();
     if (!requisitoEnEdicion || !requisitoEnEdicion.texto.trim()) return;
 
-    setSeccionesRequisitos(prev => prev.map(sec => {
-      if (sec.id === requisitoEnEdicion.seccionId) {
-        return {
-          ...sec,
-          requisitos: sec.requisitos.map(r => 
-            r.id === requisitoEnEdicion.reqId 
-              ? { ...r, texto: requisitoEnEdicion.texto.trim() }
-              : r
-          )
-        };
-      }
-      return sec;
-    }));
+    const reqId = requisitoEnEdicion.reqId;
+    const isNumericId = !isNaN(Number(reqId));
 
-    setModalEditarRequisitoOpen(false);
-    setRequisitoEnEdicion(null);
-    mostrarToast('Requisito modificado correctamente.', 'success');
+    if (isNumericId) {
+      try {
+        const res = await fetch(`http://localhost:8000/api/admin/requisitos/${reqId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            texto: requisitoEnEdicion.texto.trim(),
+            es_obligatorio: requisitoEnEdicion.es_obligatorio
+          })
+        });
+
+        if (res.ok) {
+          await cargarRequisitosDesdeBD();
+          setModalEditarRequisitoOpen(false);
+          setRequisitoEnEdicion(null);
+          mostrarToast('Requisito modificado correctamente en la base de datos.', 'success');
+          return;
+        } else {
+          const errData = await res.json().catch(() => ({}));
+          mostrarToast(errData.detail || 'Error al actualizar el requisito.', 'error');
+          return;
+        }
+      } catch (err) {
+        console.error('Error al modificar requisito en BD:', err);
+        mostrarToast('Error de conexión con el servidor.', 'error');
+        return;
+      }
+    }
   };
 
   // Eliminar requisito
-  const handleEliminarRequisito = (seccionId, reqId) => {
+  const handleEliminarRequisito = async (seccionId, reqId) => {
     if (!confirm('¿Está seguro de eliminar este requisito normativo?')) return;
+
+    const isNumericId = !isNaN(Number(reqId));
+    if (isNumericId) {
+      try {
+        const res = await fetch(`http://localhost:8000/api/admin/requisitos/${reqId}`, {
+          method: 'DELETE'
+        });
+        if (res.ok) {
+          await cargarRequisitosDesdeBD();
+          mostrarToast('Requisito eliminado del catálogo oficial.', 'warning');
+          return;
+        }
+      } catch (err) {
+        console.error('Error al eliminar requisito de BD:', err);
+      }
+    }
 
     setSeccionesRequisitos(prev => prev.map(sec => {
       if (sec.id === seccionId) {
@@ -608,15 +668,40 @@ export default function AdminPage() {
   };
 
   // Guardar nueva sección normativa
-  const handleGuardarNuevaSeccion = (e) => {
+  const handleGuardarNuevaSeccion = async (e) => {
     e.preventDefault();
     if (!formNuevaSeccion.titulo.trim()) return;
 
+    const codigo = formNuevaSeccion.codigo.trim() || `2.${seccionesRequisitos.length + 1}`;
+    const titulo = formNuevaSeccion.titulo.trim().toUpperCase();
+    const subtitulo = formNuevaSeccion.subtitulo.trim() || 'Documentación complementaria requerida.';
+
+    try {
+      const res = await fetch('http://localhost:8000/api/admin/requisitos/secciones', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          codigo,
+          titulo,
+          subtitulo
+        })
+      });
+      if (res.ok) {
+        await cargarRequisitosDesdeBD();
+        setModalNuevaSeccionOpen(false);
+        setFormNuevaSeccion({ codigo: `2.${seccionesRequisitos.length + 2}`, titulo: '', subtitulo: '' });
+        mostrarToast(`Nueva sección "${titulo}" creada con éxito.`, 'success');
+        return;
+      }
+    } catch (err) {
+      console.error('Error al crear sección en BD:', err);
+    }
+
     const nuevaSec = {
       id: `sec-${Date.now()}`,
-      codigo: formNuevaSeccion.codigo.trim() || `2.${seccionesRequisitos.length + 1}`,
-      titulo: formNuevaSeccion.titulo.trim().toUpperCase(),
-      subtitulo: formNuevaSeccion.subtitulo.trim() || 'Documentación complementaria requerida.',
+      codigo,
+      titulo,
+      subtitulo,
       requisitos: []
     };
 
@@ -665,6 +750,7 @@ export default function AdminPage() {
       }
     }
     cargarUsuariosDesdeBD();
+    cargarRequisitosDesdeBD();
   }, []);
 
   // Resetear página al buscar o cambiar filtros
@@ -971,7 +1057,7 @@ export default function AdminPage() {
         
         {/* Barra Superior (Top Header Sticky) */}
         <header className="bg-white border-b border-slate-200/80 sticky top-0 z-30 shadow-2xs">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+          <div className="w-full px-4 sm:px-8 h-16 flex items-center justify-between">
             
             {/* Breadcrumb / Ruta Actual */}
             <div className="flex items-center space-x-3 truncate">
@@ -1608,13 +1694,27 @@ export default function AdminPage() {
                         return (
                           <div 
                             key={req.id}
-                            className="flex items-center justify-between group p-2 sm:p-2.5 rounded-xl hover:bg-slate-50/80 transition"
+                            className="flex items-center justify-between group p-2.5 sm:p-3 rounded-xl hover:bg-slate-50/90 transition border border-transparent hover:border-slate-200/60"
                           >
                             <div className="flex items-start space-x-2.5 flex-1 pr-3">
-                              <CheckCircle2 className="w-4 h-4 text-cyan-500 shrink-0 mt-0.5" />
-                              <span className="text-xs sm:text-sm text-slate-700 font-medium leading-relaxed">
-                                {req.texto}
-                              </span>
+                              <CheckCircle2 className={`w-4 h-4 shrink-0 mt-0.5 ${req.es_obligatorio === false ? 'text-amber-500' : 'text-cyan-500'}`} />
+                              <div className="flex-1 space-y-1">
+                                <div className="flex items-center space-x-2 flex-wrap gap-y-1">
+                                  <span className="text-xs sm:text-sm text-slate-800 font-medium leading-relaxed">
+                                    {req.texto}
+                                  </span>
+                                  {req.es_obligatorio === false ? (
+                                    <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200 select-none">
+                                      <Clock className="w-3 h-3" />
+                                      <span>Opcional</span>
+                                    </span>
+                                  ) : (
+                                    <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-sky-50 text-[#0077c8] border border-sky-100 select-none">
+                                      <span>Obligatorio</span>
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
                             </div>
 
                             {/* Acciones por Requisito: Eliminar y Editar */}
@@ -2143,6 +2243,37 @@ export default function AdminPage() {
                 />
               </div>
 
+              {/* Selector Obligatorio u Opcional */}
+              <div className="space-y-1.5">
+                <label className="font-bold text-slate-700">Tipo de Cumplimiento</label>
+                <div className="grid grid-cols-2 gap-2.5">
+                  <button
+                    type="button"
+                    onClick={() => setEsObligatorioNuevo(true)}
+                    className={`p-3 rounded-xl border font-bold text-xs flex items-center justify-center space-x-2 transition cursor-pointer select-none ${
+                      esObligatorioNuevo
+                        ? 'bg-sky-50 border-[#0077c8] text-[#0077c8] shadow-xs'
+                        : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
+                    }`}
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>🔵 Obligatorio</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEsObligatorioNuevo(false)}
+                    className={`p-3 rounded-xl border font-bold text-xs flex items-center justify-center space-x-2 transition cursor-pointer select-none ${
+                      !esObligatorioNuevo
+                        ? 'bg-amber-50 border-amber-400 text-amber-800 shadow-xs'
+                        : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
+                    }`}
+                  >
+                    <Clock className="w-4 h-4" />
+                    <span>🟡 Opcional</span>
+                  </button>
+                </div>
+              </div>
+
               <div className="flex items-center justify-end space-x-3 pt-3 border-t border-slate-100">
                 <button
                   type="button"
@@ -2203,6 +2334,37 @@ export default function AdminPage() {
                   onChange={(e) => setRequisitoEnEdicion({ ...requisitoEnEdicion, texto: e.target.value })}
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-800 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-[#0077c8]"
                 />
+              </div>
+
+              {/* Selector Obligatorio u Opcional en Edición */}
+              <div className="space-y-1.5">
+                <label className="font-bold text-slate-700">Tipo de Cumplimiento</label>
+                <div className="grid grid-cols-2 gap-2.5">
+                  <button
+                    type="button"
+                    onClick={() => setRequisitoEnEdicion({ ...requisitoEnEdicion, es_obligatorio: true })}
+                    className={`p-3 rounded-xl border font-bold text-xs flex items-center justify-center space-x-2 transition cursor-pointer select-none ${
+                      requisitoEnEdicion.es_obligatorio !== false
+                        ? 'bg-sky-50 border-[#0077c8] text-[#0077c8] shadow-xs'
+                        : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
+                    }`}
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>🔵 Obligatorio</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setRequisitoEnEdicion({ ...requisitoEnEdicion, es_obligatorio: false })}
+                    className={`p-3 rounded-xl border font-bold text-xs flex items-center justify-center space-x-2 transition cursor-pointer select-none ${
+                      requisitoEnEdicion.es_obligatorio === false
+                        ? 'bg-amber-50 border-amber-400 text-amber-800 shadow-xs'
+                        : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
+                    }`}
+                  >
+                    <Clock className="w-4 h-4" />
+                    <span>🟡 Opcional</span>
+                  </button>
+                </div>
               </div>
 
               <div className="flex items-center justify-end space-x-3 pt-3 border-t border-slate-100">

@@ -133,10 +133,15 @@ class CatalogoRequisito(Base):
     __tablename__ = "catalogo_requisitos"
 
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
-    nombre_documento = Column(String(200), nullable=False)
-    categoria = Column(String(50), nullable=False)  # 'Legal', 'Administrativo', 'Técnico', 'Financiero'
+    seccion_codigo = Column(String(20), default="2.1", nullable=True)  # '2.1', '2.2', '2.3', '2.4', '2.5'
+    seccion_titulo = Column(String(300), nullable=True)  # 'SOLICITUD DE HABILITACIÓN'
+    seccion_subtitulo = Column(Text, nullable=True)
+    nombre_documento = Column(Text, nullable=False)
+    categoria = Column(String(100), default="General", nullable=False)  # 'Legal', 'Administrativo', 'Técnico', 'Financiero'
     aplica_a = Column(String(100), default="Todos", nullable=False)
     es_obligatorio = Column(Boolean, default=True, nullable=False)
+    es_subtitulo = Column(Boolean, default=False, nullable=False)
+    orden = Column(Integer, default=1, nullable=False)
 
     # Columnas de Auditoría
     estado = Column(Boolean, default=True, nullable=False)

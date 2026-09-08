@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
   Inbox,
@@ -145,7 +145,7 @@ const getInitials = (u) => {
 
   const clean = text.replace(/^(Dr\.|Dra\.|Ing\.|Lic\.|MSc\.|Ph\.D\.|Abg\.)\s+/i, '').trim();
   const words = clean.split(/\s+/).filter(Boolean);
-  
+
   if (words.length === 0) return 'U';
   if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
   if (words.length === 2) return (words[0][0] + words[1][0]).toUpperCase();
@@ -226,14 +226,14 @@ export default function CoordinadorPage() {
 
   const itemActivo = menuItems.find(item => item.id === seccionActiva) || menuItems[0];
 
-  const nombreCoordinador = usuario 
-    ? `${usuario.nombres} ${usuario.apellidos}` 
+  const nombreCoordinador = usuario
+    ? `${usuario.nombres} ${usuario.apellidos}`
     : 'Dra. Claudia Morales V.';
 
   // Lista de trámites y trámite activo seleccionado
   const [tramites, setTramites] = useState(INITIAL_TRAMITES);
   const [tramiteSeleccionadoId, setTramiteSeleccionadoId] = useState('REQ-0042');
-  
+
   // Pestaña activa en el panel de detalle: 'legal' | 'campo'
   const [tabActiva, setTabActiva] = useState('legal');
 
@@ -274,8 +274,8 @@ export default function CoordinadorPage() {
   // Trámites filtrados
   const tramitesFiltrados = tramites.filter(t => {
     const matchTexto = t.id.toLowerCase().includes(filtroTexto.toLowerCase()) ||
-                       t.establecimiento.toLowerCase().includes(filtroTexto.toLowerCase()) ||
-                       t.tipo.toLowerCase().includes(filtroTexto.toLowerCase());
+      t.establecimiento.toLowerCase().includes(filtroTexto.toLowerCase()) ||
+      t.tipo.toLowerCase().includes(filtroTexto.toLowerCase());
     const matchEstado = filtroEstado === 'Todos' || t.estado === filtroEstado;
     return matchTexto && matchEstado;
   });
@@ -370,7 +370,7 @@ export default function CoordinadorPage() {
       `}>
         {/* Contenido superior de Sidebar */}
         <div className="p-6 space-y-8">
-          
+
           {/* Logo SI_Lab */}
           <div className="flex items-center justify-between">
             <Link to="/" className="flex items-center space-x-3 group cursor-pointer" title="Ir a la página principal">
@@ -436,10 +436,10 @@ export default function CoordinadorPage() {
       {/* 2. CONTENEDOR PRINCIPAL Y HEADER                                          */}
       {/* ========================================================================= */}
       <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
-        
+
         {/* Header Superior Blanco Sticky */}
         <header className="bg-white border-b border-slate-200 h-16 flex items-center justify-between px-4 sm:px-8 shrink-0 shadow-xs z-30">
-          
+
           {/* Breadcrumb y botón menú móvil */}
           <div className="flex items-center space-x-3">
             <button
@@ -460,10 +460,10 @@ export default function CoordinadorPage() {
 
           {/* Perfil del Coordinador & Notificaciones */}
           <div className="flex items-center space-x-3 sm:space-x-5">
-            
+
             {/* Campana de Notificaciones con Badge */}
-            <button 
-              type="button" 
+            <button
+              type="button"
               className="relative p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition cursor-pointer"
               title="3 Notificaciones pendientes"
             >
@@ -518,12 +518,12 @@ export default function CoordinadorPage() {
         {/* ========================================================================= */}
         {seccionActiva === 'bandeja' && (
           <div className="flex-1 flex flex-col md:flex-row overflow-hidden p-3 sm:p-5 gap-4">
-            
+
             {/* --------------------------------------------------------------------- */}
             {/* COLUMNA IZQUIERDA: Lista de Trámites en Proceso                       */}
             {/* --------------------------------------------------------------------- */}
             <div className="w-full md:w-80 lg:w-96 bg-white rounded-2xl border border-slate-200/90 shadow-xs flex flex-col shrink-0 overflow-hidden">
-              
+
               {/* Header de la lista con contador */}
               <div className="p-4 border-b border-slate-100 flex items-center justify-between">
                 <h2 className="font-black text-slate-800 text-base tracking-tight">Trámites en Proceso</h2>
@@ -571,7 +571,7 @@ export default function CoordinadorPage() {
                         <span className="font-extrabold text-xs text-slate-800 tracking-tight">
                           {item.id}
                         </span>
-                        
+
                         <div className="flex items-center space-x-2">
                           <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${item.tipoBadgeColor}`}>
                             {item.tipo}
@@ -614,7 +614,7 @@ export default function CoordinadorPage() {
             {/* COLUMNA DERECHA: Detalle del Trámite y Bitácoras (Tabs)               */}
             {/* --------------------------------------------------------------------- */}
             <div className="flex-1 bg-white rounded-2xl border border-slate-200/90 shadow-xs flex flex-col overflow-hidden">
-              
+
               {/* Encabezado del Detalle */}
               <div className="p-4 sm:p-5 border-b border-slate-200 bg-white">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
@@ -672,7 +672,7 @@ export default function CoordinadorPage() {
                 {/* =================================================================== */}
                 {tabActiva === 'legal' && (
                   <div className="space-y-6 max-w-4xl mx-auto">
-                    
+
                     {/* Lista de 5 Documentos Requeridos */}
                     <div className="bg-white rounded-xl border border-slate-200/90 shadow-xs divide-y divide-slate-100">
                       {tramiteActual.documentos.map((doc) => {
@@ -735,10 +735,10 @@ export default function CoordinadorPage() {
                     {/* VISOR INTERACTIVO DEL DOCUMENTO SELECCIONADO (Licencia / Plano) */}
                     {/* =============================================================== */}
                     <div className="bg-slate-100/90 p-4 sm:p-6 rounded-2xl border border-slate-200">
-                      
+
                       {/* Document Sheet Container */}
                       <div className="bg-white rounded-xl shadow-md border border-slate-200 p-6 sm:p-8 max-w-2xl mx-auto relative overflow-hidden">
-                        
+
                         {/* Marca de agua / Sello de fondo */}
                         <div className="absolute inset-0 flex items-center justify-center opacity-[0.03] pointer-events-none">
                           <Building2 className="w-96 h-96 text-slate-900" />
@@ -752,7 +752,7 @@ export default function CoordinadorPage() {
                           <p className="text-[10px] text-slate-500 font-semibold tracking-wide uppercase mt-0.5">
                             DEPARTAMENTO DE PATENTES Y LICENCIAS DE FUNCIONAMIENTO
                           </p>
-                          
+
                           <div className="my-3 inline-block">
                             <h2 className="font-black text-base sm:text-lg text-slate-900 tracking-tight uppercase">
                               {docActual.nombre.toUpperCase()}
@@ -798,7 +798,7 @@ export default function CoordinadorPage() {
 
                         {/* Sello y Firma */}
                         <div className="mt-8 flex items-center justify-between pt-4 border-t border-dashed border-slate-200">
-                          
+
                           {/* Sello circular ALCALDÍA */}
                           <div className="w-24 h-24 rounded-full border-2 border-dashed border-sky-500 flex flex-col items-center justify-center text-center p-1 rotate-[-8deg] bg-sky-50/50">
                             <span className="text-[8px] font-bold text-sky-800 uppercase tracking-tighter">ALCALDÍA</span>
@@ -877,7 +877,7 @@ export default function CoordinadorPage() {
                 {/* =================================================================== */}
                 {tabActiva === 'campo' && (
                   <div className="space-y-6 max-w-4xl mx-auto">
-                    
+
                     {/* Banner de Veredicto del Supervisor */}
                     <div className="bg-amber-100/90 border-l-4 border-amber-500 p-4 rounded-r-xl shadow-xs">
                       <div className="flex items-start justify-between">
@@ -944,10 +944,10 @@ export default function CoordinadorPage() {
                     {/* Previsualización del Escaneado del Acta de Inspección */}
                     <div className="bg-slate-100/90 p-4 sm:p-6 rounded-2xl border border-slate-200">
                       <div className="bg-white rounded-xl shadow-md border border-slate-300 p-4 sm:p-6 max-w-2xl mx-auto overflow-hidden">
-                        
+
                         <div className="flex items-center justify-between pb-3 border-b border-slate-200 text-slate-500 text-xs">
                           <span className="font-mono text-[11px] font-bold text-slate-700">ACTA_INSPECCION_CAMPO_#8942.PDF</span>
-                          <button 
+                          <button
                             onClick={() => setModalVerDocFull(true)}
                             className="text-[#0077c8] hover:underline font-bold text-[11px] flex items-center"
                           >

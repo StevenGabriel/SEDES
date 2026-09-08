@@ -1122,8 +1122,100 @@ Resolver el error de violación de clave única (`duplicate key value violates u
 ### 📊 Verificación y Pruebas Realizadas
 * **Compatibilidad de Inicialización:** Verificación con volúmenes existentes y limpios.
 
+## [2026-09-08] Ajuste Visual de Alineación del Header y Breadcrumb
+### 📌 Objetivo
+Alinear el breadcrumb (`Administración / Gestión de Usuarios`) y el encabezado superior con el menú lateral izquierdo (sidebar), removiendo el contenedor rígido `max-w-7xl mx-auto` en el header para homologar el diseño con la consola del coordinador y las pantallas de mayor resolución.
+
+---
+
+### 🛠️ Archivos Modificados
+#### 1. `frontend/src/pages/AdminPage.jsx` [MODIFICADO]
+* **Header fluido:** Se reemplazó el contenedor `max-w-7xl mx-auto` del `<header>` por `w-full px-4 sm:px-8`, permitiendo que el breadcrumb se ubique directamente a la izquierda junto a la barra lateral.
+#### 2. `frontend/src/pages/PropietarioPage.jsx` & `frontend/src/pages/SupervisorPage.jsx` [MODIFICADO]
+* **Consistencia Global:** Se estandarizó la misma estructura fluida en todos los dashboards.
+
+---
+
+### 📊 Verificación y Pruebas Realizadas
+* **Compilación Frontend:** `npm run build` ejecutado exitosamente con 0 errores.
+
+## [2026-09-08] Sincronización Dinámica de Requisitos en Tiempo Real (Admin ➡️ Portal Público)
+### 📌 Objetivo
+Permitir que el Administrador gestione en tiempo real los requisitos de habilitación y funcionamiento de laboratorios (agregar, editar, eliminar, crear nuevas secciones y definir si un requisito es **Obligatorio** u **Opcional**), impactando y actualizando automáticamente la página pública `/requisitos` mediante base de datos PostgreSQL y APIs REST.
+
+---
+
+### 🛠️ Archivos Creados y Modificados
+#### 1. `backend/models.py` [MODIFICADO]
+* **Ampliación de `CatalogoRequisito`:** Se agregaron las columnas `seccion_codigo`, `seccion_titulo`, `seccion_subtitulo`, `es_subtitulo` y `orden`.
+
+#### 2. `backend/requisitos.py` [NUEVO]
+* **API Pública:** `GET /api/requisitos/publico` (devuelve el árbol organizado de secciones y requisitos activos).
+* **API de Administración:** `GET /api/admin/requisitos`, `POST /api/admin/requisitos`, `PUT /api/admin/requisitos/{id}`, `DELETE /api/admin/requisitos/{id}`, `POST /api/admin/requisitos/secciones`.
+
+#### 3. `backend/main.py` [MODIFICADO]
+* **Enrutador:** Se montó `requisitos.router` en la aplicación FastAPI.
+
+#### 4. `backend/init_db.py` [MODIFICADO]
+* **Poblado Automático:** Migración segura idempotente con `ALTER TABLE ADD COLUMN IF NOT EXISTS` y siembra de los 39 requisitos oficiales organizados en las secciones 2.1 a 2.5.
+
+#### 5. `frontend/src/pages/AdminPage.jsx` [MODIFICADO]
+* **Conexión a BD:** Se conectaron los modales y botones de acción a los endpoints del backend.
+* **Selectores de Obligatoriedad:** Modales de agregar y editar con switch entre `🔵 Obligatorio` y `🟡 Opcional`.
+* **Badges visuales:** Insignias distintivas en cada ítem de la lista.
+
+#### 6. `frontend/src/pages/RequisitosPage.jsx` [MODIFICADO]
+* **Renderizado Dinámico:** Consumo reactivo de `GET /api/requisitos/publico` con soporte visual de badges `(Opcional)` para guiar con claridad a propietarios y laboratorios.
+
+---
+
+### 📊 Verificación y Pruebas Realizadas
+* **Pruebas End-to-End API:** Creación (`POST 201`), consulta pública dinámica (`GET 200`) y eliminación (`DELETE 200`) validadas exitosamente.
+* **Compilación Frontend:** `npm run build` ejecutado exitosamente con 0 errores (dist generado en 786ms).
+
+## [2026-09-08] Ampliación de Longitud de Texto para Requisitos Normativos (Tipo TEXT sin límite)
+### 📌 Objetivo
+Resolver el truncamiento de texto que ocurría al registrar o editar requisitos extensos (mayores a 200 caracteres), garantizando que enunciados normativos largos se guarden completos sin límite en PostgreSQL.
+
+---
+
+### 🛠️ Archivos Modificados
+#### 1. `backend/models.py` [MODIFICADO]
+* **Tipo de Columna:** Se actualizó `nombre_documento` y `seccion_subtitulo` de `String(200)` a `Text` sin límite de caracteres.
+#### 2. `backend/init_db.py` [MODIFICADO]
+* **Migración Automática:** Se agregó `ALTER TABLE catalogo_requisitos ALTER COLUMN nombre_documento TYPE TEXT;` y `ALTER COLUMN seccion_subtitulo TYPE TEXT;` en la inicialización para actualizar volúmenes existentes.
+#### 3. `frontend/src/pages/AdminPage.jsx` [MODIFICADO]
+* **Manejo de Errores:** Se robusteció el feedback visual mostrando notificaciones toast con el mensaje exacto si una petición no se completa.
+
+---
+
+### 📊 Verificación y Pruebas Realizadas
+* **Prueba de Texto Largo:** Inserción y actualización exitosa de requisitos de más de 206 y 300 caracteres sin truncamiento.
+* **Compilación Frontend:** `npm run build` exitoso (0 errores).
+
+## [2026-09-08] Limpieza de Subtítulo en Sección de Requisitos Técnicos
+### 📌 Objetivo
+Eliminar el subtítulo intercalado *"Manuales Documentados Obligatorios:"* de la sección 2.4 (Requisitos Técnicos) tanto en la base de datos PostgreSQL como en los catálogos por defecto de administración y portal público.
+
+---
+
+### 🛠️ Archivos Modificados
+#### 1. Base de Datos (PostgreSQL)
+* Se eliminó el registro de subtítulo de la tabla `catalogo_requisitos`.
+#### 2. `backend/requisitos.py`, `frontend/src/pages/AdminPage.jsx` & `frontend/src/pages/RequisitosPage.jsx` [MODIFICADO]
+* Se eliminó la entrada correspondiente para que la lista de requisitos sea homogénea y limpia.
+
+---
+
+### 📊 Verificación y Pruebas Realizadas
+* **Compilación Frontend:** `npm run build` exitoso (0 errores).
+
 ---
 *Bitácora actualizada por: Steven*
+
+
+
+
 
 
 
