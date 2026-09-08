@@ -6,85 +6,276 @@ import { Download, ChevronRight, FileCheck2, CheckCircle2, Clock, Sparkles } fro
 
 const FALLBACK_SECCIONES = [
   {
-    id: 'sec-2.1',
-    codigo: '2.1',
-    titulo: 'SOLICITUD DE HABILITACIÓN',
-    subtitulo: 'Formulario oficial FORM. USD-DOSS/CONALAB-001 debidamente llenado.',
-    requisitos: [
-      { id: 1, texto: 'Señalar claramente el Tipo y Nivel de complejidad solicitados.', es_obligatorio: true, esSubtitulo: false },
-      { id: 2, texto: 'Datos completos del profesional bioquímico responsable.', es_obligatorio: true, esSubtitulo: false },
-      { id: 3, texto: 'Declaración del horario de atención propuesto para el establecimiento.', es_obligatorio: true, esSubtitulo: false },
-      { id: 4, texto: 'Inventario detallado de mobiliario, equipos médicos y reactivos químicos.', es_obligatorio: true, esSubtitulo: false },
-      { id: 5, texto: 'Inventario de manuales operativos y técnicos disponibles.', es_obligatorio: true, esSubtitulo: false }
+    "id": "sec-2.1",
+    "codigo": "2.1",
+    "titulo": "SOLICITUD DE HABILITACIÓN",
+    "subtitulo": "Formulario oficial FORM. USD-DOSS/CONALAB-001 debidamente llenado.",
+    "requisitos": [
+      {
+        "id": "req-2.1-1",
+        "texto": "El tipo y el nivel de complejidad del laboratorio.",
+        "es_obligatorio": true
+      },
+      {
+        "id": "req-2.1-2",
+        "texto": "Datos del profesional responsable.",
+        "es_obligatorio": true
+      },
+      {
+        "id": "req-2.1-3",
+        "texto": "Horario de atención del establecimiento",
+        "es_obligatorio": true
+      },
+      {
+        "id": "req-2.1-4",
+        "texto": "Inventario de mobiliario, equipos y reactivos.",
+        "es_obligatorio": true
+      },
+      {
+        "id": "req-2.1-5",
+        "texto": "Inventario de manuales y bibliografía referencial.",
+        "es_obligatorio": true
+      }
     ]
   },
   {
-    id: 'sec-2.2',
-    codigo: '2.2',
-    titulo: 'REQUISITOS LEGALES',
-    subtitulo: 'Documentación acreditante y acreditación legal del personal técnico.',
-    requisitos: [
-      { id: 6, texto: 'Memorial dirigido al Director Departamental de Salud (SEDES).', es_obligatorio: true, esSubtitulo: false },
-      { id: 7, texto: 'Título en Provisión Nacional del Bioquímico (fotocopia legalizada).', es_obligatorio: true, esSubtitulo: false },
-      { id: 8, texto: 'Diploma Académico correspondiente.', es_obligatorio: true, esSubtitulo: false },
-      { id: 9, texto: 'Matrícula Profesional emitida por el Ministerio de Salud.', es_obligatorio: true, esSubtitulo: false },
-      { id: 10, texto: 'Carnet del Colegio Departamental de Bioquímica y Farmacia.', es_obligatorio: true, esSubtitulo: false },
-      { id: 11, texto: 'Certificado de compatibilidad horaria otorgado por el SEDES.', es_obligatorio: true, esSubtitulo: false },
-      { id: 12, texto: 'Cédula de Identidad vigente y fotografía tamaño carnet de fondo azul.', es_obligatorio: true, esSubtitulo: false },
-      { id: 13, texto: 'Contrato del Director Técnico o Regente del Laboratorio.', es_obligatorio: true, esSubtitulo: false },
-      { id: 14, texto: 'Contratos de los profesionales bioquímicos y especialistas adjuntos.', es_obligatorio: true, esSubtitulo: false },
-      { id: 15, texto: 'Título de Especialidad médica (para laboratorios de alta complejidad).', es_obligatorio: false, esSubtitulo: false },
-      { id: 16, texto: 'Contratos del personal técnico y auxiliares de laboratorio.', es_obligatorio: true, esSubtitulo: false }
+    "id": "sec-2.2",
+    "codigo": "2.2",
+    "titulo": "REQUISITOS LEGALES",
+    "subtitulo": "Documentación habilitante y acreditación legal del personal técnico.",
+    "requisitos": [
+      {
+        "id": "req-2.2-1",
+        "texto": "Solicitud mediante memorial dirigida al director departamental de salud para habilitación, apertura y funcionamiento de laboratorio.",
+        "es_obligatorio": true
+      },
+      {
+        "id": "req-2.2-2",
+        "texto": "Copia legalizada del título en provisión nacional de bioquímico o bioquímico farmacéutico.",
+        "es_obligatorio": true
+      },
+      {
+        "id": "req-2.2-3",
+        "texto": "Copia legalizada del diploma académico de bioquímico o bioquímico - farmacéutico.",
+        "es_obligatorio": true
+      },
+      {
+        "id": "req-2.2-4",
+        "texto": "Fotocopia legalizada de matrícula profesional.",
+        "es_obligatorio": true
+      },
+      {
+        "id": "req-2.2-5",
+        "texto": "Fotocopia legalizada del carnet de colegio de bioquímica y farmacia.",
+        "es_obligatorio": true
+      },
+      {
+        "id": "req-2.2-6",
+        "texto": "Certificado de compatibilidad horaria otorgado por el SEDES.",
+        "es_obligatorio": true
+      },
+      {
+        "id": "req-2.2-7",
+        "texto": "Fotocopia de célula de identidad.",
+        "es_obligatorio": true
+      },
+      {
+        "id": "req-2.2-8",
+        "texto": "Fotografía tamaño carnet.",
+        "es_obligatorio": true
+      },
+      {
+        "id": "req-2.2-9",
+        "texto": "Contrato de trabajo del director técnico (regente bioquímico responsable) del laboratorio visado por la dirección departamental de trabajo (si corresponde)",
+        "es_obligatorio": true
+      },
+      {
+        "id": "req-2.2-10",
+        "texto": "Contrato de trabajo de los profesionales bioquímicos, bioquímico farmacéuticos de las áreas diferentes de apoyo.",
+        "es_obligatorio": false
+      },
+      {
+        "id": "req-2.2-11",
+        "texto": "Contrato de trabajo de bioquímicos especialistas si corresponde.",
+        "es_obligatorio": true
+      },
+      {
+        "id": "req-2.2-12",
+        "texto": "Fotocopia legalizada de título de especialidad si corresponde.",
+        "es_obligatorio": true
+      },
+      {
+        "id": "req-2.2-13",
+        "texto": "Contrato de trabajo de técnicos de laboratorio si corresponde.",
+        "es_obligatorio": true
+      }
     ]
   },
   {
-    id: 'sec-2.3',
-    codigo: '2.3',
-    titulo: 'REQUISITOS ADMINISTRATIVOS',
-    subtitulo: 'Infraestructura, registros sanitarios y normativa de higiene.',
-    requisitos: [
-      { id: 17, texto: 'Número de Identificación Tributaria (NIT) del establecimiento.', es_obligatorio: true, esSubtitulo: false },
-      { id: 18, texto: 'Plano detallado de distribución de instalaciones a escala.', es_obligatorio: true, esSubtitulo: false },
-      { id: 19, texto: 'Certificado de instalación sanitaria adecuada (desagües químicos).', es_obligatorio: true, esSubtitulo: false },
-      { id: 20, texto: 'Convenio vigente para la recolección y tratamiento de residuos infecciosos.', es_obligatorio: true, esSubtitulo: false },
-      { id: 21, texto: 'Letrero exterior visible que identifique el nombre del laboratorio.', es_obligatorio: true, esSubtitulo: false },
-      { id: 22, texto: 'Copia de la Resolución Administrativa de apertura en lugar visible.', es_obligatorio: true, esSubtitulo: false },
-      { id: 23, texto: 'Nombres y títulos de los profesionales bioquímicos expuestos públicamente.', es_obligatorio: true, esSubtitulo: false },
-      { id: 24, texto: 'Instalaciones que cumplan estrictamente con las normas vigentes de higiene.', es_obligatorio: true, esSubtitulo: false },
-      { id: 25, texto: 'Distintivo de identificación obligatorio para todo el personal de turno.', es_obligatorio: true, esSubtitulo: false },
-      { id: 26, texto: 'Señalamiento explícito y público de los horarios de atención al paciente.', es_obligatorio: true, esSubtitulo: false }
+    "id": "sec-2.3",
+    "codigo": "2.3",
+    "titulo": "REQUISITOS ADMINISTRATIVOS",
+    "subtitulo": "Infraestructura, registros sanitarios y normativa de higiene.",
+    "requisitos": [
+      {
+        "id": "req-2.3-1",
+        "texto": "Número de Identificación Tributaria (NIT).",
+        "es_obligatorio": true
+      },
+      {
+        "id": "req-2.3-2",
+        "texto": "Plano de las instalaciones del establecimiento de acuerdo a lo establecido en el reglamento.",
+        "es_obligatorio": true
+      },
+      {
+        "id": "req-2.3-3",
+        "texto": "Instalación higiénico sanitaria y teléfono (en zonas centrales y urbano-periféricas con cobertura).",
+        "es_obligatorio": true
+      },
+      {
+        "id": "req-2.3-4",
+        "texto": "Convenio con el municipio para recojo de residuos infecciosos.",
+        "es_obligatorio": true
+      },
+      {
+        "id": "req-2.3-5",
+        "texto": "Verificación en lugar visible de la Resolución y FORM. MSD-DGSS/CONALAB-001 de habilitación coincidente con la dirección.",
+        "es_obligatorio": true
+      },
+      {
+        "id": "req-2.3-6",
+        "texto": "Verificación de nómina visible con nombres de los profesionales bioquímicos responsables.",
+        "es_obligatorio": true
+      },
+      {
+        "id": "req-2.3-7",
+        "texto": "Verificación de fotocopia visible del título en Provisión Nacional de los responsables.",
+        "es_obligatorio": true
+      },
+      {
+        "id": "req-2.3-8",
+        "texto": "Instalaciones acondicionadas bajo normas de higiene y salud acordes al nivel de complejidad.",
+        "es_obligatorio": true
+      },
+      {
+        "id": "req-2.3-9",
+        "texto": "Uso obligatorio de distintivo con nombre, foto y matrícula profesional del personal bioquímico.",
+        "es_obligatorio": true
+      },
+      {
+        "id": "req-2.3-10",
+        "texto": "Horario de atención al público claramente señalizado en el establecimiento.",
+        "es_obligatorio": true
+      },
+      {
+        "id": "req-2.3-11",
+        "texto": "Verificación de fotocopia visible del título en Provisión Nacional de los responsables.",
+        "es_obligatorio": true
+      }
     ]
   },
   {
-    id: 'sec-2.4',
-    codigo: '2.4',
-    titulo: 'REQUISITOS TÉCNICOS',
-    subtitulo: 'Cartera de servicios, control de calidad y manuales operativos obligatorios.',
-    requisitos: [
-      { id: 27, texto: 'Lista oficial de exámenes y pruebas bioquímicas habilitadas por nivel.', es_obligatorio: true, esSubtitulo: false },
-      { id: 28, texto: 'Inventario certificado de mobiliario técnico, equipos de análisis, material de vidrio y reactivos.', es_obligatorio: true, esSubtitulo: false },
-      { id: 30, texto: 'Manual de Procedimientos Técnicos por área de análisis.', es_obligatorio: true, esSubtitulo: false },
-      { id: 31, texto: 'Manual de Organización y Funciones del personal administrativo y técnico.', es_obligatorio: true, esSubtitulo: false },
-      { id: 32, texto: 'Manual de Control de Calidad interno y externo.', es_obligatorio: true, esSubtitulo: false },
-      { id: 33, texto: 'Manual de Bioseguridad y gestión de riesgos sanitarios.', es_obligatorio: true, esSubtitulo: false },
-      { id: 34, texto: 'Manual para la toma y transporte seguro de muestras biológicas.', es_obligatorio: true, esSubtitulo: false },
-      { id: 35, texto: 'Convenio formal de derivación de muestras con laboratorios acreditados de mayor nivel.', es_obligatorio: false, esSubtitulo: false },
-      { id: 36, texto: 'Libros de control foliados (registro de pacientes, reportes y entrega de resultados).', es_obligatorio: true, esSubtitulo: false },
-      { id: 37, texto: 'Formulario oficial 302 de notificación obligatoria del Ministerio de Salud.', es_obligatorio: true, esSubtitulo: false },
-      { id: 38, texto: 'Bibliografía científica de referencia técnica actualizada en físico o digital.', es_obligatorio: true, esSubtitulo: false }
+    "id": "sec-2.4",
+    "codigo": "2.4",
+    "titulo": "REQUISITOS TÉCNICOS",
+    "subtitulo": "Cartera de servicios, control de calidad y manuales operativos obligatorios.",
+    "requisitos": [
+      {
+        "id": "req-2.4-1",
+        "texto": "Lista de exámenes habilitados y autorizados para su nivel de complejidad.",
+        "es_obligatorio": true
+      },
+      {
+        "id": "req-2.4-2",
+        "texto": "Inventario de mobiliario.",
+        "es_obligatorio": true
+      },
+      {
+        "id": "req-2.4-3",
+        "texto": "Inventario de equipos.",
+        "es_obligatorio": true
+      },
+      {
+        "id": "req-2.4-4",
+        "texto": "Inventario de material de vidrio y otros materiales.",
+        "es_obligatorio": true
+      },
+      {
+        "id": "req-2.4-5",
+        "texto": "Inventario de reactivos y diagnosticadores.",
+        "es_obligatorio": true
+      },
+      {
+        "id": "req-2.4-6",
+        "texto": "Manual de procedimientos.",
+        "es_obligatorio": true
+      },
+      {
+        "id": "req-2.4-7",
+        "texto": "Manual de organización y funciones.",
+        "es_obligatorio": true
+      },
+      {
+        "id": "req-2.4-8",
+        "texto": "Manual de calidad.",
+        "es_obligatorio": false
+      },
+      {
+        "id": "req-2.4-9",
+        "texto": "Manual de bioseguridad.",
+        "es_obligatorio": true
+      },
+      {
+        "id": "req-2.4-10",
+        "texto": "Manual de toma y transporte de muestras.",
+        "es_obligatorio": true
+      },
+      {
+        "id": "req-2.4-11",
+        "texto": "Convenio escrito con laboratorio de mayor complejidad para derivación de muestras.",
+        "es_obligatorio": true
+      },
+      {
+        "id": "req-2.4-12",
+        "texto": "Libro de registro de pacientes.",
+        "es_obligatorio": true
+      },
+      {
+        "id": "req-2.4-13",
+        "texto": "Libro de reportes de resultados.",
+        "es_obligatorio": true
+      },
+      {
+        "id": "req-2.4-14",
+        "texto": "Libro de entrega de resultados.",
+        "es_obligatorio": true
+      },
+      {
+        "id": "req-2.4-15",
+        "texto": "Formulario 303 de Producción y Vigilancia Epidemiológica.",
+        "es_obligatorio": true
+      },
+      {
+        "id": "req-2.4-16",
+        "texto": "Bibliografía de referencia obligatoria según su capacidad resolutiva.",
+        "es_obligatorio": true
+      }
     ]
   },
   {
-    id: 'sec-2.5',
-    codigo: '2.5',
-    titulo: 'REQUISITOS FINANCIEROS',
-    subtitulo: 'Tasas departamentales reguladas.',
-    requisitos: [
-      { id: 39, texto: 'Cancelación de valores por derecho de Inspección y Habilitación según tasas arancelarias del SEDES dependientes del nivel de complejidad (Baja, Mediana, Alta Complejidad).', es_obligatorio: true, esSubtitulo: false }
+    "id": "sec-2.5",
+    "codigo": "2.5",
+    "titulo": "REQUISITOS FINANCIEROS",
+    "subtitulo": "Tasas departamentales reguladas.",
+    "requisitos": [
+      {
+        "id": "req-2.5-1",
+        "texto": "Cancelación de valores por derecho de Habilitación, Apertura y Funcionamiento según tasas del nivel de complejidad.",
+        "es_obligatorio": true
+      }
     ]
   }
 ];
-
 export default function RequisitosPage() {
   const [secciones, setSecciones] = useState(FALLBACK_SECCIONES);
   const [cargando, setCargando] = useState(true);

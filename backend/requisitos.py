@@ -63,11 +63,31 @@ DEFAULT_SECCIONES_DATA = [
         "subtitulo": "Formulario oficial FORM. USD-DOSS/CONALAB-001 debidamente llenado.",
         "categoria": "Habilitación",
         "requisitos": [
-            {"texto": "Señalar claramente el Tipo y Nivel de complejidad solicitados.", "es_obligatorio": True, "es_subtitulo": False},
-            {"texto": "Datos completos del profesional Bioquímico responsable.", "es_obligatorio": True, "es_subtitulo": False},
-            {"texto": "Declaración del horario de atención propuesto para el establecimiento.", "es_obligatorio": True, "es_subtitulo": False},
-            {"texto": "Inventario detallado de mobiliario, equipos médicos y reactivos químicos.", "es_obligatorio": True, "es_subtitulo": False},
-            {"texto": "Inventario de manuales operativos y técnicos disponibles.", "es_obligatorio": True, "es_subtitulo": False}
+            {
+                "texto": "El tipo y el nivel de complejidad del laboratorio.",
+                "es_obligatorio": True,
+                "es_subtitulo": False
+            },
+            {
+                "texto": "Datos del profesional responsable.",
+                "es_obligatorio": True,
+                "es_subtitulo": False
+            },
+            {
+                "texto": "Horario de atención del establecimiento",
+                "es_obligatorio": True,
+                "es_subtitulo": False
+            },
+            {
+                "texto": "Inventario de mobiliario, equipos y reactivos.",
+                "es_obligatorio": True,
+                "es_subtitulo": False
+            },
+            {
+                "texto": "Inventario de manuales y bibliografía referencial.",
+                "es_obligatorio": True,
+                "es_subtitulo": False
+            }
         ]
     },
     {
@@ -76,17 +96,71 @@ DEFAULT_SECCIONES_DATA = [
         "subtitulo": "Documentación habilitante y acreditación legal del personal técnico.",
         "categoria": "Legal",
         "requisitos": [
-            {"texto": "Memorial dirigido al Director Departamental de Salud (SEDES).", "es_obligatorio": True, "es_subtitulo": False},
-            {"texto": "Título en Provisión Nacional del Bioquímico (fotocopia legalizada).", "es_obligatorio": True, "es_subtitulo": False},
-            {"texto": "Diploma Académico correspondiente.", "es_obligatorio": True, "es_subtitulo": False},
-            {"texto": "Matrícula Profesional emitida por el Ministerio de Salud.", "es_obligatorio": True, "es_subtitulo": False},
-            {"texto": "Carnet del Colegio Departamental de Bioquímica y Farmacia.", "es_obligatorio": True, "es_subtitulo": False},
-            {"texto": "Certificado de compatibilidad horaria otorgado por el SEDES.", "es_obligatorio": True, "es_subtitulo": False},
-            {"texto": "Cédula de Identidad vigente y fotografía tamaño carnet de fondo azul.", "es_obligatorio": True, "es_subtitulo": False},
-            {"texto": "Contrato del Director Técnico o Regente del Laboratorio.", "es_obligatorio": True, "es_subtitulo": False},
-            {"texto": "Contratos de los profesionales bioquímicos y especialistas adjuntos.", "es_obligatorio": True, "es_subtitulo": False},
-            {"texto": "Título de Especialidad médica (para laboratorios de alta complejidad).", "es_obligatorio": False, "es_subtitulo": False},
-            {"texto": "Contratos del personal técnico y auxiliares de laboratorio.", "es_obligatorio": True, "es_subtitulo": False}
+            {
+                "texto": "Solicitud mediante memorial dirigida al director departamental de salud para habilitación, apertura y funcionamiento de laboratorio.",
+                "es_obligatorio": True,
+                "es_subtitulo": False
+            },
+            {
+                "texto": "Copia legalizada del título en provisión nacional de bioquímico o bioquímico farmacéutico.",
+                "es_obligatorio": True,
+                "es_subtitulo": False
+            },
+            {
+                "texto": "Copia legalizada del diploma académico de bioquímico o bioquímico - farmacéutico.",
+                "es_obligatorio": True,
+                "es_subtitulo": False
+            },
+            {
+                "texto": "Fotocopia legalizada de matrícula profesional.",
+                "es_obligatorio": True,
+                "es_subtitulo": False
+            },
+            {
+                "texto": "Fotocopia legalizada del carnet de colegio de bioquímica y farmacia.",
+                "es_obligatorio": True,
+                "es_subtitulo": False
+            },
+            {
+                "texto": "Certificado de compatibilidad horaria otorgado por el SEDES.",
+                "es_obligatorio": True,
+                "es_subtitulo": False
+            },
+            {
+                "texto": "Fotocopia de célula de identidad.",
+                "es_obligatorio": True,
+                "es_subtitulo": False
+            },
+            {
+                "texto": "Fotografía tamaño carnet.",
+                "es_obligatorio": True,
+                "es_subtitulo": False
+            },
+            {
+                "texto": "Contrato de trabajo del director técnico (regente bioquímico responsable) del laboratorio visado por la dirección departamental de trabajo (si corresponde)",
+                "es_obligatorio": True,
+                "es_subtitulo": False
+            },
+            {
+                "texto": "Contrato de trabajo de los profesionales bioquímicos, bioquímico farmacéuticos de las áreas diferentes de apoyo.",
+                "es_obligatorio": False,
+                "es_subtitulo": False
+            },
+            {
+                "texto": "Contrato de trabajo de bioquímicos especialistas si corresponde.",
+                "es_obligatorio": True,
+                "es_subtitulo": False
+            },
+            {
+                "texto": "Fotocopia legalizada de título de especialidad si corresponde.",
+                "es_obligatorio": True,
+                "es_subtitulo": False
+            },
+            {
+                "texto": "Contrato de trabajo de técnicos de laboratorio si corresponde.",
+                "es_obligatorio": True,
+                "es_subtitulo": False
+            }
         ]
     },
     {
@@ -95,16 +169,61 @@ DEFAULT_SECCIONES_DATA = [
         "subtitulo": "Infraestructura, registros sanitarios y normativa de higiene.",
         "categoria": "Administrativo",
         "requisitos": [
-            {"texto": "Número de Identificación Tributaria (NIT) del establecimiento.", "es_obligatorio": True, "es_subtitulo": False},
-            {"texto": "Plano detallado de distribución de instalaciones a escala.", "es_obligatorio": True, "es_subtitulo": False},
-            {"texto": "Certificado de instalación sanitaria adecuada (desagües químicos).", "es_obligatorio": True, "es_subtitulo": False},
-            {"texto": "Convenio vigente para la recolección y tratamiento de residuos infecciosos.", "es_obligatorio": True, "es_subtitulo": False},
-            {"texto": "Letrero exterior visible que identifique el nombre del laboratorio.", "es_obligatorio": True, "es_subtitulo": False},
-            {"texto": "Copia de la Resolución Administrativa de apertura en lugar visible.", "es_obligatorio": True, "es_subtitulo": False},
-            {"texto": "Nombres y títulos de los profesionales bioquímicos expuestos públicamente.", "es_obligatorio": True, "es_subtitulo": False},
-            {"texto": "Instalaciones que cumplan estrictamente con las normas vigentes de higiene.", "es_obligatorio": True, "es_subtitulo": False},
-            {"texto": "Distintivo de identificación obligatorio para todo el personal de turno.", "es_obligatorio": True, "es_subtitulo": False},
-            {"texto": "Señalamiento explícito y público de los horarios de atención al paciente.", "es_obligatorio": True, "es_subtitulo": False}
+            {
+                "texto": "Número de Identificación Tributaria (NIT).",
+                "es_obligatorio": True,
+                "es_subtitulo": False
+            },
+            {
+                "texto": "Plano de las instalaciones del establecimiento de acuerdo a lo establecido en el reglamento.",
+                "es_obligatorio": True,
+                "es_subtitulo": False
+            },
+            {
+                "texto": "Instalación higiénico sanitaria y teléfono (en zonas centrales y urbano-periféricas con cobertura).",
+                "es_obligatorio": True,
+                "es_subtitulo": False
+            },
+            {
+                "texto": "Convenio con el municipio para recojo de residuos infecciosos.",
+                "es_obligatorio": True,
+                "es_subtitulo": False
+            },
+            {
+                "texto": "Verificación en lugar visible de la Resolución y FORM. MSD-DGSS/CONALAB-001 de habilitación coincidente con la dirección.",
+                "es_obligatorio": True,
+                "es_subtitulo": False
+            },
+            {
+                "texto": "Verificación de nómina visible con nombres de los profesionales bioquímicos responsables.",
+                "es_obligatorio": True,
+                "es_subtitulo": False
+            },
+            {
+                "texto": "Verificación de fotocopia visible del título en Provisión Nacional de los responsables.",
+                "es_obligatorio": True,
+                "es_subtitulo": False
+            },
+            {
+                "texto": "Instalaciones acondicionadas bajo normas de higiene y salud acordes al nivel de complejidad.",
+                "es_obligatorio": True,
+                "es_subtitulo": False
+            },
+            {
+                "texto": "Uso obligatorio de distintivo con nombre, foto y matrícula profesional del personal bioquímico.",
+                "es_obligatorio": True,
+                "es_subtitulo": False
+            },
+            {
+                "texto": "Horario de atención al público claramente señalizado en el establecimiento.",
+                "es_obligatorio": True,
+                "es_subtitulo": False
+            },
+            {
+                "texto": "Verificación de fotocopia visible del título en Provisión Nacional de los responsables.",
+                "es_obligatorio": True,
+                "es_subtitulo": False
+            }
         ]
     },
     {
@@ -113,17 +232,86 @@ DEFAULT_SECCIONES_DATA = [
         "subtitulo": "Cartera de servicios, control de calidad y manuales operativos obligatorios.",
         "categoria": "Técnico",
         "requisitos": [
-            {"texto": "Lista oficial de exámenes y pruebas bioquímicas habilitadas por nivel.", "es_obligatorio": True, "es_subtitulo": False},
-            {"texto": "Inventario certificado de mobiliario técnico, equipos de análisis, material de vidrio y reactivos.", "es_obligatorio": True, "es_subtitulo": False},
-            {"texto": "Manual de Procedimientos Técnicos por área de análisis.", "es_obligatorio": True, "es_subtitulo": False},
-            {"texto": "Manual de Organización y Funciones del personal administrativo y técnico.", "es_obligatorio": True, "es_subtitulo": False},
-            {"texto": "Manual de Control de Calidad interno y externo.", "es_obligatorio": True, "es_subtitulo": False},
-            {"texto": "Manual de Bioseguridad y gestión de riesgos sanitarios.", "es_obligatorio": True, "es_subtitulo": False},
-            {"texto": "Manual para la toma y transporte seguro de muestras biológicas.", "es_obligatorio": True, "es_subtitulo": False},
-            {"texto": "Convenio formal de derivación de muestras con laboratorios acreditados de mayor nivel.", "es_obligatorio": False, "es_subtitulo": False},
-            {"texto": "Libros de control foliados (registro de pacientes, reportes y entrega de resultados).", "es_obligatorio": True, "es_subtitulo": False},
-            {"texto": "Formulario oficial 302 de notificación obligatoria del Ministerio de Salud.", "es_obligatorio": True, "es_subtitulo": False},
-            {"texto": "Bibliografía científica de referencia técnica actualizada en físico o digital.", "es_obligatorio": True, "es_subtitulo": False}
+            {
+                "texto": "Lista de exámenes habilitados y autorizados para su nivel de complejidad.",
+                "es_obligatorio": True,
+                "es_subtitulo": False
+            },
+            {
+                "texto": "Inventario de mobiliario.",
+                "es_obligatorio": True,
+                "es_subtitulo": False
+            },
+            {
+                "texto": "Inventario de equipos.",
+                "es_obligatorio": True,
+                "es_subtitulo": False
+            },
+            {
+                "texto": "Inventario de material de vidrio y otros materiales.",
+                "es_obligatorio": True,
+                "es_subtitulo": False
+            },
+            {
+                "texto": "Inventario de reactivos y diagnosticadores.",
+                "es_obligatorio": True,
+                "es_subtitulo": False
+            },
+            {
+                "texto": "Manual de procedimientos.",
+                "es_obligatorio": True,
+                "es_subtitulo": False
+            },
+            {
+                "texto": "Manual de organización y funciones.",
+                "es_obligatorio": True,
+                "es_subtitulo": False
+            },
+            {
+                "texto": "Manual de calidad.",
+                "es_obligatorio": False,
+                "es_subtitulo": False
+            },
+            {
+                "texto": "Manual de bioseguridad.",
+                "es_obligatorio": True,
+                "es_subtitulo": False
+            },
+            {
+                "texto": "Manual de toma y transporte de muestras.",
+                "es_obligatorio": True,
+                "es_subtitulo": False
+            },
+            {
+                "texto": "Convenio escrito con laboratorio de mayor complejidad para derivación de muestras.",
+                "es_obligatorio": True,
+                "es_subtitulo": False
+            },
+            {
+                "texto": "Libro de registro de pacientes.",
+                "es_obligatorio": True,
+                "es_subtitulo": False
+            },
+            {
+                "texto": "Libro de reportes de resultados.",
+                "es_obligatorio": True,
+                "es_subtitulo": False
+            },
+            {
+                "texto": "Libro de entrega de resultados.",
+                "es_obligatorio": True,
+                "es_subtitulo": False
+            },
+            {
+                "texto": "Formulario 303 de Producción y Vigilancia Epidemiológica.",
+                "es_obligatorio": True,
+                "es_subtitulo": False
+            },
+            {
+                "texto": "Bibliografía de referencia obligatoria según su capacidad resolutiva.",
+                "es_obligatorio": True,
+                "es_subtitulo": False
+            }
         ]
     },
     {
@@ -132,11 +320,14 @@ DEFAULT_SECCIONES_DATA = [
         "subtitulo": "Tasas departamentales reguladas.",
         "categoria": "Financiero",
         "requisitos": [
-            {"texto": "Cancelación de valores por derecho de Inspección y Habilitación según tasas arancelarias del SEDES dependientes del nivel de complejidad (Baja, Mediana, Alta Complejidad).", "es_obligatorio": True, "es_subtitulo": False}
+            {
+                "texto": "Cancelación de valores por derecho de Habilitación, Apertura y Funcionamiento según tasas del nivel de complejidad.",
+                "es_obligatorio": True,
+                "es_subtitulo": False
+            }
         ]
     }
 ]
-
 def obtener_secciones_agrupadas(db: Session, solo_activos: bool = True) -> List[dict]:
     """Helper para consultar requisitos en la BD y agruparlos por sección ordenada."""
     query = db.query(models.CatalogoRequisito)

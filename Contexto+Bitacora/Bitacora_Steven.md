@@ -1210,8 +1210,26 @@ Eliminar el subtítulo intercalado *"Manuales Documentados Obligatorios:"* de la
 ### 📊 Verificación y Pruebas Realizadas
 * **Compilación Frontend:** `npm run build` exitoso (0 errores).
 
+## [2026-09-08] Sincronización de Requisitos Personalizados al Código Fuente para Distribución en Git
+### 📌 Objetivo
+Empaquetar todos los requisitos recién editados, agregados y personalizados por el usuario en su base de datos local directamente en las estructuras de siembra y fallbacks del código fuente (`DEFAULT_SECCIONES_DATA`, `INITIAL_SECCIONES_REQUISITOS`, `FALLBACK_SECCIONES`), asegurando que al hacer `git push` cualquier compañero de equipo reciba la versión exacta y actualizada.
+
+---
+
+### 🛠️ Archivos Modificados
+#### 1. `backend/requisitos.py` [MODIFICADO]
+* Se sincronizó `DEFAULT_SECCIONES_DATA` con todos los requisitos actualizados de las secciones 2.1 a 2.5 directamente desde la base de datos PostgreSQL.
+#### 2. `frontend/src/pages/AdminPage.jsx` & `frontend/src/pages/RequisitosPage.jsx` [MODIFICADO]
+* Se actualizaron los catálogos base `INITIAL_SECCIONES_REQUISITOS` y `FALLBACK_SECCIONES` para coincidir exactamente con los datos editados por el usuario.
+
+---
+
+### 📊 Verificación y Pruebas Realizadas
+* **Compilación Frontend:** `npm run build` exitoso (0 errores).
+
 ---
 *Bitácora actualizada por: Steven*
+
 
 
 
