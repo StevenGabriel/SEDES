@@ -2,6 +2,121 @@
 
 ---
 
+## [2026-09-08] Desarrollo Integral del Backend para la Consola del Coordinador (API REST + PostgreSQL + Trazabilidad)
+
+### 📌 Objetivo
+Implementar la capa backend completa y robusta en FastAPI + SQLAlchemy + PostgreSQL para soportar toda la funcionalidad de la **Consola del Coordinador (`CoordinadorPage.jsx`)**, conservando estrictamente el diseño institucional, la estructura del menú lateral y la barra superior. El backend provee endpoints para la gestión de trámites en bandeja, validación de documentación legal, agendamiento de re-inspecciones técnicas, emisión de resoluciones administrativas aprobatorias, asignación de supervisores de campo con control de carga laboral, y persistencia automática de bitácoras de auditoría en la tabla `historial_actividades`.
+
+---
+
+### 🛠️ Archivos Creados y Modificados
+
+#### 1. `backend/models.py` [MODIFICADO]
+* **Nuevo Modelo `HistorialActividad` (Tabla `historial_actividades`):**
+  * `id`: Identificador único (UUID).
+  * `codigo_tramite`: Código del trámite (`REQ-0042`, `REQ-0041`, etc.).
+  * `establecimiento`: Nombre del laboratorio, clínica o farmacia.
+  * `accion`: Detalle explicativo de la acción realizada (aprobación de documento, asignación, re-inspección, resolución).
+  * `responsable`: Nombre del coordinador o supervisor que ejecutó la acción.
+  * `estado_resultado`: Resultado de la acción (*Aprobado*, *Asignado*, *Observado*, *Rechazado*).
+  * `estado_badge`: Clases de Tailwind CSS asociadas al badge de estado.
+  * `fecha_hora_formato`: Marca de tiempo legible (ej. *13 Ago 2026 - 14:30*).
+  * Columnas de auditoría estándar (`estado`, `fecha_creacion`, `fecha_modificacion`).
+
+#### 2. `backend/coordinador.py` [CREADO / IMPLEMENTADO]
+* **Módulo API REST del Coordinador (`prefix="/api/coordinador"`):**
+  * **Bandeja de Entrada & Bitácoras:**
+    * `GET /api/coordinador/tramites`: Listado integral de trámites en proceso con sus 5 documentos legales normativos, estado de inspección in situ y notas de supervisor.
+    * `GET /api/coordinador/tramites/{tramite_id}`: Detalle exhaustivo de un expediente específico.
+    * `PATCH /api/coordinador/documentos/{documento_id}/validar`: Dictamen sobre documento legal (*Aprobado* / *Observado* / *Pendiente*) con registro automático en auditoría.
+    * `POST /api/coordinador/tramites/{tramite_id}/reinspeccion`: Programación de re-inspección técnica (supervisor, fecha, hora, prioridad, motivo) y actualización de estado.
+    * `POST /api/coordinador/tramites/{tramite_id}/aprobar`: Dictamen favorable y emisión de Resolución Administrativa con vigencia en años y firma digital.
+  * **Asignación de Supervisores:**
+    * `GET /api/coordinador/supervisores`: Monitoreo de inspectores activos, especialidad, zonas asignadas y carga de trabajo en tiempo real (*X/5 asignados* con semáforo *Disponible* o *Capacidad Llena*).
+    * `GET /api/coordinador/tramites-asignacion`: Listado de trámites pendientes de asignación técnica.
+    * `POST /api/coordinador/asignar-supervisor`: Asignación validada de inspector con incremento de carga operativa y registro en bitácora.
+  * **Historial y Trazabilidad:**
+    * `GET /api/coordinador/historial`: Consulta paginada y filtrada multicriterio (búsqueda textual, estado, supervisor, rango de fechas).
+
+#### 3. `backend/main.py` [MODIFICADO]
+* **Registro de Rutas:** Se importó e incluyó `coordinador.router` en la aplicación FastAPI principal.
+
+#### 4. `frontend/src/pages/CoordinadorPage.jsx` [ACTUALIZADO / CONECTADO]
+* **Integración Asíncrona Frontend-Backend:**
+  * Consumo asíncrono con `fetch` hacia los endpoints `/api/coordinador/*` en carga inicial y eventos de usuario.
+  * Mecanismo resiliente (*optimistic UI* con fallback local) para garantizar funcionamiento continuo en cualquier entorno.
+  * Recarga reactiva en tiempo real del historial de auditoría tras cada acción de dictamen, asignación o resolución.
+  * Mantenimiento exacto del diseño institucional, paleta de colores del sidebar (`#0060a8` / `#004b85`) y header superior.
+
+---
+
+## [2026-09-08] Implementación de la Sección "Historial y Trazabilidad" en CoordinadorPage
+
+### 📌 Objetivo
+Desarrollar e integrar el módulo completo de **Historial y Trazabilidad** en la Consola del Coordinador (`CoordinadorPage.jsx`), replicando fielmente el diseño institucional de auditoría y monitoreo. El módulo provee una barra de filtros multicriterio (búsqueda por texto/código, estado del trámite, supervisor asignado, rango de fechas desde/hasta) y una tabla centralizada de **Registro de Actividad** con paginación interactiva, badges por estado y trazabilidad cronológica de movimientos.
+
+---
+
+### 🛠️ Archivos Modificados
+
+#### 1. `frontend/src/pages/CoordinadorPage.jsx` [MODIFICADO / ACTUALIZADO]
+* **Barra de Filtros y Búsqueda Avanzada:**
+  * **Campo de Búsqueda:** Input con icono `Search` para filtrar por código correlativo (`REQ-0042`, `REQ-0041`, etc.), nombre de establecimiento o detalle de la acción.
+  * **Selector de Estado:** Dropdown interactivo con opciones (*Todos*, *Aprobado*, *Asignado*, *Observado*, *Rechazado*).
+  * **Selector de Supervisor:** Filtro por responsable de la auditoría (*Lic. Patricia Rojas*, *Ing. Marco Vargas*, *Dra. Lucía Fernández*, *Lic. Roberto Quiroga*, *Ing. Ana Torrez*).
+  * **Rango de Fechas:** Selectores de calendario nativos para fechas `DESDE` (`10 Ago 2026`) y `HASTA` (`13 Ago 2026`).
+  * **Botón Filtrar:** Botón de acción institucional en azul marino (`#19324d`) con micro-interacciones.
+* **Tabla de "Registro de Actividad":**
+  * Columnas: `FECHA / HORA`, `CÓDIGO`, `ESTABLECIMIENTO`, `ACCIÓN REALIZADA`, `RESPONSABLE` y `ESTADO`.
+  * Registros mostrados:
+    * `13 Ago 2026 - 14:30` | `REQ-0042` | **Clínica Sur** | *Documento aprobado: Licencia Municipal...* | Lic. Patricia Rojas | Badge verde **Aprobado**.
+    * `13 Ago 2026 - 11:15` | `REQ-0044` | **Hospital del Valle** | *Trámite asignado a Ing. Marco Vargas...* | Lic. Patricia Rojas | Badge azul **Asignado**.
+    * `12 Ago 2026 - 16:45` | `REQ-0041` | **Farmacia Nova** | *Observación emitida: Plano ilegible en área de...* | Dra. Lucía Fernández | Badge ámbar **Observado**.
+    * `11 Ago 2026 - 09:20` | `REQ-0040` | **Laboratorio BioTest** | *Trámite finalizado - Aprobación emitida...* | Ing. Marco Vargas | Badge verde **Aprobado**.
+    * `10 Ago 2026 - 15:30` | `REQ-0039` | **Centro Dental Smile** | *Documento rechazado: Certificado caducado...* | Lic. Patricia Rojas | Badge rojo **Rechazado**.
+* **Paginación y Footer:**
+  * Indicador de conteo: `Mostrando 1-5 de 48 registros`.
+  * Controles de paginación con selector numérico activo (`< 1 2 3 ... 8 >`).
+* **Consistencia Visual:**
+  * Se respetaron estrictamente los colores institucionales del menú lateral (`#0060a8` / `#004b85`), breadcrumb dinámico (`Consola del Coordinador / Historial y Trazabilidad`) y diseño adaptativo.
+
+---
+
+## [2026-09-08] Implementación de la Sección "Asignar Supervisores" en CoordinadorPage
+
+### 📌 Objetivo
+Desarrollar e integrar la interfaz de **Asignación de Supervisores** en la Consola del Coordinador (`CoordinadorPage.jsx`), replicando fielmente el diseño del mockup institucional provisto. La vista permite a los coordinadores del SEDES visualizar en tiempo real la disponibilidad y carga operativa del equipo de supervisores de campo, así como asignar trámites pendientes a inspectores habilitados mediante selectores dinámicos y acciones interactivas.
+
+---
+
+### 🛠️ Archivos Modificados
+
+#### 1. `frontend/src/pages/CoordinadorPage.jsx` [MODIFICADO / ACTUALIZADO]
+* **Corrección de Runtime:** Se incorporó la importación de `useEffect` en React, solucionando el problema de pantalla en blanco al ingresar con credenciales de coordinador.
+* **Sección "Supervisores Disponibles":**
+  * Grid responsivo de tarjetas para el personal auditor de campo:
+    * `Ing. Marco Vargas` (Especialidad: *Laboratorios* | Carga: 3/5 asignados | *Disponible*).
+    * `Dra. Lucía Fernández` (Especialidad: *Farmacias* | Carga: 2/5 asignados | *Disponible*).
+    * `Lic. Roberto Quiroga` (Especialidad: *Hospitales* | Carga: 5/5 asignados | *Capacidad Llena*).
+    * `Ing. Ana Torrez` (Especialidad: *Clínicas* | Carga: 1/5 asignados | *Disponible*).
+  * Badges con iniciales en fondos suaves según estado (`MV`, `LF`, `RQ`, `AT`).
+  * Indicadores dinámicos de estado (*Disponible* en verde, *Capacidad Llena* en rojo).
+  * Barras de progreso de carga de trabajo proporcionales al número de inspecciones asignadas.
+* **Sección "Trámites Pendientes de Asignación":**
+  * Contenedor institucional con badge de conteo (`4 pendientes`).
+  * Tabla con estructura de columnas: `CÓDIGO`, `ESTABLECIMIENTO`, `TIPO DE TRÁMITE`, `FECHA INGRESO`, `SUPERVISOR ASIGNADO` y `ACCIÓN`.
+  * Trámites listados:
+    * `REQ-0042` - Clínica Sur (Renovación | 12 Ago 2026).
+    * `REQ-0041` - Farmacia Nova (Apertura | 11 Ago 2026).
+    * `REQ-0043` - Lab. Génesis (Apertura | 12 Ago 2026).
+    * `REQ-0044` - Hospital del Valle (Renovación | 13 Ago 2026).
+  * Dropdown selector de supervisores que valida y deshabilita inspectores con capacidad máxima colmada (5/5).
+  * Botón **"Asignar"** en azul marino oscuro institucional (`#19324d`) con actualización reactiva de la carga del supervisor y notificaciones flotantes (*Toast*).
+* **Consistencia Institucional:**
+  * Se respetaron estrictamente los colores de la barra lateral (`#0060a8`, `#004b85`), tipografía institucional, escudos oficiales y navegación por URL (`/coordinador/asignar-supervisores`).
+
+---
+
 ## [2026-09-07] Implementación de la Vista CoordinadorPage (Consola del Coordinador) con Bitácoras Legal y de Campo
 
 ### 📌 Objetivo

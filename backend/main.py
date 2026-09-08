@@ -10,6 +10,7 @@ import models
 import auth
 import establecimientos
 import admin_usuarios
+import coordinador
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -47,6 +48,7 @@ app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 app.include_router(auth.router)
 app.include_router(establecimientos.router)
 app.include_router(admin_usuarios.router)
+app.include_router(coordinador.router)
 
 @app.get("/", tags=["Diagnóstico"])
 def leer_raiz():
