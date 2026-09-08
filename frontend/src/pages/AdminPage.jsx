@@ -28,7 +28,15 @@ import {
   FlaskConical,
   Sparkles,
   Loader2,
-  RefreshCw
+  RefreshCw,
+  Folder,
+  Settings,
+  History,
+  Clock,
+  Globe,
+  User,
+  Check,
+  Eye
 } from 'lucide-react';
 
 import logoL1 from '../assets/L1.png';
@@ -193,6 +201,119 @@ const INITIAL_USERS = [
   }
 ];
 
+// Matriz oficial de especificación de permisos por módulo
+const INITIAL_MATRIZ_PERMISOS = [
+  {
+    id: 'tramites',
+    nombre: 'Trámites',
+    descripcion: 'Gestión, creación y emisión de resoluciones de apertura',
+    permisos: {
+      director: 'Total',
+      coordinador: 'Total',
+      supervisor: 'Lectura',
+      propietario: 'Propios',
+      publico: 'Público'
+    }
+  },
+  {
+    id: 'inspecciones',
+    nombre: 'Inspecciones',
+    descripcion: 'Programación de agenda, actas en campo y citaciones sanitarias',
+    permisos: {
+      director: 'Total',
+      coordinador: 'Total',
+      supervisor: 'Total',
+      propietario: 'Denegado',
+      publico: 'Denegado'
+    }
+  },
+  {
+    id: 'documentos',
+    nombre: 'Documentos',
+    descripcion: 'Subida y verificación de requisitos legales y técnicos en PDF',
+    permisos: {
+      director: 'Total',
+      coordinador: 'Total',
+      supervisor: 'Lectura',
+      propietario: 'Propios',
+      publico: 'Denegado'
+    }
+  },
+  {
+    id: 'usuarios',
+    nombre: 'Usuarios',
+    descripcion: 'Administración de cuentas institucionales y credenciales',
+    permisos: {
+      director: 'Total',
+      coordinador: 'Lectura',
+      supervisor: 'Denegado',
+      propietario: 'Denegado',
+      publico: 'Denegado'
+    }
+  },
+  {
+    id: 'reportes',
+    nombre: 'Reportes',
+    descripcion: 'Estadísticas e informes gerenciales de habilitación',
+    permisos: {
+      director: 'Total',
+      coordinador: 'Total',
+      supervisor: 'Denegado',
+      propietario: 'Denegado',
+      publico: 'Denegado'
+    }
+  },
+  {
+    id: 'catalogos',
+    nombre: 'Catálogos',
+    descripcion: 'Parámetros del sistema, aranceles y normativas técnicas',
+    permisos: {
+      director: 'Total',
+      coordinador: 'Denegado',
+      supervisor: 'Denegado',
+      propietario: 'Denegado',
+      publico: 'Denegado'
+    }
+  },
+  {
+    id: 'auditoria',
+    nombre: 'Auditoría',
+    descripcion: 'Trazabilidad de acciones y registro de eventos de seguridad',
+    permisos: {
+      director: 'Total',
+      coordinador: 'Denegado',
+      supervisor: 'Denegado',
+      propietario: 'Denegado',
+      publico: 'Denegado'
+    }
+  }
+];
+
+// Registro de historial de cambios recientes en directivas de acceso
+const INITIAL_HISTORIAL_CAMBIOS = [
+  {
+    id: 'hist-1',
+    fechaHora: '24/10/2026, 14:32',
+    rol: 'Supervisor',
+    descripcion: 'Habilitar permiso de lectura en módulo Trámites',
+    realizadoPor: 'Ing. Carlos Quispe'
+  },
+  {
+    id: 'hist-2',
+    fechaHora: '18/10/2026, 09:15',
+    rol: 'Propietario',
+    descripcion: 'Restringir acceso completo a Catálogos de Establecimientos',
+    realizadoPor: 'Ing. Carlos Quispe'
+  },
+  {
+    id: 'hist-3',
+    fechaHora: '05/10/2026, 11:04',
+    rol: 'Coordinador',
+    descripcion: 'Asignar permiso de edición en módulo Inspecciones',
+    realizadoPor: 'Ing. Carlos Quispe'
+  }
+];
+
 export default function AdminPage() {
   const navigate = useNavigate();
   const { seccion } = useParams();
@@ -215,10 +336,97 @@ export default function AdminPage() {
 
   // Modales
   const [modalNuevoUsuarioOpen, setModalNuevoUsuarioOpen] = useState(false);
-  const [modalPermisosOpen, setModalPermisosOpen] = useState(false);
   const [modalEditarUsuarioOpen, setModalEditarUsuarioOpen] = useState(false);
   const [usuarioEditando, setUsuarioEditando] = useState(null);
   const [toastMensaje, setToastMensaje] = useState(null);
+
+  // Estado para la Matriz de Permisos e Historial de Cambios
+  const [matrizPermisos, setMatrizPermisos] = useState(INITIAL_MATRIZ_PERMISOS);
+  const [historialCambiosPermisos, setHistorialCambiosPermisos] = useState(INITIAL_HISTORIAL_CAMBIOS);
+  const [modalEditarPermisoOpen, setModalEditarPermisoOpen] = useState(false);
+  const [moduloEditandoPermisos, setModuloEditandoPermisos] = useState(null);
+  const [formPermisosModulo, setFormPermisosModulo] = useState({
+    director: 'Total',
+    coordinador: 'Total',
+    supervisor: 'Lectura',
+    propietario: 'Propios',
+    publico: 'Denegado'
+  });
+
+  // Abrir modal de edición de permisos para un módulo
+  const handleAbrirEditarPermisos = (modulo) => {
+    setModuloEditandoPermisos(modulo);
+    setFormPermisosModulo({ ...modulo.permisos });
+    setModalEditarPermisoOpen(true);
+  };
+
+  // Guardar cambios en la matriz de permisos y registrar en historial
+  const handleGuardarPermisos = (e) => {
+    e.preventDefault();
+    if (!moduloEditandoPermisos) return;
+
+    setMatrizPermisos(prev => prev.map(m => {
+      if (m.id === moduloEditandoPermisos.id) {
+        return {
+          ...m,
+          permisos: { ...formPermisosModulo }
+        };
+      }
+      return m;
+    }));
+
+    const ahora = new Date();
+    const fechaHoraFormateada = `${ahora.getDate().toString().padStart(2, '0')}/${(ahora.getMonth() + 1).toString().padStart(2, '0')}/${ahora.getFullYear()}, ${ahora.getHours().toString().padStart(2, '0')}:${ahora.getMinutes().toString().padStart(2, '0')}`;
+
+    const nuevoCambio = {
+      id: `hist-${Date.now()}`,
+      fechaHora: fechaHoraFormateada,
+      rol: 'Configuración de Módulo',
+      descripcion: `Actualización de directivas de acceso en módulo ${moduloEditandoPermisos.nombre}`,
+      realizadoPor: nombreAdmin
+    };
+
+    setHistorialCambiosPermisos(prev => [nuevoCambio, ...prev]);
+    setModalEditarPermisoOpen(false);
+    setModuloEditandoPermisos(null);
+    mostrarToast(`Permisos del módulo "${moduloEditandoPermisos.nombre}" actualizados exitosamente.`, 'success');
+  };
+
+  // Renderizar Badge de Permiso
+  const renderPermisoBadge = (permiso, onClick) => {
+    let style = 'bg-slate-50 text-slate-600 border-slate-200';
+    let Icon = X;
+    let text = permiso || 'Denegado';
+
+    if (permiso === 'Total') {
+      style = 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100/80';
+      Icon = Check;
+    } else if (permiso === 'Lectura') {
+      style = 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100/80';
+      Icon = Eye;
+    } else if (permiso === 'Propios') {
+      style = 'bg-teal-50 text-teal-700 border-teal-200 hover:bg-teal-100/80';
+      Icon = User;
+    } else if (permiso === 'Público') {
+      style = 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100/80';
+      Icon = Globe;
+    } else if (permiso === 'Denegado') {
+      style = 'bg-rose-50 text-rose-600 border-rose-200 hover:bg-rose-100/80';
+      Icon = X;
+    }
+
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        className={`inline-flex items-center space-x-1.5 px-3 py-1 rounded-full text-xs font-bold border transition cursor-pointer select-none tracking-tight shadow-2xs ${style}`}
+        title={`Nivel: ${text}. Clic para editar permisos del módulo.`}
+      >
+        <Icon className="w-3.5 h-3.5 shrink-0" />
+        <span>{text}</span>
+      </button>
+    );
+  };
 
   // Formulario nuevo usuario
   const [formNuevo, setFormNuevo] = useState({
@@ -848,7 +1056,7 @@ export default function AdminPage() {
                                 inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold border
                                 ${u.estado === 'Activo' 
                                   ? 'bg-emerald-50 text-emerald-700 border-emerald-200' 
-                                  : 'bg-slate-100 text-slate-600 border-slate-200'
+                                  : 'bg-red-50 text-red-600 border-red-200'
                                 }
                               `}>
                                 {u.estado}
@@ -879,13 +1087,13 @@ export default function AdminPage() {
                                   className={`
                                     p-1.5 rounded-lg transition cursor-pointer
                                     ${u.estado === 'Activo' 
-                                      ? 'text-amber-600 hover:text-amber-800 hover:bg-amber-50' 
-                                      : 'text-emerald-600 hover:text-emerald-800 hover:bg-emerald-50'
+                                      ? 'text-emerald-600 hover:text-emerald-800 hover:bg-emerald-50' 
+                                      : 'text-amber-600 hover:text-amber-800 hover:bg-amber-50'
                                     }
                                   `}
                                   title={u.estado === 'Activo' ? 'Desactivar usuario' : 'Activar usuario'}
                                 >
-                                  {u.estado === 'Activo' ? <Lock className="w-4 h-4" /> : <Unlock className="w-4 h-4" />}
+                                  {u.estado === 'Activo' ? <Unlock className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
                                 </button>
 
                                 {/* Eliminar */}
@@ -960,31 +1168,178 @@ export default function AdminPage() {
           {/* SECCIÓN 2: ROLES Y PERMISOS                                         */}
           {/* =================================================================== */}
           {seccionActiva === 'roles-permisos' && (
-            <div className="bg-white rounded-3xl p-8 border border-slate-200 shadow-2xs space-y-6 animate-fadeIn">
-              <div>
-                <h3 className="text-xl font-black text-slate-900 tracking-tight">Matriz de Roles y Permisos</h3>
-                <p className="text-xs text-slate-500 mt-1">Configuración de niveles de autorización según la normativa sanitaria del SEDES.</p>
+            <div className="space-y-6 animate-fadeIn">
+              
+              {/* Encabezado de la Sección */}
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div>
+                  <h2 className="text-2xl font-black text-slate-900 tracking-tight">
+                    Roles y Permisos
+                  </h2>
+                  <p className="text-xs sm:text-sm text-slate-500 font-medium mt-0.5">
+                    Configure los roles del sistema y sus permisos de acceso correspondientes.
+                  </p>
+                </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+              {/* 1. Tarjetas Superiores de Roles */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5 sm:gap-4">
                 {[
-                  { rol: 'Director', desc: 'Acceso total y firma final de resoluciones de apertura.', usuarios: 1, color: 'border-l-indigo-600' },
-                  { rol: 'Coordinador', desc: 'Gestión de bandeja, revisión documental y asignación de supervisores.', usuarios: 1, color: 'border-l-sky-600' },
-                  { rol: 'Supervisor', desc: 'Realización de actas en campo, geolocalización e inspección física.', usuarios: 5, color: 'border-l-amber-500' },
-                  { rol: 'Administrador', desc: 'Control de usuarios, bitácoras de auditoría y configuración IT.', usuarios: 1, color: 'border-l-slate-800' },
-                  { rol: 'Propietario', desc: 'Creación de trámites, pago de aranceles y consulta pública.', usuarios: 10, color: 'border-l-emerald-600' },
+                  { rol: 'Director', nivel: 'Nivel 5', usuarios: '2 usuarios', border: 'border-t-[#1e293b]', iconColor: 'text-slate-700' },
+                  { rol: 'Coordinador', nivel: 'Nivel 4', usuarios: '3 usuarios', border: 'border-t-[#0284c7]', iconColor: 'text-sky-600' },
+                  { rol: 'Supervisor', nivel: 'Nivel 3', usuarios: '5 usuarios', border: 'border-t-[#0ea5e9]', iconColor: 'text-cyan-500' },
+                  { rol: 'Propietario', nivel: 'Nivel 2', usuarios: '35 usuarios', border: 'border-t-[#10b981]', iconColor: 'text-emerald-600' },
+                  { rol: 'Público', nivel: 'Nivel 1', usuarios: 'Sin cuenta', border: 'border-t-[#64748b]', iconColor: 'text-slate-500' },
                 ].map((item, idx) => (
-                  <div key={idx} className={`p-5 rounded-2xl bg-white border border-slate-200 shadow-2xs border-l-4 ${item.color} space-y-2`}>
+                  <div key={idx} className={`bg-white rounded-2xl p-4 border border-slate-200/90 shadow-2xs border-t-4 ${item.border} space-y-2`}>
                     <div className="flex items-center justify-between">
-                      <h4 className="font-extrabold text-sm text-slate-900">{item.rol}</h4>
-                      <span className="text-[10px] font-bold bg-slate-100 text-slate-700 px-2 py-0.5 rounded-full">
-                        {item.usuarios} cuentas
+                      <Shield className={`w-4 h-4 ${item.iconColor}`} />
+                      <span className="text-[10px] font-extrabold text-sky-700 bg-sky-50 px-2 py-0.5 rounded-full border border-sky-100">
+                        {item.nivel}
                       </span>
                     </div>
-                    <p className="text-xs text-slate-500">{item.desc}</p>
+                    <div>
+                      <h4 className="font-extrabold text-sm text-slate-900 truncate">
+                        {item.rol}
+                      </h4>
+                      <p className="text-[11px] text-slate-400 font-medium">
+                        {item.usuarios}
+                      </p>
+                    </div>
                   </div>
                 ))}
               </div>
+
+              {/* 2. Matriz de Especificación de Permisos */}
+              <div className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200/90 shadow-2xs overflow-hidden">
+                <div className="p-5 sm:p-6 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div>
+                    <h3 className="text-base sm:text-lg font-black text-slate-900 tracking-tight">
+                      Matriz de Especificación de Permisos
+                    </h3>
+                  </div>
+                  <span className="text-xs text-slate-400 font-medium">
+                    Estado: {matrizPermisos.length} módulos configurados globalmente
+                  </span>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse text-xs">
+                    <thead>
+                      <tr className="border-b border-slate-100 bg-slate-50/70 text-[11px] font-extrabold text-slate-500 uppercase tracking-wider">
+                        <th className="py-3.5 px-5">Módulo / Área del Sistema</th>
+                        <th className="py-3.5 px-4 text-center">Director Gral.</th>
+                        <th className="py-3.5 px-4 text-center">Coordinador</th>
+                        <th className="py-3.5 px-4 text-center">Supervisor</th>
+                        <th className="py-3.5 px-4 text-center">Propietario</th>
+                        <th className="py-3.5 px-4 text-center">Público</th>
+                        <th className="py-3.5 px-4 text-center">Acción</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {matrizPermisos.map((modulo) => (
+                        <tr key={modulo.id} className="hover:bg-slate-50/70 transition">
+                          
+                          {/* Nombre del Módulo con Icono Carpeta */}
+                          <td className="py-4 px-5">
+                            <div className="flex items-center space-x-2.5">
+                              <Folder className="w-4 h-4 text-slate-400 shrink-0" />
+                              <span className="font-bold text-slate-900 text-xs sm:text-sm">
+                                {modulo.nombre}
+                              </span>
+                            </div>
+                          </td>
+
+                          {/* Director */}
+                          <td className="py-4 px-4 text-center">
+                            {renderPermisoBadge(modulo.permisos.director, () => handleAbrirEditarPermisos(modulo))}
+                          </td>
+
+                          {/* Coordinador */}
+                          <td className="py-4 px-4 text-center">
+                            {renderPermisoBadge(modulo.permisos.coordinador, () => handleAbrirEditarPermisos(modulo))}
+                          </td>
+
+                          {/* Supervisor */}
+                          <td className="py-4 px-4 text-center">
+                            {renderPermisoBadge(modulo.permisos.supervisor, () => handleAbrirEditarPermisos(modulo))}
+                          </td>
+
+                          {/* Propietario */}
+                          <td className="py-4 px-4 text-center">
+                            {renderPermisoBadge(modulo.permisos.propietario, () => handleAbrirEditarPermisos(modulo))}
+                          </td>
+
+                          {/* Público */}
+                          <td className="py-4 px-4 text-center">
+                            {renderPermisoBadge(modulo.permisos.publico, () => handleAbrirEditarPermisos(modulo))}
+                          </td>
+
+                          {/* Acción / Configuración */}
+                          <td className="py-4 px-4 text-center">
+                            <button
+                              type="button"
+                              onClick={() => handleAbrirEditarPermisos(modulo)}
+                              className="p-2 text-slate-400 hover:text-[#0077c8] hover:bg-sky-50 rounded-xl transition cursor-pointer"
+                              title={`Configurar permisos de ${modulo.nombre}`}
+                            >
+                              <Settings className="w-4 h-4" />
+                            </button>
+                          </td>
+
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* 3. Registro de Cambios Recientes en Permisos */}
+              <div className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200/90 shadow-2xs overflow-hidden">
+                <div className="p-5 sm:p-6 border-b border-slate-100 flex items-center justify-between">
+                  <div className="flex items-center space-x-2.5">
+                    <History className="w-4 h-4 text-slate-500" />
+                    <h3 className="text-base sm:text-lg font-black text-slate-900 tracking-tight">
+                      Registro de Cambios Recientes en Permisos
+                    </h3>
+                  </div>
+                  <span className="text-xs text-slate-400 font-medium">
+                    Últimos 30 días
+                  </span>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse text-xs">
+                    <thead>
+                      <tr className="border-b border-slate-100 bg-slate-50/70 text-[11px] font-extrabold text-slate-500 uppercase tracking-wider">
+                        <th className="py-3.5 px-5">Fecha y Hora</th>
+                        <th className="py-3.5 px-5">Rol Modificado</th>
+                        <th className="py-3.5 px-5">Descripción del Cambio</th>
+                        <th className="py-3.5 px-5">Realizado por</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {historialCambiosPermisos.map((hist) => (
+                        <tr key={hist.id} className="hover:bg-slate-50/70 transition">
+                          <td className="py-3.5 px-5 text-slate-500 font-medium">
+                            {hist.fechaHora}
+                          </td>
+                          <td className="py-3.5 px-5 font-bold text-slate-900">
+                            {hist.rol}
+                          </td>
+                          <td className="py-3.5 px-5 text-slate-700 font-medium">
+                            {hist.descripcion}
+                          </td>
+                          <td className="py-3.5 px-5 text-slate-600 font-medium">
+                            {hist.realizadoPor}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
             </div>
           )}
 
@@ -1285,66 +1640,154 @@ export default function AdminPage() {
       )}
 
       {/* ===================================================================== */}
-      {/* 5. MODAL: EDITAR PERMISOS                                             */}
+      {/* 5. MODAL: CONFIGURAR PERMISOS DE MÓDULO                               */}
       {/* ===================================================================== */}
-      {modalPermisosOpen && (
+      {modalEditarPermisoOpen && moduloEditandoPermisos && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fadeIn">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-8 shadow-2xl border border-slate-100 space-y-5">
-            <div className="flex items-start justify-between border-b border-slate-100 pb-3">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl border border-slate-100 space-y-5">
+            
+            {/* Cabecera del Modal */}
+            <div className="flex items-start justify-between border-b border-slate-100 pb-4">
               <div>
-                <span className="text-[10px] font-extrabold text-[#005596] uppercase tracking-wider">
-                  Configuración de Seguridad
+                <span className="text-[10px] font-extrabold text-[#0077c8] uppercase tracking-wider">
+                  Matriz de Autorizaciones
                 </span>
-                <h3 className="text-lg font-black text-slate-900 tracking-tight mt-0.5">
-                  Permisos de Acceso
+                <h3 className="text-xl font-black text-slate-900 tracking-tight mt-0.5 flex items-center space-x-2">
+                  <Folder className="w-5 h-5 text-[#0077c8]" />
+                  <span>Permisos: {moduloEditandoPermisos.nombre}</span>
                 </h3>
+                <p className="text-xs text-slate-400 font-medium mt-1">
+                  {moduloEditandoPermisos.descripcion}
+                </p>
               </div>
               <button
                 type="button"
-                onClick={() => setModalPermisosOpen(false)}
-                className="p-1 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition cursor-pointer"
+                onClick={() => {
+                  setModalEditarPermisoOpen(false);
+                  setModuloEditandoPermisos(null);
+                }}
+                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-100 transition cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <p className="text-xs text-slate-600 leading-relaxed">
-              Los permisos por rol están regidos por el protocolo institucional SEDES Cochabamba. Puede modificar privilegios de lectura, dictamen y asignación.
-            </p>
+            {/* Formulario de Selección de Permisos por Rol */}
+            <form onSubmit={handleGuardarPermisos} className="space-y-3.5 text-xs">
+              
+              <div className="space-y-2.5">
+                
+                {/* Director Gral. */}
+                <div className="p-3 bg-slate-50 border border-slate-200/80 rounded-2xl flex items-center justify-between">
+                  <div>
+                    <span className="font-black text-slate-900 text-xs block">Director General</span>
+                    <span className="text-[11px] text-slate-400">Nivel 5 - Jerarquía Superior</span>
+                  </div>
+                  <select
+                    value={formPermisosModulo.director}
+                    onChange={(e) => setFormPermisosModulo({ ...formPermisosModulo, director: e.target.value })}
+                    className="bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#0077c8] cursor-pointer"
+                  >
+                    <option value="Total">Total (✓)</option>
+                    <option value="Lectura">Lectura (👁)</option>
+                    <option value="Denegado">Denegado (✕)</option>
+                  </select>
+                </div>
 
-            <div className="space-y-2 text-xs">
-              {[
-                { perm: 'Aprobación y emisión de resoluciones', activo: true },
-                { perm: 'Asignación de zonas e inspectores', activo: true },
-                { perm: 'Edición del catálogo de requisitos', activo: true },
-                { perm: 'Acceso a registros de auditoría', activo: true }
-              ].map((p, idx) => (
-                <label key={idx} className="flex items-center space-x-2.5 p-2 rounded-xl bg-slate-50 border border-slate-100 cursor-pointer">
-                  <input type="checkbox" defaultChecked={p.activo} className="rounded text-[#0077c8] focus:ring-[#0077c8]" />
-                  <span className="font-semibold text-slate-700">{p.perm}</span>
-                </label>
-              ))}
-            </div>
+                {/* Coordinador */}
+                <div className="p-3 bg-slate-50 border border-slate-200/80 rounded-2xl flex items-center justify-between">
+                  <div>
+                    <span className="font-black text-slate-900 text-xs block">Coordinador SEDES</span>
+                    <span className="text-[11px] text-slate-400">Nivel 4 - Gestión y Asignación</span>
+                  </div>
+                  <select
+                    value={formPermisosModulo.coordinador}
+                    onChange={(e) => setFormPermisosModulo({ ...formPermisosModulo, coordinador: e.target.value })}
+                    className="bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#0077c8] cursor-pointer"
+                  >
+                    <option value="Total">Total (✓)</option>
+                    <option value="Lectura">Lectura (👁)</option>
+                    <option value="Denegado">Denegado (✕)</option>
+                  </select>
+                </div>
 
-            <div className="flex items-center justify-end space-x-3 pt-3 border-t border-slate-100">
-              <button
-                type="button"
-                onClick={() => setModalPermisosOpen(false)}
-                className="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold px-4 py-2.5 rounded-xl transition cursor-pointer"
-              >
-                Cerrar
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setModalPermisosOpen(false);
-                  mostrarToast('Permisos de seguridad actualizados con éxito.', 'success');
-                }}
-                className="bg-[#0077c8] hover:bg-[#0060a8] text-white text-xs font-bold px-5 py-2.5 rounded-xl transition shadow-md cursor-pointer"
-              >
-                Guardar Cambios
-              </button>
-            </div>
+                {/* Supervisor */}
+                <div className="p-3 bg-slate-50 border border-slate-200/80 rounded-2xl flex items-center justify-between">
+                  <div>
+                    <span className="font-black text-slate-900 text-xs block">Supervisor Técnico</span>
+                    <span className="text-[11px] text-slate-400">Nivel 3 - Inspecciones y Campo</span>
+                  </div>
+                  <select
+                    value={formPermisosModulo.supervisor}
+                    onChange={(e) => setFormPermisosModulo({ ...formPermisosModulo, supervisor: e.target.value })}
+                    className="bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#0077c8] cursor-pointer"
+                  >
+                    <option value="Total">Total (✓)</option>
+                    <option value="Lectura">Lectura (👁)</option>
+                    <option value="Propios">Propios (👤)</option>
+                    <option value="Denegado">Denegado (✕)</option>
+                  </select>
+                </div>
+
+                {/* Propietario */}
+                <div className="p-3 bg-slate-50 border border-slate-200/80 rounded-2xl flex items-center justify-between">
+                  <div>
+                    <span className="font-black text-slate-900 text-xs block">Propietario / Solicitante</span>
+                    <span className="text-[11px] text-slate-400">Nivel 2 - Portal de Trámites</span>
+                  </div>
+                  <select
+                    value={formPermisosModulo.propietario}
+                    onChange={(e) => setFormPermisosModulo({ ...formPermisosModulo, propietario: e.target.value })}
+                    className="bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#0077c8] cursor-pointer"
+                  >
+                    <option value="Total">Total (✓)</option>
+                    <option value="Lectura">Lectura (👁)</option>
+                    <option value="Propios">Propios (👤)</option>
+                    <option value="Denegado">Denegado (✕)</option>
+                  </select>
+                </div>
+
+                {/* Público */}
+                <div className="p-3 bg-slate-50 border border-slate-200/80 rounded-2xl flex items-center justify-between">
+                  <div>
+                    <span className="font-black text-slate-900 text-xs block">Público / Ciudadanía</span>
+                    <span className="text-[11px] text-slate-400">Nivel 1 - Consulta Web Sin Registro</span>
+                  </div>
+                  <select
+                    value={formPermisosModulo.publico}
+                    onChange={(e) => setFormPermisosModulo({ ...formPermisosModulo, publico: e.target.value })}
+                    className="bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#0077c8] cursor-pointer"
+                  >
+                    <option value="Público">Público (🌐)</option>
+                    <option value="Lectura">Lectura (👁)</option>
+                    <option value="Denegado">Denegado (✕)</option>
+                  </select>
+                </div>
+
+              </div>
+
+              {/* Botones de Acción */}
+              <div className="flex items-center justify-end space-x-3 pt-4 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setModalEditarPermisoOpen(false);
+                    setModuloEditandoPermisos(null);
+                  }}
+                  className="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold px-4 py-2.5 rounded-xl transition cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="bg-[#0077c8] hover:bg-[#0060a8] text-white text-xs font-bold px-5 py-2.5 rounded-xl transition shadow-md cursor-pointer flex items-center space-x-1.5"
+                >
+                  <ShieldCheck className="w-4 h-4" />
+                  <span>Guardar y Aplicar</span>
+                </button>
+              </div>
+
+            </form>
           </div>
         </div>
       )}

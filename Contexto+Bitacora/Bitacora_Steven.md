@@ -1024,8 +1024,58 @@ Extender el generador inteligente de avatares por iniciales (`getInitials` y `ge
 * **Prueba de Renderizado:** Nombres como *"CLAUDIA SILVIA ALVAREZ LOPEZ"* generan de forma precisa las 4 iniciales `CSAL`.
 * **Compilación Frontend:** `npm run build` ejecutado exitosamente con 0 errores (dist generado en 618ms).
 
+## [2026-09-08] Personalización Visual de Estados y Botones de Bloqueo en Gestión de Usuarios
+
+### 📌 Objetivo
+Mejorar la claridad visual y la semántica de la tabla de usuarios en el panel de Administración (`/admin/usuarios`):
+1. Distinguir el estado **"Inactivo"** con un color rojo institucional suave en lugar del plomo grisáceo.
+2. Invertir la paleta y semántica de los candaditos de acción:
+   - Usuarios **Activos**: Candadito en color **verde** (`Unlock`).
+   - Usuarios **Inactivos**: Candadito en color **naranja/ámbar** (`Lock`).
+
+---
+
+### 🛠️ Archivos Modificados
+
+#### 1. `frontend/src/pages/AdminPage.jsx` [MODIFICADO]
+* **Badge de Estado:** El estado `Inactivo` ahora usa `bg-red-50 text-red-600 border-red-200`.
+* **Botón de Bloqueo/Activación:** Se intercambiaron los colores e íconos:
+  - `Activo` ➔ `text-emerald-600 hover:text-emerald-800 hover:bg-emerald-50` con icono `<Unlock />`.
+  - `Inactivo` ➔ `text-amber-600 hover:text-amber-800 hover:bg-amber-50` con icono `<Lock />`.
+
+---
+
+### 📊 Verificación y Pruebas Realizadas
+* **Compilación Frontend:** `npm run build` ejecutado exitosamente con 0 errores (dist generado en 1.18s).
+
+## [2026-09-08] Implementación Completa de la Matriz de Roles y Permisos con Historial de Cambios
+
+### 📌 Objetivo
+Desarrollar la vista interactiva de **Roles y Permisos** en el panel de Administración (`/admin/roles-permisos`), replicando con fidelidad pixel-perfect el diseño oficial de Figma:
+1. **Tarjetas Superiores de Roles:** Indicadores con nivel jerárquico (`Nivel 5` a `Nivel 1`) y cantidad de cuentas para Director, Coordinador, Supervisor, Propietario y Público.
+2. **Matriz de Especificación de Permisos:** Tabla interactiva con los 7 módulos del sistema (`Trámites`, `Inspecciones`, `Documentos`, `Usuarios`, `Reportes`, `Catálogos`, `Auditoría`), insignias de autorización (`Total`, `Lectura`, `Propios`, `Público`, `Denegado`) y modal de configuración por módulo.
+3. **Registro de Cambios Recientes:** Bitácora dinámica de auditoría que registra en tiempo real cualquier ajuste a las directivas de acceso con fecha, hora, rol/módulo y administrador ejecutor.
+
+---
+
+### 🛠️ Archivos Modificados
+
+#### 1. `frontend/src/pages/AdminPage.jsx` [MODIFICADO]
+* **Estructura de Datos:** Se crearon `INITIAL_MATRIZ_PERMISOS` y `INITIAL_HISTORIAL_CAMBIOS`.
+* **Helper de Renderizado:** Función `renderPermisoBadge` que asigna colores, íconos y microinteracciones a cada nivel de permiso.
+* **Modal de Configuración por Módulo:** Permite modificar individualmente el nivel de acceso para cada uno de los 5 roles y actualiza la matriz en tiempo real.
+* **Registro de Auditoría Reactivo:** Cada guardado añade automáticamente una fila con timestamp real al registro de cambios recientes.
+
+---
+
+### 📊 Verificación y Pruebas Realizadas
+* **Prueba de Interacción:** Apertura de modal en el módulo *Trámites*, modificación de permisos y confirmación inmediata de actualización en la matriz y en la tabla de cambios recientes.
+* **Compilación Frontend:** `npm run build` ejecutado exitosamente con 0 errores (dist generado en 718ms).
+
 ---
 *Bitácora actualizada por: Steven*
+
+
 
 
 
