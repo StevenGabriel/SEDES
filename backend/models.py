@@ -243,3 +243,24 @@ class Notificacion(Base):
 
     # Relaciones
     usuario = relationship("Usuario", back_populates="notificaciones")
+
+
+# ==============================================================================
+# 10. TABLA: HISTORIAL_ACTIVIDADES (Auditoría y Trazabilidad del Coordinador)
+# ==============================================================================
+class HistorialActividad(Base):
+    __tablename__ = "historial_actividades"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
+    codigo_tramite = Column(String(50), nullable=False, index=True)
+    establecimiento = Column(String(200), nullable=False)
+    accion = Column(Text, nullable=False)
+    responsable = Column(String(150), nullable=False)
+    estado_resultado = Column(String(50), nullable=False)  # 'Aprobado', 'Asignado', 'Observado', 'Rechazado'
+    estado_badge = Column(String(100), default="bg-emerald-50 text-emerald-700 border-emerald-200", nullable=False)
+    fecha_hora_formato = Column(String(50), nullable=False) # Ej: '13 Ago 2026 - 14:30'
+
+    # Columnas de Auditoría
+    estado = Column(Boolean, default=True, nullable=False)
+    fecha_creacion = Column(DateTime, default=func.now(), nullable=False)
+    fecha_modificacion = Column(DateTime, default=func.now(), onupdate=func.now(), nullable=False)
