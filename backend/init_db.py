@@ -148,7 +148,9 @@ def init_database(reset_tables: bool = False):
         ]
 
         for p in personal_sedes:
-            usuario_existente = db.query(Usuario).filter(Usuario.email == p["email"]).first()
+            usuario_existente = db.query(Usuario).filter(
+                (Usuario.email == p["email"]) | (Usuario.ci_nit == p["ci_nit"])
+            ).first()
             rol_obj = db.query(Role).filter(Role.nombre == p["rol"]).first()
             
             if not usuario_existente and rol_obj:
@@ -168,6 +170,9 @@ def init_database(reset_tables: bool = False):
                 usuario_existente.rol_id = rol_obj.id
                 usuario_existente.nombres = p["nombres"]
                 usuario_existente.apellidos = p["apellidos"]
+                usuario_existente.ci_nit = p["ci_nit"]
+                usuario_existente.email = p["email"]
+                usuario_existente.telefono = p["telefono"]
                 usuario_existente.estado = p.get("estado", True)
 
         db.commit()
@@ -399,7 +404,9 @@ def init_database(reset_tables: bool = False):
 
         for lab in laboratorios_data:
             # 1. Crear usuario propietario si no existe
-            usuario_prop = db.query(Usuario).filter(Usuario.email == lab["prop_email"]).first()
+            usuario_prop = db.query(Usuario).filter(
+                (Usuario.email == lab["prop_email"]) | (Usuario.ci_nit == lab["prop_ci"])
+            ).first()
             if not usuario_prop:
                 usuario_prop = Usuario(
                     rol_id=rol_propietario.id,
@@ -414,6 +421,14 @@ def init_database(reset_tables: bool = False):
                 db.add(usuario_prop)
                 db.commit()
                 db.refresh(usuario_prop)
+            else:
+                usuario_prop.rol_id = rol_propietario.id
+                usuario_prop.nombres = lab["prop_nombre"]
+                usuario_prop.apellidos = lab["prop_apellidos"]
+                usuario_prop.ci_nit = lab["prop_ci"]
+                usuario_prop.email = lab["prop_email"]
+                usuario_prop.telefono = lab["prop_tel"]
+                db.commit()
 
             # 2. Crear establecimiento georreferenciado con PostGIS si no existe
             estab_existente = db.query(Establecimiento).filter(

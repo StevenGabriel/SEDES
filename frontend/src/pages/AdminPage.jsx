@@ -36,7 +36,10 @@ import {
   Globe,
   User,
   Check,
-  Eye
+  Eye,
+  FileText,
+  Download,
+  PlusCircle
 } from 'lucide-react';
 
 import logoL1 from '../assets/L1.png';
@@ -314,6 +317,89 @@ const INITIAL_HISTORIAL_CAMBIOS = [
   }
 ];
 
+// Catálogo oficial de requisitos clasificados por sección normativa
+const INITIAL_SECCIONES_REQUISITOS = [
+  {
+    id: 'sec-2.1',
+    codigo: '2.1',
+    titulo: 'SOLICITUD DE HABILITACIÓN',
+    subtitulo: 'Formulario oficial FORM.USD-DOSS/CONALAB-001 debidamente llenado.',
+    requisitos: [
+      { id: 'req-2.1-1', texto: 'Señalar claramente el Tipo y Nivel de complejidad solicitados.' },
+      { id: 'req-2.1-2', texto: 'Datos completos del profesional Bioquímico responsable.' },
+      { id: 'req-2.1-3', texto: 'Declaración del horario de atención propuesto para el establecimiento.' },
+      { id: 'req-2.1-4', texto: 'Inventario detallado de mobiliario, equipos médicos y reactivos químicos.' },
+      { id: 'req-2.1-5', texto: 'Inventario de manuales operativos y técnicos disponibles.' }
+    ]
+  },
+  {
+    id: 'sec-2.2',
+    codigo: '2.2',
+    titulo: 'REQUISITOS LEGALES',
+    subtitulo: 'Documentación habilitante y acreditación legal del personal técnico.',
+    requisitos: [
+      { id: 'req-2.2-1', texto: 'Memorial dirigido al Director Departamental de Salud (SEDES).' },
+      { id: 'req-2.2-2', texto: 'Título en Provisión Nacional del Bioquímico (fotocopia legalizada).' },
+      { id: 'req-2.2-3', texto: 'Diploma Académico correspondiente.' },
+      { id: 'req-2.2-4', texto: 'Matrícula Profesional emitida por el Ministerio de Salud.' },
+      { id: 'req-2.2-5', texto: 'Carnet del Colegio Departamental de Bioquímica y Farmacia.' },
+      { id: 'req-2.2-6', texto: 'Certificado de compatibilidad horaria otorgado por el SEDES.' },
+      { id: 'req-2.2-7', texto: 'Cédula de Identidad vigente y fotografía tamaño carnet de fondo azul.' },
+      { id: 'req-2.2-8', texto: 'Contrato del Director Técnico o Regente del Laboratorio.' },
+      { id: 'req-2.2-9', texto: 'Contratos de los profesionales bioquímicos y especialistas adjuntos.' },
+      { id: 'req-2.2-10', texto: 'Título de Especialidad médica (para laboratorios de alta complejidad).' },
+      { id: 'req-2.2-11', texto: 'Contratos del personal técnico y auxiliares de laboratorio.' }
+    ]
+  },
+  {
+    id: 'sec-2.3',
+    codigo: '2.3',
+    titulo: 'REQUISITOS ADMINISTRATIVOS',
+    subtitulo: 'Infraestructura, registros sanitarios y normativa de higiene.',
+    requisitos: [
+      { id: 'req-2.3-1', texto: 'Número de Identificación Tributaria (NIT) del establecimiento.' },
+      { id: 'req-2.3-2', texto: 'Plano detallado de distribución de instalaciones a escala.' },
+      { id: 'req-2.3-3', texto: 'Certificado de instalación sanitaria adecuada (desagües químicos).' },
+      { id: 'req-2.3-4', texto: 'Convenio vigente para la recolección y tratamiento de residuos infecciosos.' },
+      { id: 'req-2.3-5', texto: 'Letrero exterior visible que identifique el nombre del laboratorio.' },
+      { id: 'req-2.3-6', texto: 'Copia de la Resolución Administrativa de apertura en lugar visible.' },
+      { id: 'req-2.3-7', texto: 'Nombres y títulos de los profesionales bioquímicos expuestos públicamente.' },
+      { id: 'req-2.3-8', texto: 'Instalaciones que cumplan estrictamente con las normas vigentes de higiene.' },
+      { id: 'req-2.3-9', texto: 'Distintivo de identificación obligatorio para todo el personal de turno.' },
+      { id: 'req-2.3-10', texto: 'Señalamiento explícito y público de los horarios de atención al paciente.' }
+    ]
+  },
+  {
+    id: 'sec-2.4',
+    codigo: '2.4',
+    titulo: 'REQUISITOS TÉCNICOS',
+    subtitulo: 'Cartera de servicios, control de calidad y manuales operativos obligatorios.',
+    requisitos: [
+      { id: 'req-2.4-1', texto: 'Lista oficial de exámenes y pruebas bioquímicas habilitadas por nivel.' },
+      { id: 'req-2.4-2', texto: 'Inventario certificado de mobiliario técnico, equipos de análisis, material de vidrio y reactivos.' },
+      { id: 'req-2.4-sub', texto: 'Manuales Documentados Obligatorios:', esSubtitulo: true },
+      { id: 'req-2.4-3', texto: 'Manual de Procedimientos Técnicos por área de análisis.' },
+      { id: 'req-2.4-4', texto: 'Manual de Organización y Funciones del personal administrativo y técnico.' },
+      { id: 'req-2.4-5', texto: 'Manual de Control de Calidad interno y externo.' },
+      { id: 'req-2.4-6', texto: 'Manual de Bioseguridad y gestión de riesgos sanitarios.' },
+      { id: 'req-2.4-7', texto: 'Manual para la toma y transporte seguro de muestras biológicas.' },
+      { id: 'req-2.4-8', texto: 'Convenio formal de derivación de muestras con laboratorios acreditados de mayor nivel.' },
+      { id: 'req-2.4-9', texto: 'Libros de control foliados (registro de pacientes, reportes y entrega de resultados).' },
+      { id: 'req-2.4-10', texto: 'Formulario oficial 302 de notificación obligatoria del Ministerio de Salud.' },
+      { id: 'req-2.4-11', texto: 'Bibliografía científica de referencia técnica actualizada en físico o digital.' }
+    ]
+  },
+  {
+    id: 'sec-2.5',
+    codigo: '2.5',
+    titulo: 'REQUISITOS FINANCIEROS',
+    subtitulo: 'Tasas departamentales reguladas.',
+    requisitos: [
+      { id: 'req-2.5-1', texto: 'Cancelación de valores por derecho de Inspección y Habilitación según tasas arancelarias del SEDES dependientes del nivel de complejidad (Baja, Mediana, Alta Complejidad).' }
+    ]
+  }
+];
+
 export default function AdminPage() {
   const navigate = useNavigate();
   const { seccion } = useParams();
@@ -426,6 +512,118 @@ export default function AdminPage() {
         <span>{text}</span>
       </button>
     );
+  };
+
+  // Estado para el Catálogo de Requisitos
+  const [seccionesRequisitos, setSeccionesRequisitos] = useState(INITIAL_SECCIONES_REQUISITOS);
+  const [modalNuevoRequisitoOpen, setModalNuevoRequisitoOpen] = useState(false);
+  const [seccionDestinoId, setSeccionDestinoId] = useState(null);
+  const [textoNuevoRequisito, setTextoNuevoRequisito] = useState('');
+  const [modalEditarRequisitoOpen, setModalEditarRequisitoOpen] = useState(false);
+  const [requisitoEnEdicion, setRequisitoEnEdicion] = useState(null);
+  const [modalNuevaSeccionOpen, setModalNuevaSeccionOpen] = useState(false);
+  const [formNuevaSeccion, setFormNuevaSeccion] = useState({ codigo: '2.6', titulo: '', subtitulo: '' });
+
+  // Abrir modal de nuevo requisito
+  const handleAbrirAgregarRequisito = (seccionId) => {
+    setSeccionDestinoId(seccionId);
+    setTextoNuevoRequisito('');
+    setModalNuevoRequisitoOpen(true);
+  };
+
+  // Guardar nuevo requisito en la sección correspondiente
+  const handleGuardarNuevoRequisito = (e) => {
+    e.preventDefault();
+    if (!seccionDestinoId || !textoNuevoRequisito.trim()) return;
+
+    const nuevoReq = {
+      id: `req-${Date.now()}`,
+      texto: textoNuevoRequisito.trim()
+    };
+
+    setSeccionesRequisitos(prev => prev.map(sec => {
+      if (sec.id === seccionDestinoId) {
+        return {
+          ...sec,
+          requisitos: [...sec.requisitos, nuevoReq]
+        };
+      }
+      return sec;
+    }));
+
+    setModalNuevoRequisitoOpen(false);
+    setTextoNuevoRequisito('');
+    mostrarToast('Requisito agregado exitosamente.', 'success');
+  };
+
+  // Abrir modal de editar requisito
+  const handleAbrirEditarRequisito = (seccionId, req) => {
+    setRequisitoEnEdicion({
+      seccionId,
+      reqId: req.id,
+      texto: req.texto
+    });
+    setModalEditarRequisitoOpen(true);
+  };
+
+  // Guardar edición de un requisito
+  const handleGuardarEdicionRequisito = (e) => {
+    e.preventDefault();
+    if (!requisitoEnEdicion || !requisitoEnEdicion.texto.trim()) return;
+
+    setSeccionesRequisitos(prev => prev.map(sec => {
+      if (sec.id === requisitoEnEdicion.seccionId) {
+        return {
+          ...sec,
+          requisitos: sec.requisitos.map(r => 
+            r.id === requisitoEnEdicion.reqId 
+              ? { ...r, texto: requisitoEnEdicion.texto.trim() }
+              : r
+          )
+        };
+      }
+      return sec;
+    }));
+
+    setModalEditarRequisitoOpen(false);
+    setRequisitoEnEdicion(null);
+    mostrarToast('Requisito modificado correctamente.', 'success');
+  };
+
+  // Eliminar requisito
+  const handleEliminarRequisito = (seccionId, reqId) => {
+    if (!confirm('¿Está seguro de eliminar este requisito normativo?')) return;
+
+    setSeccionesRequisitos(prev => prev.map(sec => {
+      if (sec.id === seccionId) {
+        return {
+          ...sec,
+          requisitos: sec.requisitos.filter(r => r.id !== reqId)
+        };
+      }
+      return sec;
+    }));
+
+    mostrarToast('Requisito eliminado.', 'warning');
+  };
+
+  // Guardar nueva sección normativa
+  const handleGuardarNuevaSeccion = (e) => {
+    e.preventDefault();
+    if (!formNuevaSeccion.titulo.trim()) return;
+
+    const nuevaSec = {
+      id: `sec-${Date.now()}`,
+      codigo: formNuevaSeccion.codigo.trim() || `2.${seccionesRequisitos.length + 1}`,
+      titulo: formNuevaSeccion.titulo.trim().toUpperCase(),
+      subtitulo: formNuevaSeccion.subtitulo.trim() || 'Documentación complementaria requerida.',
+      requisitos: []
+    };
+
+    setSeccionesRequisitos(prev => [...prev, nuevaSec]);
+    setModalNuevaSeccionOpen(false);
+    setFormNuevaSeccion({ codigo: `2.${seccionesRequisitos.length + 2}`, titulo: '', subtitulo: '' });
+    mostrarToast(`Nueva sección "${nuevaSec.titulo}" creada con éxito.`, 'success');
   };
 
   // Formulario nuevo usuario
@@ -1344,22 +1542,134 @@ export default function AdminPage() {
           )}
 
           {/* =================================================================== */}
-          {/* SECCIÓN 3: REQUISITOS                                               */}
+          {/* SECCIÓN 3: REQUISITOS DE LABORATORIOS                               */}
           {/* =================================================================== */}
           {seccionActiva === 'requisitos' && (
-            <div className="bg-white rounded-3xl p-8 border border-slate-200 shadow-2xs space-y-6 animate-fadeIn">
-              <div>
-                <h3 className="text-xl font-black text-slate-900 tracking-tight">Catálogo de Requisitos Normativos</h3>
-                <p className="text-xs text-slate-500 mt-1">Requisitos legales, administrativos y técnicos requeridos para apertura y renovación.</p>
+            <div className="space-y-6 animate-fadeIn">
+              
+              {/* Encabezado Superior con Botón "+ Añadir Nueva Sección" */}
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div>
+                  <h2 className="text-2xl font-black text-slate-900 tracking-tight">
+                    Requisitos de Laboratorios
+                  </h2>
+                  <p className="text-xs sm:text-sm text-slate-500 font-medium mt-0.5">
+                    Gestione los requisitos para habilitación, apertura y funcionamiento de laboratorios clínicos.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setModalNuevaSeccionOpen(true)}
+                  className="bg-[#1b2533] hover:bg-[#111827] text-white text-xs sm:text-sm font-bold px-4 py-2.5 rounded-xl transition shadow-md flex items-center space-x-2 cursor-pointer self-start sm:self-auto shrink-0"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Añadir Nueva Sección</span>
+                </button>
               </div>
 
-              <div className="p-4 bg-sky-50 rounded-2xl border border-sky-200 text-sky-900 text-xs flex items-start space-x-3">
-                <FileCheck2 className="w-5 h-5 text-[#0077c8] shrink-0 mt-0.5" />
-                <div className="space-y-1">
-                  <p className="font-bold">Módulo de Requisitos Normativos Sincronizado</p>
-                  <p className="text-sky-800">Los 10 requisitos normativos están precargados y sincronizados con los formularios de trámite y actas de supervisores.</p>
-                </div>
+              {/* Lista de Tarjetas de Requisitos por Sección (2.1 a 2.5+) */}
+              <div className="space-y-5">
+                {seccionesRequisitos.map((sec) => (
+                  <section 
+                    key={sec.id}
+                    className="bg-white rounded-2xl sm:rounded-3xl p-6 sm:p-7 border border-slate-200/90 shadow-2xs space-y-4"
+                  >
+                    
+                    {/* Encabezado de la Sección con Badge Numérico */}
+                    <div className="flex items-start space-x-3 pb-3 border-b border-slate-100">
+                      <span className="bg-[#1b2533] text-white text-xs font-black px-2.5 py-1 rounded-lg shrink-0 mt-0.5 select-none">
+                        {sec.codigo}
+                      </span>
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-extrabold text-sm sm:text-base text-slate-900 uppercase tracking-tight">
+                          {sec.titulo}
+                        </h3>
+                        <p className="text-xs text-slate-400 font-medium mt-0.5">
+                          {sec.subtitulo}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Lista de Requisitos */}
+                    <div className="space-y-2.5">
+                      {sec.requisitos.map((req) => {
+                        if (req.esSubtitulo) {
+                          return (
+                            <div key={req.id} className="pt-2 pb-1">
+                              <h4 className="font-extrabold text-xs text-slate-900 uppercase tracking-wider flex items-center space-x-1.5">
+                                <FileText className="w-3.5 h-3.5 text-[#0077c8]" />
+                                <span>{req.texto}</span>
+                              </h4>
+                            </div>
+                          );
+                        }
+
+                        return (
+                          <div 
+                            key={req.id}
+                            className="flex items-center justify-between group p-2 sm:p-2.5 rounded-xl hover:bg-slate-50/80 transition"
+                          >
+                            <div className="flex items-start space-x-2.5 flex-1 pr-3">
+                              <CheckCircle2 className="w-4 h-4 text-cyan-500 shrink-0 mt-0.5" />
+                              <span className="text-xs sm:text-sm text-slate-700 font-medium leading-relaxed">
+                                {req.texto}
+                              </span>
+                            </div>
+
+                            {/* Acciones por Requisito: Eliminar y Editar */}
+                            <div className="flex items-center space-x-1 shrink-0">
+                              <button
+                                type="button"
+                                onClick={() => handleEliminarRequisito(sec.id, req.id)}
+                                className="p-1.5 text-rose-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition cursor-pointer"
+                                title="Eliminar requisito"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleAbrirEditarRequisito(sec.id, req)}
+                                className="p-1.5 text-sky-500 hover:text-sky-700 hover:bg-sky-50 rounded-lg transition cursor-pointer"
+                                title="Editar requisito"
+                              >
+                                <Edit2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Botón "+ Agregar requisito" al pie de cada sección */}
+                    <div className="pt-2 border-t border-slate-100/70">
+                      <button
+                        type="button"
+                        onClick={() => handleAbrirAgregarRequisito(sec.id)}
+                        className="text-[#0077c8] hover:text-[#005596] font-bold text-xs flex items-center space-x-1.5 cursor-pointer transition hover:underline"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>Agregar requisito</span>
+                      </button>
+                    </div>
+
+                  </section>
+                ))}
               </div>
+
+              {/* Botón Inferior: Guía de archivo */}
+              <div className="pt-2 pb-6 flex justify-start">
+                <Link
+                  to="/requisitos"
+                  target="_blank"
+                  className="bg-white border border-slate-200 text-slate-700 hover:text-slate-900 hover:bg-slate-50 font-bold text-xs px-4 py-2.5 rounded-xl shadow-xs transition flex items-center space-x-2 cursor-pointer"
+                  title="Ver portal público de requisitos"
+                >
+                  <FileText className="w-4 h-4 text-slate-500" />
+                  <span>Guía de archivo</span>
+                </Link>
+              </div>
+
             </div>
           )}
 
@@ -1788,6 +2098,221 @@ export default function AdminPage() {
               </div>
 
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ===================================================================== */}
+      {/* 6. MODAL: AGREGAR REQUISITO A UNA SECCIÓN                             */}
+      {/* ===================================================================== */}
+      {modalNuevoRequisitoOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fadeIn">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl border border-slate-100 space-y-5">
+            
+            <div className="flex items-start justify-between border-b border-slate-100 pb-4">
+              <div>
+                <span className="text-[10px] font-extrabold text-[#0077c8] uppercase tracking-wider">
+                  Catálogo Normativo SEDES
+                </span>
+                <h3 className="text-xl font-black text-slate-900 tracking-tight mt-0.5">
+                  Agregar Nuevo Requisito
+                </h3>
+                <p className="text-xs text-slate-400 font-medium mt-0.5">
+                  Sección: {seccionesRequisitos.find(s => s.id === seccionDestinoId)?.titulo || 'General'}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setModalNuevoRequisitoOpen(false)}
+                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-100 transition cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleGuardarNuevoRequisito} className="space-y-4 text-xs">
+              <div className="space-y-1.5">
+                <label className="font-bold text-slate-700">Descripción o Enunciado del Requisito *</label>
+                <textarea
+                  required
+                  rows={4}
+                  value={textoNuevoRequisito}
+                  onChange={(e) => setTextoNuevoRequisito(e.target.value)}
+                  placeholder="Ej: Certificado de compatibilidad horaria emitido y firmado por la jefatura del SEDES."
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-800 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-[#0077c8]"
+                />
+              </div>
+
+              <div className="flex items-center justify-end space-x-3 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setModalNuevoRequisitoOpen(false)}
+                  className="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold px-4 py-2.5 rounded-xl transition cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="bg-[#0077c8] hover:bg-[#0060a8] text-white text-xs font-bold px-5 py-2.5 rounded-xl transition shadow-md cursor-pointer flex items-center space-x-1.5"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Guardar Requisito</span>
+                </button>
+              </div>
+            </form>
+
+          </div>
+        </div>
+      )}
+
+      {/* ===================================================================== */}
+      {/* 7. MODAL: EDITAR REQUISITO EXISTENTE                                  */}
+      {/* ===================================================================== */}
+      {modalEditarRequisitoOpen && requisitoEnEdicion && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fadeIn">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl border border-slate-100 space-y-5">
+            
+            <div className="flex items-start justify-between border-b border-slate-100 pb-4">
+              <div>
+                <span className="text-[10px] font-extrabold text-[#0077c8] uppercase tracking-wider">
+                  Modificación de Requisito
+                </span>
+                <h3 className="text-xl font-black text-slate-900 tracking-tight mt-0.5">
+                  Editar Requisito Normativo
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setModalEditarRequisitoOpen(false);
+                  setRequisitoEnEdicion(null);
+                }}
+                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-100 transition cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleGuardarEdicionRequisito} className="space-y-4 text-xs">
+              <div className="space-y-1.5">
+                <label className="font-bold text-slate-700">Texto del Requisito *</label>
+                <textarea
+                  required
+                  rows={4}
+                  value={requisitoEnEdicion.texto}
+                  onChange={(e) => setRequisitoEnEdicion({ ...requisitoEnEdicion, texto: e.target.value })}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-800 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-[#0077c8]"
+                />
+              </div>
+
+              <div className="flex items-center justify-end space-x-3 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setModalEditarRequisitoOpen(false);
+                    setRequisitoEnEdicion(null);
+                  }}
+                  className="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold px-4 py-2.5 rounded-xl transition cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="bg-[#0077c8] hover:bg-[#0060a8] text-white text-xs font-bold px-5 py-2.5 rounded-xl transition shadow-md cursor-pointer flex items-center space-x-1.5"
+                >
+                  <Edit2 className="w-4 h-4" />
+                  <span>Guardar Cambios</span>
+                </button>
+              </div>
+            </form>
+
+          </div>
+        </div>
+      )}
+
+      {/* ===================================================================== */}
+      {/* 8. MODAL: AÑADIR NUEVA SECCIÓN                                        */}
+      {/* ===================================================================== */}
+      {modalNuevaSeccionOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fadeIn">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl border border-slate-100 space-y-5">
+            
+            <div className="flex items-start justify-between border-b border-slate-100 pb-4">
+              <div>
+                <span className="text-[10px] font-extrabold text-[#0077c8] uppercase tracking-wider">
+                  Estructuración Normativa
+                </span>
+                <h3 className="text-xl font-black text-slate-900 tracking-tight mt-0.5">
+                  Añadir Nueva Sección
+                </h3>
+                <p className="text-xs text-slate-400 font-medium mt-0.5">
+                  Cree una nueva categoría de requisitos para habilitación y apertura.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setModalNuevaSeccionOpen(false)}
+                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-100 transition cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleGuardarNuevaSeccion} className="space-y-4 text-xs">
+              <div className="grid grid-cols-3 gap-3">
+                <div className="space-y-1 col-span-1">
+                  <label className="font-bold text-slate-700">Código *</label>
+                  <input
+                    type="text"
+                    required
+                    value={formNuevaSeccion.codigo}
+                    onChange={(e) => setFormNuevaSeccion({ ...formNuevaSeccion, codigo: e.target.value })}
+                    placeholder="Ej: 2.6"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-[#0077c8]"
+                  />
+                </div>
+                <div className="space-y-1 col-span-2">
+                  <label className="font-bold text-slate-700">Título de la Sección *</label>
+                  <input
+                    type="text"
+                    required
+                    value={formNuevaSeccion.titulo}
+                    onChange={(e) => setFormNuevaSeccion({ ...formNuevaSeccion, titulo: e.target.value })}
+                    placeholder="Ej: REQUISITOS DE BIOSEGURIDAD"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-[#0077c8]"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="font-bold text-slate-700">Descripción / Subtítulo</label>
+                <input
+                  type="text"
+                  value={formNuevaSeccion.subtitulo}
+                  onChange={(e) => setFormNuevaSeccion({ ...formNuevaSeccion, subtitulo: e.target.value })}
+                  placeholder="Ej: Documentación de manejo de residuos y esterilización."
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-[#0077c8]"
+                />
+              </div>
+
+              <div className="flex items-center justify-end space-x-3 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setModalNuevaSeccionOpen(false)}
+                  className="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold px-4 py-2.5 rounded-xl transition cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="bg-[#1b2533] hover:bg-[#111827] text-white text-xs font-bold px-5 py-2.5 rounded-xl transition shadow-md cursor-pointer flex items-center space-x-1.5"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Crear Sección</span>
+                </button>
+              </div>
+            </form>
+
           </div>
         </div>
       )}

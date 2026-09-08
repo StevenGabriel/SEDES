@@ -1072,8 +1072,60 @@ Desarrollar la vista interactiva de **Roles y Permisos** en el panel de Administ
 * **Prueba de Interacción:** Apertura de modal en el módulo *Trámites*, modificación de permisos y confirmación inmediata de actualización en la matriz y en la tabla de cambios recientes.
 * **Compilación Frontend:** `npm run build` ejecutado exitosamente con 0 errores (dist generado en 718ms).
 
+## [2026-09-08] Implementación del Catálogo de Requisitos de Laboratorios en Panel de Administración
+
+### 📌 Objetivo
+Construir la vista interactiva para la gestión de **Requisitos de Laboratorios** en el panel de Administración (`/admin/requisitos`), conforme al diseño de Figma:
+1. **Secciones Normativas Clasificadas (2.1 a 2.5):**
+   - `2.1` Solicitud de Habilitación
+   - `2.2` Requisitos Legales
+   - `2.3` Requisitos Administrativos
+   - `2.4` Requisitos Técnicos (con subsección de Manuales Documentados Obligatorios)
+   - `2.5` Requisitos Financieros
+2. **Operaciones CRUD en Requisitos:**
+   - **Agregar Requisito:** Botón contextual `+ Agregar requisito` en cada tarjeta con modal de captura.
+   - **Editar Requisito:** Botón de edición con ícono de lápiz en color azul y modal de modificación.
+   - **Eliminar Requisito:** Botón de papelera en color rojo con confirmación de seguridad.
+   - **Añadir Nueva Sección:** Botón superior `+ Añadir Nueva Sección` para registrar nuevas categorías normativas (`2.6`, `2.7`, etc.).
+3. **Acceso Rápido:** Botón inferior `Guía de archivo` que enlaza al portal público de requisitos oficiales.
+
+---
+
+### 🛠️ Archivos Modificados
+
+#### 1. `frontend/src/pages/AdminPage.jsx` [MODIFICADO]
+* **Estructura de Datos:** Se definió `INITIAL_SECCIONES_REQUISITOS` con el listado completo de los requisitos oficiales.
+* **Componente de Tarjetas:** Renderizado de tarjetas con códigos numéricos oscuros (`2.1`, `2.2`, etc.), títulos en mayúsculas, checkmarks en cyan y barra de acciones.
+* **Modales Operativos:** Implementación de modales para agregar requisitos, editar requisitos y crear nuevas secciones.
+
+---
+
+### 📊 Verificación y Pruebas Realizadas
+* **Pruebas de Interacción:** Creación, edición y eliminación de requisitos con reflejo reactivo en el DOM y notificaciones toast de confirmación.
+* **Compilación Frontend:** `npm run build` ejecutado exitosamente con 0 errores (dist generado en 812ms).
+
+## [2026-09-08] Robustecimiento de Inicialización de Base de Datos ante Volúmenes Existentes
+
+### 📌 Objetivo
+Resolver el error de violación de clave única (`duplicate key value violates unique constraint "ix_usuarios_ci_nit"`) que ocurre cuando un entorno de desarrollo levanta contenedores sobre un volumen previo de PostgreSQL que contenía registros antiguos con diferente correo pero mismo `ci_nit`.
+
+---
+
+### 🛠️ Archivos Modificados
+
+#### 1. `backend/init_db.py` [MODIFICADO]
+* **Búsqueda Combinada:** Se actualizó la consulta de existencia de usuarios (`personal_sedes` y `laboratorios_data`) para verificar por `email` O `ci_nit`.
+* **Sincronización:** Si el usuario ya existe en PostgreSQL, se actualizan sus datos y contraseña en lugar de intentar insertar un duplicado que falle la restricción `UNIQUE`.
+
+---
+
+### 📊 Verificación y Pruebas Realizadas
+* **Compatibilidad de Inicialización:** Verificación con volúmenes existentes y limpios.
+
 ---
 *Bitácora actualizada por: Steven*
+
+
 
 
 
