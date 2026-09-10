@@ -1378,8 +1378,35 @@ Solucionar el fallo que ocurría al ejecutar `docker compose down -v` en bases d
 
 ---
 
+## [2026-09-10] Migración a Base de Datos en la Nube (Neon PostgreSQL + PostGIS)
+### 📌 Objetivo
+Centralizar y sincronizar la base de datos relacional y geoespacial del sistema en la nube utilizando **Neon.tech** (PostgreSQL 15 con soporte nativo de extensión PostGIS 3.3). Esto permite que todo el equipo de desarrollo comparta la misma base de datos en tiempo real, eliminando la necesidad de realizar respaldos manuales con `pg_dump` o restauraciones conflictivas entre ramas de Git.
+
+---
+
+### 🛠️ Archivos Modificados
+#### 1. `backend/.env` y `backend/.env.example` [MODIFICADO]
+* **Actualización de Cadena de Conexión:**
+  - Configuración de `DATABASE_URL` apuntando al clúster compartido en Neon con `sslmode=require`.
+
+#### 2. `backend/init_db.py` [EJECUTADO]
+* **Inicialización y Siembra en la Nube:**
+  - Creación de extensión PostGIS.
+  - Creación de las 9 tablas del sistema relacional con soporte de auditoría.
+  - Siembra de los 5 roles oficiales del sistema.
+  - Siembra de los 46 requisitos normativos clasificados en las secciones 2.1 a 2.5.
+  - Creación de cuentas oficiales del personal SEDES (Director, Coordinador, Administrador, Supervisores).
+  - Georreferenciación y registro de los 10 laboratorios oficiales y cuentas de propietarios con coordenadas espaciales `SRID=4326`.
+
+---
+
 ### 📊 Verificación y Pruebas Realizadas
-* **Ejecución Directa:** `docker exec sedes-backend-1 python init_db.py` completado exitosamente con código 0 y todos los datos poblados.
+* **Diagnóstico de Conectividad:** Endpoint `GET /health/db` verificado exitosamente devolviendo:
+  - `status`: *"Conectado"*
+  - `base_de_datos`: *"PostgreSQL + PostGIS"*
+  - `postgis_version`: *"3.3"*
+  - `roles_registrados`: 5
+  - `requisitos_catalogo`: 46
 
 ---
 *Bitácora actualizada por: Steven*
