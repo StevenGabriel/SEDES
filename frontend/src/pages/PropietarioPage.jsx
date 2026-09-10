@@ -91,67 +91,91 @@ const getAvatarColor = (nombre) => {
   return colors[index];
 };
 
-// Requisitos Documentales Oficiales para Habilitación y Apertura (SEDES)
-const REQUISITOS_SOLICITUD_GRUPOS = [
+// Requisitos Documentales Oficiales para Habilitación y Apertura (Catálogo Base SEDES)
+const DEFAULT_SECCIONES_REQUISITOS = [
   {
+    id: 'sec-2.1',
     codigo: '2.1',
-    titulo: 'LEGALES',
-    descripcion: 'Documentación legal y acreditación institucional.',
+    titulo: 'SOLICITUD DE HABILITACIÓN',
+    subtitulo: 'Formulario oficial FORM. USD-DOSS/CONALAB-001 debidamente llenado.',
     requisitos: [
-      { id: 'leg_1', nombre: 'Formulario de solicitud oficial FORM. USD-DOSS/CONALAB-001 debidamente llenado' },
-      { id: 'leg_2', nombre: 'NIT / Certificado de Inscripción al Padrón Nacional Biométrico Digital' },
-      { id: 'leg_3', nombre: 'Cédula de Identidad del Propietario / Representante Legal (fotocopia a color)' },
-      { id: 'leg_4', nombre: 'Testimonio de Poder Notarial del Representante Legal (si corresponde)' },
-      { id: 'leg_5', nombre: 'Matrícula de Comercio vigente emitida por SEPREC' },
-      { id: 'leg_6', nombre: 'Certificado de No Quiebra y Solvencia Fiscal' }
+      { id: 'req-2.1-1', texto: 'El tipo y el nivel de complejidad del laboratorio.', es_obligatorio: true },
+      { id: 'req-2.1-2', texto: 'Datos del profesional responsable.', es_obligatorio: true },
+      { id: 'req-2.1-3', texto: 'Horario de atención del establecimiento', es_obligatorio: true },
+      { id: 'req-2.1-4', texto: 'Inventario de mobiliario, equipos y reactivos.', es_obligatorio: true },
+      { id: 'req-2.1-5', texto: 'Inventario de manuales y bibliografía referencial.', es_obligatorio: true }
     ]
   },
   {
+    id: 'sec-2.2',
     codigo: '2.2',
-    titulo: 'INFRAESTRUCTURA Y AMBIENTES',
-    descripcion: 'Planos visados y condiciones técnico-sanitarias.',
+    titulo: 'REQUISITOS LEGALES',
+    subtitulo: 'Documentación habilitante y acreditación legal del personal técnico.',
     requisitos: [
-      { id: 'inf_1', nombre: 'Plano arquitectónico a escala con distribución de ambientes visado por Colegio de Arquitectos' },
-      { id: 'inf_2', nombre: 'Diagrama de flujo de circulación para personal, pacientes y muestras biológicas' },
-      { id: 'inf_3', nombre: 'Sistema de ventilación, iluminación y climatización por áreas analíticas' },
-      { id: 'inf_4', nombre: 'Sistema de tratamiento, almacenamiento temporal y desecho de residuos biocontaminados' },
-      { id: 'inf_5', nombre: 'Certificado de seguridad y prevención contra incendios (Bomberos de la Policía)' }
+      { id: 'req-2.2-1', texto: 'Solicitud mediante memorial dirigida al director departamental de salud para habilitación, apertura y funcionamiento de laboratorio.', es_obligatorio: true },
+      { id: 'req-2.2-2', texto: 'Copia legalizada del título en provisión nacional de bioquímico o bioquímico farmacéutico.', es_obligatorio: true },
+      { id: 'req-2.2-3', texto: 'Copia legalizada del diploma académico de bioquímico o bioquímico - farmacéutico.', es_obligatorio: true },
+      { id: 'req-2.2-4', texto: 'Fotocopia legalizada de matrícula profesional.', es_obligatorio: true },
+      { id: 'req-2.2-5', texto: 'Fotocopia legalizada del carnet de colegio de bioquímica y farmacia.', es_obligatorio: true },
+      { id: 'req-2.2-6', texto: 'Certificado de compatibilidad horaria otorgado por el SEDES.', es_obligatorio: true },
+      { id: 'req-2.2-7', texto: 'Fotocopia de célula de identidad.', es_obligatorio: true },
+      { id: 'req-2.2-8', texto: 'Fotografía tamaño carnet.', es_obligatorio: true },
+      { id: 'req-2.2-9', texto: 'Contrato de trabajo del director técnico (regente bioquímico responsable) del laboratorio visado por la dirección departamental de trabajo (si corresponde)', es_obligatorio: true },
+      { id: 'req-2.2-10', texto: 'Contrato de trabajo de los profesionales bioquímicos, bioquímico farmacéuticos de las áreas diferentes de apoyo.', es_obligatorio: false },
+      { id: 'req-2.2-11', texto: 'Contrato de trabajo de bioquímicos especialistas si corresponde.', es_obligatorio: true },
+      { id: 'req-2.2-12', texto: 'Fotocopia legalizada de título de especialidad si corresponde.', es_obligatorio: true },
+      { id: 'req-2.2-13', texto: 'Contrato de trabajo de técnicos de laboratorio si corresponde.', es_obligatorio: true }
     ]
   },
   {
+    id: 'sec-2.3',
     codigo: '2.3',
-    titulo: 'ASPECTOS ADMINISTRATIVOS',
-    descripcion: 'Manuales organizacionales y acreditaciones de calidad.',
+    titulo: 'REQUISITOS ADMINISTRATIVOS',
+    subtitulo: 'Infraestructura, registros sanitarios y normativa de higiene.',
     requisitos: [
-      { id: 'adm_1', nombre: 'Organigrama funcional y jerárquico del establecimiento' },
-      { id: 'adm_2', nombre: 'Manual de organización y funciones del personal (MOF)' },
-      { id: 'adm_3', nombre: 'Tarifario de aranceles y catálogo de pruebas ofrecidas a la población' },
-      { id: 'adm_4', nombre: 'Certificado de participación activa en el PEEC (Programa de Evaluación Externa de Calidad)' },
-      { id: 'adm_5', nombre: 'Contrato vigente con empresa autorizada para el recojo y disposición de residuos biológicos' }
+      { id: 'req-2.3-1', texto: 'Número de Identificación Tributaria (NIT).', es_obligatorio: true },
+      { id: 'req-2.3-2', texto: 'Plano de las instalaciones del establecimiento de acuerdo a lo establecido en el reglamento.', es_obligatorio: true },
+      { id: 'req-2.3-3', texto: 'Instalación higiénico sanitaria y teléfono (en zonas centrales y urbano-periféricas con cobertura).', es_obligatorio: true },
+      { id: 'req-2.3-4', texto: 'Convenio con el municipio para recojo de residuos infecciosos.', es_obligatorio: true },
+      { id: 'req-2.3-5', texto: 'Verificación en lugar visible de la Resolución y FORM. MSD-DGSS/CONALAB-001 de habilitación coincidente con la dirección.', es_obligatorio: true },
+      { id: 'req-2.3-6', texto: 'Verificación de nómina visible con nombres de los profesionales bioquímicos responsables.', es_obligatorio: true },
+      { id: 'req-2.3-7', texto: 'Verificación de fotocopia visible del título en Provisión Nacional de los responsables.', es_obligatorio: true },
+      { id: 'req-2.3-8', texto: 'Instalaciones acondicionadas bajo normas de higiene y salud acordes al nivel de complejidad.', es_obligatorio: true },
+      { id: 'req-2.3-9', texto: 'Uso obligatorio de distintivo con nombre, foto y matrícula profesional del personal bioquímico.', es_obligatorio: true },
+      { id: 'req-2.3-10', texto: 'Horario de atención al público claramente señalizado en el establecimiento.', es_obligatorio: true }
     ]
   },
   {
+    id: 'sec-2.4',
     codigo: '2.4',
-    titulo: 'REQUISITOS TÉCNICOS Y BIOSEGURIDAD',
-    descripcion: 'Inventarios, calibraciones y procedimientos operativos.',
+    titulo: 'REQUISITOS TÉCNICOS',
+    subtitulo: 'Cartera de servicios, control de calidad y manuales operativos obligatorios.',
     requisitos: [
-      { id: 'tec_1', nombre: 'Inventario de mobiliario, equipos médicos y certificados de calibración vigentes' },
-      { id: 'tec_2', nombre: 'Manual de bioseguridad del laboratorio aprobado por el Comité Departamental' },
-      { id: 'tec_3', nombre: 'Manuales de Procedimientos Operativos Estandarizados (POEs) de cada sección' },
-      { id: 'tec_4', nombre: 'Plan de control de calidad interno y externo con registros de validación' }
+      { id: 'req-2.4-1', texto: 'Lista de exámenes habilitados y autorizados para su nivel de complejidad.', es_obligatorio: true },
+      { id: 'req-2.4-2', texto: 'Inventario de mobiliario.', es_obligatorio: true },
+      { id: 'req-2.4-3', texto: 'Inventario de equipos.', es_obligatorio: true },
+      { id: 'req-2.4-4', texto: 'Inventario de material de vidrio y otros materiales.', es_obligatorio: true },
+      { id: 'req-2.4-5', texto: 'Inventario de reactivos y diagnosticadores.', es_obligatorio: true },
+      { id: 'req-2.4-6', texto: 'Manual de procedimientos.', es_obligatorio: true },
+      { id: 'req-2.4-7', texto: 'Manual de organización y funciones.', es_obligatorio: true },
+      { id: 'req-2.4-8', texto: 'Manual de calidad.', es_obligatorio: false },
+      { id: 'req-2.4-9', texto: 'Manual de bioseguridad.', es_obligatorio: true },
+      { id: 'req-2.4-10', texto: 'Manual de toma y transporte de muestras.', es_obligatorio: true },
+      { id: 'req-2.4-11', texto: 'Convenio escrito con laboratorio de mayor complejidad para derivación de muestras.', es_obligatorio: true },
+      { id: 'req-2.4-12', texto: 'Libro de registro de pacientes.', es_obligatorio: true },
+      { id: 'req-2.4-13', texto: 'Libro de reportes de resultados.', es_obligatorio: true },
+      { id: 'req-2.4-14', texto: 'Libro de entrega de resultados.', es_obligatorio: true },
+      { id: 'req-2.4-15', texto: 'Formulario 303 de Producción y Vigilancia Epidemiológica.', es_obligatorio: true },
+      { id: 'req-2.4-16', texto: 'Bibliografía de referencia obligatoria según su capacidad resolutiva.', es_obligatorio: true }
     ]
   },
   {
+    id: 'sec-2.5',
     codigo: '2.5',
-    titulo: 'DOCUMENTOS OBLIGATORIOS DE REGENCIA',
-    descripcion: 'Acreditación profesional del Director Técnico o Regente Bioquímico.',
+    titulo: 'REQUISITOS FINANCIEROS',
+    subtitulo: 'Tasas departamentales reguladas.',
     requisitos: [
-      { id: 'reg_1', nombre: 'Certificado de Regencia Técnica emitido por el SEDES Cochabamba' },
-      { id: 'reg_2', nombre: 'Título en Provisión Nacional del Bioquímico Responsable (fotocopia legalizada)' },
-      { id: 'reg_3', nombre: 'Diploma Académico de Licenciatura en Bioquímica y Farmacia' },
-      { id: 'reg_4', nombre: 'Matrícula Profesional emitida por el Ministerio de Salud y Deportes' },
-      { id: 'reg_5', nombre: 'Carnet del Colegio Departamental de Bioquímica y Farmacia al día' },
-      { id: 'reg_6', nombre: 'Certificado de compatibilidad horaria otorgado por el SEDES' }
+      { id: 'req-2.5-1', texto: 'Cancelación de valores por derecho de Habilitación, Apertura y Funcionamiento según tasas del nivel de complejidad.', es_obligatorio: true }
     ]
   }
 ];
@@ -259,8 +283,39 @@ export default function PropietarioPage() {
   const [documentosAdjuntos, setDocumentosAdjuntos] = useState({});
   const [isSubmittingNueva, setIsSubmittingNueva] = useState(false);
   const [solicitudEnviadaExito, setSolicitudEnviadaExito] = useState(false);
+  const [faltantesModal, setFaltantesModal] = useState([]);
 
-  // 1. Cargar sesión de usuario
+  // =========================================================================
+  // Estado para la Vista: "Trámites y Subsanación de Documentos"
+  // =========================================================================
+  const [tramitesUsuario, setTramitesUsuario] = useState([]);
+  const [tramiteSeleccionadoId, setTramiteSeleccionadoId] = useState(null);
+  const [cargandoTramites, setCargandoTramites] = useState(false);
+  const [subiendoSubsanacion, setSubiendoSubsanacion] = useState(false);
+
+  // Catálogo dinámico de requisitos gestionado por el Administrador
+  const [seccionesRequisitos, setSeccionesRequisitos] = useState(DEFAULT_SECCIONES_REQUISITOS);
+  const [cargandoRequisitos, setCargandoRequisitos] = useState(false);
+
+  // Cargar catálogo de requisitos en vivo desde el Backend
+  const cargarRequisitosDesdeAPI = async () => {
+    setCargandoRequisitos(true);
+    try {
+      const res = await fetch('http://localhost:8000/api/requisitos/publico');
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data) && data.length > 0) {
+          setSeccionesRequisitos(data);
+        }
+      }
+    } catch (err) {
+      console.warn('Usando catálogo local de requisitos para nueva solicitud:', err);
+    } finally {
+      setCargandoRequisitos(false);
+    }
+  };
+
+  // 1. Cargar sesión de usuario, establecimientos, trámites y requisitos
   useEffect(() => {
     const sessionUser = localStorage.getItem('usuario');
     if (sessionUser) {
@@ -268,6 +323,7 @@ export default function PropietarioPage() {
         const parsed = JSON.parse(sessionUser);
         setUsuario(parsed);
         fetchMisEstablecimientos(parsed.id);
+        fetchTramitesUsuario(parsed.id);
       } catch (e) {
         console.error('Error al leer sesión:', e);
         fetchMisEstablecimientos(null);
@@ -275,7 +331,8 @@ export default function PropietarioPage() {
     } else {
       fetchMisEstablecimientos(null);
     }
-  }, []);
+    cargarRequisitosDesdeAPI();
+  }, [seccionActiva]);
 
   // 2. Cargar establecimientos del propietario desde el Backend
   const fetchMisEstablecimientos = async (propietarioId) => {
@@ -285,24 +342,113 @@ export default function PropietarioPage() {
         const res = await fetch(`http://localhost:8000/api/establecimientos/propietario/${propietarioId}`);
         if (res.ok) {
           const data = await res.json();
-          if (data && data.length > 0) {
-            setMisEstablecimientos(data);
-            setIsLoadingLabs(false);
-            return;
-          }
+          setMisEstablecimientos(Array.isArray(data) ? data : []);
+          setIsLoadingLabs(false);
+          return;
         }
       }
-
-      // Si es un usuario de prueba o no tiene aún, cargamos los primeros de la BD como ejemplo
-      const resAll = await fetch('http://localhost:8000/api/establecimientos');
-      if (resAll.ok) {
-        const allData = await resAll.json();
-        setMisEstablecimientos(allData.slice(0, 2)); // Mostrar 1 o 2 laboratorios
-      }
+      setMisEstablecimientos([]);
     } catch (err) {
       console.error('Error cargando establecimientos del propietario:', err);
+      setMisEstablecimientos([]);
     } finally {
       setIsLoadingLabs(false);
+    }
+  };
+
+  // 3. Cargar trámites y estado documental del propietario
+  const fetchTramitesUsuario = async (propietarioId) => {
+    if (!propietarioId) return;
+    setCargandoTramites(true);
+    try {
+      const res = await fetch(`http://localhost:8000/api/tramites/propietario/${propietarioId}`);
+      if (res.ok) {
+        const data = await res.json();
+        setTramitesUsuario(data || []);
+        if (data && data.length > 0) {
+          setTramiteSeleccionadoId(prev => {
+            if (prev && data.some(t => t.tramite_id === prev)) return prev;
+            return data[0].tramite_id;
+          });
+        }
+      }
+    } catch (err) {
+      console.error('Error cargando trámites del propietario:', err);
+    } finally {
+      setCargandoTramites(false);
+    }
+  };
+
+  // 4. Subsanar documento rechazado
+  const handleSubsanarDocumento = async (tramiteId, docId, e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.name.toLowerCase().endsWith('.pdf')) {
+      alert('Solo se admiten documentos en formato PDF.');
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    setSubiendoSubsanacion(true);
+    try {
+      const res = await fetch(`http://localhost:8000/api/tramites/${tramiteId}/documentos/${docId}/subsanar`, {
+        method: 'POST',
+        body: formData
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.detail || 'Error al subsanar documento.');
+      }
+
+      alert('¡Documento subsanado exitosamente! Ha pasado al estado "En Revisión".');
+      if (usuario?.id) {
+        await fetchTramitesUsuario(usuario.id);
+      }
+    } catch (err) {
+      alert(err.message || 'Error al conectar con el servidor.');
+    } finally {
+      setSubiendoSubsanacion(false);
+    }
+  };
+
+  // 5. Subir documento pendiente
+  const handleSubirNuevoDocumentoTramite = async (tramiteId, requisitoId, e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.name.toLowerCase().endsWith('.pdf')) {
+      alert('Solo se admiten documentos en formato PDF.');
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('requisito_id', String(requisitoId));
+
+    setSubiendoSubsanacion(true);
+    try {
+      const res = await fetch(`http://localhost:8000/api/tramites/${tramiteId}/documentos`, {
+        method: 'POST',
+        body: formData
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.detail || 'Error al subir documento.');
+      }
+
+      alert('¡Documento cargado exitosamente! Ha pasado al estado "En Revisión".');
+      if (usuario?.id) {
+        await fetchTramitesUsuario(usuario.id);
+      }
+    } catch (err) {
+      alert(err.message || 'Error al conectar con el servidor.');
+    } finally {
+      setSubiendoSubsanacion(false);
     }
   };
 
@@ -587,9 +733,33 @@ export default function PropietarioPage() {
       return;
     }
 
+    // 1. Validar que todos los documentos marcados como OBLIGATORIOS hayan sido adjuntados
+    const faltantes = [];
+    seccionesRequisitos.forEach((grupo) => {
+      (grupo.requisitos || []).forEach((req, idx) => {
+        if (req.esSubtitulo || req.es_subtitulo) return;
+        const esObligatorio = req.es_obligatorio !== false;
+        if (esObligatorio) {
+          const reqKey = req.id || `req-${grupo.codigo}-${idx}`;
+          if (!documentosAdjuntos[reqKey]) {
+            faltantes.push({
+              seccionCodigo: grupo.codigo || '',
+              seccionTitulo: grupo.titulo || 'Sección de Requisitos',
+              nombre: req.texto || req.nombre || req.nombre_documento || 'Documento requerido'
+            });
+          }
+        }
+      });
+    });
+
+    if (faltantes.length > 0) {
+      setFaltantesModal(faltantes);
+      return;
+    }
+
     setIsSubmittingNueva(true);
     try {
-      // 1. Crear el establecimiento en PostgreSQL
+      // 2. Crear el establecimiento en PostgreSQL
       const payload = {
         propietario_id: usuario?.id || '987556ee-60cb-4672-887e-d958564db7bd',
         nombre_comercial: formNueva.nombre_comercial.trim(),
@@ -620,9 +790,10 @@ export default function PropietarioPage() {
       }
 
       const resData = await res.json();
-      const nuevoId = resData.establecimiento.id;
+      const nuevoId = resData.establecimiento?.id;
+      const tramiteId = resData.tramite_id;
 
-      // 2. Si subió fotografía, asociarla al nuevo laboratorio
+      // 3. Si subió fotografía, asociarla al nuevo laboratorio
       if (nuevaFotoFile && nuevoId) {
         const formData = new FormData();
         formData.append('file', nuevaFotoFile);
@@ -632,10 +803,29 @@ export default function PropietarioPage() {
         });
       }
 
-      // 3. Confirmación de éxito
+      // 4. Subir físicamente todos los documentos PDF adjuntos al trámite
+      if (tramiteId && Object.keys(documentosAdjuntos).length > 0) {
+        for (const [reqKey, docInfo] of Object.entries(documentosAdjuntos)) {
+          if (docInfo?.file) {
+            const docFormData = new FormData();
+            docFormData.append('file', docInfo.file);
+            docFormData.append('requisito_id', reqKey);
+            try {
+              await fetch(`http://localhost:8000/api/tramites/${tramiteId}/documentos`, {
+                method: 'POST',
+                body: docFormData
+              });
+            } catch (docErr) {
+              console.warn(`Error al subir documento para requisito ${reqKey}:`, docErr);
+            }
+          }
+        }
+      }
+
+      // 5. Confirmación de éxito
       setSolicitudEnviadaExito(true);
 
-      // 4. Actualizar lista de establecimientos del usuario
+      // 6. Actualizar lista de establecimientos del usuario
       if (usuario?.id) {
         const labsRes = await fetch(`http://localhost:8000/api/establecimientos/propietario/${usuario.id}`);
         if (labsRes.ok) {
@@ -880,7 +1070,7 @@ export default function PropietarioPage() {
                   </div>
                   <div>
                     <h3 className="text-2xl font-black text-slate-900 leading-tight">
-                      {misEstablecimientos.length || 1}
+                      {misEstablecimientos.filter(lab => lab.estado_operativo === 'Habilitado').length}
                     </h3>
                     <p className="text-xs font-semibold text-slate-500">
                       Establecimientos Activos
@@ -895,7 +1085,7 @@ export default function PropietarioPage() {
                   </div>
                   <div>
                     <h3 className="text-2xl font-black text-slate-900 leading-tight">
-                      1
+                      {misEstablecimientos.filter(lab => lab.estado_operativo !== 'Habilitado').length}
                     </h3>
                     <p className="text-xs font-semibold text-slate-500">
                       Trámites en Proceso
@@ -910,7 +1100,7 @@ export default function PropietarioPage() {
                   </div>
                   <div>
                     <h3 className="text-2xl font-black text-slate-900 leading-tight">
-                      1
+                      0
                     </h3>
                     <p className="text-xs font-semibold text-slate-500">
                       Inspecciones Programadas
@@ -931,9 +1121,25 @@ export default function PropietarioPage() {
                     Cargando sus establecimientos...
                   </div>
                 ) : misEstablecimientos.length === 0 ? (
-                  <div className="bg-white p-8 rounded-2xl border border-slate-200 text-center text-slate-500 space-y-3">
-                    <Building2 className="w-10 h-10 text-slate-300 mx-auto" />
-                    <p className="font-semibold text-sm">No tiene establecimientos registrados a su nombre.</p>
+                  <div className="bg-white p-10 rounded-2xl border border-slate-200 text-center text-slate-500 space-y-4 shadow-2xs">
+                    <div className="w-14 h-14 bg-slate-100 text-slate-400 rounded-full flex items-center justify-center mx-auto">
+                      <Building2 className="w-7 h-7" />
+                    </div>
+                    <div className="space-y-1">
+                      <p className="font-bold text-slate-800 text-base">No tiene establecimientos registrados a su nombre</p>
+                      <p className="text-xs text-slate-500 max-w-md mx-auto">
+                        Inicie una nueva solicitud de apertura para registrar su laboratorio clínico ante el SEDES Cochabamba.
+                      </p>
+                    </div>
+                    <div>
+                      <Link
+                        to="/propietario/nueva-solicitud"
+                        className="inline-flex items-center space-x-2 bg-[#005596] hover:bg-[#003e6d] text-white text-xs font-bold px-5 py-2.5 rounded-xl transition shadow-sm"
+                      >
+                        <PlusCircle className="w-4 h-4" />
+                        <span>Nueva Solicitud de Apertura</span>
+                      </Link>
+                    </div>
                   </div>
                 ) : (
                   <div className="space-y-4">
@@ -981,8 +1187,15 @@ export default function PropietarioPage() {
                           {/* Botón 1: Documentos */}
                           <button
                             type="button"
-                            onClick={() => alert(`Módulo de Documentación para ${lab.nombre_comercial} en desarrollo.`)}
+                            onClick={() => {
+                              const tr = tramitesUsuario.find(t => t.establecimiento_id === lab.id);
+                              if (tr) {
+                                setTramiteSeleccionadoId(tr.tramite_id);
+                              }
+                              navigate('/propietario/tramites');
+                            }}
                             className="bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-xs font-bold px-3.5 py-2.5 rounded-xl transition flex items-center space-x-1.5 cursor-pointer shadow-2xs"
+                            title="Ver seguimiento de trámites y documentación"
                           >
                             <FileText className="w-3.5 h-3.5 text-slate-500" />
                             <span>Documentos</span>
@@ -1015,6 +1228,244 @@ export default function PropietarioPage() {
                   </div>
                 )}
               </div>
+
+            </div>
+          )}
+
+          {/* ================================================================= */}
+          {/* VISTA: SEGUIMIENTO DE TRÁMITES Y SUBSANACIÓN DE DOCUMENTOS        */}
+          {/* ================================================================= */}
+          {seccionActiva === 'tramites' && (
+            <div className="space-y-6 animate-fadeIn">
+              
+              {cargandoTramites ? (
+                <div className="bg-white p-12 rounded-3xl border border-slate-200 text-center text-slate-500 space-y-3">
+                  <Loader2 className="w-8 h-8 animate-spin mx-auto text-[#005596]" />
+                  <p className="text-sm font-semibold">Cargando trámites y estado de documentación...</p>
+                </div>
+              ) : tramitesUsuario.length === 0 ? (
+                <div className="bg-white p-10 sm:p-14 rounded-3xl border border-slate-200 text-center text-slate-500 space-y-4 shadow-2xs">
+                  <div className="w-16 h-16 bg-slate-100 text-slate-400 rounded-full flex items-center justify-center mx-auto">
+                    <FileText className="w-8 h-8" />
+                  </div>
+                  <div className="space-y-1">
+                    <h3 className="text-lg font-bold text-slate-800">No tiene trámites en curso</h3>
+                    <p className="text-xs sm:text-sm text-slate-500 max-w-md mx-auto">
+                      Cuando envíe una solicitud de apertura de laboratorio, podrá realizar el seguimiento técnico de sus documentos y subsanar observaciones aquí.
+                    </p>
+                  </div>
+                  <div className="pt-2">
+                    <Link
+                      to="/propietario/nueva-solicitud"
+                      className="inline-flex items-center space-x-2 bg-[#005596] hover:bg-[#003e6d] text-white text-xs font-bold px-6 py-3 rounded-xl transition shadow-md"
+                    >
+                      <PlusCircle className="w-4 h-4" />
+                      <span>Iniciar Nueva Solicitud de Apertura</span>
+                    </Link>
+                  </div>
+                </div>
+              ) : (
+                (() => {
+                  const tramiteActual = tramitesUsuario.find(t => t.tramite_id === tramiteSeleccionadoId) || tramitesUsuario[0];
+
+                  return (
+                    <div className="space-y-6">
+                      
+                      {/* Selector de Trámites (si tiene más de 1 establecimiento en trámite) */}
+                      {tramitesUsuario.length > 1 && (
+                        <div className="flex items-center space-x-2 overflow-x-auto pb-2">
+                          <span className="text-xs font-bold text-slate-400 shrink-0 uppercase tracking-wider">
+                            Establecimientos en Trámite:
+                          </span>
+                          {tramitesUsuario.map((tr) => (
+                            <button
+                              key={tr.tramite_id}
+                              type="button"
+                              onClick={() => setTramiteSeleccionadoId(tr.tramite_id)}
+                              className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center space-x-2 shrink-0 cursor-pointer ${
+                                tr.tramite_id === tramiteActual.tramite_id
+                                  ? 'bg-[#005596] text-white shadow-sm'
+                                  : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
+                              }`}
+                            >
+                              <Building2 className="w-3.5 h-3.5" />
+                              <span>{tr.establecimiento_nombre}</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Encabezado del Trámite (Estilo Figma) */}
+                      <div className="space-y-2">
+                        <span className="inline-block bg-[#19324d] text-white text-[11px] font-black px-3.5 py-1 rounded-md tracking-wider shadow-xs uppercase">
+                          {tramiteActual.codigo_tramite}
+                        </span>
+                        <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+                          Solicitud de {tramiteActual.tipo_tramite} - Laboratorio {tramiteActual.establecimiento_nombre}
+                        </h2>
+                        <p className="text-xs sm:text-sm text-slate-500 max-w-3xl leading-relaxed">
+                          Realice el seguimiento técnico y subsane las observaciones identificadas para la habilitación de su establecimiento.
+                        </p>
+                      </div>
+
+                      {/* Tarjeta de Documentación Requerida (Figma) */}
+                      <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/90 shadow-2xs space-y-6">
+                        
+                        {/* Cabecera de la Tarjeta */}
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-5">
+                          <div>
+                            <h3 className="text-lg font-black text-slate-900 tracking-tight">
+                              Documentación Requerida
+                            </h3>
+                            <p className="text-xs text-slate-500 mt-0.5">
+                              Cargue y verifique la vigencia de los requisitos sanitarios y legales correspondientes.
+                            </p>
+                          </div>
+
+                          <div className="flex items-center space-x-2 text-xs font-semibold text-slate-600 bg-slate-50 px-3.5 py-1.5 rounded-xl border border-slate-200 self-start sm:self-auto">
+                            <Clock className="w-3.5 h-3.5 text-slate-400" />
+                            <span>Plazo de subsanación: <strong className="text-slate-800">5 días hábiles</strong></span>
+                          </div>
+                        </div>
+
+                        {/* Tabla de Documentos Requeridos */}
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-left border-collapse">
+                            <thead>
+                              <tr className="border-b border-slate-100 text-[11px] font-extrabold text-slate-400 uppercase tracking-wider">
+                                <th scope="col" className="py-3 px-4">DOCUMENTO REQUERIDO</th>
+                                <th scope="col" className="py-3 px-4 text-center">ESTADO DE VALIDACIÓN</th>
+                                <th scope="col" className="py-3 px-4 text-right">ACCIÓN</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                              {tramiteActual.documentos.map((doc, idx) => {
+                                const estado = doc.estado_validacion || (doc.tiene_archivo ? 'En Revisión' : 'Pendiente');
+                                const esRechazado = estado === 'Rechazado' || estado === 'Observado';
+                                const esAprobado = estado === 'Aprobado';
+                                const esEnRevision = estado === 'En Revisión';
+
+                                return (
+                                  <tr key={doc.documento_id || doc.requisito_id || idx} className="hover:bg-slate-50/70 transition-colors">
+                                    
+                                    {/* Columna 1: Documento Requerido */}
+                                    <td className="py-4 px-4 align-top">
+                                      <div className="flex items-start space-x-3">
+                                        <FileText className={`w-4 h-4 shrink-0 mt-0.5 ${
+                                          esAprobado 
+                                            ? 'text-emerald-600' 
+                                            : esRechazado 
+                                              ? 'text-rose-600' 
+                                              : esEnRevision 
+                                                ? 'text-amber-500' 
+                                                : 'text-slate-400'
+                                        }`} />
+                                        <div className="space-y-1">
+                                          <div className="flex items-center space-x-2 flex-wrap">
+                                            <p className="text-xs sm:text-sm font-bold text-slate-800 leading-snug">
+                                              {doc.requisito_nombre}
+                                            </p>
+                                            {doc.es_obligatorio === false && (
+                                              <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">
+                                                Opcional
+                                              </span>
+                                            )}
+                                          </div>
+                                          
+                                          {/* Observación del Supervisor en Rojo (si fue Rechazado) */}
+                                          {doc.observaciones_supervisor && (
+                                            <p className="text-xs font-semibold text-rose-600 pt-0.5">
+                                              * {doc.observaciones_supervisor}
+                                            </p>
+                                          )}
+                                        </div>
+                                      </div>
+                                    </td>
+
+                                    {/* Columna 2: Estado de Validación */}
+                                    <td className="py-4 px-4 text-center align-middle whitespace-nowrap">
+                                      <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold select-none ${
+                                        esAprobado
+                                          ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                                          : esRechazado
+                                            ? 'bg-rose-100 text-rose-800 border border-rose-200'
+                                            : esEnRevision
+                                              ? 'bg-amber-100 text-amber-800 border border-amber-200'
+                                              : 'bg-slate-100 text-slate-600 border border-slate-200'
+                                      }`}>
+                                        {estado}
+                                      </span>
+                                    </td>
+
+                                    {/* Columna 3: Acción */}
+                                    <td className="py-4 px-4 text-right align-middle whitespace-nowrap">
+                                      {esAprobado || esEnRevision ? (
+                                        doc.archivo_url ? (
+                                          <button
+                                            type="button"
+                                            onClick={() => window.open(`http://localhost:8000${doc.archivo_url}`, '_blank')}
+                                            className="inline-flex items-center space-x-1.5 bg-white hover:bg-slate-100 text-[#19324d] border border-slate-200 text-xs font-bold px-4 py-2 rounded-xl transition shadow-2xs cursor-pointer"
+                                            title="Visualizar documento PDF presentado"
+                                          >
+                                            <Eye className="w-3.5 h-3.5 text-[#19324d]" />
+                                            <span>Ver PDF</span>
+                                          </button>
+                                        ) : (
+                                          <span className="text-xs text-slate-400 italic">Sin archivo</span>
+                                        )
+                                      ) : esRechazado ? (
+                                        <label className="inline-flex items-center space-x-1.5 bg-[#2563eb] hover:bg-[#1d4ed8] text-white text-xs font-bold px-4 py-2 rounded-xl transition shadow-sm cursor-pointer">
+                                          <RefreshCw className="w-3.5 h-3.5 text-white" />
+                                          <span>Volver a Subir</span>
+                                          <input
+                                            type="file"
+                                            accept=".pdf"
+                                            disabled={subiendoSubsanacion}
+                                            onChange={(e) => {
+                                              if (doc.documento_id) {
+                                                handleSubsanarDocumento(tramiteActual.tramite_id, doc.documento_id, e);
+                                              } else {
+                                                handleSubirNuevoDocumentoTramite(tramiteActual.tramite_id, doc.requisito_id, e);
+                                              }
+                                            }}
+                                            className="hidden"
+                                          />
+                                        </label>
+                                      ) : (
+                                        /* Pendiente */
+                                        <label className="inline-flex items-center space-x-1.5 bg-white hover:bg-blue-50 text-[#005596] border border-slate-200 hover:border-[#005596]/40 text-xs font-bold px-4 py-2 rounded-xl transition shadow-2xs cursor-pointer">
+                                          <Upload className="w-3.5 h-3.5 text-[#005596]" />
+                                          <span>Subir</span>
+                                          <input
+                                            type="file"
+                                            accept=".pdf"
+                                            disabled={subiendoSubsanacion}
+                                            onChange={(e) => {
+                                              if (doc.documento_id) {
+                                                handleSubsanarDocumento(tramiteActual.tramite_id, doc.documento_id, e);
+                                              } else {
+                                                handleSubirNuevoDocumentoTramite(tramiteActual.tramite_id, doc.requisito_id, e);
+                                              }
+                                            }}
+                                            className="hidden"
+                                          />
+                                        </label>
+                                      )}
+                                    </td>
+
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+
+                      </div>
+
+                    </div>
+                  );
+                })()
+              )}
 
             </div>
           )}
@@ -1376,11 +1827,11 @@ export default function PropietarioPage() {
                       <RealMapPicker
                         latitud={formNueva.latitud}
                         longitud={formNueva.longitud}
-                        onChangeCoordenadas={(nuevaLat, nuevaLng) => {
+                        onChange={({ lat, lng }) => {
                           setFormNueva(prev => ({
                             ...prev,
-                            latitud: nuevaLat,
-                            longitud: nuevaLng
+                            latitud: lat,
+                            longitud: lng
                           }));
                         }}
                         height="360px"
@@ -1389,11 +1840,15 @@ export default function PropietarioPage() {
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-50 p-3.5 rounded-xl border border-slate-200 text-xs">
                         <div>
                           <span className="font-bold text-slate-500">Latitud: </span>
-                          <span className="font-mono font-bold text-slate-800">{formNueva.latitud}</span>
+                          <span className="font-mono font-bold text-slate-800">
+                            {typeof formNueva.latitud === 'number' ? formNueva.latitud.toFixed(6) : formNueva.latitud}
+                          </span>
                         </div>
                         <div>
                           <span className="font-bold text-slate-500">Longitud: </span>
-                          <span className="font-mono font-bold text-slate-800">{formNueva.longitud}</span>
+                          <span className="font-mono font-bold text-slate-800">
+                            {typeof formNueva.longitud === 'number' ? formNueva.longitud.toFixed(6) : formNueva.longitud}
+                          </span>
                         </div>
                       </div>
                     </div>
@@ -1413,56 +1868,97 @@ export default function PropietarioPage() {
                         </p>
                       </div>
 
-                      <span className="text-xs font-bold text-slate-600 bg-slate-100 px-3 py-1 rounded-full border border-slate-200 self-start sm:self-auto">
-                        {Object.keys(documentosAdjuntos).length} adjuntados
-                      </span>
+                      <div className="flex items-center gap-2 self-start sm:self-auto">
+                        <span className="text-xs font-bold text-slate-700 bg-slate-100 px-3 py-1 rounded-full border border-slate-200">
+                          {Object.keys(documentosAdjuntos).length} adjuntados
+                        </span>
+                      </div>
                     </div>
 
-                    {/* Grupos de Requisitos */}
+                    {/* Grupos de Requisitos Dinámicos */}
                     <div className="space-y-6">
-                      {REQUISITOS_SOLICITUD_GRUPOS.map((grupo) => (
-                        <div key={grupo.codigo} className="space-y-3">
+                      {seccionesRequisitos.map((grupo) => (
+                        <div key={grupo.id || grupo.codigo} className="space-y-3">
                           
                           {/* Encabezado del Grupo */}
                           <div className="flex items-center space-x-2.5 pb-1 border-b border-slate-100">
                             <span className="bg-[#005596] text-white text-[11px] font-bold px-2 py-0.5 rounded-md">
                               {grupo.codigo}
                             </span>
-                            <h4 className="text-xs sm:text-sm font-extrabold text-slate-900 tracking-tight uppercase">
-                              {grupo.titulo}
-                            </h4>
+                            <div className="flex-1 min-w-0">
+                              <h4 className="text-xs sm:text-sm font-extrabold text-slate-900 tracking-tight uppercase">
+                                {grupo.titulo}
+                              </h4>
+                              {grupo.subtitulo && (
+                                <p className="text-[11px] text-slate-400 font-medium">
+                                  {grupo.subtitulo}
+                                </p>
+                              )}
+                            </div>
                           </div>
 
                           {/* Lista de Requisitos del Grupo */}
                           <div className="divide-y divide-slate-100 bg-slate-50/50 rounded-xl border border-slate-200/80 overflow-hidden">
-                            {grupo.requisitos.map((req) => {
-                              const docAdjunto = documentosAdjuntos[req.id];
+                            {grupo.requisitos.map((req, idx) => {
+                              if (req.esSubtitulo || req.es_subtitulo) {
+                                return (
+                                  <div key={req.id || idx} className="p-3 bg-slate-100/70 border-y border-slate-200/60">
+                                    <h5 className="font-extrabold text-xs text-slate-800 uppercase tracking-wider flex items-center space-x-1.5">
+                                      <FileCheck2 className="w-3.5 h-3.5 text-[#005596]" />
+                                      <span>{req.texto || req.nombre || req.nombre_documento}</span>
+                                    </h5>
+                                  </div>
+                                );
+                              }
+
+                              const reqKey = req.id || `req-${grupo.codigo}-${idx}`;
+                              const docAdjunto = documentosAdjuntos[reqKey];
+                              const esObligatorio = req.es_obligatorio !== false;
 
                               return (
                                 <div 
-                                  key={req.id} 
-                                  className="p-3 sm:px-4 sm:py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-white transition"
+                                  key={reqKey} 
+                                  className={`p-3 sm:px-4 sm:py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-white transition ${
+                                    !docAdjunto && esObligatorio ? 'bg-white' : ''
+                                  }`}
                                 >
                                   <div className="flex items-start space-x-2.5 flex-1 min-w-0">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-slate-400 mt-2 shrink-0"></span>
-                                    <p className="text-xs font-medium text-slate-700 leading-snug">
-                                      {req.nombre}
-                                    </p>
+                                    <span className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${
+                                      docAdjunto 
+                                        ? 'bg-emerald-500 ring-2 ring-emerald-200' 
+                                        : esObligatorio 
+                                          ? 'bg-blue-600 ring-2 ring-blue-100' 
+                                          : 'bg-amber-400 ring-2 ring-amber-100'
+                                    }`}></span>
+                                    <div className="flex items-center space-x-2 flex-wrap gap-y-1">
+                                      <p className="text-xs font-medium text-slate-700 leading-snug">
+                                        {req.texto || req.nombre || req.nombre_documento}
+                                      </p>
+                                      {esObligatorio ? (
+                                        <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-blue-50 text-[#005596] border border-blue-200/80 select-none">
+                                          <span>Obligatorio</span>
+                                        </span>
+                                      ) : (
+                                        <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200 select-none">
+                                          <span>Opcional</span>
+                                        </span>
+                                      )}
+                                    </div>
                                   </div>
 
                                   <div className="flex items-center space-x-2 shrink-0 self-end sm:self-center">
                                     {docAdjunto ? (
-                                      <div className="flex items-center space-x-2 bg-emerald-50 text-emerald-800 border border-emerald-200 px-2.5 py-1 rounded-lg text-xs font-bold">
+                                      <div className="flex items-center space-x-2 bg-emerald-50 text-emerald-800 border border-emerald-200 px-2.5 py-1 rounded-lg text-xs font-bold shadow-2xs">
                                         <FileCheck2 className="w-3.5 h-3.5 text-emerald-600" />
-                                        <span className="max-w-[130px] truncate">{docAdjunto.nombre}</span>
+                                        <span className="max-w-[140px] truncate">{docAdjunto.nombre}</span>
                                         <span className="text-[10px] text-emerald-600 font-normal">({docAdjunto.size})</span>
                                         <button
                                           type="button"
-                                          onClick={() => handleQuitarPdf(req.id)}
+                                          onClick={() => handleQuitarPdf(reqKey)}
                                           className="p-0.5 text-emerald-700 hover:text-rose-600 rounded transition cursor-pointer"
                                           title="Eliminar archivo adjunto"
                                         >
-                                          <X className="w-3 h-3" />
+                                          <X className="w-3.5 h-3.5" />
                                         </button>
                                       </div>
                                     ) : (
@@ -1472,7 +1968,7 @@ export default function PropietarioPage() {
                                         <input
                                           type="file"
                                           accept=".pdf"
-                                          onChange={(e) => handleAdjuntarPdf(req.id, e)}
+                                          onChange={(e) => handleAdjuntarPdf(reqKey, e)}
                                           className="hidden"
                                         />
                                       </label>
@@ -1533,20 +2029,7 @@ export default function PropietarioPage() {
             </div>
           )}
 
-          {/* OTRAS VISTAS DEL MENÚ LATERAL (LIENZO LIMPIO) */}
-          {seccionActiva !== 'mis-establecimientos' && seccionActiva !== 'tasas-arancelarias' && seccionActiva !== 'nueva-solicitud' && (
-            <div className="bg-white rounded-3xl p-8 sm:p-12 border border-slate-200/80 shadow-[0_10px_30px_rgba(0,35,70,0.03)] min-h-[420px] flex flex-col items-center justify-center text-center space-y-3">
-              <div className="w-16 h-16 rounded-2xl bg-blue-50 text-[#0073c6] flex items-center justify-center">
-                <itemActivo.icon className="w-8 h-8" />
-              </div>
-              <h3 className="text-lg font-bold text-slate-800">
-                Sección: {itemActivo.label}
-              </h3>
-              <p className="text-xs text-slate-400 max-w-md">
-                Estructura base configurada. Listo para implementar los componentes y tablas de esta vista.
-              </p>
-            </div>
-          )}
+
 
         </main>
 
@@ -1881,6 +2364,88 @@ export default function PropietarioPage() {
               </div>
 
             </form>
+
+          </div>
+        </div>
+      )}
+
+      {/* ===================================================================== */}
+      {/* MODAL: DOCUMENTOS OBLIGATORIOS FALTANTES                              */}
+      {/* ===================================================================== */}
+      {faltantesModal.length > 0 && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fadeIn">
+          <div className="bg-white w-full max-w-2xl rounded-3xl shadow-2xl border border-amber-200 overflow-hidden flex flex-col max-h-[90vh]">
+            
+            {/* Cabecera del Modal */}
+            <div className="bg-amber-50/80 border-b border-amber-100 p-6 flex items-start space-x-4">
+              <div className="w-12 h-12 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center shrink-0 shadow-inner">
+                <AlertCircle className="w-6 h-6" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-black text-slate-900 tracking-tight">
+                    Documentación Obligatoria Pendiente
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={() => setFaltantesModal([])}
+                    className="text-slate-400 hover:text-slate-600 p-1 rounded-lg transition"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+                <p className="text-xs text-amber-900 mt-1 leading-relaxed">
+                  Para registrar su solicitud ante el SEDES Cochabamba, debe adjuntar todos los documentos normativos marcados como obligatorios.
+                </p>
+              </div>
+            </div>
+
+            {/* Lista de Documentos Faltantes con Scroll */}
+            <div className="p-6 overflow-y-auto space-y-3 flex-1">
+              <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                  Requisitos pendientes por subir:
+                </span>
+                <span className="text-xs font-extrabold text-amber-700 bg-amber-100 px-2.5 py-0.5 rounded-full">
+                  {faltantesModal.length} faltante{faltantesModal.length > 1 ? 's' : ''}
+                </span>
+              </div>
+
+              <div className="space-y-2">
+                {faltantesModal.map((item, idx) => (
+                  <div 
+                    key={idx}
+                    className="p-3 rounded-xl bg-slate-50 border border-slate-200/80 flex items-start space-x-3 text-xs"
+                  >
+                    <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0 mt-1.5 ring-2 ring-amber-200"></span>
+                    <div className="flex-1">
+                      <div className="flex items-center space-x-2">
+                        {item.seccionCodigo && (
+                          <span className="font-bold text-[#005596] bg-blue-50 px-1.5 py-0.5 rounded text-[10px]">
+                            Secc. {item.seccionCodigo}
+                          </span>
+                        )}
+                        <span className="font-bold text-slate-800">{item.seccionTitulo}</span>
+                      </div>
+                      <p className="text-slate-600 mt-0.5 text-xs font-medium">
+                        {item.nombre}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Pie del Modal */}
+            <div className="p-4 sm:px-6 bg-slate-50 border-t border-slate-100 flex items-center justify-end">
+              <button
+                type="button"
+                onClick={() => setFaltantesModal([])}
+                className="w-full sm:w-auto bg-[#005596] hover:bg-[#003e6d] text-white text-xs font-bold px-6 py-2.5 rounded-xl transition shadow-md cursor-pointer"
+              >
+                Entendido, voy a adjuntarlos
+              </button>
+            </div>
 
           </div>
         </div>

@@ -21,13 +21,24 @@ const pinIcon = L.divIcon({
   iconAnchor: [0, 0]
 });
 
-export default function RealMapPicker({ latitud, longitud, onChange, height = "240px" }) {
+export default function RealMapPicker({ latitud, longitud, onChange, onChangeCoordenadas, height = "240px" }) {
   const mapContainerRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const markerRef = useRef(null);
 
   const initialLat = latitud || -17.3895;
   const initialLng = longitud || -66.1568;
+
+  const emitChange = (latVal, lngVal) => {
+    const latNum = parseFloat(latVal.toFixed(6));
+    const lngNum = parseFloat(lngVal.toFixed(6));
+    if (onChange) {
+      onChange({ lat: latNum, lng: lngNum });
+    }
+    if (onChangeCoordenadas) {
+      onChangeCoordenadas(latNum, lngNum);
+    }
+  };
 
   useEffect(() => {
     if (!mapContainerRef.current) return;
@@ -56,24 +67,14 @@ export default function RealMapPicker({ latitud, longitud, onChange, height = "2
       // Evento: Al arrastrar marcador
       marker.on('dragend', (e) => {
         const pos = e.target.getLatLng();
-        if (onChange) {
-          onChange({
-            lat: parseFloat(pos.lat.toFixed(6)),
-            lng: parseFloat(pos.lng.toFixed(6))
-          });
-        }
+        emitChange(pos.lat, pos.lng);
       });
 
       // Evento: Al hacer clic en cualquier lugar del mapa
       map.on('click', (e) => {
         const { lat, lng } = e.latlng;
         marker.setLatLng([lat, lng]);
-        if (onChange) {
-          onChange({
-            lat: parseFloat(lat.toFixed(6)),
-            lng: parseFloat(lng.toFixed(6))
-          });
-        }
+        emitChange(lat, lng);
       });
 
       mapInstanceRef.current = map;

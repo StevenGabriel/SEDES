@@ -12,6 +12,7 @@ import establecimientos
 import admin_usuarios
 import requisitos
 import coordinador
+import tramites
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -51,6 +52,7 @@ app.include_router(establecimientos.router)
 app.include_router(admin_usuarios.router)
 app.include_router(requisitos.router)
 app.include_router(coordinador.router)
+app.include_router(tramites.router)
 
 @app.get("/", tags=["Diagnóstico"])
 def leer_raiz():

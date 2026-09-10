@@ -118,7 +118,8 @@ def crear_establecimiento(
 
     return {
         "mensaje": "Solicitud de apertura registrada exitosamente.",
-        "establecimiento": serializar_establecimiento(nuevo_estab, db)
+        "establecimiento": serializar_establecimiento(nuevo_estab, db),
+        "tramite_id": str(nuevo_tramite.id)
     }
 
 @router.get(

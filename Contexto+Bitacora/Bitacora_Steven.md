@@ -1227,17 +1227,159 @@ Empaquetar todos los requisitos recién editados, agregados y personalizados por
 ### 📊 Verificación y Pruebas Realizadas
 * **Compilación Frontend:** `npm run build` exitoso (0 errores).
 
+## [2026-09-09] Dinamización de Requisitos y Subida de Archivos en Vista Nueva Solicitud del Propietario
+### 📌 Objetivo
+Hacer que la sección **"Requisitos para Habilitación, Apertura y Funcionamiento de Laboratorios"** en la vista de Nueva Solicitud de Apertura del Propietario (`/propietario/nueva-solicitud`) se cargue dinámicamente desde el backend (`GET /api/requisitos/publico`), sincronizándose automáticamente con los cambios, adiciones o eliminaciones realizadas por el Administrador en `/admin/requisitos`, preservando íntegramente la capacidad de adjuntar, visualizar y eliminar documentos PDF para cada requisito.
+
+---
+
+### 🛠️ Archivos Modificados
+#### 1. `frontend/src/pages/PropietarioPage.jsx` [MODIFICADO]
+* **Carga Dinámica:** Se incorporó el estado `seccionesRequisitos` y la función `cargarRequisitosDesdeAPI()` conectada a `http://localhost:8000/api/requisitos/publico` (con fallback de seguridad en caso de fallo de red).
+* **Mapeo Dinámico y Carga de Archivos:**
+  - Se adaptó la **Tarjeta 3 (Requisitos y Documentación)** para iterar dinámicamente sobre las secciones y sus requisitos activos.
+  - Se conservó la subida de archivos PDF con drag & drop / click, mostrando nombre, peso en KB/MB, botón `X` de eliminación y el contador badge de documentos adjuntados.
+  - Se incorporaron distintivos visuales `🟡 (Opcional)` para los requisitos marcados como no obligatorios.
+
+---
+
+### 📊 Verificación y Pruebas Realizadas
+* **Compilación Frontend:** `npm run build` ejecutado exitosamente con 0 errores.
+* **Sincronización:** Verificación de que cualquier modificación hecha por el Administrador se refleja en la vista de requisitos del propietario manteniendo el control de adjuntos.
+
+## [2026-09-09] Corrección de Asignación Indebida de Establecimientos en Cuentas Nuevas
+### 📌 Objetivo
+Solucionar el problema por el cual un usuario recién registrado (sin establecimientos previos) visualizaba en su panel dos laboratorios de demostración (*ADONAI* y *ALCAZAR*) debido a un fallback de desarrollo en `fetchMisEstablecimientos`. Garantizar que las cuentas nuevas muestren correctamente 0 establecimientos y contadores en cero hasta que registren su primera solicitud.
+
+---
+
+### 🛠️ Archivos Modificados
+#### 1. `frontend/src/pages/PropietarioPage.jsx` [MODIFICADO]
+* **Eliminación de Fallback Dummy:** Se eliminó la inyección de `allData.slice(0, 2)` cuando el endpoint `GET /api/establecimientos/propietario/{id}` retornaba una lista vacía `[]`.
+* **Cálculo Dinámico de Métricas KPI:**
+  - *Establecimientos Activos:* `misEstablecimientos.filter(lab => lab.estado_operativo === 'Habilitado').length` (calcula en tiempo real sin forzar `|| 1`).
+  - *Trámites en Proceso:* `misEstablecimientos.filter(lab => lab.estado_operativo !== 'Habilitado').length`.
+  - *Inspecciones Programadas:* `0`.
+* **Diseño del Estado Vacío (Empty State):** Mensaje claro *"No tiene establecimientos registrados a su nombre"* con botón directo para iniciar una **Nueva Solicitud de Apertura**.
+
+---
+
+### 📊 Verificación y Pruebas Realizadas
+* **Compilación Frontend:** `npm run build` ejecutado exitosamente con 0 errores.
+* **Validación Visual:** Un usuario nuevo ahora entra con 0 establecimientos, métricas en 0 y un botón para crear su primer trámite.
+
+## [2026-09-09] Implementación de Validación Estricta de Documentación Obligatoria en Solicitud
+### 📌 Objetivo
+Incorporar un control exhaustivo de validación documental previo al envío del formulario de solicitud de apertura (`/propietario/nueva-solicitud`), comprobando que cada requisito configurado como obligatorio por el Administrador cuente con su respectivo archivo PDF adjunto, permitiendo omitir únicamente aquellos marcados como opcionales.
+
+---
+
+### 🛠️ Archivos Modificados
+#### 1. `frontend/src/pages/PropietarioPage.jsx` [MODIFICADO]
+* **Validación en `handleEnviarNuevaSolicitud`:** Inspección en tiempo de ejecución de todas las secciones y requisitos activos, contrastando contra `documentosAdjuntos`.
+* **Insignias Visuales Claras:** Cada ítem muestra de manera explícita su estado (`Obligatorio` en azul vs `Opcional` en amarillo, y `✓ Adjuntado` en verde al subirlo).
+* **Modal de Alerta Informativo (`faltantesModal`):** Despliega un diálogo emergente con la lista agrupada de documentos obligatorios pendientes de subir y el botón *"Entendido, voy a adjuntarlos"*.
+
+---
+
+### 📊 Verificación y Pruebas Realizadas
+* **Compilación Frontend:** `npm run build` ejecutado exitosamente con 0 errores (dist generado en 511ms).
+* **Validación Funcional:** Al intentar enviar sin adjuntar los documentos obligatorios, el sistema bloquea el envío y muestra el modal con el detalle exacto de los requisitos faltantes.
+
+## [2026-09-09] Implementación del Sistema de Almacenamiento y Carga Física de PDFs por Trámite
+### 📌 Objetivo
+Implementar la arquitectura de almacenamiento desacoplada para los documentos de trámites: los archivos PDF se guardan físicamente en disco (`uploads/tramites/{tramite_id}/`) y se registra únicamente la metadata ligera en la tabla `tramite_documentos` de PostgreSQL, previniendo saturación de la base de datos y permitiendo el envío completo de solicitudes de apertura.
+
+---
+
+### 🛠️ Archivos Creados y Modificados
+#### 1. `backend/tramites.py` [NUEVO]
+* **Router de Trámites (`/api/tramites`):**
+  - `POST /api/tramites/{tramite_id}/documentos`: Recepción multipart de archivos PDF, sanitización de nombres, almacenamiento en carpeta aislada por ID de trámite y persistencia relacional en `tramite_documentos`.
+  - `GET /api/tramites/{tramite_id}/documentos`: Consulta de todos los documentos y su estado de validación.
+
+#### 2. `backend/main.py` [MODIFICADO]
+* **Enrutador:** Se montó `tramites.router` en FastAPI.
+
+#### 3. `backend/establecimientos.py` [MODIFICADO]
+* **Retorno de Trámite:** Se incluyó `tramite_id` en la respuesta JSON al crear un establecimiento.
+
+#### 4. `frontend/src/pages/PropietarioPage.jsx` [MODIFICADO]
+* **Flujo Asíncrono de Carga:** En `handleEnviarNuevaSolicitud`, tras registrar el establecimiento se envían concurrentemente todos los documentos PDF adjuntos hacia `/api/tramites/{tramite_id}/documentos`.
+
+---
+
+### 📊 Verificación y Pruebas Realizadas
+* **Compilación Frontend:** `npm run build` ejecutado exitosamente con 0 errores (dist generado en 490ms).
+* **Integridad de Datos:** Base de datos mantiene únicamente URLs relativas y metadata, sin columnas BLOB pesadas.
+
+## [2026-09-09] Corrección de Reactividad en Coordenadas GPS del Mapa de Nueva Solicitud
+### 📌 Objetivo
+Corregir la sincronización bidireccional entre el mapa interactivo de OpenStreetMap (`RealMapPicker.jsx`) y los campos de latitud y longitud en la sección *"Ubicación del Establecimiento"* del formulario de nueva solicitud (`/propietario/nueva-solicitud`), de modo que al hacer clic o arrastrar el marcador se actualicen inmediatamente las coordenadas en pantalla.
+
+---
+
+### 🛠️ Archivos Modificados
+#### 1. `frontend/src/components/common/RealMapPicker.jsx` [MODIFICADO]
+* **Soporte de Callbacks Duales:** Se agregó la función `emitChange` para despachar tanto `onChange({ lat, lng })` como `onChangeCoordenadas(lat, lng)`, redondeando con precisión a 6 decimales (`EPSG:4326`).
+#### 2. `frontend/src/pages/PropietarioPage.jsx` [MODIFICADO]
+* **Enlace de Estado Reactivo:** Se unificó la prop `onChange` en la Tarjeta 2 y se formateó el texto de visualización inferior (`toFixed(6)`).
+
+---
+
+### 📊 Verificación y Pruebas Realizadas
+* **Compilación Frontend:** `npm run build` ejecutado exitosamente con 0 errores (dist generado en 648ms).
+* **Validación Visual:** El pin y los campos de texto de Latitud y Longitud se actualizan en tiempo real al hacer clic o arrastrar el marcador sobre el mapa de Cochabamba.
+
+## [2026-09-09] Implementación de la Vista de Trámites y Subsanación Documental del Propietario
+### 📌 Objetivo
+Desarrollar la vista completa de **Trámites** (`/propietario/tramites`) conforme al diseño oficial de Figma, permitiendo a los propietarios visualizar sus solicitudes en curso, hacer seguimiento técnico del veredicto del supervisor por cada documento presentado y subsanar requisitos observados/rechazados.
+
+---
+
+### 🛠️ Archivos Creados y Modificados
+#### 1. `backend/tramites.py` [MODIFICADO]
+* **Consulta Integral de Trámites:** Endpoint `GET /api/tramites/propietario/{propietario_id}` que estructura todos los trámites del usuario cruzando la tabla `tramite_documentos` con `catalogo_requisitos`.
+* **Subsanación de Archivos Rechazados:** Endpoint `POST /api/tramites/{tramite_id}/documentos/{documento_id}/subsanar` que reemplaza el PDF físico en disco, actualiza la URL y cambia automáticamente el estado a *"En Revisión"*.
+
+#### 2. `frontend/src/pages/PropietarioPage.jsx` [MODIFICADO]
+* **Vista `seccionActiva === 'tramites'`:**
+  - Encabezado con insignia oficial `TRÁMITE Nº {CODIGO}` y título del laboratorio.
+  - Tabla de Documentación Requerida con columna de documento, estado de validación y acción.
+  - Selector de trámites si el usuario posee más de un establecimiento en proceso.
+* **Reglas de Negocio en Acciones:**
+  - 🟢 **Aprobado:** Insignia verde + botón `👁️ Ver PDF` (no permite volver a subir).
+  - 🟡 **En Revisión / Pendiente con archivo:** Insignia ámbar + botón `👁️ Ver PDF` (bloqueado para subir mientras esté en revisión).
+  - 🔴 **Rechazado / Observado:** Insignia roja + nota de observación del supervisor en texto rojo + botón azul `🔄 Volver a Subir` (abre selector de PDF y actualiza el estado a *"En Revisión"*).
+  - ⚪ **Pendiente sin archivo:** Botón blanco `⬆️ Subir`.
+* **Navegación Fluida:** El botón *"Documentos"* en la tarjeta de cada establecimiento en *Mis Establecimientos* ahora redirige directamente a la vista de trámites seleccionando el laboratorio correspondiente.
+
+* **Limpieza de Interfaz:** Se removió el contenedor placeholder sobrante que se mostraba al pie de la vista.
+
+---
+
+### 📊 Verificación y Pruebas Realizadas
+* **Compilación Frontend:** `npm run build` ejecutado exitosamente con 0 errores (dist generado en 1.49s).
+* **Integración API:** Respuestas JSON serializadas con URLs relativas `/uploads/tramites/{id}/` y estados reactivos.
+
+## [2026-09-10] Corrección de Orden de Creación de Tablas en Inicialización de Base de Datos
+### 📌 Objetivo
+Solucionar el fallo que ocurría al ejecutar `docker compose down -v` en bases de datos totalmente nuevas, donde `ALTER TABLE` intentaba ejecutarse antes de que `Base.metadata.create_all()` creara físicamente las tablas, interrumpiendo la siembra de datos.
+
+---
+
+### 🛠️ Archivos Modificados
+#### 1. `backend/init_db.py` [MODIFICADO]
+* **Reordenamiento de Etapas:** 
+  1. Habilitación de PostGIS.
+  2. Creación física de todas las tablas con `Base.metadata.create_all()`.
+  3. Ejecución segura de migraciones y `ALTER TABLE` para retrocompatibilidad.
+  4. Siembra de roles, requisitos oficiales (2.1 a 2.5), cuentas del personal SEDES y laboratorios con georreferenciación.
+
+---
+
+### 📊 Verificación y Pruebas Realizadas
+* **Ejecución Directa:** `docker exec sedes-backend-1 python init_db.py` completado exitosamente con código 0 y todos los datos poblados.
+
 ---
 *Bitácora actualizada por: Steven*
-
-
-
-
-
-
-
-
-
-
-
-

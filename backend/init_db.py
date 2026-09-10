@@ -10,19 +10,11 @@ logger = logging.getLogger(__name__)
 
 def init_database(reset_tables: bool = False):
     try:
-        # 1. Habilitar extensión espacial PostGIS y columnas nuevas
+        # 1. Habilitar extensión espacial PostGIS
         with engine.connect() as conn:
             conn.execute(text("CREATE EXTENSION IF NOT EXISTS postgis;"))
-            # Migraciones idempotentes para columnas de secciones en catalogo_requisitos
-            conn.execute(text("ALTER TABLE catalogo_requisitos ADD COLUMN IF NOT EXISTS seccion_codigo VARCHAR(20) DEFAULT '2.1';"))
-            conn.execute(text("ALTER TABLE catalogo_requisitos ADD COLUMN IF NOT EXISTS seccion_titulo VARCHAR(300);"))
-            conn.execute(text("ALTER TABLE catalogo_requisitos ADD COLUMN IF NOT EXISTS seccion_subtitulo TEXT;"))
-            conn.execute(text("ALTER TABLE catalogo_requisitos ADD COLUMN IF NOT EXISTS es_subtitulo BOOLEAN DEFAULT FALSE;"))
-            conn.execute(text("ALTER TABLE catalogo_requisitos ADD COLUMN IF NOT EXISTS orden INTEGER DEFAULT 1;"))
-            conn.execute(text("ALTER TABLE catalogo_requisitos ALTER COLUMN nombre_documento TYPE TEXT;"))
-            conn.execute(text("ALTER TABLE catalogo_requisitos ALTER COLUMN seccion_subtitulo TYPE TEXT;"))
             conn.commit()
-            logger.info("✅ Extensión PostGIS y esquema de catálogo de requisitos (con TEXT sin límite) verificados.")
+            logger.info("✅ Extensión PostGIS habilitada o verificada.")
 
         # 2. Recrear o crear tablas según corresponda
         if reset_tables:
@@ -31,6 +23,21 @@ def init_database(reset_tables: bool = False):
         
         Base.metadata.create_all(bind=engine)
         logger.info("✅ Todas las tablas (con columnas de auditoría y georreferenciación) creadas en PostgreSQL.")
+
+        # 3. Migraciones idempotentes para columnas de secciones en catalogo_requisitos (para actualizar esquemas existentes)
+        with engine.connect() as conn:
+            try:
+                conn.execute(text("ALTER TABLE catalogo_requisitos ADD COLUMN IF NOT EXISTS seccion_codigo VARCHAR(20) DEFAULT '2.1';"))
+                conn.execute(text("ALTER TABLE catalogo_requisitos ADD COLUMN IF NOT EXISTS seccion_titulo VARCHAR(300);"))
+                conn.execute(text("ALTER TABLE catalogo_requisitos ADD COLUMN IF NOT EXISTS seccion_subtitulo TEXT;"))
+                conn.execute(text("ALTER TABLE catalogo_requisitos ADD COLUMN IF NOT EXISTS es_subtitulo BOOLEAN DEFAULT FALSE;"))
+                conn.execute(text("ALTER TABLE catalogo_requisitos ADD COLUMN IF NOT EXISTS orden INTEGER DEFAULT 1;"))
+                conn.execute(text("ALTER TABLE catalogo_requisitos ALTER COLUMN nombre_documento TYPE TEXT;"))
+                conn.execute(text("ALTER TABLE catalogo_requisitos ALTER COLUMN seccion_subtitulo TYPE TEXT;"))
+                conn.commit()
+                logger.info("✅ Esquema de catálogo de requisitos (con TEXT sin límite) verificado.")
+            except Exception as e_mig:
+                logger.warning(f"Aviso en migración de columnas: {e_mig}")
 
         db = SessionLocal()
 
