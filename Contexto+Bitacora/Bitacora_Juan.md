@@ -2,6 +2,118 @@
 
 ---
 
+## [2026-09-10] Implementación del Sistema Integral de Notificaciones en Tiempo Real (PostgreSQL + Coordinador + Propietario + Subsanaciones)
+
+### 📌 Objetivo
+Desarrollar y conectar el sistema integral de notificaciones automáticas y persistentes en base de datos (`models.Notificacion` en Neon PostgreSQL) para avisar oportunamente a los diferentes actores del sistema:
+1. **Al Coordinador / Personal SEDES:** Cuando un solicitante envía un nuevo trámite de apertura o cuando un propietario vuelve a subir (subsana) un documento observado.
+2. **Al Propietario / Solicitante:** Cuando el Coordinador observa o rechaza un documento con el detalle del motivo para que vuelva a subirlo, cuando se asigna un supervisor, cuando se agenda una re-inspección o cuando el trámite es aprobado con resolución administrativa.
+3. **UI Interactiva:** Integrar en los encabezados (`CoordinadorPage.jsx` y `PropietarioPage.jsx`) un menú flotante desplegable (*dropdown popover*) sobre el icono de campana con contador de no leídas (*unread badge*), marcado individual y masivo como leído, y redirección directa hacia el módulo de subsanación de trámites.
+
+---
+
+### 🛠️ Archivos Creados y Modificados
+
+#### 1. `backend/notificaciones.py` [NUEVO / CREADO]
+* **Módulo API REST de Notificaciones (`prefix="/api/notificaciones"`):**
+  * `GET /api/notificaciones/usuario/{usuario_id}`: Retorna el listado ordenado cronológicamente de notificaciones del usuario y el conteo de `no_leidas`.
+  * `GET /api/notificaciones/rol/{rol_nombre}`: Consulta notificaciones dirigidas al rol (ej. *Coordinador*, *Supervisor*).
+  * `PATCH /api/notificaciones/{notificacion_id}/leer`: Marca una notificación individual como leída (`leido = True`).
+  * `PATCH /api/notificaciones/usuario/{usuario_id}/leer-todas`: Marca todas las notificaciones pendientes de un usuario como leídas.
+* **Funciones Utilitarias de Notificación en BD:**
+  * `crear_notificacion_db(db, usuario_id, titulo, mensaje)`: Inserta un registro persistente en `models.Notificacion`.
+  * `notificar_a_rol_db(db, rol_nombre, titulo, mensaje)`: Envía la notificación a todos los usuarios activos que posean dicho rol institucional.
+
+#### 2. `backend/main.py` [MODIFICADO]
+* Registro del router `notificaciones.router` en la aplicación principal de FastAPI.
+
+#### 3. `backend/establecimientos.py` [MODIFICADO]
+* Al crearse un nuevo establecimiento y trámite de solicitud (`POST /api/establecimientos`), dispara automáticamente:
+  * Notificación de confirmación al Propietario con el código correlativo de trámite generado.
+  * Notificación a todos los Coordinadores del SEDES comunicando la llegada de una nueva solicitud lista para revisión documental.
+
+#### 4. `backend/coordinador.py` [MODIFICADO]
+* **Observación / Rechazo de Documentos:** En `PATCH /api/coordinador/documentos/{id}/validar`, cuando el coordinador dictamina *Observado* o *Rechazado*, se genera una notificación urgente al propietario indicando el nombre del requisito, el motivo u observación técnica ingresada y la instrucción de volver a subir el documento corregido.
+* **Aprobación de Documento:** Notifica al propietario la conformidad del documento.
+* **Asignación de Inspector y Re-inspección:** Notifica al supervisor asignado y al propietario con los datos de fecha y hora.
+* **Aprobación Final de Trámite:** Notifica al propietario la emisión de la Resolución Administrativa y la habilitación operativa de su laboratorio.
+
+#### 5. `backend/tramites.py` [MODIFICADO]
+* En el endpoint de subsanación (`POST /api/tramites/{tramite_id}/documentos/{documento_id}/subsanar`), al subir el propietario el archivo PDF corregido, se genera una notificación al rol de *Coordinador* notificando que el documento fue subsanado y se encuentra listo para segunda revisión.
+
+#### 6. `frontend/src/pages/CoordinadorPage.jsx` [MODIFICADO]
+* **Campana Interactiva:** Dropdown flotante en la cabecera que consulta en vivo `GET /api/notificaciones/rol/Coordinador`.
+* Conteo dinámico de no leídas, visualización de mensajes con fecha y hora, y botón para marcar todas como leídas.
+
+#### 7. `frontend/src/pages/PropietarioPage.jsx` [MODIFICADO]
+* **Campana Interactiva con Enlace a Subsanación:** Dropdown flotante en la cabecera que consulta `GET /api/notificaciones/usuario/{usuario_id}`.
+* Al hacer clic en una notificación de documento observado, marca la notificación como leída y redirige automáticamente al usuario a la vista de **Trámites (`/propietario/tramites`)** para que proceda a subsanar el documento con el botón *"Volver a Subir"*.
+
+---
+
+### 📊 Verificación y Pruebas Realizadas
+* **Notificación de Documentos Observados:** Se probó el dictamen de un documento con observación técnica y se validó la creación del registro en la tabla `notificaciones` de PostgreSQL.
+* **Flujo Propietario -> Subsanación:** Comprobación del dropdown en la consola del propietario, visualización del motivo y redirección al módulo de trámites.
+* **Compilación Frontend:** `npm run build` ejecutado exitosamente con 0 errores.
+
+---
+
+## [2026-09-10] Conexión Integral de la Consola del Coordinador a Datos Reales (Neon PostgreSQL + Visor PDF + Dictamen de Trámites)
+
+### 📌 Objetivo
+Eliminar por completo todos los datos ficticios y simulaciones en la **Consola del Coordinador (`CoordinadorPage.jsx`)** y en el backend (`backend/coordinador.py`), conectando todos los módulos directamente a la base de datos relacional en la nube (**Neon PostgreSQL**). Habilitar la recepción, visualización y dictamen en tiempo real de las solicitudes de apertura enviadas por los propietarios (como la solicitud real de *Lab uro* enviada por Steven Claros con 45 documentos PDF adjuntos), integrando un visor interactivo de PDFs, filtros por secciones normativas (2.1 a 2.5), dictamen individual por documento con registro de observaciones y persistencia de auditoría en la tabla `historial_actividades`.
+
+---
+
+### 🛠️ Archivos Modificados y Desarrollados
+
+#### 1. `backend/database.py` [MODIFICADO]
+* **Carga Segura de Entorno `.env`:**
+  * Se implementó la carga automática de variables de entorno desde `backend/.env` (vía `dotenv` con fallback de lectura de archivo), garantizando que tanto el servidor FastAPI como los scripts de consulta conecten al clúster compartido en la nube de Neon (`postgresql://neondb_owner:...@ep-steep-mountain...`).
+
+#### 2. `backend/coordinador.py` [MODIFICADO / REESTRUCTURADO]
+* **Depuración de Datos Mock:**
+  * Se removieron los arreglos estáticos ficticios (`SEED_TRAMITES`, `SUPERVISORES_DATA`, `TRAMITES_ASIGNACION_DATA`).
+* **Endpoints Conectados a PostgreSQL:**
+  * `GET /api/coordinador/tramites`: Consulta todas las solicitudes reales (`models.Tramite`), relacionando el establecimiento (`models.Establecimiento`), titular propietario (`models.Usuario`), supervisor asignado, inspecciones (`models.Inspeccion`) y la lista completa de documentos cargados (`models.TramiteDocumento` cruzado con `models.CatalogoRequisito`).
+  * `GET /api/coordinador/tramites/{tramite_id}`: Retorna el expediente digital completo por UUID o código correlativo (`TRM-XXXXXXXX`).
+  * `PATCH /api/coordinador/documentos/{documento_id}/validar`: Actualiza en tiempo real el estado de validación (`Aprobado`, `Observado`, `Rechazado`, `En Revisión`) y las observaciones técnicas en la tabla `tramite_documentos`, registrando la bitácora en `historial_actividades`.
+  * `GET /api/coordinador/supervisores`: Consulta al personal de supervisores institucionales de la base de datos (`Ing. Marco Antonio Vargas Rojas`, `Dra. Patricia Valenzuela`, `Ing. Carlos Ruiz Mendoza`, `Lic. Roberto Quiroga`, `Lic. Andrea Torrico`) y calcula su carga operativa real en base a trámites asignados activos.
+  * `GET /api/coordinador/tramites-asignacion`: Lista todos los trámites reales de PostgreSQL listos para asignación técnica.
+  * `POST /api/coordinador/asignar-supervisor`: Asigna el inspector en la base de datos relacional (`supervisor_asignado_id`), programa el registro de inspección y registra el movimiento en auditoría.
+  * `POST /api/coordinador/tramites/{tramite_id}/reinspeccion`: Crea/actualiza registros en `models.Inspeccion` y cambia el estado del trámite a *Re-Inspección Programada*.
+  * `POST /api/coordinador/tramites/{tramite_id}/aprobar`: Dictamina la aprobación definitiva, emite la resolución administrativa y habilita el establecimiento (`estado_operativo = 'Habilitado'`).
+  * `GET /api/coordinador/historial`: Consulta la bitácora de auditoría real en `historial_actividades` con filtros multicriterio.
+
+#### 3. `frontend/src/pages/CoordinadorPage.jsx` [MODIFICADO / ACTUALIZADO]
+* **Bandeja de Entrada con Trámites Reales:**
+  * Carga y selección automática de las solicitudes reales desde PostgreSQL (ej. `TRM-EA5A7A75` de *Lab uro*).
+  * Despliegue de datos del titular (nombre completo, CI, email, teléfono, dirección y municipio).
+* **Navegador y Filtro de Requisitos Normativos:**
+  * Botones de filtrado rápido por sección oficial: `Todas`, `Sección 2.1` (Habilitación), `Sección 2.2` (Legales), `Sección 2.3` (Administrativos), `Sección 2.4` (Técnicos) y `Sección 2.5` (Financieros).
+  * Buscador interactivo de documentos por nombre y código.
+  * Indicadores visuales de obligatoriedad (`Obligatorio` vs `Opcional`), badges de estado (`En Revisión`, `Aprobado`, `Observado`) y notas de observaciones técnicas.
+* **Visor Interactivo de Documentos PDF Reales:**
+  * Integración de `iframe` embebido para visualizar directamente los archivos PDF subidos por los solicitantes (`/uploads/tramites/{id}/...`).
+  * Botón de **"Abrir PDF"** para previsualizar en pestaña independiente y botón de **"Descargar"** para obtener el archivo original.
+* **Dictamen por Documento:**
+  * Botón directo **"Aprobar Documento"** (actualiza a `Aprobado` en BD y recarga auditoría).
+  * Botón y modal **"Observar / Rechazar"** para registrar el motivo técnico específico (ej. *"Falta firma del regente"*, *"Documento ilegible"*).
+* **Asignación de Supervisores e Historial:**
+  * Sincronización en tiempo real con la lista de supervisores y trámites de PostgreSQL.
+  * Actualización reactiva de la bitácora de auditoría y trazabilidad.
+
+---
+
+### 📊 Verificación y Pruebas Realizadas
+
+* **Consulta de Solicitud Real:** Se verificó la recepción de la solicitud de Steven Claros (`Lab uro`, CI/NIT: `sclaros724@gmail.com`) con sus **45 documentos PDF adjuntos**, cargándose con éxito en la consola.
+* **Prueba de Dictamen y Persistencia:** Se validó la actualización de documentos mediante `PATCH /api/coordinador/documentos/{id}/validar`, confirmando el guardado en PostgreSQL y la creación de logs en `historial_actividades`.
+* **Asignación de Supervisores:** Comprobación del listado de 4 supervisores institucionales oficiales de SEDES y asignación persistente.
+* **Compilación Frontend:** `npm run build` ejecutado exitosamente con 0 errores (dist generado en 1.19s).
+
+---
+
 ## [2026-09-08] Desarrollo Integral del Backend para la Consola del Coordinador (API REST + PostgreSQL + Trazabilidad)
 
 ### 📌 Objetivo

@@ -34,98 +34,13 @@ import {
   Sparkles,
   ExternalLink,
   FlaskConical,
-  Bell
+  Bell,
+  CheckCircle,
+  FolderOpen
 } from 'lucide-react';
 
 import logoL1 from '../assets/L1.png';
 import logoL2 from '../assets/L2.png';
-
-// Datos iniciales de trámites en bandeja
-const INITIAL_TRAMITES = [
-  {
-    id: 'REQ-0041',
-    tipo: 'Apertura',
-    tipoBadgeColor: 'bg-cyan-50 text-cyan-700 border-cyan-200',
-    fecha: '11 Ago 2026',
-    fechaISO: '2026-08-11',
-    establecimiento: 'Apertura Farmacia Nova',
-    categoria: 'Farmacia / Botica Privada',
-    propietario: 'Lic. Mariana Dávila Pardo',
-    direccion: 'Av. América Este #842, Zona Cala Cala, Cochabamba',
-    estado: 'Esperando Revisión',
-    estadoColor: 'bg-amber-100 text-amber-800 border-amber-300',
-    supervisorAsignado: 'Dra. Patricia Valenzuela',
-    fechaInspeccion: '10/08/2026',
-    veredictoSupervisor: 'FAVORABLE',
-    documentos: [
-      { id: 'lic_mun', nombre: 'Licencia Municipal', estado: 'Aprobado', numRegistro: 'MUN-CBA-2026-7731', fechaEmision: '02 de Agosto de 2026' },
-      { id: 'plan_arq', nombre: 'Plano Arquitectónico', estado: 'Aprobado', numRegistro: 'COL-ARQ-8821', fechaEmision: '28 de Julio de 2026' },
-      { id: 'cert_san', nombre: 'Certificado Sanitario', estado: 'Aprobado', numRegistro: 'CS-SEDES-2026-302', fechaEmision: '05 de Agosto de 2026' },
-      { id: 'cont_alq', nombre: 'Contrato de Alquiler', estado: 'Aprobado', numRegistro: 'NOT-12-P-902', fechaEmision: '15 de Julio de 2026' },
-      { id: 'senasag', nombre: 'Registro de SENASAG', estado: 'Aprobado', numRegistro: 'SENASAG-CBA-1109', fechaEmision: '01 de Agosto de 2026' }
-    ],
-    observacionesSupervisor: [
-      'Área de dispensación cumple con estándares de ventilación e iluminación.',
-      'Almacén de medicamentos cuenta con termohidrómetros calibrados.',
-      'Documentación del regente farmacéutico al día.'
-    ]
-  },
-  {
-    id: 'REQ-0042',
-    tipo: 'Renovación',
-    tipoBadgeColor: 'bg-sky-50 text-sky-700 border-sky-200',
-    fecha: '12 Ago 2026',
-    fechaISO: '2026-08-12',
-    establecimiento: 'Clínica Sur',
-    categoria: 'Establecimiento de Salud de 2do Nivel',
-    propietario: 'Dr. Roberto Salvatierra Flores',
-    direccion: 'Av. Rector #105, Zona Queru Queru, Cochabamba',
-    estado: 'Esperando Revisión',
-    estadoColor: 'bg-amber-100 text-amber-800 border-amber-300',
-    supervisorAsignado: 'Ing. Carlos Ruiz',
-    fechaInspeccion: '11/08/2026',
-    veredictoSupervisor: 'CON OBSERVACIONES',
-    documentos: [
-      { id: 'lic_mun', nombre: 'Licencia de Funcionamiento', estado: 'Aprobado', numRegistro: 'MUN-CBA-2026-9912', fechaEmision: '10 de Enero de 2026' },
-      { id: 'plan_arq', nombre: 'Plano de Infraestructura', estado: 'Aprobado', numRegistro: 'COL-ARQ-3310', fechaEmision: '12 de Enero de 2026' },
-      { id: 'cert_san', nombre: 'Certificado de Bioseguridad', estado: 'Pendiente', numRegistro: 'CS-SEDES-2026-550', fechaEmision: '01 de Agosto de 2026' },
-      { id: 'cont_alq', nombre: 'Contrato Notariado de Regencia', estado: 'Aprobado', numRegistro: 'NOT-04-REG-102', fechaEmision: '05 de Enero de 2026' },
-      { id: 'senasag', nombre: 'Certificación Ambiental', estado: 'Rechazado', numRegistro: 'AMB-CBA-4401', fechaEmision: '15 de Mayo de 2026' }
-    ],
-    observacionesSupervisor: [
-      'Cadena de frío en sala de reactivos presentó fluctuaciones de temperatura.',
-      'Manejo de residuos biológicos requiere actualizar contrato de recolección.',
-      'Personal técnico cuenta con vacunas y credenciales al día.'
-    ]
-  },
-  {
-    id: 'REQ-0043',
-    tipo: 'Apertura',
-    tipoBadgeColor: 'bg-cyan-50 text-cyan-700 border-cyan-200',
-    fecha: '08 Ago 2026',
-    fechaISO: '2026-08-08',
-    establecimiento: 'Clínica Esperanza',
-    categoria: 'Policlínico de Atención Integral',
-    propietario: 'Dra. Beatriz Guzmán Rios',
-    direccion: 'Av. Heroínas #720 esquina 16 de Julio',
-    estado: 'Esperando Revisión',
-    estadoColor: 'bg-amber-100 text-amber-800 border-amber-300',
-    supervisorAsignado: 'Dra. Patricia Valenzuela',
-    fechaInspeccion: '07/08/2026',
-    veredictoSupervisor: 'FAVORABLE',
-    documentos: [
-      { id: 'lic_mun', nombre: 'Licencia Municipal', estado: 'Aprobado', numRegistro: 'MUN-CBA-2026-4401', fechaEmision: '05 de Febrero de 2026' },
-      { id: 'plan_arq', nombre: 'Plano Arquitectónico', estado: 'Aprobado', numRegistro: 'COL-ARQ-1102', fechaEmision: '08 de Febrero de 2026' },
-      { id: 'cert_san', nombre: 'Certificado Sanitario', estado: 'Aprobado', numRegistro: 'CS-SEDES-2026-788', fechaEmision: '10 de Febrero de 2026' },
-      { id: 'cont_alq', nombre: 'Contrato de Alquiler', estado: 'Aprobado', numRegistro: 'NOT-15-CLIN-401', fechaEmision: '02 de Febrero de 2026' },
-      { id: 'senasag', nombre: 'Registro de SENASAG', estado: 'Aprobado', numRegistro: 'SENASAG-CBA-9002', fechaEmision: '12 de Febrero de 2026' }
-    ],
-    observacionesSupervisor: [
-      'Instalaciones en perfecto estado de conservación y limpieza.',
-      'Planes de manejo de residuos biológicos debidamente implementados.'
-    ]
-  }
-];
 
 // Obtener iniciales de 2 a 4 letras a partir de nombres y apellidos
 const getInitials = (u) => {
@@ -186,8 +101,161 @@ export default function CoordinadorPage() {
 
   const [usuario, setUsuario] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [cargando, setCargando] = useState(true);
 
-  // Cargar sesión de usuario y datos desde Backend
+  // Lista de trámites y trámite activo seleccionado
+  const [tramites, setTramites] = useState([]);
+  const [tramiteSeleccionadoId, setTramiteSeleccionadoId] = useState(null);
+
+  // Pestaña activa en el panel de detalle: 'legal' | 'campo'
+  const [tabActiva, setTabActiva] = useState('legal');
+
+  // Documento legal seleccionado para visualizar en el visor interactivo
+  const [docSeleccionadoId, setDocSeleccionadoId] = useState(null);
+  const [seccionFiltroDoc, setSeccionFiltroDoc] = useState('Todas');
+  const [busquedaDoc, setBusquedaDoc] = useState('');
+
+  // Filtros y búsqueda de trámites
+  const [filtroTexto, setFiltroTexto] = useState('');
+  const [filtroEstado, setFiltroEstado] = useState('Todos');
+
+  // Estado para el módulo de Asignación de Supervisores
+  const [supervisoresDisponibles, setSupervisoresDisponibles] = useState([]);
+  const [tramitesAsignacion, setTramitesAsignacion] = useState([]);
+
+  // Estado para el módulo de Historial y Trazabilidad
+  const [filtroHistorialTexto, setFiltroHistorialTexto] = useState('');
+  const [filtroHistorialEstado, setFiltroHistorialEstado] = useState('Todos');
+  const [filtroHistorialSupervisor, setFiltroHistorialSupervisor] = useState('Todos');
+  const [filtroHistorialDesde, setFiltroHistorialDesde] = useState('2026-09-01');
+  const [filtroHistorialHasta, setFiltroHistorialHasta] = useState('2026-09-15');
+  const [paginaHistorial, setPaginaHistorial] = useState(1);
+  const [historialActividades, setHistorialActividades] = useState([]);
+
+  // Modales
+  const [modalReinspeccionOpen, setModalReinspeccionOpen] = useState(false);
+  const [modalAprobacionOpen, setModalAprobacionOpen] = useState(false);
+  const [modalObservarDocOpen, setModalObservarDocOpen] = useState(false);
+  const [motivoObservacionDoc, setMotivoObservacionDoc] = useState('');
+  const [modalVerDocFull, setModalVerDocFull] = useState(false);
+  const [notificacionToast, setNotificacionToast] = useState(null);
+
+  // Formularios de modales
+  const [reinspeccionData, setReinspeccionData] = useState({
+    supervisor: '',
+    fecha: '2026-09-15',
+    hora: '09:30',
+    motivo: 'Verificación técnica y subsanación de observaciones in situ.',
+    prioridad: 'Alta'
+  });
+
+  const [aprobacionData, setAprobacionData] = useState({
+    codigoResolucion: `RES-ADM-SEDES-2026/${Math.floor(1000 + Math.random() * 9000)}`,
+    vigenciaAnios: '3 años',
+    observacionFinal: 'Establecimiento cumple satisfactoriamente con todos los requisitos normativos del SEDES Cochabamba.'
+  });
+
+  // Mostrar mensaje toast temporal
+  const mostrarToast = (mensaje, tipo = 'success') => {
+    setNotificacionToast({ mensaje, tipo });
+    setTimeout(() => {
+      setNotificacionToast(null);
+    }, 4000);
+  };
+
+  // Estado de Notificaciones en Tiempo Real
+  const [notificaciones, setNotificaciones] = useState([]);
+  const [notifNoLeidas, setNotifNoLeidas] = useState(0);
+  const [notifDropdownOpen, setNotifDropdownOpen] = useState(false);
+
+  // Cargar notificaciones desde Backend
+  const cargarNotificaciones = async () => {
+    try {
+      const res = await fetch('http://localhost:8000/api/notificaciones/rol/Coordinador');
+      if (res.ok) {
+        const data = await res.json();
+        setNotificaciones(data.notificaciones || []);
+        setNotifNoLeidas(data.no_leidas || 0);
+      }
+    } catch (e) {
+      console.warn('Error al cargar notificaciones:', e);
+    }
+  };
+
+  // Marcar notificación individual como leída
+  const handleMarcarNotifLeida = async (notifId) => {
+    try {
+      await fetch(`http://localhost:8000/api/notificaciones/${notifId}/leer`, { method: 'PATCH' });
+      setNotificaciones(prev => prev.map(n => n.id === notifId ? { ...n, leido: true } : n));
+      setNotifNoLeidas(prev => Math.max(0, prev - 1));
+    } catch (e) {
+      console.warn('Error al marcar notificación leída:', e);
+    }
+  };
+
+  // Marcar todas como leídas
+  const handleMarcarTodasNotifsLeidas = async () => {
+    if (usuario?.id) {
+      try {
+        await fetch(`http://localhost:8000/api/notificaciones/usuario/${usuario.id}/leer-todas`, { method: 'PATCH' });
+      } catch (e) {
+        console.warn('Error al marcar todas leídas:', e);
+      }
+    }
+    setNotificaciones(prev => prev.map(n => ({ ...n, leido: true })));
+    setNotifNoLeidas(0);
+  };
+
+  // Cargar datos reales desde el Backend FastAPI
+  const cargarDatosBackend = async () => {
+    setCargando(true);
+    try {
+      const [resTramites, resSupervisores, resAsignacion, resHistorial] = await Promise.allSettled([
+        fetch('http://localhost:8000/api/coordinador/tramites').then(r => r.ok ? r.json() : null),
+        fetch('http://localhost:8000/api/coordinador/supervisores').then(r => r.ok ? r.json() : null),
+        fetch('http://localhost:8000/api/coordinador/tramites-asignacion').then(r => r.ok ? r.json() : null),
+        fetch('http://localhost:8000/api/coordinador/historial').then(r => r.ok ? r.json() : null),
+      ]);
+
+      if (resTramites.status === 'fulfilled' && resTramites.value?.tramites) {
+        const trms = resTramites.value.tramites;
+        setTramites(trms);
+        if (trms.length > 0) {
+          setTramiteSeleccionadoId(prev => {
+            const exists = trms.find(t => t.id === prev);
+            return exists ? prev : trms[0].id;
+          });
+          if (trms[0].documentos?.length > 0) {
+            setDocSeleccionadoId(trms[0].documentos[0].id);
+          }
+        }
+      }
+
+      if (resSupervisores.status === 'fulfilled' && resSupervisores.value?.supervisores) {
+        const sups = resSupervisores.value.supervisores;
+        setSupervisoresDisponibles(sups);
+        if (sups.length > 0 && !reinspeccionData.supervisor) {
+          setReinspeccionData(prev => ({ ...prev, supervisor: sups[0].nombre }));
+        }
+      }
+
+      if (resAsignacion.status === 'fulfilled' && resAsignacion.value?.tramites) {
+        setTramitesAsignacion(resAsignacion.value.tramites);
+      }
+
+      if (resHistorial.status === 'fulfilled' && resHistorial.value?.actividades) {
+        setHistorialActividades(resHistorial.value.actividades);
+      }
+
+      cargarNotificaciones();
+    } catch (err) {
+      console.warn('Error al cargar datos desde backend:', err);
+    } finally {
+      setCargando(false);
+    }
+  };
+
+  // Cargar sesión de usuario y datos al montar componente
   useEffect(() => {
     const sessionUser = localStorage.getItem('usuario');
     if (sessionUser) {
@@ -197,33 +265,6 @@ export default function CoordinadorPage() {
         console.error('Error al leer sesión:', e);
       }
     }
-
-    // Cargar trámites desde el backend
-    const cargarDatosBackend = async () => {
-      try {
-        const [resTramites, resSupervisores, resAsignacion, resHistorial] = await Promise.allSettled([
-          fetch('http://localhost:8000/api/coordinador/tramites').then(r => r.ok ? r.json() : null),
-          fetch('http://localhost:8000/api/coordinador/supervisores').then(r => r.ok ? r.json() : null),
-          fetch('http://localhost:8000/api/coordinador/tramites-asignacion').then(r => r.ok ? r.json() : null),
-          fetch('http://localhost:8000/api/coordinador/historial').then(r => r.ok ? r.json() : null),
-        ]);
-
-        if (resTramites.status === 'fulfilled' && resTramites.value?.tramites) {
-          setTramites(resTramites.value.tramites);
-        }
-        if (resSupervisores.status === 'fulfilled' && resSupervisores.value?.supervisores) {
-          setSupervisoresDisponibles(resSupervisores.value.supervisores);
-        }
-        if (resAsignacion.status === 'fulfilled' && resAsignacion.value?.tramites) {
-          setTramitesAsignacion(resAsignacion.value.tramites);
-        }
-        if (resHistorial.status === 'fulfilled' && resHistorial.value?.actividades) {
-          setHistorialActividades(resHistorial.value.actividades);
-        }
-      } catch (err) {
-        console.warn('Usando datos locales predeterminados:', err);
-      }
-    };
 
     cargarDatosBackend();
   }, []);
@@ -278,124 +319,32 @@ export default function CoordinadorPage() {
 
   const nombreCoordinador = usuario
     ? `${usuario.nombres} ${usuario.apellidos}`
-    : 'Dra. Claudia Morales V.';
-
-  // Lista de trámites y trámite activo seleccionado
-  const [tramites, setTramites] = useState(INITIAL_TRAMITES);
-  const [tramiteSeleccionadoId, setTramiteSeleccionadoId] = useState('REQ-0042');
-
-  // Pestaña activa en el panel de detalle: 'legal' | 'campo'
-  const [tabActiva, setTabActiva] = useState('legal');
-
-  // Documento legal seleccionado para visualizar en el visor interactivo
-  const [docSeleccionadoId, setDocSeleccionadoId] = useState('lic_mun');
-
-  // Filtros y búsqueda
-  const [filtroTexto, setFiltroTexto] = useState('');
-  const [filtroEstado, setFiltroEstado] = useState('Todos');
-
-  // Modales
-  const [modalReinspeccionOpen, setModalReinspeccionOpen] = useState(false);
-  const [modalAprobacionOpen, setModalAprobacionOpen] = useState(false);
-  const [modalVerDocFull, setModalVerDocFull] = useState(false);
-  const [notificacionToast, setNotificacionToast] = useState(null);
-
-  // Formularios de modales
-  const [reinspeccionData, setReinspeccionData] = useState({
-    supervisor: 'Ing. Carlos Ruiz',
-    fecha: '2026-08-20',
-    hora: '09:30',
-    motivo: 'Verificación de subsanación de cadena de frío y residuos biológicos.',
-    prioridad: 'Alta'
-  });
-
-  const [aprobacionData, setAprobacionData] = useState({
-    codigoResolucion: 'RES-ADM-SEDES-2026/8942',
-    vigenciaAnios: '3 años',
-    observacionFinal: 'Establecimiento cumple satisfactoriamente con todos los requisitos normativos del SEDES Cochabamba.'
-  });
+    : 'Dra. Claudia Morales Valenzuela';
 
   // Trámite seleccionado actualmente
-  const tramiteActual = tramites.find(t => t.id === tramiteSeleccionadoId) || tramites[0];
+  const tramiteActual = tramites.find(t => t.id === tramiteSeleccionadoId) || (tramites.length > 0 ? tramites[0] : null);
 
   // Documento legal seleccionado actualmente
-  const docActual = tramiteActual.documentos.find(d => d.id === docSeleccionadoId) || tramiteActual.documentos[0];
+  const docsDisponibles = tramiteActual?.documentos || [];
+  const docActual = docsDisponibles.find(d => d.id === docSeleccionadoId) || (docsDisponibles.length > 0 ? docsDisponibles[0] : null);
 
   // Trámites filtrados
   const tramitesFiltrados = tramites.filter(t => {
-    const matchTexto = t.id.toLowerCase().includes(filtroTexto.toLowerCase()) ||
-      t.establecimiento.toLowerCase().includes(filtroTexto.toLowerCase()) ||
-      t.tipo.toLowerCase().includes(filtroTexto.toLowerCase());
+    const matchTexto = (t.id || '').toLowerCase().includes(filtroTexto.toLowerCase()) ||
+      (t.establecimiento || '').toLowerCase().includes(filtroTexto.toLowerCase()) ||
+      (t.propietario || '').toLowerCase().includes(filtroTexto.toLowerCase()) ||
+      (t.tipo || '').toLowerCase().includes(filtroTexto.toLowerCase());
     const matchEstado = filtroEstado === 'Todos' || t.estado === filtroEstado;
     return matchTexto && matchEstado;
   });
 
-  // Estado para el módulo de Asignación de Supervisores
-  const [supervisoresDisponibles, setSupervisoresDisponibles] = useState([
-    {
-      id: 'sup_1',
-      iniciales: 'MV',
-      nombre: 'Ing. Marco Vargas',
-      especialidad: 'Laboratorios',
-      asignados: 3,
-      maxCapacidad: 5,
-    },
-    {
-      id: 'sup_2',
-      iniciales: 'LF',
-      nombre: 'Dra. Lucía Fernández',
-      especialidad: 'Farmacias',
-      asignados: 2,
-      maxCapacidad: 5,
-    },
-    {
-      id: 'sup_3',
-      iniciales: 'RQ',
-      nombre: 'Lic. Roberto Quiroga',
-      especialidad: 'Hospitales',
-      asignados: 5,
-      maxCapacidad: 5,
-    },
-    {
-      id: 'sup_4',
-      iniciales: 'AT',
-      nombre: 'Ing. Ana Torrez',
-      especialidad: 'Clínicas',
-      asignados: 1,
-      maxCapacidad: 5,
-    },
-  ]);
-
-  const [tramitesAsignacion, setTramitesAsignacion] = useState([
-    {
-      codigo: 'REQ-0042',
-      establecimiento: 'Clínica Sur',
-      tipo: 'Renovación',
-      fechaIngreso: '12 Ago 2026',
-      supervisorAsignado: '',
-    },
-    {
-      codigo: 'REQ-0041',
-      establecimiento: 'Farmacia Nova',
-      tipo: 'Apertura',
-      fechaIngreso: '11 Ago 2026',
-      supervisorAsignado: 'Dra. Lucía Fernández',
-    },
-    {
-      codigo: 'REQ-0043',
-      establecimiento: 'Lab. Génesis',
-      tipo: 'Apertura',
-      fechaIngreso: '12 Ago 2026',
-      supervisorAsignado: '',
-    },
-    {
-      codigo: 'REQ-0044',
-      establecimiento: 'Hospital del Valle',
-      tipo: 'Renovación',
-      fechaIngreso: '13 Ago 2026',
-      supervisorAsignado: '',
-    },
-  ]);
+  // Documentos filtrados por sección y búsqueda
+  const docsFiltrados = docsDisponibles.filter(d => {
+    const matchSec = seccionFiltroDoc === 'Todas' || (d.seccion || '').startsWith(seccionFiltroDoc);
+    const matchTxt = (d.nombre || '').toLowerCase().includes(busquedaDoc.toLowerCase()) ||
+      (d.seccion || '').toLowerCase().includes(busquedaDoc.toLowerCase());
+    return matchSec && matchTxt;
+  });
 
   // Manejar cambio de supervisor seleccionado en tabla
   const handleSelectSupervisorChange = (codigoTramite, nombreSupervisor) => {
@@ -407,7 +356,7 @@ export default function CoordinadorPage() {
     }));
   };
 
-  // Asignar supervisor a trámite (Backend conectado)
+  // Asignar supervisor a trámite (Backend conectado a PostgreSQL)
   const handleAsignarSupervisor = async (codigoTramite) => {
     const tramite = tramitesAsignacion.find(t => t.codigo === codigoTramite);
     if (!tramite || !tramite.supervisorAsignado) {
@@ -426,169 +375,86 @@ export default function CoordinadorPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          codigo_tramite: codigoTramite,
+          codigo_tramite: tramite.tramite_uuid || codigoTramite,
           supervisor_nombre: tramite.supervisorAsignado,
           responsable: nombreCoordinador
         })
       });
 
       if (response.ok) {
+        mostrarToast(`¡Trámite ${codigoTramite} (${tramite.establecimiento}) asignado con éxito a ${tramite.supervisorAsignado}!`, 'success');
+        cargarDatosBackend();
         recargarHistorial();
+      } else {
+        const err = await response.json();
+        mostrarToast(err.detail || 'Error al asignar supervisor.', 'warning');
       }
     } catch (e) {
-      console.warn('Backend offline, aplicando cambio local:', e);
+      console.warn('Error al asignar supervisor:', e);
+      mostrarToast('Error de conexión con el servidor al asignar supervisor.', 'warning');
     }
-
-    if (supervisor && supervisor.asignados < supervisor.maxCapacidad) {
-      setSupervisoresDisponibles(prev => prev.map(s => {
-        if (s.nombre === supervisor.nombre) {
-          return { ...s, asignados: s.asignados + 1 };
-        }
-        return s;
-      }));
-    }
-
-    mostrarToast(`¡Trámite ${codigoTramite} (${tramite.establecimiento}) asignado con éxito a ${tramite.supervisorAsignado}!`, 'success');
   };
-
-  // Estado para el módulo de Historial y Trazabilidad
-  const [filtroHistorialTexto, setFiltroHistorialTexto] = useState('');
-  const [filtroHistorialEstado, setFiltroHistorialEstado] = useState('Todos');
-  const [filtroHistorialSupervisor, setFiltroHistorialSupervisor] = useState('Todos');
-  const [filtroHistorialDesde, setFiltroHistorialDesde] = useState('2026-08-10');
-  const [filtroHistorialHasta, setFiltroHistorialHasta] = useState('2026-08-13');
-  const [paginaHistorial, setPaginaHistorial] = useState(1);
-
-  const [historialActividades, setHistorialActividades] = useState([
-    {
-      id: 1,
-      fechaHora: '13 Ago 2026 - 14:30',
-      fechaISO: '2026-08-13',
-      codigo: 'REQ-0042',
-      establecimiento: 'Clínica Sur',
-      accion: 'Documento aprobado: Licencia Municipal...',
-      responsable: 'Lic. Patricia Rojas',
-      estado: 'Aprobado',
-      estadoBadge: 'bg-emerald-50 text-emerald-700 border-emerald-200'
-    },
-    {
-      id: 2,
-      fechaHora: '13 Ago 2026 - 11:15',
-      fechaISO: '2026-08-13',
-      codigo: 'REQ-0044',
-      establecimiento: 'Hospital del Valle',
-      accion: 'Trámite asignado a Ing. Marco Vargas...',
-      responsable: 'Lic. Patricia Rojas',
-      estado: 'Asignado',
-      estadoBadge: 'bg-sky-50 text-sky-700 border-sky-200'
-    },
-    {
-      id: 3,
-      fechaHora: '12 Ago 2026 - 16:45',
-      fechaISO: '2026-08-12',
-      codigo: 'REQ-0041',
-      establecimiento: 'Farmacia Nova',
-      accion: 'Observación emitida: Plano ilegible en área de...',
-      responsable: 'Dra. Lucía Fernández',
-      estado: 'Observado',
-      estadoBadge: 'bg-amber-50 text-amber-700 border-amber-200'
-    },
-    {
-      id: 4,
-      fechaHora: '11 Ago 2026 - 09:20',
-      fechaISO: '2026-08-11',
-      codigo: 'REQ-0040',
-      establecimiento: 'Laboratorio BioTest',
-      accion: 'Trámite finalizado - Aprobación emitida...',
-      responsable: 'Ing. Marco Vargas',
-      estado: 'Aprobado',
-      estadoBadge: 'bg-emerald-50 text-emerald-700 border-emerald-200'
-    },
-    {
-      id: 5,
-      fechaHora: '10 Ago 2026 - 15:30',
-      fechaISO: '2026-08-10',
-      codigo: 'REQ-0039',
-      establecimiento: 'Centro Dental Smile',
-      accion: 'Documento rechazado: Certificado caducado...',
-      responsable: 'Lic. Patricia Rojas',
-      estado: 'Rechazado',
-      estadoBadge: 'bg-rose-50 text-rose-700 border-rose-200'
-    }
-  ]);
 
   // Filtrado de actividades de auditoría
   const actividadesFiltradas = historialActividades.filter(act => {
-    const matchTexto = act.codigo.toLowerCase().includes(filtroHistorialTexto.toLowerCase()) ||
-                       act.establecimiento.toLowerCase().includes(filtroHistorialTexto.toLowerCase()) ||
-                       act.accion.toLowerCase().includes(filtroHistorialTexto.toLowerCase());
+    const matchTexto = (act.codigo || '').toLowerCase().includes(filtroHistorialTexto.toLowerCase()) ||
+                       (act.establecimiento || '').toLowerCase().includes(filtroHistorialTexto.toLowerCase()) ||
+                       (act.accion || '').toLowerCase().includes(filtroHistorialTexto.toLowerCase());
     const matchEstado = filtroHistorialEstado === 'Todos' || act.estado === filtroHistorialEstado;
-    const matchSupervisor = filtroHistorialSupervisor === 'Todos' || act.responsable === filtroHistorialSupervisor;
+    const matchSupervisor = filtroHistorialSupervisor === 'Todos' || (act.responsable || '').includes(filtroHistorialSupervisor.replace('Ing.', '').replace('Dra.', '').replace('Lic.', '').trim());
     return matchTexto && matchEstado && matchSupervisor;
   });
 
-  // Mostrar mensaje toast temporal
-  const mostrarToast = (mensaje, tipo = 'success') => {
-    setNotificacionToast({ mensaje, tipo });
-    setTimeout(() => {
-      setNotificacionToast(null);
-    }, 4000);
-  };
-
-  // Manejar cambio de estado de un documento legal (Aprobado / Rechazado) conectado a Backend
-  const handleCambiarEstadoDoc = async (nuevoEstado) => {
-    setTramites(prev => prev.map(t => {
-      if (t.id === tramiteActual.id) {
-        const nuevosDocs = t.documentos.map(d => {
-          if (d.id === docActual.id) {
-            return { ...d, estado: nuevoEstado };
-          }
-          return d;
-        });
-        return { ...t, documentos: nuevosDocs };
-      }
-      return t;
-    }));
+  // Manejar cambio de estado de un documento legal (Aprobado / Rechazado / Observado)
+  const handleCambiarEstadoDoc = async (nuevoEstado, observacionTexto = null) => {
+    if (!docActual) return;
 
     try {
-      const response = await fetch(`http://localhost:8000/api/coordinador/documentos/${docActual.id}/validar?codigo_tramite=${tramiteActual.id}`, {
+      const response = await fetch(`http://localhost:8000/api/coordinador/documentos/${docActual.id}/validar`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           estado: nuevoEstado,
+          observacion: observacionTexto,
           responsable: nombreCoordinador
         })
       });
 
       if (response.ok) {
+        setTramites(prev => prev.map(t => {
+          if (t.id === tramiteActual.id) {
+            const nuevosDocs = t.documentos.map(d => {
+              if (d.id === docActual.id) {
+                return { ...d, estado: nuevoEstado, observaciones_supervisor: observacionTexto };
+              }
+              return d;
+            });
+            return { ...t, documentos: nuevosDocs };
+          }
+          return t;
+        }));
+
+        mostrarToast(`Documento marcado como: ${nuevoEstado}`, nuevoEstado === 'Aprobado' ? 'success' : 'warning');
+        setModalObservarDocOpen(false);
+        setMotivoObservacionDoc('');
         recargarHistorial();
+      } else {
+        const err = await response.json();
+        mostrarToast(err.detail || 'Error al actualizar documento', 'warning');
       }
     } catch (e) {
-      console.warn('Backend offline, cambio aplicado localmente:', e);
+      console.warn('Error al actualizar documento en backend:', e);
+      mostrarToast('Error al conectar con el servidor', 'warning');
     }
-
-    mostrarToast(`Documento "${docActual.nombre}" marcado como: ${nuevoEstado}`, nuevoEstado === 'Aprobado' ? 'success' : 'warning');
   };
 
-  // Guardar re-inspección programada conectado a Backend
+  // Guardar re-inspección programada
   const handleGuardarReinspeccion = async (e) => {
     e.preventDefault();
-    setTramites(prev => prev.map(t => {
-      if (t.id === tramiteActual.id) {
-        return {
-          ...t,
-          estado: 'Re-Inspección Programada',
-          estadoColor: 'bg-purple-100 text-purple-800 border-purple-300',
-          supervisorAsignado: reinspeccionData.supervisor,
-          fechaInspeccion: reinspeccionData.fecha
-        };
-      }
-      return t;
-    }));
-    setModalReinspeccionOpen(false);
+    if (!tramiteActual) return;
 
     try {
-      const response = await fetch(`http://localhost:8000/api/coordinador/tramites/${tramiteActual.id}/reinspeccion`, {
+      const response = await fetch(`http://localhost:8000/api/coordinador/tramites/${tramiteActual.tramite_uuid || tramiteActual.id}/reinspeccion`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -602,32 +468,26 @@ export default function CoordinadorPage() {
       });
 
       if (response.ok) {
-        recargarHistorial();
+        mostrarToast(`Re-inspección agendada para el ${reinspeccionData.fecha} con ${reinspeccionData.supervisor}.`, 'success');
+        setModalReinspeccionOpen(false);
+        cargarDatosBackend();
+      } else {
+        const err = await response.json();
+        mostrarToast(err.detail || 'Error al agendar re-inspección', 'warning');
       }
     } catch (err) {
-      console.warn('Backend offline, cambio aplicado localmente:', err);
+      console.warn('Error al agendar re-inspección:', err);
+      mostrarToast('Error de conexión con el backend', 'warning');
     }
-
-    mostrarToast(`Re-inspección asignada a ${reinspeccionData.supervisor} para el ${reinspeccionData.fecha}.`, 'success');
   };
 
-  // Confirmar aprobación final del trámite conectado a Backend
+  // Confirmar aprobación final del trámite
   const handleConfirmarAprobacion = async (e) => {
     e.preventDefault();
-    setTramites(prev => prev.map(t => {
-      if (t.id === tramiteActual.id) {
-        return {
-          ...t,
-          estado: 'Aprobado',
-          estadoColor: 'bg-emerald-100 text-emerald-800 border-emerald-300'
-        };
-      }
-      return t;
-    }));
-    setModalAprobacionOpen(false);
+    if (!tramiteActual) return;
 
     try {
-      const response = await fetch(`http://localhost:8000/api/coordinador/tramites/${tramiteActual.id}/aprobar`, {
+      const response = await fetch(`http://localhost:8000/api/coordinador/tramites/${tramiteActual.tramite_uuid || tramiteActual.id}/aprobar`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -639,13 +499,17 @@ export default function CoordinadorPage() {
       });
 
       if (response.ok) {
-        recargarHistorial();
+        mostrarToast(`¡Trámite ${tramiteActual.id} (${tramiteActual.establecimiento}) APROBADO exitosamente! Resolución: ${aprobacionData.codigoResolucion}.`, 'success');
+        setModalAprobacionOpen(false);
+        cargarDatosBackend();
+      } else {
+        const err = await response.json();
+        mostrarToast(err.detail || 'Error al aprobar trámite', 'warning');
       }
     } catch (err) {
-      console.warn('Backend offline, cambio aplicado localmente:', err);
+      console.warn('Error al aprobar trámite:', err);
+      mostrarToast('Error de conexión con el servidor', 'warning');
     }
-
-    mostrarToast(`¡Trámite ${tramiteActual.id} (${tramiteActual.establecimiento}) APROBADO exitosamente! Se emitió la resolución ${aprobacionData.codigoResolucion}.`, 'success');
   };
 
   const handleLogout = () => {
@@ -768,17 +632,98 @@ export default function CoordinadorPage() {
           {/* Perfil del Coordinador & Notificaciones */}
           <div className="flex items-center space-x-3 sm:space-x-5">
 
-            {/* Campana de Notificaciones con Badge */}
+            {/* Botón Refrescar Datos */}
             <button
-              type="button"
-              className="relative p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition cursor-pointer"
-              title="3 Notificaciones pendientes"
+              onClick={cargarDatosBackend}
+              className="p-2 text-slate-400 hover:text-[#0077c8] hover:bg-slate-100 rounded-full transition cursor-pointer"
+              title="Refrescar solicitudes desde la Base de Datos"
             >
-              <Bell className="w-5 h-5" />
-              <span className="absolute top-1.5 right-1.5 w-4 h-4 bg-red-500 text-white rounded-full text-[10px] font-extrabold flex items-center justify-center ring-2 ring-white">
-                3
-              </span>
+              <RefreshCw className={`w-4 h-4 ${cargando ? 'animate-spin text-[#0077c8]' : ''}`} />
             </button>
+
+            {/* Campana de Notificaciones Interactiva con Dropdown */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setNotifDropdownOpen(!notifDropdownOpen)}
+                className={`relative p-2 rounded-full transition cursor-pointer ${
+                  notifDropdownOpen
+                    ? 'bg-sky-100 text-[#0077c8]'
+                    : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100'
+                }`}
+                title="Notificaciones del sistema"
+              >
+                <Bell className="w-5 h-5" />
+                {notifNoLeidas > 0 && (
+                  <span className="absolute top-1.5 right-1.5 w-4 h-4 bg-red-500 text-white rounded-full text-[10px] font-extrabold flex items-center justify-center ring-2 ring-white animate-pulse">
+                    {notifNoLeidas}
+                  </span>
+                )}
+              </button>
+
+              {/* Dropdown de Notificaciones */}
+              {notifDropdownOpen && (
+                <>
+                  <div
+                    className="fixed inset-0 z-40"
+                    onClick={() => setNotifDropdownOpen(false)}
+                  />
+                  <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-white rounded-2xl shadow-2xl border border-slate-200 z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150">
+                    <div className="p-3.5 bg-slate-900 text-white flex items-center justify-between">
+                      <div className="flex items-center space-x-2">
+                        <Bell className="w-4 h-4 text-sky-400" />
+                        <span className="font-bold text-xs tracking-wide uppercase">Notificaciones</span>
+                        {notifNoLeidas > 0 && (
+                          <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                            {notifNoLeidas} nuevas
+                          </span>
+                        )}
+                      </div>
+                      {notificaciones.length > 0 && (
+                        <button
+                          onClick={handleMarcarTodasNotifsLeidas}
+                          className="text-[11px] text-sky-300 hover:text-white transition font-medium cursor-pointer"
+                        >
+                          Marcar leídas
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="max-h-80 overflow-y-auto divide-y divide-slate-100">
+                      {notificaciones.length === 0 ? (
+                        <div className="p-6 text-center text-slate-400 text-xs">
+                          <CheckCircle className="w-8 h-8 mx-auto mb-2 text-slate-300" />
+                          No tienes notificaciones pendientes
+                        </div>
+                      ) : (
+                        notificaciones.map((notif) => (
+                          <div
+                            key={notif.id}
+                            onClick={() => handleMarcarNotifLeida(notif.id)}
+                            className={`p-3.5 text-xs transition cursor-pointer flex items-start space-x-3 ${
+                              notif.leido ? 'bg-white opacity-70 hover:opacity-100 hover:bg-slate-50' : 'bg-sky-50/60 hover:bg-sky-50 font-medium'
+                            }`}
+                          >
+                            <span className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${notif.leido ? 'bg-slate-300' : 'bg-[#0077c8] ring-2 ring-sky-200'}`} />
+                            <div className="flex-1 min-w-0">
+                              <p className={`text-slate-800 ${notif.leido ? 'font-medium' : 'font-bold'}`}>
+                                {notif.titulo}
+                              </p>
+                              <p className="text-slate-600 mt-0.5 leading-relaxed break-words text-[11px]">
+                                {notif.mensaje}
+                              </p>
+                              <span className="text-[10px] text-slate-400 mt-1 block">
+                                {new Date(notif.fecha_creacion).toLocaleString('es-BO', { dateStyle: 'short', timeStyle: 'short' })}
+                              </span>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
 
             {/* Perfil del Coordinador */}
             <div className="flex items-center space-x-3 pl-2 sm:pl-4 border-l border-slate-200">
@@ -787,7 +732,7 @@ export default function CoordinadorPage() {
                   {nombreCoordinador}
                 </p>
                 <p className="text-[11px] text-slate-400 font-medium">
-                  Coordinadora SEDES
+                  Coordinación SEDES Cochabamba
                 </p>
               </div>
 
@@ -821,21 +766,21 @@ export default function CoordinadorPage() {
         )}
 
         {/* ========================================================================= */}
-        {/* 3. VISTA 1: BANDEJA DE ENTRADA (MOCKUP EXACTO CON AMBAS BITÁCORAS)       */}
+        {/* 3. VISTA 1: BANDEJA DE ENTRADA CON DATOS REALES DE BASE DE DATOS          */}
         {/* ========================================================================= */}
         {seccionActiva === 'bandeja' && (
           <div className="flex-1 flex flex-col md:flex-row overflow-hidden p-3 sm:p-5 gap-4">
 
             {/* --------------------------------------------------------------------- */}
-            {/* COLUMNA IZQUIERDA: Lista de Trámites en Proceso                       */}
+            {/* COLUMNA IZQUIERDA: Lista de Trámites Reales                           */}
             {/* --------------------------------------------------------------------- */}
             <div className="w-full md:w-80 lg:w-96 bg-white rounded-2xl border border-slate-200/90 shadow-xs flex flex-col shrink-0 overflow-hidden">
 
-              {/* Header de la lista con contador */}
+              {/* Header de la lista con contador real */}
               <div className="p-4 border-b border-slate-100 flex items-center justify-between">
-                <h2 className="font-black text-slate-800 text-base tracking-tight">Trámites en Proceso</h2>
+                <h2 className="font-black text-slate-800 text-base tracking-tight">Solicitudes y Trámites</h2>
                 <span className="bg-sky-100 text-sky-800 text-xs font-bold px-2.5 py-1 rounded-full border border-sky-200">
-                  {tramites.length} pendientes
+                  {tramites.length} en sistema
                 </span>
               </div>
 
@@ -845,7 +790,7 @@ export default function CoordinadorPage() {
                   <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
                   <input
                     type="text"
-                    placeholder="Buscar por código, nombre..."
+                    placeholder="Buscar por código, establecimiento, dueño..."
                     value={filtroTexto}
                     onChange={(e) => setFiltroTexto(e.target.value)}
                     className="w-full pl-9 pr-3 py-1.5 text-xs bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0077c8] text-slate-700"
@@ -856,14 +801,16 @@ export default function CoordinadorPage() {
               {/* Lista scrollable de tarjetas de trámite */}
               <div className="flex-1 overflow-y-auto p-3 space-y-2.5">
                 {tramitesFiltrados.map((item) => {
-                  const estaSeleccionado = item.id === tramiteSeleccionadoId;
+                  const estaSeleccionado = item.id === (tramiteActual?.id);
 
                   return (
                     <div
                       key={item.id}
                       onClick={() => {
                         setTramiteSeleccionadoId(item.id);
-                        setDocSeleccionadoId('lic_mun');
+                        if (item.documentos?.length > 0) {
+                          setDocSeleccionadoId(item.documentos[0].id);
+                        }
                       }}
                       className={`
                         p-3.5 rounded-xl border transition-all duration-200 cursor-pointer
@@ -890,20 +837,24 @@ export default function CoordinadorPage() {
                       </div>
 
                       {/* Título del Establecimiento */}
-                      <h3 className="font-bold text-sm text-slate-900 mb-2 truncate">
+                      <h3 className="font-bold text-sm text-slate-900 mb-1 truncate">
                         {item.establecimiento}
                       </h3>
 
-                      {/* Estado Tag */}
+                      {/* Propietario */}
+                      <p className="text-[11px] text-slate-500 font-medium mb-2 truncate">
+                        Solicitante: <span className="font-semibold text-slate-700">{item.propietario}</span>
+                      </p>
+
+                      {/* Estado Tag & Documentos conteo */}
                       <div className="flex items-center justify-between">
-                        <span className={`text-[11px] font-semibold px-2.5 py-0.5 rounded-md border ${item.estadoColor}`}>
+                        <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-md border ${item.estadoColor}`}>
                           {item.estado}
                         </span>
-                        {estaSeleccionado && (
-                          <span className="text-[11px] text-[#0077c8] font-bold flex items-center">
-                            Revisando <ChevronRight className="w-3.5 h-3.5 ml-0.5" />
-                          </span>
-                        )}
+                        <span className="text-[10px] text-slate-400 font-medium flex items-center">
+                          <FileText className="w-3 h-3 mr-1 text-slate-400" />
+                          {item.documentos?.length || 0} docs
+                        </span>
                       </div>
                     </div>
                   );
@@ -911,491 +862,496 @@ export default function CoordinadorPage() {
 
                 {tramitesFiltrados.length === 0 && (
                   <div className="p-8 text-center text-slate-400 text-xs">
-                    No se encontraron trámites con el criterio de búsqueda.
+                    {cargando ? 'Cargando solicitudes...' : 'No se encontraron trámites con el criterio de búsqueda.'}
                   </div>
                 )}
               </div>
             </div>
 
             {/* --------------------------------------------------------------------- */}
-            {/* COLUMNA DERECHA: Detalle del Trámite y Bitácoras (Tabs)               */}
+            {/* COLUMNA DERECHA: Detalle del Trámite y Expediente Digital             */}
             {/* --------------------------------------------------------------------- */}
-            <div className="flex-1 bg-white rounded-2xl border border-slate-200/90 shadow-xs flex flex-col overflow-hidden">
+            {tramiteActual ? (
+              <div className="flex-1 bg-white rounded-2xl border border-slate-200/90 shadow-xs flex flex-col overflow-hidden">
 
-              {/* Encabezado del Detalle */}
-              <div className="p-4 sm:p-5 border-b border-slate-200 bg-white">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                  <div>
-                    <h1 className="text-lg sm:text-xl font-extrabold text-slate-900 tracking-tight">
-                      {tramiteActual.id} - {tramiteActual.tipo} {tramiteActual.establecimiento}
-                    </h1>
-                    <p className="text-xs text-slate-500 font-medium mt-0.5">
-                      Propietario: <span className="font-semibold text-slate-700">{tramiteActual.propietario}</span> &bull; {tramiteActual.categoria}
-                    </p>
-                  </div>
-
-                  <span className={`self-start sm:self-center text-xs font-bold px-3 py-1 rounded-lg border ${tramiteActual.estadoColor}`}>
-                    {tramiteActual.estado}
-                  </span>
-                </div>
-
-                {/* Pestañas de Navegación: Bitácora Legal vs Inspección de Campo */}
-                <div className="flex items-center space-x-6 mt-4 border-b border-slate-200 -mb-5">
-                  <button
-                    onClick={() => setTabActiva('legal')}
-                    className={`
-                      pb-3 font-bold text-xs sm:text-sm transition-all border-b-2 cursor-pointer flex items-center space-x-2
-                      ${tabActiva === 'legal'
-                        ? 'border-slate-900 text-slate-900 font-extrabold'
-                        : 'border-transparent text-slate-500 hover:text-slate-800'
-                      }
-                    `}
-                  >
-                    <FileText className="w-4 h-4" />
-                    <span>Documentación Legal</span>
-                  </button>
-
-                  <button
-                    onClick={() => setTabActiva('campo')}
-                    className={`
-                      pb-3 font-bold text-xs sm:text-sm transition-all border-b-2 cursor-pointer flex items-center space-x-2
-                      ${tabActiva === 'campo'
-                        ? 'border-slate-900 text-slate-900 font-extrabold'
-                        : 'border-transparent text-slate-500 hover:text-slate-800'
-                      }
-                    `}
-                  >
-                    <ShieldCheck className="w-4 h-4" />
-                    <span>Inspección de Campo</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Contenido Scrolleable según la pestaña activa */}
-              <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-[#fafbfc]">
-
-                {/* =================================================================== */}
-                {/* TAB 1: DOCUMENTACIÓN LEGAL (Bitácora 1)                              */}
-                {/* =================================================================== */}
-                {tabActiva === 'legal' && (
-                  <div className="space-y-6 max-w-4xl mx-auto">
-
-                    {/* Lista de 5 Documentos Requeridos */}
-                    <div className="bg-white rounded-xl border border-slate-200/90 shadow-xs divide-y divide-slate-100">
-                      {tramiteActual.documentos.map((doc) => {
-                        const isDocActivo = doc.id === docActual.id;
-
-                        return (
-                          <div
-                            key={doc.id}
-                            className={`
-                              p-3.5 sm:p-4 flex items-center justify-between gap-3 transition-colors
-                              ${isDocActivo ? 'bg-sky-50/40' : 'hover:bg-slate-50/60'}
-                            `}
-                          >
-                            {/* Nombre del documento e ícono */}
-                            <div className="flex items-center space-x-3.5 min-w-0">
-                              <div className="p-2 rounded-lg bg-slate-100 text-slate-600">
-                                <FileText className="w-4 h-4" />
-                              </div>
-                              <div>
-                                <span className="font-bold text-xs sm:text-sm text-slate-800 block truncate">
-                                  {doc.nombre}
-                                </span>
-                                <span className="text-[10px] text-slate-400 font-mono">
-                                  Reg: {doc.numRegistro}
-                                </span>
-                              </div>
-                            </div>
-
-                            {/* Badge de estado y Botón Ver PDF */}
-                            <div className="flex items-center space-x-3 shrink-0">
-                              <span className={`
-                                text-xs font-bold px-2.5 py-0.5 rounded-md
-                                ${doc.estado === 'Aprobado' ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' : ''}
-                                ${doc.estado === 'Observado' ? 'bg-rose-100 text-rose-700 border border-rose-200' : ''}
-                                ${doc.estado === 'Pendiente' ? 'bg-amber-100 text-amber-800 border border-amber-200' : ''}
-                              `}>
-                                {doc.estado}
-                              </span>
-
-                              <button
-                                onClick={() => setDocSeleccionadoId(doc.id)}
-                                className={`
-                                  flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border transition cursor-pointer
-                                  ${isDocActivo
-                                    ? 'bg-[#0077c8] text-white border-[#0077c8] shadow-xs'
-                                    : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100'
-                                  }
-                                `}
-                              >
-                                <Eye className="w-3.5 h-3.5" />
-                                <span>Ver PDF</span>
-                              </button>
-                            </div>
-                          </div>
-                        );
-                      })}
+                {/* Encabezado del Detalle */}
+                <div className="p-4 sm:p-5 border-b border-slate-200 bg-white">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div>
+                      <div className="flex items-center space-x-2">
+                        <span className="font-black text-sm text-[#0077c8] bg-sky-50 px-2 py-0.5 rounded-md border border-sky-200">
+                          {tramiteActual.id}
+                        </span>
+                        <h1 className="text-lg sm:text-xl font-extrabold text-slate-900 tracking-tight">
+                          {tramiteActual.tipo} de {tramiteActual.establecimiento}
+                        </h1>
+                      </div>
+                      <p className="text-xs text-slate-500 font-medium mt-1">
+                        Propietario: <span className="font-bold text-slate-800">{tramiteActual.propietario}</span> &bull; {tramiteActual.categoria} &bull; <span className="text-slate-600">{tramiteActual.municipio}</span>
+                      </p>
+                      <p className="text-[11px] text-slate-400 mt-0.5">
+                        Dirección: {tramiteActual.direccion} | Tel: {tramiteActual.telefono || 'Sin teléfono'}
+                      </p>
                     </div>
 
-                    {/* =============================================================== */}
-                    {/* VISOR INTERACTIVO DEL DOCUMENTO SELECCIONADO (Licencia / Plano) */}
-                    {/* =============================================================== */}
-                    <div className="bg-slate-100/90 p-4 sm:p-6 rounded-2xl border border-slate-200">
+                    <div className="flex items-center space-x-2 self-start sm:self-center">
+                      <span className={`text-xs font-bold px-3 py-1 rounded-lg border ${tramiteActual.estadoColor}`}>
+                        {tramiteActual.estado}
+                      </span>
+                    </div>
+                  </div>
 
-                      {/* Document Sheet Container */}
-                      <div className="bg-white rounded-xl shadow-md border border-slate-200 p-6 sm:p-8 max-w-2xl mx-auto relative overflow-hidden">
+                  {/* Pestañas de Navegación: Bitácora Legal vs Inspección de Campo */}
+                  <div className="flex items-center space-x-6 mt-4 border-b border-slate-200 -mb-5">
+                    <button
+                      onClick={() => setTabActiva('legal')}
+                      className={`
+                        pb-3 font-bold text-xs sm:text-sm transition-all border-b-2 cursor-pointer flex items-center space-x-2
+                        ${tabActiva === 'legal'
+                          ? 'border-slate-900 text-slate-900 font-extrabold'
+                          : 'border-transparent text-slate-500 hover:text-slate-800'
+                        }
+                      `}
+                    >
+                      <FileText className="w-4 h-4" />
+                      <span>Documentación y Requisitos ({tramiteActual.documentos?.length || 0})</span>
+                    </button>
 
-                        {/* Marca de agua / Sello de fondo */}
-                        <div className="absolute inset-0 flex items-center justify-center opacity-[0.03] pointer-events-none">
-                          <Building2 className="w-96 h-96 text-slate-900" />
+                    <button
+                      onClick={() => setTabActiva('campo')}
+                      className={`
+                        pb-3 font-bold text-xs sm:text-sm transition-all border-b-2 cursor-pointer flex items-center space-x-2
+                        ${tabActiva === 'campo'
+                          ? 'border-slate-900 text-slate-900 font-extrabold'
+                          : 'border-transparent text-slate-500 hover:text-slate-800'
+                        }
+                      `}
+                    >
+                      <ShieldCheck className="w-4 h-4" />
+                      <span>Fiscalización e Inspección</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Contenido Scrolleable según la pestaña activa */}
+                <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-[#fafbfc]">
+
+                  {/* =================================================================== */}
+                  {/* TAB 1: DOCUMENTACIÓN Y REQUISITOS (Bitácora Documental Real)        */}
+                  {/* =================================================================== */}
+                  {tabActiva === 'legal' && (
+                    <div className="space-y-6 max-w-5xl mx-auto">
+
+                      {/* Filtros de Secciones Normativas y Búsqueda de Requisitos */}
+                      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs">
+                        {/* Selector de Sección */}
+                        <div className="flex flex-wrap items-center gap-1.5 w-full sm:w-auto">
+                          {['Todas', '2.1', '2.2', '2.3', '2.4', '2.5'].map((sec) => (
+                            <button
+                              key={sec}
+                              onClick={() => setSeccionFiltroDoc(sec)}
+                              className={`px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
+                                seccionFiltroDoc === sec
+                                  ? 'bg-[#19324d] text-white shadow-xs'
+                                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                              }`}
+                            >
+                              {sec === 'Todas' ? 'Todas las Secciones' : `Sección ${sec}`}
+                            </button>
+                          ))}
                         </div>
 
-                        {/* Cabecera del Documento Oficial */}
-                        <div className="text-center border-b border-slate-200 pb-4 mb-6">
-                          <h3 className="font-extrabold text-xs sm:text-sm text-slate-800 tracking-wider uppercase">
-                            GOBIERNO AUTÓNOMO MUNICIPAL DE COCHABAMBA
-                          </h3>
-                          <p className="text-[10px] text-slate-500 font-semibold tracking-wide uppercase mt-0.5">
-                            DEPARTAMENTO DE PATENTES Y LICENCIAS DE FUNCIONAMIENTO
-                          </p>
+                        {/* Buscador de documento */}
+                        <div className="relative w-full sm:w-64">
+                          <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
+                          <input
+                            type="text"
+                            placeholder="Filtrar requisito..."
+                            value={busquedaDoc}
+                            onChange={(e) => setBusquedaDoc(e.target.value)}
+                            className="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0077c8]"
+                          />
+                        </div>
+                      </div>
 
-                          <div className="my-3 inline-block">
-                            <h2 className="font-black text-base sm:text-lg text-slate-900 tracking-tight uppercase">
-                              {docActual.nombre.toUpperCase()}
-                            </h2>
-                            <p className="text-[11px] font-bold text-[#0077c8] font-mono">
-                              Nº REGISTRO: {docActual.numRegistro}
+                      {/* Lista de Documentos Requeridos */}
+                      <div className="bg-white rounded-xl border border-slate-200/90 shadow-xs divide-y divide-slate-100 max-h-80 overflow-y-auto">
+                        {docsFiltrados.map((doc) => {
+                          const isDocActivo = doc.id === docActual?.id;
+
+                          return (
+                            <div
+                              key={doc.id}
+                              onClick={() => setDocSeleccionadoId(doc.id)}
+                              className={`
+                                p-3 sm:p-4 flex items-center justify-between gap-3 transition-colors cursor-pointer
+                                ${isDocActivo ? 'bg-sky-50/60 border-l-4 border-[#0077c8]' : 'hover:bg-slate-50/60'}
+                              `}
+                            >
+                              {/* Nombre del documento e ícono */}
+                              <div className="flex items-center space-x-3 min-w-0 flex-1">
+                                <div className={`p-2 rounded-lg ${doc.archivo_url ? 'bg-blue-100 text-[#0077c8]' : 'bg-slate-100 text-slate-400'}`}>
+                                  <FileText className="w-4 h-4" />
+                                </div>
+                                <div className="min-w-0">
+                                  <div className="flex items-center space-x-2">
+                                    <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 font-mono">
+                                      {doc.seccion}
+                                    </span>
+                                    <span className="font-bold text-xs sm:text-sm text-slate-800 truncate block">
+                                      {doc.nombre}
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center space-x-2 text-[10px] text-slate-400 mt-0.5">
+                                    <span>{doc.numRegistro}</span>
+                                    <span>&bull;</span>
+                                    <span>{doc.es_obligatorio ? 'Obligatorio' : 'Opcional'}</span>
+                                    {doc.observaciones_supervisor && (
+                                      <>
+                                        <span>&bull;</span>
+                                        <span className="text-rose-600 font-medium truncate">Obs: {doc.observaciones_supervisor}</span>
+                                      </>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Badge de estado y Botón Ver PDF */}
+                              <div className="flex items-center space-x-2 shrink-0">
+                                <span className={`
+                                  text-[11px] font-bold px-2 py-0.5 rounded-md
+                                  ${doc.estado === 'Aprobado' ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' : ''}
+                                  ${doc.estado === 'Observado' || doc.estado === 'Rechazado' ? 'bg-rose-100 text-rose-700 border border-rose-200' : ''}
+                                  ${doc.estado === 'En Revisión' || doc.estado === 'Pendiente' ? 'bg-amber-100 text-amber-800 border border-amber-200' : ''}
+                                `}>
+                                  {doc.estado}
+                                </span>
+
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setDocSeleccionadoId(doc.id);
+                                  }}
+                                  className={`
+                                    flex items-center space-x-1 px-2.5 py-1 rounded-lg text-xs font-bold border transition cursor-pointer
+                                    ${isDocActivo
+                                      ? 'bg-[#0077c8] text-white border-[#0077c8] shadow-xs'
+                                      : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100'
+                                    }
+                                  `}
+                                >
+                                  <Eye className="w-3.5 h-3.5" />
+                                  <span>{isDocActivo ? 'Viendo' : 'Ver'}</span>
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+
+                        {docsFiltrados.length === 0 && (
+                          <div className="p-6 text-center text-slate-400 text-xs">
+                            No se encontraron requisitos para esta sección.
+                          </div>
+                        )}
+                      </div>
+
+                      {/* =============================================================== */}
+                      {/* VISOR INTERACTIVO DEL DOCUMENTO SELECCIONADO (PDF REAL O FICHA) */}
+                      {/* =============================================================== */}
+                      {docActual && (
+                        <div className="bg-slate-100/90 p-4 sm:p-6 rounded-2xl border border-slate-200 space-y-4">
+
+                          {/* Encabezado del Visor de Documento */}
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-200">
+                            <div>
+                              <div className="flex items-center space-x-2">
+                                <span className="bg-[#0077c8] text-white text-[10px] font-bold px-2 py-0.5 rounded font-mono">
+                                  Sección {docActual.seccion}
+                                </span>
+                                <h3 className="font-extrabold text-sm sm:text-base text-slate-900">
+                                  {docActual.nombre}
+                                </h3>
+                              </div>
+                              <p className="text-xs text-slate-500 mt-0.5">
+                                Registro: <span className="font-mono font-semibold">{docActual.numRegistro}</span> &bull; Estado: <strong className="text-slate-800">{docActual.estado}</strong>
+                              </p>
+                            </div>
+
+                            {/* Enlaces de apertura externa y descarga si tiene archivo PDF real */}
+                            {docActual.archivo_url && (
+                              <div className="flex items-center space-x-2">
+                                <a
+                                  href={`http://localhost:8000${docActual.archivo_url}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-white text-slate-700 border border-slate-300 hover:bg-slate-50 transition shadow-2xs cursor-pointer"
+                                  title="Abrir PDF en pestaña independiente"
+                                >
+                                  <ExternalLink className="w-3.5 h-3.5 text-[#0077c8]" />
+                                  <span>Abrir PDF</span>
+                                </a>
+                                <a
+                                  href={`http://localhost:8000${docActual.archivo_url}`}
+                                  download
+                                  className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-[#19324d] text-white hover:bg-[#102235] transition shadow-2xs cursor-pointer"
+                                  title="Descargar documento PDF original"
+                                >
+                                  <Download className="w-3.5 h-3.5" />
+                                  <span>Descargar</span>
+                                </a>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Contenedor del Visor */}
+                          {docActual.archivo_url ? (
+                            <div className="bg-white rounded-xl shadow-md border border-slate-300 overflow-hidden">
+                              <div className="bg-slate-800 text-white px-4 py-2 text-xs flex items-center justify-between font-mono">
+                                <span className="truncate">Visualizador de Documento PDF - {docActual.nombre}</span>
+                                <span className="text-cyan-300 text-[11px]">PDF Oficial Cargado</span>
+                              </div>
+                              <iframe
+                                src={`http://localhost:8000${docActual.archivo_url}#toolbar=1&navpanes=0`}
+                                className="w-full h-[540px] border-0 bg-slate-100"
+                                title={docActual.nombre}
+                              />
+                            </div>
+                          ) : (
+                            /* Ficha estructurada en caso de que no tenga URL directa */
+                            <div className="bg-white rounded-xl shadow-md border border-slate-200 p-6 sm:p-8 max-w-2xl mx-auto relative overflow-hidden">
+                              <div className="text-center border-b border-slate-200 pb-4 mb-6">
+                                <h3 className="font-extrabold text-xs sm:text-sm text-slate-800 tracking-wider uppercase">
+                                  SERVICIO DEPARTAMENTAL DE SALUD COCHABAMBA
+                                </h3>
+                                <p className="text-[10px] text-slate-500 font-semibold tracking-wide uppercase mt-0.5">
+                                  UNIDAD DE HABILITACIÓN Y ACREDITACIÓN DE LABORATORIOS
+                                </p>
+                                <div className="my-3 inline-block">
+                                  <h2 className="font-black text-base sm:text-lg text-slate-900 tracking-tight uppercase">
+                                    {docActual.nombre.toUpperCase()}
+                                  </h2>
+                                  <p className="text-[11px] font-bold text-[#0077c8] font-mono">
+                                    Nº REGISTRO: {docActual.numRegistro}
+                                  </p>
+                                </div>
+                              </div>
+
+                              <div className="space-y-3 text-xs text-slate-700">
+                                <div className="grid grid-cols-3 gap-2 py-1 border-b border-slate-100">
+                                  <span className="font-bold text-slate-500 uppercase tracking-wide text-[10px]">ESTABLECIMIENTO:</span>
+                                  <span className="col-span-2 font-bold text-slate-900 uppercase">{tramiteActual.establecimiento}</span>
+                                </div>
+                                <div className="grid grid-cols-3 gap-2 py-1 border-b border-slate-100">
+                                  <span className="font-bold text-slate-500 uppercase tracking-wide text-[10px]">SOLICITANTE:</span>
+                                  <span className="col-span-2 font-semibold text-slate-800 uppercase">{tramiteActual.propietario} ({tramiteActual.propietario_ci || 'CI'})</span>
+                                </div>
+                                <div className="grid grid-cols-3 gap-2 py-1 border-b border-slate-100">
+                                  <span className="font-bold text-slate-500 uppercase tracking-wide text-[10px]">DIRECCIÓN:</span>
+                                  <span className="col-span-2 text-slate-700">{tramiteActual.direccion}</span>
+                                </div>
+                                <div className="grid grid-cols-3 gap-2 py-1 border-b border-slate-100">
+                                  <span className="font-bold text-slate-500 uppercase tracking-wide text-[10px]">TIPO / NIVEL:</span>
+                                  <span className="col-span-2 text-slate-700">{tramiteActual.categoria}</span>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Alerta de observación si existe */}
+                          {docActual.observaciones_supervisor && (
+                            <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-800 flex items-start space-x-2">
+                              <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                              <div>
+                                <strong className="font-bold">Observación Técnica Registrada:</strong>
+                                <p className="mt-0.5">{docActual.observaciones_supervisor}</p>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Botones de Dictamen para este Documento (Aprobado / Observado / Rechazado) */}
+                          <div className="flex items-center justify-center space-x-3 max-w-md mx-auto pt-2">
+                            <button
+                              onClick={() => handleCambiarEstadoDoc('Aprobado')}
+                              className={`
+                                flex-1 py-2.5 px-4 rounded-xl font-bold text-xs transition-all shadow-xs flex items-center justify-center space-x-2 cursor-pointer
+                                ${docActual.estado === 'Aprobado'
+                                  ? 'bg-emerald-600 text-white ring-2 ring-emerald-400'
+                                  : 'bg-emerald-100 hover:bg-emerald-200 text-emerald-800'
+                                }
+                              `}
+                            >
+                              <Check className="w-4 h-4" />
+                              <span>Aprobar Documento</span>
+                            </button>
+
+                            <button
+                              onClick={() => {
+                                setMotivoObservacionDoc(docActual.observaciones_supervisor || '');
+                                setModalObservarDocOpen(true);
+                              }}
+                              className={`
+                                flex-1 py-2.5 px-4 rounded-xl font-bold text-xs transition-all shadow-xs flex items-center justify-center space-x-2 cursor-pointer
+                                ${docActual.estado === 'Observado' || docActual.estado === 'Rechazado'
+                                  ? 'bg-rose-600 text-white ring-2 ring-rose-400'
+                                  : 'bg-rose-100 hover:bg-rose-200 text-rose-700'
+                                }
+                              `}
+                            >
+                              <X className="w-4 h-4" />
+                              <span>Observar / Rechazar</span>
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Botones Globales de Acción del Trámite */}
+                      <div className="flex flex-col sm:flex-row items-center gap-3 pt-2">
+                        <button
+                          onClick={() => setModalReinspeccionOpen(true)}
+                          className="w-full sm:flex-1 py-3 px-5 rounded-xl font-extrabold text-sm text-white bg-[#0077c8] hover:bg-[#0064a7] shadow-md transition-all flex items-center justify-center space-x-2 cursor-pointer"
+                        >
+                          <Calendar className="w-4 h-4" />
+                          <span>Agendar Inspección de Campo</span>
+                        </button>
+
+                        <button
+                          onClick={() => setModalAprobacionOpen(true)}
+                          className="w-full sm:flex-1 py-3 px-5 rounded-xl font-extrabold text-sm text-emerald-900 bg-[#c7f9cc] hover:bg-[#a7f3d0] border border-emerald-300 shadow-sm transition-all flex items-center justify-center space-x-2 cursor-pointer"
+                        >
+                          <Award className="w-4 h-4 text-emerald-700" />
+                          <span>Aprobar Trámite y Emitir Resolución</span>
+                        </button>
+                      </div>
+
+                    </div>
+                  )}
+
+                  {/* =================================================================== */}
+                  {/* TAB 2: INSPECCIÓN Y FISCALIZACIÓN TÉCNICA (Bitácora 2)              */}
+                  {/* =================================================================== */}
+                  {tabActiva === 'campo' && (
+                    <div className="space-y-6 max-w-4xl mx-auto">
+
+                      {/* Banner de Veredicto del Supervisor */}
+                      <div className="bg-sky-50 border-l-4 border-[#0077c8] p-4 rounded-r-xl shadow-xs">
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <h3 className="font-extrabold text-sm sm:text-base text-slate-900 uppercase tracking-tight flex items-center space-x-2">
+                              <ShieldCheck className="w-5 h-5 text-[#0077c8]" />
+                              <span>Veredicto Técnico: {tramiteActual.veredictoSupervisor}</span>
+                            </h3>
+                            <p className="text-xs text-slate-600 mt-1 font-medium">
+                              Supervisor Asignado: <span className="font-bold text-slate-800">{tramiteActual.supervisorAsignado}</span> &bull; Inspección: <span className="font-bold">{tramiteActual.fechaInspeccion}</span>
                             </p>
                           </div>
                         </div>
-
-                        {/* Datos Detallados del Documento */}
-                        <div className="space-y-3 text-xs sm:text-xs text-slate-700">
-                          <div className="grid grid-cols-3 gap-2 py-1 border-b border-slate-100">
-                            <span className="font-bold text-slate-500 uppercase tracking-wide text-[10px]">RAZÓN SOCIAL:</span>
-                            <span className="col-span-2 font-bold text-slate-900 uppercase">{tramiteActual.establecimiento} - ESTABLECIMIENTO DE SALUD</span>
-                          </div>
-
-                          <div className="grid grid-cols-3 gap-2 py-1 border-b border-slate-100">
-                            <span className="font-bold text-slate-500 uppercase tracking-wide text-[10px]">PROPIETARIO:</span>
-                            <span className="col-span-2 font-semibold text-slate-800 uppercase">{tramiteActual.propietario}</span>
-                          </div>
-
-                          <div className="grid grid-cols-3 gap-2 py-1 border-b border-slate-100">
-                            <span className="font-bold text-slate-500 uppercase tracking-wide text-[10px]">DIRECCIÓN:</span>
-                            <span className="col-span-2 text-slate-700">{tramiteActual.direccion}</span>
-                          </div>
-
-                          <div className="grid grid-cols-3 gap-2 py-1 border-b border-slate-100">
-                            <span className="font-bold text-slate-500 uppercase tracking-wide text-[10px]">ACTIVIDAD:</span>
-                            <span className="col-span-2 text-slate-700">{tramiteActual.categoria}</span>
-                          </div>
-
-                          <div className="grid grid-cols-3 gap-2 py-1 border-b border-slate-100">
-                            <span className="font-bold text-slate-500 uppercase tracking-wide text-[10px]">FECHA EMISIÓN:</span>
-                            <span className="col-span-2 text-slate-700">{docActual.fechaEmision}</span>
-                          </div>
-                        </div>
-
-                        {/* Texto Legal de Certificación */}
-                        <p className="text-[10px] text-slate-500 mt-5 text-justify leading-relaxed italic">
-                          Se autoriza el funcionamiento del establecimiento mencionado bajo estricto cumplimiento de las normas de salubridad, seguridad y reglamentación ambiental vigentes en el Estado Plurinacional de Bolivia.
-                        </p>
-
-                        {/* Sello y Firma */}
-                        <div className="mt-8 flex items-center justify-between pt-4 border-t border-dashed border-slate-200">
-
-                          {/* Sello circular ALCALDÍA */}
-                          <div className="w-24 h-24 rounded-full border-2 border-dashed border-sky-500 flex flex-col items-center justify-center text-center p-1 rotate-[-8deg] bg-sky-50/50">
-                            <span className="text-[8px] font-bold text-sky-800 uppercase tracking-tighter">ALCALDÍA</span>
-                            <span className="text-[9px] font-black text-sky-700">COCHABAMBA</span>
-                            <span className="text-[7px] font-bold text-sky-600 uppercase">VERIFICADO</span>
-                          </div>
-
-                          {/* Firma Autorizada */}
-                          <div className="text-center">
-                            <div className="h-10 flex items-end justify-center mb-1">
-                              <span className="font-serif italic text-lg text-slate-600 font-bold">M. Arze R.</span>
-                            </div>
-                            <div className="w-40 border-t border-slate-400 mx-auto" />
-                            <p className="text-[9px] font-bold text-slate-800 mt-1 uppercase">ING. MARCELO ARZE R.</p>
-                            <p className="text-[8px] text-slate-500 uppercase">JEFE DE PATENTES MUNICIPALES</p>
-                          </div>
-                        </div>
                       </div>
 
-                      {/* Botones de Dictamen para este Documento (Aprobado / Rechazado) */}
-                      <div className="mt-4 flex items-center justify-center space-x-3 max-w-md mx-auto">
-                        <button
-                          onClick={() => handleCambiarEstadoDoc('Aprobado')}
-                          className={`
-                            flex-1 py-2.5 px-4 rounded-xl font-bold text-xs transition-all shadow-xs flex items-center justify-center space-x-2 cursor-pointer
-                            ${docActual.estado === 'Aprobado'
-                              ? 'bg-emerald-200 text-emerald-900 ring-2 ring-emerald-400'
-                              : 'bg-emerald-100 hover:bg-emerald-200 text-emerald-800'
-                            }
-                          `}
-                        >
-                          <Check className="w-4 h-4" />
-                          <span>Aprobado</span>
-                        </button>
-
-                        <button
-                          onClick={() => handleCambiarEstadoDoc('Observado')}
-                          className={`
-                            flex-1 py-2.5 px-4 rounded-xl font-bold text-xs transition-all shadow-xs flex items-center justify-center space-x-2 cursor-pointer
-                            ${docActual.estado === 'Observado'
-                              ? 'bg-rose-200 text-rose-900 ring-2 ring-rose-400'
-                              : 'bg-rose-100 hover:bg-rose-200 text-rose-700'
-                            }
-                          `}
-                        >
-                          <X className="w-4 h-4" />
-                          <span>Rechazado</span>
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Botones Globales de Acción del Trámite */}
-                    <div className="flex flex-col sm:flex-row items-center gap-3 pt-2">
-                      <button
-                        onClick={() => setModalReinspeccionOpen(true)}
-                        className="w-full sm:flex-1 py-3 px-5 rounded-xl font-extrabold text-sm text-white bg-[#0077c8] hover:bg-[#0064a7] shadow-md transition-all flex items-center justify-center space-x-2 cursor-pointer"
-                      >
-                        <Calendar className="w-4 h-4" />
-                        <span>Agendar Re-Inspección</span>
-                      </button>
-
-                      <button
-                        onClick={() => setModalAprobacionOpen(true)}
-                        className="w-full sm:flex-1 py-3 px-5 rounded-xl font-extrabold text-sm text-emerald-900 bg-[#c7f9cc] hover:bg-[#a7f3d0] border border-emerald-300 shadow-sm transition-all flex items-center justify-center space-x-2 cursor-pointer"
-                      >
-                        <Award className="w-4 h-4 text-emerald-700" />
-                        <span>Aprobar Trámite</span>
-                      </button>
-                    </div>
-
-                  </div>
-                )}
-
-                {/* =================================================================== */}
-                {/* TAB 2: INSPECCIÓN DE CAMPO (Bitácora 2)                              */}
-                {/* =================================================================== */}
-                {tabActiva === 'campo' && (
-                  <div className="space-y-6 max-w-4xl mx-auto">
-
-                    {/* Banner de Veredicto del Supervisor */}
-                    <div className="bg-amber-100/90 border-l-4 border-amber-500 p-4 rounded-r-xl shadow-xs">
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <h3 className="font-extrabold text-sm sm:text-base text-amber-900 uppercase tracking-tight flex items-center space-x-2">
-                            <AlertTriangle className="w-5 h-5 text-amber-600" />
-                            <span>Veredicto del Supervisor: {tramiteActual.veredictoSupervisor}</span>
-                          </h3>
-                          <p className="text-xs text-amber-800/90 mt-0.5 font-medium">
-                            Realizado por: <span className="font-bold">{tramiteActual.supervisorAsignado}</span> &bull; {tramiteActual.fechaInspeccion}
-                          </p>
-                        </div>
-
-                        {tramiteActual.plazoSubsanacion && (
-                          <span className="text-[11px] font-bold bg-amber-200/80 text-amber-900 px-3 py-1 rounded-full border border-amber-300">
-                            Plazo: {tramiteActual.plazoSubsanacion}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Sección Documentación Requerida */}
-                    <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-4">
-                      <div>
+                      {/* Datos del Establecimiento a Fiscalizar */}
+                      <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-4">
                         <h3 className="font-extrabold text-sm text-slate-900 tracking-tight">
-                          Documentación Requerida
+                          Ficha Técnica de Fiscalización
                         </h3>
-                        <p className="text-xs text-slate-500 mt-0.5">
-                          Cargue y verifique la vigencia de los requisitos sanitarios y legales correspondientes.
-                        </p>
-                      </div>
 
-                      <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between">
-                        <div className="flex items-center space-x-3">
-                          <div className="p-2 rounded-lg bg-sky-100 text-[#0077c8]">
-                            <FileText className="w-5 h-5" />
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                          <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
+                            <span className="text-[10px] text-slate-400 font-bold uppercase block">Establecimiento</span>
+                            <span className="font-bold text-slate-800 text-sm">{tramiteActual.establecimiento}</span>
+                            <span className="text-slate-500 block mt-0.5">{tramiteActual.categoria}</span>
                           </div>
-                          <div>
-                            <span className="font-bold text-xs sm:text-sm text-slate-800 block">
-                              Inspección de Campo
-                            </span>
-                            <span className="text-[11px] text-slate-400">
-                              Acta de Verificación Sanitaria in situ (PDF firmado)
-                            </span>
+
+                          <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
+                            <span className="text-[10px] text-slate-400 font-bold uppercase block">Ubicación y Jurisdicción</span>
+                            <span className="font-bold text-slate-800">{tramiteActual.municipio}</span>
+                            <span className="text-slate-500 block mt-0.5">{tramiteActual.direccion}</span>
                           </div>
                         </div>
+                      </div>
+
+                      {/* Bitácora y Notas del Supervisor */}
+                      <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-3">
+                        <h3 className="font-extrabold text-sm text-slate-900 tracking-tight flex items-center space-x-2">
+                          <AlertCircle className="w-4 h-4 text-sky-600" />
+                          <span>Notas de Auditoría Técnica</span>
+                        </h3>
+
+                        <ul className="space-y-2 text-xs text-slate-700">
+                          {tramiteActual.observacionesSupervisor?.map((obs, index) => (
+                            <li key={index} className="flex items-start space-x-2">
+                              <span className="text-[#0077c8] font-bold">&bull;</span>
+                              <span className="leading-relaxed">{obs}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+
+                      {/* Botones de acción desde la bitácora de campo */}
+                      <div className="flex flex-col sm:flex-row items-center gap-3 pt-2">
+                        <button
+                          onClick={() => setModalReinspeccionOpen(true)}
+                          className="w-full sm:flex-1 py-3 px-5 rounded-xl font-extrabold text-sm text-white bg-[#0077c8] hover:bg-[#0064a7] shadow-md transition-all flex items-center justify-center space-x-2 cursor-pointer"
+                        >
+                          <Calendar className="w-4 h-4" />
+                          <span>Agendar Inspección de Campo</span>
+                        </button>
 
                         <button
-                          onClick={() => setModalVerDocFull(true)}
-                          className="flex items-center space-x-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold bg-white text-slate-700 border border-slate-300 hover:bg-slate-100 transition shadow-2xs cursor-pointer"
+                          onClick={() => setModalAprobacionOpen(true)}
+                          className="w-full sm:flex-1 py-3 px-5 rounded-xl font-extrabold text-sm text-emerald-900 bg-[#c7f9cc] hover:bg-[#a7f3d0] border border-emerald-300 shadow-sm transition-all flex items-center justify-center space-x-2 cursor-pointer"
                         >
-                          <Eye className="w-3.5 h-3.5 text-slate-600" />
-                          <span>Ver PDF</span>
+                          <Award className="w-4 h-4 text-emerald-700" />
+                          <span>Aprobar Trámite</span>
                         </button>
                       </div>
 
-                      {tramiteActual.plazoSubsanacion && (
-                        <p className="text-xs text-slate-600 font-semibold">
-                          Plazo de subsanación: <span className="font-bold text-slate-900">{tramiteActual.plazoSubsanacion}</span>
-                        </p>
-                      )}
                     </div>
+                  )}
 
-                    {/* Previsualización del Escaneado del Acta de Inspección */}
-                    <div className="bg-slate-100/90 p-4 sm:p-6 rounded-2xl border border-slate-200">
-                      <div className="bg-white rounded-xl shadow-md border border-slate-300 p-4 sm:p-6 max-w-2xl mx-auto overflow-hidden">
-
-                        <div className="flex items-center justify-between pb-3 border-b border-slate-200 text-slate-500 text-xs">
-                          <span className="font-mono text-[11px] font-bold text-slate-700">ACTA_INSPECCION_CAMPO_#8942.PDF</span>
-                          <button
-                            onClick={() => setModalVerDocFull(true)}
-                            className="text-[#0077c8] hover:underline font-bold text-[11px] flex items-center"
-                          >
-                            <ExternalLink className="w-3 h-3 mr-1" /> Ampliar Acta
-                          </button>
-                        </div>
-
-                        {/* Hoja de Inspección simulada con checklist y sellos */}
-                        <div className="mt-3 bg-amber-50/30 border border-slate-300 rounded-lg p-4 font-mono text-[11px] text-slate-800 space-y-3">
-                          <div className="text-center pb-2 border-b border-slate-300">
-                            <p className="font-bold text-xs uppercase">SEDES COCHABAMBA - DIVISIÓN DE FISCALIZACIÓN</p>
-                            <p className="text-[10px] text-slate-500">PLANILLA DE EVALUACIÓN TÉCNICA IN SITU</p>
-                          </div>
-
-                          <div className="space-y-1 text-[10px]">
-                            <p><strong>Establecimiento:</strong> {tramiteActual.establecimiento}</p>
-                            <p><strong>Dirección:</strong> {tramiteActual.direccion}</p>
-                            <p><strong>Inspector Asignado:</strong> {tramiteActual.supervisorAsignado}</p>
-                            <p><strong>Fecha Inspección:</strong> {tramiteActual.fechaInspeccion}</p>
-                          </div>
-
-                          {/* Tabla de checklist simulada */}
-                          <div className="border border-slate-300 rounded overflow-hidden mt-2 text-[9px]">
-                            <div className="bg-slate-200 font-bold grid grid-cols-4 p-1.5 border-b border-slate-300">
-                              <span className="col-span-2">ÍTEM EVALUADO</span>
-                              <span>ESTADO</span>
-                              <span>OBSERVACIÓN</span>
-                            </div>
-                            <div className="grid grid-cols-4 p-1.5 border-b border-slate-200">
-                              <span className="col-span-2">1. Cadena de frío y refrigeración</span>
-                              <span className="font-bold text-rose-600">NO CUMPLE (12°C)</span>
-                              <span className="text-slate-600">Alarma inactiva</span>
-                            </div>
-                            <div className="grid grid-cols-4 p-1.5 border-b border-slate-200">
-                              <span className="col-span-2">2. Residuos infecciosos (Bioseguridad)</span>
-                              <span className="font-bold text-rose-600">OBSERVADO</span>
-                              <span className="text-slate-600">Falta tacho rojo c/3</span>
-                            </div>
-                            <div className="grid grid-cols-4 p-1.5 border-b border-slate-200">
-                              <span className="col-span-2">3. Extintores y seguridad industrial</span>
-                              <span className="font-bold text-rose-600">VENCIDO</span>
-                              <span className="text-slate-600">Vigencia 2025</span>
-                            </div>
-                            <div className="grid grid-cols-4 p-1.5 bg-emerald-50/50">
-                              <span className="col-span-2">4. Titulación y acreditación de personal</span>
-                              <span className="font-bold text-emerald-700">CUMPLE</span>
-                              <span className="text-slate-600">Al día</span>
-                            </div>
-                          </div>
-
-                          {/* Firmas y Sellos manuscritos al pie */}
-                          <div className="pt-4 flex items-end justify-between">
-                            <div className="text-center">
-                              <div className="font-serif italic text-sm text-blue-900 mb-0.5">Carlos Ruiz M.</div>
-                              <div className="w-28 border-t border-slate-400" />
-                              <span className="text-[8px] text-slate-500 uppercase block">Inspector SEDES</span>
-                            </div>
-
-                            <div className="w-20 h-20 rounded-full border-2 border-dashed border-blue-600 p-1 flex flex-col items-center justify-center text-center rotate-6 bg-blue-50/40">
-                              <span className="text-[7px] font-bold text-blue-900">INSPECCIÓN</span>
-                              <span className="text-[8px] font-black text-blue-800">OBSERVADA</span>
-                              <span className="text-[6px] text-blue-700">SEDES CBA</span>
-                            </div>
-
-                            <div className="text-center">
-                              <div className="font-serif italic text-sm text-slate-700 mb-0.5">R. Salvatierra</div>
-                              <div className="w-28 border-t border-slate-400" />
-                              <span className="text-[8px] text-slate-500 uppercase block">Recepción Propietario</span>
-                            </div>
-                          </div>
-                        </div>
-
-                      </div>
-                    </div>
-
-                    {/* Notas del Supervisor */}
-                    <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-3">
-                      <h3 className="font-extrabold text-sm text-slate-900 tracking-tight flex items-center space-x-2">
-                        <AlertCircle className="w-4 h-4 text-amber-600" />
-                        <span>Notas del Supervisor</span>
-                      </h3>
-
-                      <ul className="space-y-2 text-xs text-slate-700">
-                        {tramiteActual.observacionesSupervisor.map((obs, index) => (
-                          <li key={index} className="flex items-start space-x-2">
-                            <span className="text-slate-400 font-bold">&bull;</span>
-                            <span className="leading-relaxed">{obs}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-
-                    {/* Botones de acción desde la bitácora de campo */}
-                    <div className="flex flex-col sm:flex-row items-center gap-3 pt-2">
-                      <button
-                        onClick={() => setModalReinspeccionOpen(true)}
-                        className="w-full sm:flex-1 py-3 px-5 rounded-xl font-extrabold text-sm text-white bg-[#0077c8] hover:bg-[#0064a7] shadow-md transition-all flex items-center justify-center space-x-2 cursor-pointer"
-                      >
-                        <Calendar className="w-4 h-4" />
-                        <span>Agendar Re-Inspección</span>
-                      </button>
-
-                      <button
-                        onClick={() => setModalAprobacionOpen(true)}
-                        className="w-full sm:flex-1 py-3 px-5 rounded-xl font-extrabold text-sm text-emerald-900 bg-[#c7f9cc] hover:bg-[#a7f3d0] border border-emerald-300 shadow-sm transition-all flex items-center justify-center space-x-2 cursor-pointer"
-                      >
-                        <Award className="w-4 h-4 text-emerald-700" />
-                        <span>Aprobar Trámite</span>
-                      </button>
-                    </div>
-
-                  </div>
-                )}
-
+                </div>
               </div>
-            </div>
+            ) : (
+              /* Estado vacío cuando no hay trámites */
+              <div className="flex-1 bg-white rounded-2xl border border-slate-200/90 shadow-xs flex flex-col items-center justify-center p-12 text-center">
+                <div className="w-16 h-16 rounded-2xl bg-sky-50 border border-sky-200 flex items-center justify-center text-[#0077c8] mb-4">
+                  <Inbox className="w-8 h-8" />
+                </div>
+                <h3 className="font-extrabold text-base text-slate-900">No hay trámites registrados</h3>
+                <p className="text-xs text-slate-500 max-w-sm mt-1">
+                  Actualmente no existen solicitudes pendientes en la base de datos de PostgreSQL. Las nuevas solicitudes enviadas por los propietarios aparecerán aquí automáticamente.
+                </p>
+                <button
+                  onClick={cargarDatosBackend}
+                  className="mt-4 px-4 py-2 bg-[#0077c8] text-white text-xs font-bold rounded-xl shadow-xs hover:bg-[#0062a8] transition"
+                >
+                  Refrescar Bandeja
+                </button>
+              </div>
+            )}
 
           </div>
         )}
 
         {/* ========================================================================= */}
-        {/* 4. VISTA 2: ASIGNAR SUPERVISORES (DISEÑO EXACTO SEGÚN MOCKUP)             */}
+        {/* 4. VISTA 2: ASIGNAR SUPERVISORES (SUPERVISORES Y TRÁMITES REALES)          */}
         {/* ========================================================================= */}
         {(seccionActiva === 'asignar-supervisores' || seccionActiva === 'supervisores') && (
           <div className="flex-1 overflow-y-auto p-4 sm:p-8 bg-[#f3f6f9]">
             <div className="max-w-6xl mx-auto space-y-6">
-              
+
               {/* Encabezado Principal */}
               <div>
                 <h1 className="text-2xl font-black text-slate-900 tracking-tight">
                   Asignar Supervisores
                 </h1>
                 <p className="text-xs sm:text-sm text-slate-500 font-medium mt-1">
-                  Asigne trámites pendientes a los supervisores de campo disponibles de manera eficiente.
+                  Asigne trámites y solicitudes a los supervisores oficiales del SEDES Cochabamba.
                 </p>
               </div>
 
-              {/* Sección 1: Supervisores Disponibles */}
+              {/* Sección 1: Supervisores Disponibles Reales */}
               <div className="space-y-3">
                 <h2 className="text-sm font-extrabold text-slate-800 tracking-tight">
-                  Supervisores Disponibles
+                  Supervisores Institucionales ({supervisoresDisponibles.length})
                 </h2>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -1433,16 +1389,16 @@ export default function CoordinadorPage() {
                             {sup.nombre}
                           </h3>
                           <p className="text-[11px] text-slate-400 font-medium mt-0.5">
-                            Especialidad: {sup.especialidad}
+                            {sup.email}
                           </p>
                         </div>
 
                         {/* Carga de Trabajo y Barra de Progreso */}
                         <div>
                           <div className="flex items-center justify-between text-xs mb-1.5">
-                            <span className="text-slate-400 text-[11px] font-medium">Carga de Trabajo</span>
+                            <span className="text-slate-400 text-[11px] font-medium">Carga Operativa</span>
                             <span className={`text-[11px] font-bold ${isFull ? 'text-rose-600' : 'text-slate-700'}`}>
-                              {sup.asignados}/{sup.maxCapacidad} asignados
+                              {sup.asignados}/{sup.maxCapacidad} trámites
                             </span>
                           </div>
 
@@ -1461,16 +1417,16 @@ export default function CoordinadorPage() {
                 </div>
               </div>
 
-              {/* Sección 2: Trámites Pendientes de Asignación */}
+              {/* Sección 2: Trámites para Asignación */}
               <div className="bg-white rounded-2xl border border-slate-200/90 shadow-xs p-6 space-y-4">
-                
+
                 {/* Cabecera de la tabla */}
                 <div className="flex items-center justify-between">
                   <h2 className="text-sm sm:text-base font-extrabold text-slate-800 tracking-tight">
-                    Trámites Pendientes de Asignación
+                    Trámites y Solicitudes en Sistema
                   </h2>
                   <span className="bg-amber-50 text-amber-800 border border-amber-200 text-xs font-bold px-3 py-1 rounded-full">
-                    {tramitesAsignacion.length} pendientes
+                    {tramitesAsignacion.length} registrados
                   </span>
                 </div>
 
@@ -1481,16 +1437,16 @@ export default function CoordinadorPage() {
                       <tr className="border-b border-slate-100 text-[10px] sm:text-[11px] font-extrabold text-slate-400 uppercase tracking-wider">
                         <th className="pb-3 font-extrabold">CÓDIGO</th>
                         <th className="pb-3 font-extrabold">ESTABLECIMIENTO</th>
-                        <th className="pb-3 font-extrabold">TIPO DE TRÁMITE</th>
+                        <th className="pb-3 font-extrabold">TIPO</th>
                         <th className="pb-3 font-extrabold">FECHA INGRESO</th>
-                        <th className="pb-3 font-extrabold min-w-[200px]">SUPERVISOR ASIGNADO</th>
+                        <th className="pb-3 font-extrabold min-w-[220px]">SUPERVISOR ASIGNADO</th>
                         <th className="pb-3 font-extrabold text-center">ACCIÓN</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 text-xs">
                       {tramitesAsignacion.map((item) => (
                         <tr key={item.codigo} className="hover:bg-slate-50/60 transition-colors">
-                          
+
                           {/* Código */}
                           <td className="py-4 font-extrabold text-[#0077c8] tracking-tight">
                             {item.codigo}
@@ -1498,7 +1454,8 @@ export default function CoordinadorPage() {
 
                           {/* Establecimiento */}
                           <td className="py-4 font-bold text-slate-800">
-                            {item.establecimiento}
+                            <div>{item.establecimiento}</div>
+                            <span className="text-[10px] text-slate-400 font-normal">{item.municipio}</span>
                           </td>
 
                           {/* Tipo de Trámite */}
@@ -1521,10 +1478,10 @@ export default function CoordinadorPage() {
                                 onChange={(e) => handleSelectSupervisorChange(item.codigo, e.target.value)}
                                 className="w-full bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-[#0077c8] cursor-pointer appearance-none pr-8"
                               >
-                                <option value="">Seleccionar...</option>
+                                <option value="">Seleccionar supervisor...</option>
                                 {supervisoresDisponibles.map((s) => (
-                                  <option 
-                                    key={s.id} 
+                                  <option
+                                    key={s.id}
                                     value={s.nombre}
                                     disabled={s.asignados >= s.maxCapacidad && item.supervisorAsignado !== s.nombre}
                                   >
@@ -1550,6 +1507,14 @@ export default function CoordinadorPage() {
 
                         </tr>
                       ))}
+
+                      {tramitesAsignacion.length === 0 && (
+                        <tr>
+                          <td colSpan={6} className="py-8 text-center text-slate-400 text-xs">
+                            No hay trámites pendientes de asignación.
+                          </td>
+                        </tr>
+                      )}
                     </tbody>
                   </table>
                 </div>
@@ -1561,26 +1526,26 @@ export default function CoordinadorPage() {
         )}
 
         {/* ========================================================================= */}
-        {/* 5. VISTA 3: HISTORIAL Y TRAZABILIDAD (DISEÑO EXACTO SEGÚN MOCKUP)          */}
+        {/* 5. VISTA 3: HISTORIAL Y TRAZABILIDAD (AUDITORÍA REAL EN POSTGRESQL)       */}
         {/* ========================================================================= */}
         {(seccionActiva === 'historial-trazabilidad' || seccionActiva === 'historial') && (
           <div className="flex-1 overflow-y-auto p-4 sm:p-8 bg-[#f3f6f9]">
             <div className="max-w-6xl mx-auto space-y-6">
-              
+
               {/* Encabezado Principal */}
               <div>
                 <h1 className="text-2xl font-black text-slate-900 tracking-tight">
                   Historial y Trazabilidad
                 </h1>
                 <p className="text-xs sm:text-sm text-slate-500 font-medium mt-1">
-                  Registro completo de acciones y movimientos de todos los trámites de establecimientos de salud.
+                  Bitácora de auditoría y movimientos normativos en tiempo real.
                 </p>
               </div>
 
               {/* Barra de Filtros y Búsqueda */}
               <div className="bg-white rounded-2xl p-5 border border-slate-200/90 shadow-xs">
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 items-end">
-                  
+
                   {/* Buscar */}
                   <div className="col-span-1 sm:col-span-2 lg:col-span-4">
                     <label className="block text-[10px] font-extrabold text-slate-400 uppercase tracking-wider mb-1.5">
@@ -1590,7 +1555,7 @@ export default function CoordinadorPage() {
                       <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-2.5" />
                       <input
                         type="text"
-                        placeholder="Buscar por código o establecimiento..."
+                        placeholder="Buscar por código, establecimiento, acción..."
                         value={filtroHistorialTexto}
                         onChange={(e) => setFiltroHistorialTexto(e.target.value)}
                         className="w-full pl-9 pr-3 py-2 text-xs bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0077c8] text-slate-700 placeholder-slate-400"
@@ -1609,7 +1574,7 @@ export default function CoordinadorPage() {
                         onChange={(e) => setFiltroHistorialEstado(e.target.value)}
                         className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0077c8] text-slate-700 cursor-pointer appearance-none pr-8 font-medium"
                       >
-                        <option value="Todos">Todos</option>
+                        <option value="Todos">Todos los Estados</option>
                         <option value="Aprobado">Aprobado</option>
                         <option value="Asignado">Asignado</option>
                         <option value="Observado">Observado</option>
@@ -1622,9 +1587,9 @@ export default function CoordinadorPage() {
                   </div>
 
                   {/* Supervisor */}
-                  <div className="col-span-1 sm:col-span-1 lg:col-span-2">
+                  <div className="col-span-1 sm:col-span-1 lg:col-span-3">
                     <label className="block text-[10px] font-extrabold text-slate-400 uppercase tracking-wider mb-1.5">
-                      SUPERVISOR
+                      RESPONSABLE / SUPERVISOR
                     </label>
                     <div className="relative">
                       <select
@@ -1632,12 +1597,10 @@ export default function CoordinadorPage() {
                         onChange={(e) => setFiltroHistorialSupervisor(e.target.value)}
                         className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0077c8] text-slate-700 cursor-pointer appearance-none pr-8 font-medium"
                       >
-                        <option value="Todos">Todos</option>
-                        <option value="Lic. Patricia Rojas">Lic. Patricia Rojas</option>
-                        <option value="Ing. Marco Vargas">Ing. Marco Vargas</option>
-                        <option value="Dra. Lucía Fernández">Dra. Lucía Fernández</option>
-                        <option value="Lic. Roberto Quiroga">Lic. Roberto Quiroga</option>
-                        <option value="Ing. Ana Torrez">Ing. Ana Torrez</option>
+                        <option value="Todos">Todos los Funcionarios</option>
+                        {supervisoresDisponibles.map((s) => (
+                          <option key={s.id} value={s.nombre}>{s.nombre}</option>
+                        ))}
                       </select>
                       <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-slate-400">
                         <ChevronRight className="w-3.5 h-3.5 rotate-90" />
@@ -1645,38 +1608,8 @@ export default function CoordinadorPage() {
                     </div>
                   </div>
 
-                  {/* Desde */}
-                  <div className="col-span-1 sm:col-span-1 lg:col-span-1.5">
-                    <label className="block text-[10px] font-extrabold text-slate-400 uppercase tracking-wider mb-1.5">
-                      DESDE
-                    </label>
-                    <div className="relative">
-                      <input
-                        type="date"
-                        value={filtroHistorialDesde}
-                        onChange={(e) => setFiltroHistorialDesde(e.target.value)}
-                        className="w-full px-2.5 py-2 text-xs bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0077c8] text-slate-700 cursor-pointer"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Hasta */}
-                  <div className="col-span-1 sm:col-span-1 lg:col-span-1.5">
-                    <label className="block text-[10px] font-extrabold text-slate-400 uppercase tracking-wider mb-1.5">
-                      HASTA
-                    </label>
-                    <div className="relative">
-                      <input
-                        type="date"
-                        value={filtroHistorialHasta}
-                        onChange={(e) => setFiltroHistorialHasta(e.target.value)}
-                        className="w-full px-2.5 py-2 text-xs bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0077c8] text-slate-700 cursor-pointer"
-                      />
-                    </div>
-                  </div>
-
                   {/* Botón Filtrar */}
-                  <div className="col-span-1 sm:col-span-2 lg:col-span-1">
+                  <div className="col-span-1 sm:col-span-2 lg:col-span-3">
                     <button
                       type="button"
                       onClick={() => {
@@ -1685,7 +1618,7 @@ export default function CoordinadorPage() {
                       }}
                       className="w-full py-2 px-4 bg-[#19324d] hover:bg-[#102235] text-white text-xs font-bold rounded-xl transition-all shadow-xs cursor-pointer text-center active:scale-95 flex items-center justify-center h-[38px]"
                     >
-                      Filtrar
+                      Aplicar Filtros
                     </button>
                   </div>
 
@@ -1694,10 +1627,10 @@ export default function CoordinadorPage() {
 
               {/* Registro de Actividad (Tabla) */}
               <div className="bg-white rounded-2xl border border-slate-200/90 shadow-xs p-6 space-y-4">
-                
+
                 {/* Cabecera */}
                 <h2 className="text-sm sm:text-base font-extrabold text-slate-800 tracking-tight">
-                  Registro de Actividad
+                  Registro de Actividades y Auditoría ({actividadesFiltradas.length})
                 </h2>
 
                 {/* Tabla de Actividades */}
@@ -1716,7 +1649,7 @@ export default function CoordinadorPage() {
                     <tbody className="divide-y divide-slate-100 text-xs">
                       {actividadesFiltradas.map((item) => (
                         <tr key={item.id} className="hover:bg-slate-50/60 transition-colors">
-                          
+
                           {/* Fecha / Hora */}
                           <td className="py-4 text-slate-500 font-medium whitespace-nowrap">
                             {item.fechaHora}
@@ -1755,75 +1688,12 @@ export default function CoordinadorPage() {
                       {actividadesFiltradas.length === 0 && (
                         <tr>
                           <td colSpan={6} className="py-8 text-center text-slate-400 text-xs">
-                            No se encontraron registros de auditoría con los filtros seleccionados.
+                            No se encontraron registros de auditoría en la base de datos.
                           </td>
                         </tr>
                       )}
                     </tbody>
                   </table>
-                </div>
-
-                {/* Footer de Paginación */}
-                <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t border-slate-100 text-xs">
-                  <span className="text-slate-400 font-medium">
-                    Mostrando 1-{actividadesFiltradas.length} de 48 registros
-                  </span>
-
-                  <div className="flex items-center space-x-1.5">
-                    <button
-                      onClick={() => setPaginaHistorial(prev => Math.max(1, prev - 1))}
-                      className="w-7 h-7 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-100 flex items-center justify-center font-bold text-xs cursor-pointer"
-                    >
-                      &lt;
-                    </button>
-                    <button
-                      onClick={() => setPaginaHistorial(1)}
-                      className={`w-7 h-7 rounded-lg font-bold text-xs flex items-center justify-center cursor-pointer ${
-                        paginaHistorial === 1
-                          ? 'bg-[#19324d] text-white shadow-xs'
-                          : 'border border-slate-200 text-slate-700 hover:bg-slate-100'
-                      }`}
-                    >
-                      1
-                    </button>
-                    <button
-                      onClick={() => setPaginaHistorial(2)}
-                      className={`w-7 h-7 rounded-lg font-bold text-xs flex items-center justify-center cursor-pointer ${
-                        paginaHistorial === 2
-                          ? 'bg-[#19324d] text-white shadow-xs'
-                          : 'border border-slate-200 text-slate-700 hover:bg-slate-100'
-                      }`}
-                    >
-                      2
-                    </button>
-                    <button
-                      onClick={() => setPaginaHistorial(3)}
-                      className={`w-7 h-7 rounded-lg font-bold text-xs flex items-center justify-center cursor-pointer ${
-                        paginaHistorial === 3
-                          ? 'bg-[#19324d] text-white shadow-xs'
-                          : 'border border-slate-200 text-slate-700 hover:bg-slate-100'
-                      }`}
-                    >
-                      3
-                    </button>
-                    <span className="px-1 text-slate-400 text-xs">...</span>
-                    <button
-                      onClick={() => setPaginaHistorial(8)}
-                      className={`w-7 h-7 rounded-lg font-bold text-xs flex items-center justify-center cursor-pointer ${
-                        paginaHistorial === 8
-                          ? 'bg-[#19324d] text-white shadow-xs'
-                          : 'border border-slate-200 text-slate-700 hover:bg-slate-100'
-                      }`}
-                    >
-                      8
-                    </button>
-                    <button
-                      onClick={() => setPaginaHistorial(prev => Math.min(8, prev + 1))}
-                      className="w-7 h-7 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-100 flex items-center justify-center font-bold text-xs cursor-pointer"
-                    >
-                      &gt;
-                    </button>
-                  </div>
                 </div>
 
               </div>
@@ -1838,6 +1708,61 @@ export default function CoordinadorPage() {
       {/* 6. MODALES Y DIÁLOGOS DE ACCIÓN                                          */}
       {/* ========================================================================= */}
 
+      {/* MODAL: Observar Documento con Motivo */}
+      {modalObservarDocOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-md w-full overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            <div className="p-5 bg-gradient-to-r from-rose-600 to-red-700 text-white flex items-center justify-between">
+              <div className="flex items-center space-x-2.5">
+                <AlertTriangle className="w-5 h-5 text-rose-200" />
+                <h3 className="font-extrabold text-base">Observar / Rechazar Documento</h3>
+              </div>
+              <button onClick={() => setModalObservarDocOpen(false)} className="text-white/80 hover:text-white p-1">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4 text-xs">
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Documento Seleccionado</label>
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 font-semibold text-slate-800">
+                  {docActual?.nombre} ({docActual?.numRegistro})
+                </div>
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Motivo de la Observación o Rechazo</label>
+                <textarea
+                  rows={4}
+                  value={motivoObservacionDoc}
+                  onChange={(e) => setMotivoObservacionDoc(e.target.value)}
+                  className="w-full p-3 border border-slate-300 rounded-xl font-medium text-slate-800 focus:ring-2 focus:ring-rose-500 focus:outline-none"
+                  placeholder="Especifique con claridad el motivo por el cual se observa o rechaza este documento..."
+                />
+              </div>
+
+              <div className="pt-3 flex items-center justify-end space-x-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setModalObservarDocOpen(false)}
+                  className="px-4 py-2.5 text-slate-600 hover:bg-slate-100 rounded-xl font-bold transition cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleCambiarEstadoDoc('Observado', motivoObservacionDoc)}
+                  className="px-4 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-extrabold shadow-md transition flex items-center space-x-2 cursor-pointer"
+                >
+                  <XCircle className="w-4 h-4" />
+                  <span>Guardar Observación</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* MODAL 1: Agendar Re-Inspección */}
       {modalReinspeccionOpen && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
@@ -1845,7 +1770,7 @@ export default function CoordinadorPage() {
             <div className="p-5 bg-gradient-to-r from-[#0077c8] to-[#0094e6] text-white flex items-center justify-between">
               <div className="flex items-center space-x-2.5">
                 <Calendar className="w-5 h-5 text-cyan-200" />
-                <h3 className="font-extrabold text-base">Agendar Re-Inspección Técnica</h3>
+                <h3 className="font-extrabold text-base">Agendar Inspección de Campo</h3>
               </div>
               <button onClick={() => setModalReinspeccionOpen(false)} className="text-white/80 hover:text-white p-1">
                 <X className="w-5 h-5" />
@@ -1856,7 +1781,7 @@ export default function CoordinadorPage() {
               <div>
                 <label className="font-bold text-slate-700 block mb-1">Establecimiento y Trámite</label>
                 <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 font-semibold text-slate-800">
-                  {tramiteActual.id} - {tramiteActual.establecimiento} ({tramiteActual.propietario})
+                  {tramiteActual?.id} - {tramiteActual?.establecimiento} ({tramiteActual?.propietario})
                 </div>
               </div>
 
@@ -1868,9 +1793,11 @@ export default function CoordinadorPage() {
                     onChange={(e) => setReinspeccionData({ ...reinspeccionData, supervisor: e.target.value })}
                     className="w-full p-2.5 border border-slate-300 rounded-xl bg-white font-medium text-slate-800 focus:ring-2 focus:ring-[#0077c8]"
                   >
-                    <option value="Ing. Carlos Ruiz">Ing. Carlos Ruiz (Área Bioseguridad)</option>
-                    <option value="Dra. Patricia Valenzuela">Dra. Patricia Valenzuela (Regencia)</option>
-                    <option value="Lic. Andrea Torrico">Lic. Andrea Torrico (Control Calidad)</option>
+                    {supervisoresDisponibles.map((s) => (
+                      <option key={s.id} value={s.nombre}>
+                        {s.nombre}
+                      </option>
+                    ))}
                   </select>
                 </div>
 
@@ -1878,12 +1805,12 @@ export default function CoordinadorPage() {
                   <label className="font-bold text-slate-700 block mb-1">Prioridad</label>
                   <select
                     value={reinspeccionData.prioridad}
-                    onChange={(e) => setReinspeccionData({ ...reinspeccionData, prioridad: e.target.value })}
+                    onChange={(e) => setReinspeccionData({ ...reinspeccionData, priority: e.target.value })}
                     className="w-full p-2.5 border border-slate-300 rounded-xl bg-white font-medium text-slate-800 focus:ring-2 focus:ring-[#0077c8]"
                   >
-                    <option value="Alta">Alta (Subsanación de cadena de frío)</option>
+                    <option value="Alta">Alta</option>
                     <option value="Normal">Normal</option>
-                    <option value="Urgente">Urgente (Notificación previa)</option>
+                    <option value="Urgente">Urgente</option>
                   </select>
                 </div>
               </div>
@@ -1911,13 +1838,13 @@ export default function CoordinadorPage() {
               </div>
 
               <div>
-                <label className="font-bold text-slate-700 block mb-1">Instrucciones / Motivo de Visita</label>
+                <label className="font-bold text-slate-700 block mb-1">Instrucciones / Motivo de Inspección</label>
                 <textarea
                   rows={3}
                   value={reinspeccionData.motivo}
                   onChange={(e) => setReinspeccionData({ ...reinspeccionData, motivo: e.target.value })}
                   className="w-full p-3 border border-slate-300 rounded-xl font-medium text-slate-800 focus:ring-2 focus:ring-[#0077c8]"
-                  placeholder="Especifique los puntos a verificar durante la re-inspección..."
+                  placeholder="Especifique los puntos a verificar durante la inspección técnica..."
                 />
               </div>
 
@@ -1960,7 +1887,7 @@ export default function CoordinadorPage() {
               <div className="p-3.5 bg-emerald-50 rounded-xl border border-emerald-200 text-emerald-900">
                 <p className="font-bold text-xs mb-1">¡Dictamen Favorable de Coordinación!</p>
                 <p className="text-[11px] text-emerald-800">
-                  Al confirmar, se emitirá la Resolución Administrativa y se habilitará la credencial digital para <strong>{tramiteActual.establecimiento}</strong>.
+                  Al confirmar, se emitirá la Resolución Administrativa y se habilitará oficialmente el establecimiento <strong>{tramiteActual?.establecimiento}</strong> en la red de salud de Cochabamba.
                 </p>
               </div>
 
@@ -1982,7 +1909,7 @@ export default function CoordinadorPage() {
                     onChange={(e) => setAprobacionData({ ...aprobacionData, vigenciaAnios: e.target.value })}
                     className="w-full p-2.5 border border-slate-300 rounded-xl bg-white font-medium text-slate-800 focus:ring-2 focus:ring-emerald-500"
                   >
-                    <option value="3 años">3 años (Laboratorios Nivel 2)</option>
+                    <option value="3 años">3 años (Laboratorios Nivel 1 y 2)</option>
                     <option value="5 años">5 años (Clínicas y Policlínicos)</option>
                     <option value="1 año">1 año (Apertura Provisoria)</option>
                   </select>
@@ -1991,7 +1918,7 @@ export default function CoordinadorPage() {
                 <div>
                   <label className="font-bold text-slate-700 block mb-1">Firma Digital Coordinadora</label>
                   <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-semibold text-slate-700 truncate">
-                    Dra. Claudia Morales V. (SEDES)
+                    {nombreCoordinador}
                   </div>
                 </div>
               </div>
@@ -2023,63 +1950,6 @@ export default function CoordinadorPage() {
                 </button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL 3: Visor Completo de Documentos / Actas */}
-      {modalVerDocFull && (
-        <div className="fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-3xl w-full max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-            <div className="p-4 bg-slate-900 text-white flex items-center justify-between shrink-0">
-              <div className="flex items-center space-x-2">
-                <FileText className="w-4 h-4 text-cyan-300" />
-                <span className="font-bold text-sm">Visor de Expediente Técnico - {tramiteActual.id}</span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <button
-                  onClick={() => mostrarToast('Descargando archivo digital...', 'info')}
-                  className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-xs font-semibold flex items-center space-x-1"
-                >
-                  <Download className="w-3.5 h-3.5" />
-                  <span>Descargar</span>
-                </button>
-                <button onClick={() => setModalVerDocFull(false)} className="text-white/80 hover:text-white p-1">
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-            </div>
-
-            <div className="flex-1 overflow-y-auto p-6 bg-slate-100 flex items-center justify-center">
-              <div className="bg-white p-8 rounded-xl shadow-lg border border-slate-300 max-w-xl w-full text-slate-800 space-y-4">
-                <div className="text-center border-b border-slate-200 pb-4">
-                  <h3 className="font-black text-sm uppercase">ESTADO PLURINACIONAL DE BOLIVIA</h3>
-                  <h4 className="font-bold text-xs text-sky-800 uppercase">SERVICIO DEPARTAMENTAL DE SALUD COCHABAMBA</h4>
-                  <p className="text-[10px] text-slate-500 font-mono mt-1">EXPEDIENTE N° {tramiteActual.id}-2026</p>
-                </div>
-
-                <div className="text-xs space-y-2">
-                  <p><strong>Establecimiento:</strong> {tramiteActual.establecimiento}</p>
-                  <p><strong>Propietario / Regente:</strong> {tramiteActual.propietario}</p>
-                  <p><strong>Ubicación:</strong> {tramiteActual.direccion}</p>
-                  <p><strong>Tipo de trámite:</strong> {tramiteActual.tipo} de habilitación sanitaria</p>
-                </div>
-
-                <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg text-xs space-y-1">
-                  <p className="font-bold text-slate-700">Estado de Documentación:</p>
-                  {tramiteActual.documentos.map(d => (
-                    <div key={d.id} className="flex justify-between text-[11px]">
-                      <span>&bull; {d.nombre}</span>
-                      <span className="font-bold text-emerald-700">{d.estado}</span>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="pt-4 text-center border-t border-dashed border-slate-300">
-                  <p className="text-[10px] text-slate-400 font-mono">Documento digital firmado electrónicamente conforme a la Ley N° 164.</p>
-                </div>
-              </div>
-            </div>
           </div>
         </div>
       )}
