@@ -1404,9 +1404,56 @@ Centralizar y sincronizar la base de datos relacional y geoespacial del sistema 
 * **Diagnóstico de Conectividad:** Endpoint `GET /health/db` verificado exitosamente devolviendo:
   - `status`: *"Conectado"*
   - `base_de_datos`: *"PostgreSQL + PostGIS"*
-  - `postgis_version`: *"3.3"*
+  - `postgis_version`: *"3.6"*
   - `roles_registrados`: 5
   - `requisitos_catalogo`: 46
+
+---
+
+## [2026-09-10] Estructura Jerárquica de Almacenamiento por Cuenta y Protocolo de Respaldo BDD
+### 📌 Objetivo
+1. **Organización Multi-Cuenta de Archivos PDF:** Reestructurar el guardado de archivos físicos en el backend para que cada cuenta de usuario/propietario tenga su propio directorio aislado (`uploads/cuentas/{ci_nombre}/tramites/{tramite_id}/`), mejorando el orden, auditoría y escalabilidad del sistema.
+2. **Protocolo Oficial de Respaldo y Migración Inversa (Nube ➡️ Local):** Dejar documentado en la bitácora el procedimiento exacto para transferir la base de datos de Neon a PostgreSQL local cuando finalice el desarrollo colaborativo.
+
+---
+
+### 🛠️ Archivos Modificados
+#### 1. `backend/tramites.py` [MODIFICADO]
+* **Función `obtener_ruta_almacenamiento_tramite`:**
+  - Consulta en tiempo de ejecución la relación `tramite ➡️ establecimiento ➡️ propietario`.
+  - Construye dinámicamente rutas limpias y seguras basadas en el CI y nombres del propietario:
+    `uploads/cuentas/{ci_nit}_{nombres}/tramites/tramite_{id_corto}/`
+  - Normaliza los enlaces estáticos devueltos a la API:
+    `/uploads/cuentas/{ci_nit}_{nombres}/tramites/tramite_{id_corto}/req_{id}_{hash}_{nombre}.pdf`
+* **Aplicación en Endpoints:**
+  - `POST /api/tramites/{id}/documentos` (Subida inicial de documentos del trámite).
+  - `POST /api/tramites/{id}/documentos/{doc_id}/subsanar` (Reemplazo/subsanación de documentos rechazados).
+
+---
+
+### 📋 Protocolo de Gestión de Base de Datos y Retorno a Local
+
+#### 🔄 A. ¿Cómo volver de Neon (Nube) a Local (Docker) al terminar el proyecto?
+1. **Exportar todo el contenido de Neon a un archivo `.sql`:**
+   ```powershell
+   docker exec sedes-backend-1 pg_dump "postgresql://neondb_owner:npg_zgaLyeZI0O9C@ep-steep-mountain-ayx8qo2j-pooler.c-5.us-east-2.aws.neon.tech/neondb?sslmode=require" --no-owner --no-acl -f /app/backup_final.sql
+   ```
+2. **Restaurar el volcado en el contenedor local `sedes-db-1`:**
+   ```powershell
+   docker exec -i sedes-db-1 psql -U admin -d sedes_db < backend/backup_final.sql
+   ```
+3. **Restablecer la conexión local en `backend/.env`:**
+   ```env
+   DATABASE_URL=postgresql://admin:password123@db:5432/sedes_db
+   ```
+4. **Reiniciar backend:**
+   ```powershell
+   docker compose up -d --force-recreate backend
+   ```
+
+#### 🛡️ B. Protocolo ante futuros cambios de esquema en la BDD
+* Cualquier adición de columnas o nuevas tablas debe registrarse en `backend/models.py` e integrarse con sentencias idempotentes (`ADD COLUMN IF NOT EXISTS`) en `backend/init_db.py`.
+* Cada cambio estructural debe anotarse en esta bitácora especificando el nombre de las tablas y campos modificados.
 
 ---
 *Bitácora actualizada por: Steven*

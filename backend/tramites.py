@@ -12,8 +12,31 @@ import models
 router = APIRouter(prefix="/api/tramites", tags=["Trámites y Documentos"])
 
 # Directorio base para almacenar documentos
-UPLOAD_DIR = os.path.join(os.getcwd(), "uploads", "tramites")
-os.makedirs(UPLOAD_DIR, exist_ok=True)
+UPLOAD_BASE_DIR = os.path.join(os.getcwd(), "uploads")
+os.makedirs(UPLOAD_BASE_DIR, exist_ok=True)
+
+def obtener_ruta_almacenamiento_tramite(db: Session, tramite: models.Tramite) -> tuple:
+    """
+    Determina la ruta física y el prefijo de URL organizados por cuenta/propietario:
+    uploads/cuentas/{ci_nit}_{nombres}/tramites/{tramite_id}/
+    """
+    estab = db.query(models.Establecimiento).filter(models.Establecimiento.id == tramite.establecimiento_id).first()
+    usuario_dir = "cuenta_general"
+    if estab and estab.propietario_id:
+        prop = db.query(models.Usuario).filter(models.Usuario.id == estab.propietario_id).first()
+        if prop:
+            clean_ci = "".join(c for c in (prop.ci_nit or str(prop.id)[:8]) if c.isalnum() or c in "_-")
+            nombre_completo = f"{prop.nombres or ''}_{prop.apellidos or ''}".strip("_")
+            clean_nombre = "".join(c for c in nombre_completo if c.isalnum() or c in "_-")
+            usuario_dir = f"{clean_ci}_{clean_nombre}" if clean_nombre else clean_ci
+    
+    tramite_dir = f"tramite_{str(tramite.id)[:8]}"
+    rel_folder = os.path.join("cuentas", usuario_dir, "tramites", tramite_dir)
+    abs_folder = os.path.join(UPLOAD_BASE_DIR, rel_folder)
+    os.makedirs(abs_folder, exist_ok=True)
+    
+    web_prefix = f"/uploads/cuentas/{usuario_dir}/tramites/{tramite_dir}"
+    return abs_folder, web_prefix
 
 @router.post("/{tramite_id}/documentos", summary="Subir documento PDF para un trámite")
 async def subir_documento_tramite(
@@ -24,7 +47,7 @@ async def subir_documento_tramite(
 ):
     """
     Recibe un archivo PDF para un requisito de un trámite, lo almacena
-    físicamente en uploads/tramites/{tramite_id}/ y registra la metadata en tramite_documentos.
+    físicamente en uploads/cuentas/{usuario}/tramites/{tramite}/ y registra la metadata en tramite_documentos.
     """
     try:
         t_uuid = uuid.UUID(tramite_id)
@@ -68,9 +91,8 @@ async def subir_documento_tramite(
             detail="No se encontró el requisito asociado en el catálogo."
         )
 
-    # Crear carpeta física para el trámite
-    tramite_folder = os.path.join(UPLOAD_DIR, str(t_uuid))
-    os.makedirs(tramite_folder, exist_ok=True)
+    # Carpeta física organizada por cuenta de usuario y trámite
+    tramite_folder, web_prefix = obtener_ruta_almacenamiento_tramite(db, tramite)
 
     # Sanitizar y generar nombre de archivo seguro
     clean_name = "".join(c for c in file.filename if c.isalnum() or c in "._- ")
@@ -80,7 +102,7 @@ async def subir_documento_tramite(
     with open(file_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
 
-    archivo_url = f"/uploads/tramites/{str(t_uuid)}/{filename}"
+    archivo_url = f"{web_prefix}/{filename}"
 
     # Guardar o actualizar en la tabla tramite_documentos
     doc_existente = db.query(models.TramiteDocumento).filter(
@@ -250,9 +272,8 @@ async def subsanar_documento_tramite(
             detail="Solo se admiten documentos en formato PDF."
         )
 
-    # Carpeta del trámite
-    tramite_folder = os.path.join(UPLOAD_DIR, str(t_uuid))
-    os.makedirs(tramite_folder, exist_ok=True)
+    # Carpeta física organizada por cuenta de usuario y trámite
+    tramite_folder, web_prefix = obtener_ruta_almacenamiento_tramite(db, tramite)
 
     clean_name = "".join(c for c in file.filename if c.isalnum() or c in "._- ")
     filename = f"req_{doc.requisito_id}_{uuid.uuid4().hex[:8]}_{clean_name}"
@@ -261,7 +282,7 @@ async def subsanar_documento_tramite(
     with open(file_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
 
-    archivo_url = f"/uploads/tramites/{str(t_uuid)}/{filename}"
+    archivo_url = f"{web_prefix}/{filename}"
 
     # Actualizar estado a 'En Revisión' y limpiar observaciones previas
     doc.archivo_url = archivo_url
