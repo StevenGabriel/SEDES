@@ -4,7 +4,7 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
-from sqlalchemy import desc
+from sqlalchemy import desc, func
 
 from database import get_db
 import models
@@ -19,7 +19,7 @@ router = APIRouter(
 # ==============================================================================
 
 class ValidarDocumentoRequest(BaseModel):
-    estado: str = Field(..., description="Nuevo estado: 'Aprobado', 'Observado', 'Pendiente'")
+    estado: str = Field(..., description="Nuevo estado: 'Aprobado', 'Observado', 'Rechazado', 'En Revisión'")
     observacion: Optional[str] = None
     responsable: Optional[str] = "Dra. Claudia Morales V."
 
@@ -40,283 +40,261 @@ class AprobarTramiteRequest(BaseModel):
 class AsignarSupervisorRequest(BaseModel):
     codigo_tramite: str
     supervisor_nombre: str
-    responsable: Optional[str] = "Lic. Patricia Rojas"
+    responsable: Optional[str] = "Dra. Claudia Morales V."
 
 # ==============================================================================
-# DATOS SEMILLA EN MEMORIA / BASE DE DATOS
+# HELPERS DE SERIALIZACIÓN REAL DESDE BASE DE DATOS
 # ==============================================================================
 
-SEED_TRAMITES = [
-    {
-        "id": "REQ-0041",
-        "tipo": "Apertura",
-        "tipoBadgeColor": "bg-cyan-50 text-cyan-700 border-cyan-200",
-        "fecha": "11 Ago 2026",
-        "fechaISO": "2026-08-11",
-        "establecimiento": "Farmacia Nova",
-        "categoria": "Farmacia / Botica Privada",
-        "propietario": "Lic. Mariana Dávila Pardo",
-        "direccion": "Av. América Este #842, Zona Cala Cala, Cochabamba",
-        "estado": "Esperando Revisión",
-        "estadoColor": "bg-amber-100 text-amber-800 border-amber-300",
-        "supervisorAsignado": "Dra. Patricia Valenzuela",
-        "fechaInspeccion": "10/08/2026",
-        "veredictoSupervisor": "FAVORABLE",
-        "documentos": [
-            { "id": "lic_mun", "nombre": "Licencia Municipal", "estado": "Aprobado", "numRegistro": "MUN-CBA-2026-7731", "fechaEmision": "02 de Agosto de 2026" },
-            { "id": "plan_arq", "nombre": "Plano Arquitectónico", "estado": "Aprobado", "numRegistro": "COL-ARQ-8821", "fechaEmision": "28 de Julio de 2026" },
-            { "id": "cert_san", "nombre": "Certificado Sanitario", "estado": "Aprobado", "numRegistro": "CS-SEDES-2026-302", "fechaEmision": "05 de Agosto de 2026" },
-            { "id": "cont_alq", "nombre": "Contrato de Alquiler", "estado": "Aprobado", "numRegistro": "NOT-12-P-902", "fechaEmision": "15 de Julio de 2026" },
-            { "id": "senasag", "nombre": "Registro de SENASAG", "estado": "Aprobado", "numRegistro": "SENASAG-CBA-1109", "fechaEmision": "01 de Agosto de 2026" }
-        ],
-        "observacionesSupervisor": [
-            "Área de dispensación cumple con estándares de ventilación e iluminación.",
-            "Almacén de medicamentos cuenta con termohidrómetros calibrados.",
-            "Documentación del regente farmacéutico al día."
-        ]
-    },
-    {
-        "id": "REQ-0042",
-        "tipo": "Renovación",
-        "tipoBadgeColor": "bg-sky-50 text-sky-700 border-sky-200",
-        "fecha": "12 Ago 2026",
-        "fechaISO": "2026-08-12",
-        "establecimiento": "Clínica Sur",
-        "categoria": "Establecimiento de Salud de 2do Nivel",
-        "propietario": "Dr. Roberto Salvatierra Flores",
-        "direccion": "Av. Rector #105, Zona Queru Queru, Cochabamba",
-        "estado": "Esperando Revisión",
-        "estadoColor": "bg-amber-100 text-amber-800 border-amber-300",
-        "supervisorAsignado": "Ing. Carlos Ruiz",
-        "fechaInspeccion": "11/08/2026",
-        "veredictoSupervisor": "CON OBSERVACIONES",
-        "documentos": [
-            { "id": "lic_mun", "nombre": "Licencia de Funcionamiento", "estado": "Aprobado", "numRegistro": "MUN-CBA-2026-9912", "fechaEmision": "10 de Enero de 2026" },
-            { "id": "plan_arq", "nombre": "Plano de Infraestructura", "estado": "Aprobado", "numRegistro": "COL-ARQ-3310", "fechaEmision": "12 de Enero de 2026" },
-            { "id": "cert_san", "nombre": "Certificado de Bioseguridad", "estado": "Pendiente", "numRegistro": "CS-SEDES-2026-550", "fechaEmision": "01 de Agosto de 2026" },
-            { "id": "cont_alq", "nombre": "Contrato Notariado de Regencia", "estado": "Aprobado", "numRegistro": "NOT-04-REG-102", "fechaEmision": "05 de Enero de 2026" },
-            { "id": "senasag", "nombre": "Certificación Ambiental", "estado": "Rechazado", "numRegistro": "AMB-CBA-4401", "fechaEmision": "15 de Mayo de 2026" }
-        ],
-        "observacionesSupervisor": [
-            "Cadena de frío en sala de reactivos presentó fluctuaciones de temperatura.",
-            "Manejo de residuos biológicos requiere actualizar contrato de recolección.",
-            "Personal técnico cuenta con vacunas y credenciales al día."
-        ]
-    },
-    {
-        "id": "REQ-0043",
-        "tipo": "Apertura",
-        "tipoBadgeColor": "bg-cyan-50 text-cyan-700 border-cyan-200",
-        "fecha": "08 Ago 2026",
-        "fechaISO": "2026-08-08",
-        "establecimiento": "Clínica Esperanza",
-        "categoria": "Policlínico de Atención Integral",
-        "propietario": "Dra. Beatriz Guzmán Rios",
-        "direccion": "Av. Heroínas #720 esquina 16 de Julio",
-        "estado": "Esperando Revisión",
-        "estadoColor": "bg-amber-100 text-amber-800 border-amber-300",
-        "supervisorAsignado": "Dra. Patricia Valenzuela",
-        "fechaInspeccion": "07/08/2026",
-        "veredictoSupervisor": "FAVORABLE",
-        "documentos": [
-            { "id": "lic_mun", "nombre": "Licencia Municipal", "estado": "Aprobado", "numRegistro": "MUN-CBA-2026-4401", "fechaEmision": "05 de Febrero de 2026" },
-            { "id": "plan_arq", "nombre": "Plano Arquitectónico", "estado": "Aprobado", "numRegistro": "COL-ARQ-1102", "fechaEmision": "08 de Febrero de 2026" },
-            { "id": "cert_san", "nombre": "Certificado Sanitario", "estado": "Aprobado", "numRegistro": "CS-SEDES-2026-788", "fechaEmision": "10 de Febrero de 2026" },
-            { "id": "cont_alq", "nombre": "Contrato de Alquiler", "estado": "Aprobado", "numRegistro": "NOT-15-CLIN-401", "fechaEmision": "02 de Febrero de 2026" },
-            { "id": "senasag", "nombre": "Registro de SENASAG", "estado": "Aprobado", "numRegistro": "SENASAG-CBA-9002", "fechaEmision": "12 de Febrero de 2026" }
-        ],
-        "observacionesSupervisor": [
-            "Instalaciones en perfecto estado de conservación y limpieza.",
-            "Planes de manejo de residuos biológicos debidamente implementados."
-        ]
-    }
-]
+def get_estado_color(estado: str) -> str:
+    est = (estado or "").lower()
+    if "aprobado" in est:
+        return "bg-emerald-100 text-emerald-800 border-emerald-300"
+    if "observado" in est or "rechazado" in est:
+        return "bg-rose-100 text-rose-800 border-rose-300"
+    if "inspección" in est or "re-inspección" in est:
+        return "bg-purple-100 text-purple-800 border-purple-300"
+    if "revisión" in est:
+        return "bg-amber-100 text-amber-800 border-amber-300"
+    return "bg-sky-100 text-sky-800 border-sky-300"
 
-SUPERVISORES_DATA = [
-    {
-        "id": "sup_1",
-        "iniciales": "MV",
-        "nombre": "Ing. Marco Vargas",
-        "especialidad": "Laboratorios",
-        "asignados": 3,
-        "maxCapacidad": 5,
-        "zona": "Cercado Norte & Queru Queru"
-    },
-    {
-        "id": "sup_2",
-        "iniciales": "LF",
-        "nombre": "Dra. Lucía Fernández",
-        "especialidad": "Farmacias",
-        "asignados": 2,
-        "maxCapacidad": 5,
-        "zona": "Cala Cala & Sarco"
-    },
-    {
-        "id": "sup_3",
-        "iniciales": "RQ",
-        "nombre": "Lic. Roberto Quiroga",
-        "especialidad": "Hospitales",
-        "asignados": 5,
-        "maxCapacidad": 5,
-        "zona": "Quillacollo & Colcapirhua"
-    },
-    {
-        "id": "sup_4",
-        "iniciales": "AT",
-        "nombre": "Ing. Ana Torrez",
-        "especialidad": "Clínicas",
-        "asignados": 1,
-        "maxCapacidad": 5,
-        "zona": "Zona Sur & Central"
-    }
-]
+def get_tipo_badge_color(tipo: str) -> str:
+    t = (tipo or "").lower()
+    if "apertura" in t:
+        return "bg-cyan-50 text-cyan-700 border-cyan-200"
+    if "renovación" in t or "renovacion" in t:
+        return "bg-sky-50 text-sky-700 border-sky-200"
+    return "bg-indigo-50 text-indigo-700 border-indigo-200"
 
-TRAMITES_ASIGNACION_DATA = [
-    {
-        "codigo": "REQ-0042",
-        "establecimiento": "Clínica Sur",
-        "tipo": "Renovación",
-        "fechaIngreso": "12 Ago 2026",
-        "supervisorAsignado": ""
-    },
-    {
-        "codigo": "REQ-0041",
-        "establecimiento": "Farmacia Nova",
-        "tipo": "Apertura",
-        "fechaIngreso": "11 Ago 2026",
-        "supervisorAsignado": "Dra. Lucía Fernández"
-    },
-    {
-        "codigo": "REQ-0043",
-        "establecimiento": "Lab. Génesis",
-        "tipo": "Apertura",
-        "fechaIngreso": "12 Ago 2026",
-        "supervisorAsignado": ""
-    },
-    {
-        "codigo": "REQ-0044",
-        "establecimiento": "Hospital del Valle",
-        "tipo": "Renovación",
-        "fechaIngreso": "13 Ago 2026",
-        "supervisorAsignado": ""
-    }
-]
+def serializar_tramite_coordinador(tramite: models.Tramite, db: Session) -> dict:
+    estab = tramite.establecimiento
+    propietario = estab.propietario if estab else None
+    supervisor = tramite.supervisor_asignado
 
-# Inicializar historial en BD si no existen registros
-def asegurar_historial_inicial(db: Session):
-    try:
-        count = db.query(models.HistorialActividad).count()
-        if count == 0:
-            historial_base = [
-                models.HistorialActividad(
-                    codigo_tramite="REQ-0042",
-                    establecimiento="Clínica Sur",
-                    accion="Documento aprobado: Licencia Municipal verificada en sistema.",
-                    responsable="Lic. Patricia Rojas",
-                    estado_resultado="Aprobado",
-                    estado_badge="bg-emerald-50 text-emerald-700 border-emerald-200",
-                    fecha_hora_formato="13 Ago 2026 - 14:30"
-                ),
-                models.HistorialActividad(
-                    codigo_tramite="REQ-0044",
-                    establecimiento="Hospital del Valle",
-                    accion="Trámite asignado a Ing. Marco Vargas para inspección in situ.",
-                    responsable="Lic. Patricia Rojas",
-                    estado_resultado="Asignado",
-                    estado_badge="bg-sky-50 text-sky-700 border-sky-200",
-                    fecha_hora_formato="13 Ago 2026 - 11:15"
-                ),
-                models.HistorialActividad(
-                    codigo_tramite="REQ-0041",
-                    establecimiento="Farmacia Nova",
-                    accion="Observación emitida: Plano ilegible en área de almacenamiento.",
-                    responsable="Dra. Lucía Fernández",
-                    estado_resultado="Observado",
-                    estado_badge="bg-amber-50 text-amber-700 border-amber-200",
-                    fecha_hora_formato="12 Ago 2026 - 16:45"
-                ),
-                models.HistorialActividad(
-                    codigo_tramite="REQ-0040",
-                    establecimiento="Laboratorio BioTest",
-                    accion="Trámite finalizado - Aprobación y Resolución RES-2026/8910 emitida.",
-                    responsable="Ing. Marco Vargas",
-                    estado_resultado="Aprobado",
-                    estado_badge="bg-emerald-50 text-emerald-700 border-emerald-200",
-                    fecha_hora_formato="11 Ago 2026 - 09:20"
-                ),
-                models.HistorialActividad(
-                    codigo_tramite="REQ-0039",
-                    establecimiento="Centro Dental Smile",
-                    accion="Documento rechazado: Certificado ambiental caducado.",
-                    responsable="Lic. Patricia Rojas",
-                    estado_resultado="Rechazado",
-                    estado_badge="bg-rose-50 text-rose-700 border-rose-200",
-                    fecha_hora_formato="10 Ago 2026 - 15:30"
-                )
-            ]
-            db.add_all(historial_base)
-            db.commit()
-    except Exception as e:
-        print(f"Error al verificar historial inicial: {e}")
-        db.rollback()
+    # Formatear ID visual
+    codigo_visual = f"TRM-{str(tramite.id)[:8].upper()}"
 
+    # Última inspección si existe
+    ultima_inspeccion = db.query(models.Inspeccion).filter(
+        models.Inspeccion.tramite_id == tramite.id,
+        models.Inspeccion.estado == True
+    ).order_by(models.Inspeccion.fecha_creacion.desc()).first()
 
-# ==============================================================================
-# 1. BANDEJA DE ENTRADA Y GESTIÓN DE TRÁMITES
-# ==============================================================================
+    # Documentos adjuntos
+    docs_db = db.query(models.TramiteDocumento).filter(
+        models.TramiteDocumento.tramite_id == tramite.id,
+        models.TramiteDocumento.estado == True
+    ).order_by(models.TramiteDocumento.fecha_creacion.asc()).all()
 
-@router.get("/tramites", summary="Listar trámites pendientes para el Coordinador")
-def listar_tramites_coordinador(db: Session = Depends(get_db)):
-    """Obtiene la lista completa de trámites pendientes con sus bitácoras legal y de campo."""
+    docs_serializados = []
+    for d in docs_db:
+        req = d.requisito
+        nombre_doc = req.nombre_documento if req else "Documento Requerido"
+        seccion_cod = req.seccion_codigo if req else "2.1"
+        seccion_tit = req.seccion_titulo if req else "Documentación Legal"
+        
+        # Fecha formateada
+        f_emision = d.fecha_creacion.strftime("%d de %B de %Y") if d.fecha_creacion else "Reciente"
+
+        docs_serializados.append({
+            "id": str(d.id),
+            "doc_uuid": str(d.id),
+            "requisito_id": d.requisito_id,
+            "nombre": nombre_doc,
+            "seccion": seccion_cod,
+            "seccion_titulo": seccion_tit,
+            "categoria": req.categoria if req else "General",
+            "es_obligatorio": req.es_obligatorio if req else True,
+            "estado": d.estado_validacion or "En Revisión",
+            "numRegistro": f"DOC-{str(d.id)[:8].upper()}",
+            "archivo_url": d.archivo_url,
+            "observaciones_supervisor": d.observaciones_supervisor,
+            "fechaEmision": f_emision
+        })
+
+    # Observaciones del supervisor
+    observaciones = []
+    if ultima_inspeccion and ultima_inspeccion.veredicto_final:
+        observaciones.append(f"Veredicto emitido: {ultima_inspeccion.veredicto_final}.")
+    
+    # Recoger observaciones de documentos observados
+    for d in docs_db:
+        if d.observaciones_supervisor:
+            observaciones.append(f"{d.requisito.nombre_documento if d.requisito else 'Doc'}: {d.observaciones_supervisor}")
+
+    if not observaciones:
+        if supervisor:
+            observaciones.append(f"Trámite bajo fiscalización técnica de {supervisor.nombres} {supervisor.apellidos}.")
+            observaciones.append("Documentación cargada en plataforma lista para revisión técnica.")
+        else:
+            observaciones.append("Documentación digital ingresada por el propietario en espera de revisión y asignación.")
+
+    fecha_formateada = tramite.fecha_ingreso.strftime("%d %b %Y") if tramite.fecha_ingreso else (
+        tramite.fecha_creacion.strftime("%d %b %Y") if tramite.fecha_creacion else datetime.now().strftime("%d %b %Y")
+    )
+    fecha_iso = tramite.fecha_ingreso.isoformat() if tramite.fecha_ingreso else (
+        tramite.fecha_creacion.date().isoformat() if tramite.fecha_creacion else date.today().isoformat()
+    )
+
+    prop_nombre = f"{propietario.nombres} {propietario.apellidos}" if propietario else "Propietario no registrado"
+    sup_nombre = f"{supervisor.nombres} {supervisor.apellidos}" if supervisor else "Sin Asignar"
+
+    veredicto_sup = "PENDIENTE DE ASIGNACIÓN"
+    if supervisor:
+        veredicto_sup = "PENDIENTE DE INSPECCIÓN"
+    if ultima_inspeccion and ultima_inspeccion.veredicto_final:
+        veredicto_sup = ultima_inspeccion.veredicto_final.upper()
+
+    f_insp = ultima_inspeccion.fecha_programada.strftime("%d/%m/%Y") if (ultima_inspeccion and ultima_inspeccion.fecha_programada) else "Pendiente"
+
     return {
-        "total": len(SEED_TRAMITES),
-        "tramites": SEED_TRAMITES
+        "id": codigo_visual,
+        "tramite_uuid": str(tramite.id),
+        "tipo": tramite.tipo_tramite or "Apertura",
+        "tipoBadgeColor": get_tipo_badge_color(tramite.tipo_tramite),
+        "fecha": fecha_formateada,
+        "fechaISO": fecha_iso,
+        "establecimiento": estab.nombre_comercial if estab else "Establecimiento",
+        "categoria": f"{estab.tipo if estab else 'Laboratorio Clínico'} ({estab.nivel if estab else 'Nivel 1'})",
+        "municipio": estab.municipio if estab else "CERCADO",
+        "direccion": estab.direccion if estab else "Cochabamba",
+        "telefono": estab.telefono if estab else (propietario.telefono if propietario else ""),
+        "email": estab.email_contacto if estab else (propietario.email if propietario else ""),
+        "propietario": prop_nombre,
+        "propietario_ci": propietario.ci_nit if propietario else "",
+        "propietario_email": propietario.email if propietario else "",
+        "estado": tramite.estado_tramite or "Pendiente",
+        "estadoColor": get_estado_color(tramite.estado_tramite),
+        "supervisorAsignado": sup_nombre,
+        "supervisor_id": str(supervisor.id) if supervisor else None,
+        "fechaInspeccion": f_insp,
+        "veredictoSupervisor": veredicto_sup,
+        "documentos": docs_serializados,
+        "total_documentos": len(docs_serializados),
+        "observacionesSupervisor": observaciones
     }
 
-@router.get("/tramites/{tramite_id}", summary="Obtener detalle de un trámite")
+
+# ==============================================================================
+# 1. BANDEJA DE ENTRADA Y GESTIÓN DE TRÁMITES REALES
+# ==============================================================================
+
+@router.get("/tramites", summary="Listar trámites pendientes reales para el Coordinador")
+def listar_tramites_coordinador(db: Session = Depends(get_db)):
+    """Obtiene la lista completa de trámites reales registrados en la base de datos."""
+    tramites = db.query(models.Tramite).filter(
+        models.Tramite.estado == True
+    ).order_by(models.Tramite.fecha_creacion.desc()).all()
+
+    tramites_serializados = [serializar_tramite_coordinador(t, db) for t in tramites]
+
+    return {
+        "total": len(tramites_serializados),
+        "tramites": tramites_serializados
+    }
+
+@router.get("/tramites/{tramite_id}", summary="Obtener expediente completo de un trámite")
 def obtener_detalle_tramite(tramite_id: str, db: Session = Depends(get_db)):
-    """Retorna el expediente completo de un trámite."""
-    tramite = next((t for t in SEED_TRAMITES if t["id"] == tramite_id), None)
+    """Retorna el expediente completo de un trámite por UUID o código visual."""
+    tramite = None
+    try:
+        t_uuid = uuid.UUID(tramite_id)
+        tramite = db.query(models.Tramite).filter(models.Tramite.id == t_uuid).first()
+    except ValueError:
+        pass
+
     if not tramite:
-        raise HTTPException(status_code=404, detail="Trámite no encontrado.")
-    return tramite
+        clean_code = tramite_id.replace("TRM-", "").replace("REQ-", "").strip().lower()
+        tramites = db.query(models.Tramite).filter(models.Tramite.estado == True).all()
+        for t in tramites:
+            if str(t.id).lower().startswith(clean_code):
+                tramite = t
+                break
+
+    if not tramite:
+        raise HTTPException(status_code=404, detail="Trámite no encontrado en la base de datos.")
+
+    return serializar_tramite_coordinador(tramite, db)
 
 @router.patch("/documentos/{documento_id}/validar", summary="Validar o Rechazar un Documento Legal")
 def validar_documento_legal(
     documento_id: str,
     payload: ValidarDocumentoRequest,
-    codigo_tramite: Optional[str] = Query("REQ-0042"),
+    codigo_tramite: Optional[str] = Query(None),
     db: Session = Depends(get_db)
 ):
-    """Actualiza el estado de validación de un documento y registra la auditoría."""
-    tramite = next((t for t in SEED_TRAMITES if t["id"] == codigo_tramite), SEED_TRAMITES[1])
-    doc = next((d for d in tramite["documentos"] if d["id"] == documento_id), None)
-    
-    if not doc:
-        raise HTTPException(status_code=404, detail="Documento legal no encontrado.")
+    """Actualiza en tiempo real el estado de validación de un documento en PostgreSQL y registra la auditoría."""
+    try:
+        d_uuid = uuid.UUID(documento_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="ID de documento inválido.")
 
-    doc["estado"] = payload.estado
+    doc = db.query(models.TramiteDocumento).filter(models.TramiteDocumento.id == d_uuid).first()
+    if not doc:
+        raise HTTPException(status_code=404, detail="Documento no encontrado en la base de datos.")
+
+    doc.estado_validacion = payload.estado
+    if payload.observacion is not None:
+        doc.observaciones_supervisor = payload.observacion
+    
+    db.commit()
+    db.refresh(doc)
+
+    tramite = doc.tramite
+    req = doc.requisito
+    nombre_doc = req.nombre_documento if req else "Documento"
+    estab_nombre = tramite.establecimiento.nombre_comercial if (tramite and tramite.establecimiento) else "Establecimiento"
+    cod_trm = f"TRM-{str(tramite.id)[:8].upper()}" if tramite else "TRM-0000"
 
     # Registrar en auditoría
-    badge = "bg-emerald-50 text-emerald-700 border-emerald-200" if payload.estado == "Aprobado" else "bg-rose-50 text-rose-700 border-rose-200"
+    badge = "bg-emerald-50 text-emerald-700 border-emerald-200" if payload.estado == "Aprobado" else (
+        "bg-rose-50 text-rose-700 border-rose-200" if payload.estado in ["Rechazado", "Observado"] else "bg-amber-50 text-amber-700 border-amber-200"
+    )
     ahora_formato = datetime.now().strftime("%d %b %Y - %H:%M")
-    
+
+    obs_texto = f" Obs: {payload.observacion}" if payload.observacion else ""
     nuevo_log = models.HistorialActividad(
-        codigo_tramite=tramite["id"],
-        establecimiento=tramite["establecimiento"],
-        accion=f"Documento {payload.estado.lower()}: {doc['nombre']} (Reg: {doc['numRegistro']}). {payload.observacion or ''}".strip(),
+        id=uuid.uuid4(),
+        codigo_tramite=cod_trm,
+        establecimiento=estab_nombre,
+        accion=f"Documento {payload.estado.lower()}: {nombre_doc}.{obs_texto}",
         responsable=payload.responsable or "Dra. Claudia Morales V.",
         estado_resultado=payload.estado,
         estado_badge=badge,
         fecha_hora_formato=ahora_formato
     )
     db.add(nuevo_log)
+
+    # Notificar al propietario en tiempo real
+    try:
+        from notificaciones import crear_notificacion_db
+        if tramite and tramite.establecimiento and tramite.establecimiento.propietario_id:
+            prop_id = tramite.establecimiento.propietario_id
+            if payload.estado in ["Observado", "Rechazado"]:
+                obs_detalle = f" Motivo: '{payload.observacion}'." if payload.observacion else ""
+                crear_notificacion_db(
+                    db,
+                    usuario_id=prop_id,
+                    titulo=f"⚠️ Documento Observado: {nombre_doc[:40]}",
+                    mensaje=f"El documento '{nombre_doc}' de su trámite para '{estab_nombre}' ha sido {payload.estado.lower()}.{obs_detalle} Por favor ingrese a la sección 'Trámites' para subsanar y volver a subir el archivo corregido en PDF."
+                )
+            elif payload.estado == "Aprobado":
+                crear_notificacion_db(
+                    db,
+                    usuario_id=prop_id,
+                    titulo=f"✓ Documento Aprobado: {nombre_doc[:40]}",
+                    mensaje=f"El documento '{nombre_doc}' de su establecimiento '{estab_nombre}' ha sido verificado y aprobado satisfactoriamente por Coordinación."
+                )
+    except Exception as e:
+        print(f"Error al generar notificación de documento: {e}")
+
     db.commit()
 
     return {
-        "mensaje": f"Documento '{doc['nombre']}' marcado como {payload.estado}.",
-        "documento": doc,
-        "tramite_id": tramite["id"]
+        "mensaje": f"Documento '{nombre_doc}' marcado como {payload.estado}.",
+        "documento_id": str(doc.id),
+        "estado": doc.estado_validacion,
+        "observaciones": doc.observaciones_supervisor
     }
 
 @router.post("/tramites/{tramite_id}/reinspeccion", summary="Agendar Re-Inspección Técnica")
@@ -325,21 +303,62 @@ def agendar_reinspeccion(
     payload: AgendarReinspeccionRequest,
     db: Session = Depends(get_db)
 ):
-    """Programa una re-inspección de campo y notifica al supervisor asignado."""
-    tramite = next((t for t in SEED_TRAMITES if t["id"] == tramite_id), None)
+    """Programa una re-inspección de campo en la base de datos PostgreSQL y registra auditoría."""
+    tramite = None
+    try:
+        t_uuid = uuid.UUID(tramite_id)
+        tramite = db.query(models.Tramite).filter(models.Tramite.id == t_uuid).first()
+    except ValueError:
+        pass
+
+    if not tramite:
+        clean_code = tramite_id.replace("TRM-", "").replace("REQ-", "").strip().lower()
+        tramites = db.query(models.Tramite).filter(models.Tramite.estado == True).all()
+        for t in tramites:
+            if str(t.id).lower().startswith(clean_code):
+                tramite = t
+                break
+
     if not tramite:
         raise HTTPException(status_code=404, detail="Trámite no encontrado.")
 
-    tramite["estado"] = "Re-Inspección Programada"
-    tramite["estadoColor"] = "bg-purple-100 text-purple-800 border-purple-300"
-    tramite["supervisorAsignado"] = payload.supervisor
-    tramite["fechaInspeccion"] = payload.fecha
+    # Buscar supervisor por nombre o asignar
+    supervisor = db.query(models.Usuario).join(models.Role).filter(
+        models.Role.nombre == "Supervisor",
+        (models.Usuario.nombres + " " + models.Usuario.apellidos).ilike(f"%{payload.supervisor.replace('Ing.', '').replace('Dra.', '').replace('Lic.', '').strip()}%")
+    ).first()
 
-    # Registrar en bitácora de auditoría
+    if supervisor:
+        tramite.supervisor_asignado_id = supervisor.id
+
+    tramite.estado_tramite = "Re-Inspección Programada"
+
+    # Crear o actualizar inspección en PostgreSQL
+    try:
+        fecha_dt = datetime.strptime(f"{payload.fecha} {payload.hora}", "%Y-%m-%d %H:%M")
+    except Exception:
+        fecha_dt = datetime.now()
+
+    nueva_inspeccion = models.Inspeccion(
+        id=uuid.uuid4(),
+        tramite_id=tramite.id,
+        supervisor_id=supervisor.id if supervisor else tramite.supervisor_asignado_id or tramite.establecimiento.propietario_id,
+        fecha_programada=fecha_dt,
+        estado_inspeccion="Reprogramada",
+        veredicto_final="Con Observaciones"
+    )
+    db.add(nueva_inspeccion)
+    db.commit()
+    db.refresh(tramite)
+
+    estab_nombre = tramite.establecimiento.nombre_comercial if tramite.establecimiento else "Establecimiento"
+    cod_trm = f"TRM-{str(tramite.id)[:8].upper()}"
     ahora_formato = datetime.now().strftime("%d %b %Y - %H:%M")
+
     nuevo_log = models.HistorialActividad(
-        codigo_tramite=tramite["id"],
-        establecimiento=tramite["establecimiento"],
+        id=uuid.uuid4(),
+        codigo_tramite=cod_trm,
+        establecimiento=estab_nombre,
         accion=f"Re-inspección técnica agendada para el {payload.fecha} a las {payload.hora}. Inspector: {payload.supervisor}. Motivo: {payload.motivo}",
         responsable=payload.responsable or "Dra. Claudia Morales V.",
         estado_resultado="Asignado",
@@ -347,32 +366,74 @@ def agendar_reinspeccion(
         fecha_hora_formato=ahora_formato
     )
     db.add(nuevo_log)
+
+    # Notificar al supervisor y al propietario
+    try:
+        from notificaciones import crear_notificacion_db
+        if supervisor:
+            crear_notificacion_db(
+                db,
+                usuario_id=supervisor.id,
+                titulo="📅 Inspección Técnica Agendada",
+                mensaje=f"Se le ha programado visita de inspección in situ en '{estab_nombre}' para el {payload.fecha} a las {payload.hora}. Motivo: {payload.motivo}"
+            )
+        if tramite.establecimiento and tramite.establecimiento.propietario_id:
+            crear_notificacion_db(
+                db,
+                usuario_id=tramite.establecimiento.propietario_id,
+                titulo="📅 Visita de Inspección Programada",
+                mensaje=f"Se ha agendado la inspección de campo de su establecimiento '{estab_nombre}' para el día {payload.fecha} a las {payload.hora} con el inspector {payload.supervisor}."
+            )
+    except Exception as e:
+        print(f"Error al notificar re-inspección: {e}")
+
     db.commit()
 
     return {
         "mensaje": f"Re-inspección asignada exitosamente a {payload.supervisor} para el {payload.fecha}.",
-        "tramite": tramite
+        "tramite": serializar_tramite_coordinador(tramite, db)
     }
 
-@router.post("/tramites/{tramite_id}/aprobar", summary="Emitir Aprobación Oficial y Resolución")
+@router.post("/tramites/{tramite_id}/aprobar", summary="Emitir Aprobación Oficial y Resolución en PostgreSQL")
 def aprobar_tramite(
     tramite_id: str,
     payload: AprobarTramiteRequest,
     db: Session = Depends(get_db)
 ):
-    """Aprueba el trámite emitiendo la resolución administrativa oficial."""
-    tramite = next((t for t in SEED_TRAMITES if t["id"] == tramite_id), None)
+    """Aprueba el trámite emitiendo la resolución administrativa oficial y habilitando el establecimiento."""
+    tramite = None
+    try:
+        t_uuid = uuid.UUID(tramite_id)
+        tramite = db.query(models.Tramite).filter(models.Tramite.id == t_uuid).first()
+    except ValueError:
+        pass
+
+    if not tramite:
+        clean_code = tramite_id.replace("TRM-", "").replace("REQ-", "").strip().lower()
+        tramites = db.query(models.Tramite).filter(models.Tramite.estado == True).all()
+        for t in tramites:
+            if str(t.id).lower().startswith(clean_code):
+                tramite = t
+                break
+
     if not tramite:
         raise HTTPException(status_code=404, detail="Trámite no encontrado.")
 
-    tramite["estado"] = "Aprobado"
-    tramite["estadoColor"] = "bg-emerald-100 text-emerald-800 border-emerald-300"
+    tramite.estado_tramite = "Aprobado"
+    if tramite.establecimiento:
+        tramite.establecimiento.estado_operativo = "Habilitado"
 
-    # Registrar en bitácora de auditoría
+    db.commit()
+    db.refresh(tramite)
+
+    estab_nombre = tramite.establecimiento.nombre_comercial if tramite.establecimiento else "Establecimiento"
+    cod_trm = f"TRM-{str(tramite.id)[:8].upper()}"
     ahora_formato = datetime.now().strftime("%d %b %Y - %H:%M")
+
     nuevo_log = models.HistorialActividad(
-        codigo_tramite=tramite["id"],
-        establecimiento=tramite["establecimiento"],
+        id=uuid.uuid4(),
+        codigo_tramite=cod_trm,
+        establecimiento=estab_nombre,
         accion=f"Trámite APROBADO oficialmente. Resolución emitida: {payload.codigo_resolucion} (Vigencia: {payload.vigencia_anios}).",
         responsable=payload.responsable or "Dra. Claudia Morales V.",
         estado_resultado="Aprobado",
@@ -380,84 +441,223 @@ def aprobar_tramite(
         fecha_hora_formato=ahora_formato
     )
     db.add(nuevo_log)
+
+    # Notificar al propietario de la aprobación final
+    try:
+        from notificaciones import crear_notificacion_db
+        if tramite.establecimiento and tramite.establecimiento.propietario_id:
+            crear_notificacion_db(
+                db,
+                usuario_id=tramite.establecimiento.propietario_id,
+                titulo="🎉 ¡Trámite Aprobado y Resolución Emitida!",
+                mensaje=f"¡Felicitaciones! Su trámite para '{estab_nombre}' ha sido APROBADO oficialmente por Coordinación SEDES bajo la Resolución {payload.codigo_resolucion} (Vigencia: {payload.vigencia_anios})."
+            )
+    except Exception as e:
+        print(f"Error al notificar aprobación: {e}")
+
     db.commit()
 
     return {
-        "mensaje": f"¡Trámite {tramite_id} aprobado exitosamente! Resolución: {payload.codigo_resolucion}.",
-        "tramite": tramite
+        "mensaje": f"¡Trámite {cod_trm} aprobado exitosamente! Resolución: {payload.codigo_resolucion}.",
+        "tramite": serializar_tramite_coordinador(tramite, db)
     }
 
 # ==============================================================================
-# 2. ASIGNACIÓN DE SUPERVISORES
+# 2. ASIGNACIÓN DE SUPERVISORES REALES DE SEDES
 # ==============================================================================
 
-@router.get("/supervisores", summary="Listar supervisores de campo y carga operativa")
+@router.get("/supervisores", summary="Listar supervisores de campo reales y carga operativa")
 def listar_supervisores_campo(db: Session = Depends(get_db)):
-    """Retorna la lista de supervisores con carga operativa en tiempo real."""
+    """Retorna los supervisores institucionales registrados en la base de datos con su carga real."""
+    supervisores_db = db.query(models.Usuario).join(models.Role).filter(
+        models.Role.nombre == "Supervisor",
+        models.Usuario.estado == True
+    ).order_by(models.Usuario.apellidos.asc()).all()
+
+    resultados = []
+    for s in supervisores_db:
+        # Calcular trámites asignados activos
+        asignados_count = db.query(models.Tramite).filter(
+            models.Tramite.supervisor_asignado_id == s.id,
+            models.Tramite.estado == True,
+            models.Tramite.estado_tramite.notin_(["Aprobado", "Rechazado"])
+        ).count()
+
+        # Extraer iniciales
+        nombre_completo = f"{s.nombres} {s.apellidos}"
+        clean_name = nombre_completo.replace("Ing.", "").replace("Dra.", "").replace("Lic.", "").replace("Dr.", "").strip()
+        words = clean_name.split()
+        iniciales = "".join([w[0] for w in words[:2]]).upper() if words else "SP"
+
+        resultados.append({
+            "id": str(s.id),
+            "iniciales": iniciales,
+            "nombre": nombre_completo,
+            "email": s.email,
+            "telefono": s.telefono or "+591 4 4256789",
+            "especialidad": "Laboratorios Clínicos / Farmacias",
+            "asignados": asignados_count,
+            "maxCapacidad": 5,
+            "zona": "Cochabamba - Departamental"
+        })
+
     return {
-        "total": len(SUPERVISORES_DATA),
-        "supervisores": SUPERVISORES_DATA
+        "total": len(resultados),
+        "supervisores": resultados
     }
 
-@router.get("/tramites-asignacion", summary="Listar trámites pendientes de asignación")
+@router.get("/tramites-asignacion", summary="Listar trámites reales para asignación de supervisor")
 def listar_tramites_asignacion(db: Session = Depends(get_db)):
-    """Retorna los trámites esperando asignación de supervisor."""
+    """Retorna los trámites reales que requieren supervisión técnica."""
+    tramites = db.query(models.Tramite).filter(
+        models.Tramite.estado == True
+    ).order_by(models.Tramite.fecha_creacion.desc()).all()
+
+    resultados = []
+    for t in tramites:
+        estab = t.establecimiento
+        sup = t.supervisor_asignado
+        f_ingreso = t.fecha_ingreso.strftime("%d %b %Y") if t.fecha_ingreso else (
+            t.fecha_creacion.strftime("%d %b %Y") if t.fecha_creacion else "Hoy"
+        )
+        sup_nombre = f"{sup.nombres} {sup.apellidos}" if sup else ""
+
+        resultados.append({
+            "codigo": f"TRM-{str(t.id)[:8].upper()}",
+            "tramite_uuid": str(t.id),
+            "establecimiento": estab.nombre_comercial if estab else "Establecimiento",
+            "municipio": estab.municipio if estab else "CERCADO",
+            "tipo": t.tipo_tramite or "Apertura",
+            "estado": t.estado_tramite or "Pendiente",
+            "fechaIngreso": f_ingreso,
+            "supervisorAsignado": sup_nombre,
+            "supervisor_id": str(sup.id) if sup else ""
+        })
+
     return {
-        "total": len(TRAMITES_ASIGNACION_DATA),
-        "tramites": TRAMITES_ASIGNACION_DATA
+        "total": len(resultados),
+        "tramites": resultados
     }
 
-@router.post("/asignar-supervisor", summary="Asignar un supervisor a un trámite")
+@router.post("/asignar-supervisor", summary="Asignar un supervisor a un trámite en PostgreSQL")
 def asignar_supervisor(
     payload: AsignarSupervisorRequest,
     db: Session = Depends(get_db)
 ):
-    """Asigna un supervisor al trámite e incrementa su carga operativa."""
-    tramite = next((t for t in TRAMITES_ASIGNACION_DATA if t["codigo"] == payload.codigo_tramite), None)
+    """Asigna un supervisor al trámite en la base de datos relacional y programa inspección."""
+    tramite = None
+    try:
+        t_uuid = uuid.UUID(payload.codigo_tramite)
+        tramite = db.query(models.Tramite).filter(models.Tramite.id == t_uuid).first()
+    except ValueError:
+        pass
+
     if not tramite:
-        raise HTTPException(status_code=404, detail="Trámite no encontrado en la lista de asignación.")
+        clean_code = payload.codigo_tramite.replace("TRM-", "").replace("REQ-", "").strip().lower()
+        tramites = db.query(models.Tramite).filter(models.Tramite.estado == True).all()
+        for t in tramites:
+            if str(t.id).lower().startswith(clean_code):
+                tramite = t
+                break
 
-    supervisor = next((s for s in SUPERVISORES_DATA if s["nombre"] == payload.supervisor_nombre), None)
+    if not tramite:
+        raise HTTPException(status_code=404, detail="Trámite no encontrado en la base de datos.")
+
+    # Buscar supervisor por ID o por nombre
+    supervisor = None
+    try:
+        s_uuid = uuid.UUID(payload.supervisor_nombre)
+        supervisor = db.query(models.Usuario).filter(models.Usuario.id == s_uuid).first()
+    except ValueError:
+        pass
+
     if not supervisor:
-        raise HTTPException(status_code=404, detail="Supervisor no encontrado.")
+        clean_sup = payload.supervisor_nombre.replace("Ing.", "").replace("Dra.", "").replace("Lic.", "").replace("Dr.", "").strip()
+        supervisor = db.query(models.Usuario).join(models.Role).filter(
+            models.Role.nombre == "Supervisor",
+            (models.Usuario.nombres + " " + models.Usuario.apellidos).ilike(f"%{clean_sup}%")
+        ).first()
 
-    if supervisor["asignados"] >= supervisor["maxCapacidad"]:
-        raise HTTPException(
-            status_code=400,
-            detail=f"El supervisor {supervisor['nombre']} ha alcanzado su capacidad máxima ({supervisor['maxCapacidad']}/{supervisor['maxCapacidad']})."
+    if not supervisor:
+        raise HTTPException(status_code=404, detail="Supervisor institucional no encontrado.")
+
+    # Asignar supervisor y actualizar estado
+    tramite.supervisor_asignado_id = supervisor.id
+    if tramite.estado_tramite in ["Pendiente", "Esperando Revisión"]:
+        tramite.estado_tramite = "Inspección Programada"
+
+    # Crear registro de inspección inicial si no existe
+    insp_existente = db.query(models.Inspeccion).filter(
+        models.Inspeccion.tramite_id == tramite.id,
+        models.Inspeccion.estado == True
+    ).first()
+
+    if not insp_existente:
+        nueva_insp = models.Inspeccion(
+            id=uuid.uuid4(),
+            tramite_id=tramite.id,
+            supervisor_id=supervisor.id,
+            fecha_programada=datetime.now(),
+            estado_inspeccion="Pendiente",
+            veredicto_final="Pendiente de Inspección"
         )
+        db.add(nueva_insp)
 
-    # Actualizar asignación
-    tramite["supervisorAsignado"] = supervisor["nombre"]
-    supervisor["asignados"] += 1
+    db.commit()
+    db.refresh(tramite)
+
+    sup_nombre = f"{supervisor.nombres} {supervisor.apellidos}"
+    estab_nombre = tramite.establecimiento.nombre_comercial if tramite.establecimiento else "Establecimiento"
+    cod_trm = f"TRM-{str(tramite.id)[:8].upper()}"
+    ahora_formato = datetime.now().strftime("%d %b %Y - %H:%M")
 
     # Registrar en auditoría
-    ahora_formato = datetime.now().strftime("%d %b %Y - %H:%M")
     nuevo_log = models.HistorialActividad(
-        codigo_tramite=tramite["codigo"],
-        establecimiento=tramite["establecimiento"],
-        accion=f"Trámite asignado a {supervisor['nombre']} para auditoría en zona {supervisor.get('zona', 'Departamental')}.",
-        responsable=payload.responsable or "Lic. Patricia Rojas",
+        id=uuid.uuid4(),
+        codigo_tramite=cod_trm,
+        establecimiento=estab_nombre,
+        accion=f"Trámite asignado a {sup_nombre} para auditoría e inspección técnica in situ.",
+        responsable=payload.responsable or "Dra. Claudia Morales V.",
         estado_resultado="Asignado",
         estado_badge="bg-sky-50 text-sky-700 border-sky-200",
         fecha_hora_formato=ahora_formato
     )
     db.add(nuevo_log)
+
+    # Notificar al supervisor y al propietario
+    try:
+        from notificaciones import crear_notificacion_db
+        crear_notificacion_db(
+            db,
+            usuario_id=supervisor.id,
+            titulo="📋 Nuevo Trámite Asignado",
+            mensaje=f"Se le ha asignado el trámite {cod_trm} de '{estab_nombre}' ({tramite.establecimiento.municipio}) para auditoría e inspección técnica in situ."
+        )
+        if tramite.establecimiento and tramite.establecimiento.propietario_id:
+            crear_notificacion_db(
+                db,
+                usuario_id=tramite.establecimiento.propietario_id,
+                titulo="Supervisor Técnico Asignado",
+                mensaje=f"Se ha asignado a {sup_nombre} como supervisor técnico para la fiscalización de su establecimiento '{estab_nombre}'."
+            )
+    except Exception as e:
+        print(f"Error al notificar asignación de supervisor: {e}")
+
     db.commit()
 
     return {
-        "mensaje": f"Trámite {payload.codigo_tramite} asignado exitosamente a {supervisor['nombre']}.",
-        "tramite": tramite,
-        "supervisor": supervisor
+        "mensaje": f"Trámite {cod_trm} asignado exitosamente a {sup_nombre}.",
+        "tramite_id": str(tramite.id),
+        "supervisor_nombre": sup_nombre
     }
 
 # ==============================================================================
-# 3. HISTORIAL Y TRAZABILIDAD (AUDITORÍA)
+# 3. HISTORIAL Y TRAZABILIDAD (AUDITORÍA REAL)
 # ==============================================================================
 
-@router.get("/historial", summary="Consultar bitácora de auditoría y trazabilidad")
+@router.get("/historial", summary="Consultar bitácora real de auditoría y trazabilidad")
 def consultar_historial(
-    buscar: Optional[str] = Query(None, description="Término de búsqueda por código o establecimiento"),
+    buscar: Optional[str] = Query(None, description="Término de búsqueda"),
     estado: Optional[str] = Query("Todos", description="Filtrar por estado"),
     supervisor: Optional[str] = Query("Todos", description="Filtrar por supervisor"),
     desde: Optional[str] = Query(None, description="Fecha inicial ISO"),
@@ -466,10 +666,10 @@ def consultar_historial(
     limite: int = Query(10, ge=1, le=100),
     db: Session = Depends(get_db)
 ):
-    """Consulta la bitácora de movimientos y auditoría con filtros multicriterio."""
-    asegurar_historial_inicial(db)
-
-    query = db.query(models.HistorialActividad).order_by(desc(models.HistorialActividad.fecha_creacion))
+    """Consulta la bitácora real de movimientos y auditoría con filtros multicriterio."""
+    query = db.query(models.HistorialActividad).filter(
+        models.HistorialActividad.estado == True
+    ).order_by(desc(models.HistorialActividad.fecha_creacion))
 
     if buscar and buscar.strip():
         termino = f"%{buscar.strip()}%"
@@ -480,10 +680,11 @@ def consultar_historial(
         )
 
     if estado and estado != "Todos":
-        query = query.filter(models.HistorialActividad.estado_resultado == estado)
+        query = query.filter(models.HistorialActividad.estado_resultado.ilike(f"%{estado.strip()}%"))
 
     if supervisor and supervisor != "Todos":
-        query = query.filter(models.HistorialActividad.responsable == supervisor)
+        clean_sup = supervisor.replace("Ing.", "").replace("Dra.", "").replace("Lic.", "").replace("Dr.", "").strip()
+        query = query.filter(models.HistorialActividad.responsable.ilike(f"%{clean_sup}%"))
 
     total_registros = query.count()
     offset = (pagina - 1) * limite
@@ -492,13 +693,13 @@ def consultar_historial(
     resultados = [
         {
             "id": str(r.id),
-            "fechaHora": r.fecha_hora_formato,
+            "fechaHora": r.fecha_hora_formato or (r.fecha_creacion.strftime("%d %b %Y - %H:%M") if r.fecha_creacion else "Reciente"),
             "codigo": r.codigo_tramite,
             "establecimiento": r.establecimiento,
             "accion": r.accion,
             "responsable": r.responsable,
             "estado": r.estado_resultado,
-            "estadoBadge": r.estado_badge
+            "estadoBadge": r.estado_badge or "bg-sky-50 text-sky-700 border-sky-200"
         }
         for r in registros_db
     ]

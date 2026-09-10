@@ -113,6 +113,28 @@ def crear_establecimiento(
         estado_tramite="Pendiente"
     )
     db.add(nuevo_tramite)
+    db.flush()
+
+    # Generar Notificaciones en PostgreSQL
+    try:
+        from notificaciones import crear_notificacion_db, notificar_a_rol_db
+        # Notificar al propietario
+        crear_notificacion_db(
+            db,
+            usuario_id=prop_uuid,
+            titulo="Solicitud de Apertura Enviada",
+            mensaje=f"Su solicitud de apertura para '{nuevo_estab.nombre_comercial}' fue recibida en SEDES Cochabamba y se encuentra en revisión."
+        )
+        # Notificar a los Coordinadores
+        notificar_a_rol_db(
+            db,
+            rol_nombre="Coordinador",
+            titulo="Nueva Solicitud de Apertura",
+            mensaje=f"El establecimiento '{nuevo_estab.nombre_comercial}' ({nuevo_estab.municipio}) de {propietario.nombres} {propietario.apellidos} ha enviado su solicitud de apertura para revisión técnica."
+        )
+    except Exception as e:
+        print(f"Error al generar notificaciones: {e}")
+
     db.commit()
     db.refresh(nuevo_estab)
 

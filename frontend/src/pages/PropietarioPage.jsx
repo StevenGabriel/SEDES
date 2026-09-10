@@ -297,6 +297,49 @@ export default function PropietarioPage() {
   const [seccionesRequisitos, setSeccionesRequisitos] = useState(DEFAULT_SECCIONES_REQUISITOS);
   const [cargandoRequisitos, setCargandoRequisitos] = useState(false);
 
+  // =========================================================================
+  // Notificaciones en Tiempo Real para el Propietario
+  // =========================================================================
+  const [notificaciones, setNotificaciones] = useState([]);
+  const [notifNoLeidas, setNotifNoLeidas] = useState(0);
+  const [notifDropdownOpen, setNotifDropdownOpen] = useState(false);
+
+  const fetchNotificaciones = async (propietarioId) => {
+    if (!propietarioId) return;
+    try {
+      const res = await fetch(`http://localhost:8000/api/notificaciones/usuario/${propietarioId}`);
+      if (res.ok) {
+        const data = await res.json();
+        setNotificaciones(data.notificaciones || []);
+        setNotifNoLeidas(data.no_leidas || 0);
+      }
+    } catch (err) {
+      console.warn('Error al cargar notificaciones del propietario:', err);
+    }
+  };
+
+  const handleMarcarNotifLeida = async (notifId) => {
+    try {
+      await fetch(`http://localhost:8000/api/notificaciones/${notifId}/leer`, { method: 'PATCH' });
+      setNotificaciones(prev => prev.map(n => n.id === notifId ? { ...n, leido: true } : n));
+      setNotifNoLeidas(prev => Math.max(0, prev - 1));
+    } catch (e) {
+      console.warn('Error al marcar notificación leída:', e);
+    }
+  };
+
+  const handleMarcarTodasNotifsLeidas = async () => {
+    if (usuario?.id) {
+      try {
+        await fetch(`http://localhost:8000/api/notificaciones/usuario/${usuario.id}/leer-todas`, { method: 'PATCH' });
+      } catch (e) {
+        console.warn('Error al marcar todas leídas:', e);
+      }
+    }
+    setNotificaciones(prev => prev.map(n => ({ ...n, leido: true })));
+    setNotifNoLeidas(0);
+  };
+
   // Cargar catálogo de requisitos en vivo desde el Backend
   const cargarRequisitosDesdeAPI = async () => {
     setCargandoRequisitos(true);
@@ -324,6 +367,7 @@ export default function PropietarioPage() {
         setUsuario(parsed);
         fetchMisEstablecimientos(parsed.id);
         fetchTramitesUsuario(parsed.id);
+        fetchNotificaciones(parsed.id);
       } catch (e) {
         console.error('Error al leer sesión:', e);
         fetchMisEstablecimientos(null);
@@ -998,17 +1042,108 @@ export default function PropietarioPage() {
             {/* Perfil del Usuario & Notificaciones */}
             <div className="flex items-center space-x-3 sm:space-x-5">
               
-              {/* Campana de Notificaciones con Badge */}
-              <button 
-                type="button" 
-                className="relative p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition cursor-pointer"
-                title="3 Notificaciones pendientes"
-              >
-                <Bell className="w-5 h-5" />
-                <span className="absolute top-1.5 right-1.5 w-4 h-4 bg-red-500 text-white rounded-full text-[10px] font-extrabold flex items-center justify-center ring-2 ring-white">
-                  3
-                </span>
-              </button>
+              {/* Campana de Notificaciones Interactiva con Dropdown */}
+              <div className="relative">
+                <button 
+                  type="button" 
+                  onClick={() => setNotifDropdownOpen(!notifDropdownOpen)}
+                  className={`relative p-2 rounded-full transition cursor-pointer ${
+                    notifDropdownOpen
+                      ? 'bg-sky-100 text-[#0077c8]'
+                      : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100'
+                  }`}
+                  title="Notificaciones del sistema"
+                >
+                  <Bell className="w-5 h-5" />
+                  {notifNoLeidas > 0 && (
+                    <span className="absolute top-1.5 right-1.5 w-4 h-4 bg-red-500 text-white rounded-full text-[10px] font-extrabold flex items-center justify-center ring-2 ring-white animate-pulse">
+                      {notifNoLeidas}
+                    </span>
+                  )}
+                </button>
+
+                {/* Dropdown de Notificaciones */}
+                {notifDropdownOpen && (
+                  <>
+                    <div 
+                      className="fixed inset-0 z-40" 
+                      onClick={() => setNotifDropdownOpen(false)}
+                    />
+                    <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-white rounded-2xl shadow-2xl border border-slate-200 z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150">
+                      <div className="p-3.5 bg-slate-900 text-white flex items-center justify-between">
+                        <div className="flex items-center space-x-2">
+                          <Bell className="w-4 h-4 text-sky-400" />
+                          <span className="font-bold text-xs tracking-wide uppercase">Notificaciones</span>
+                          {notifNoLeidas > 0 && (
+                            <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                              {notifNoLeidas} nuevas
+                            </span>
+                          )}
+                        </div>
+                        {notificaciones.length > 0 && (
+                          <button
+                            onClick={handleMarcarTodasNotifsLeidas}
+                            className="text-[11px] text-sky-300 hover:text-white transition font-medium cursor-pointer"
+                          >
+                            Marcar leídas
+                          </button>
+                        )}
+                      </div>
+
+                      <div className="max-h-80 overflow-y-auto divide-y divide-slate-100">
+                        {notificaciones.length === 0 ? (
+                          <div className="p-6 text-center text-slate-400 text-xs">
+                            <CheckCircle2 className="w-8 h-8 mx-auto mb-2 text-slate-300" />
+                            No tienes notificaciones pendientes
+                          </div>
+                        ) : (
+                          notificaciones.map((notif) => (
+                            <div
+                              key={notif.id}
+                              onClick={() => {
+                                handleMarcarNotifLeida(notif.id);
+                                setNotifDropdownOpen(false);
+                                if (seccionActiva !== 'tramites') {
+                                  navigate('/propietario/tramites');
+                                }
+                              }}
+                              className={`p-3.5 text-xs transition cursor-pointer flex items-start space-x-3 ${
+                                notif.leido ? 'bg-white opacity-75 hover:opacity-100 hover:bg-slate-50' : 'bg-amber-50/60 hover:bg-amber-50 font-medium'
+                              }`}
+                            >
+                              <span className={`w-2.5 h-2.5 rounded-full mt-1 shrink-0 ${
+                                notif.leido 
+                                  ? 'bg-slate-300' 
+                                  : notif.titulo.toLowerCase().includes('observad') || notif.titulo.toLowerCase().includes('rechaz')
+                                    ? 'bg-amber-500 ring-2 ring-amber-200 animate-pulse'
+                                    : 'bg-[#0077c8] ring-2 ring-sky-200'
+                              }`} />
+                              <div className="flex-1 min-w-0">
+                                <p className={`text-slate-800 ${notif.leido ? 'font-medium' : 'font-bold'}`}>
+                                  {notif.titulo}
+                                </p>
+                                <p className="text-slate-600 mt-0.5 leading-relaxed break-words text-[11px]">
+                                  {notif.mensaje}
+                                </p>
+                                <div className="flex items-center justify-between mt-1.5">
+                                  <span className="text-[10px] text-slate-400">
+                                    {new Date(notif.fecha_creacion).toLocaleString('es-BO', { dateStyle: 'short', timeStyle: 'short' })}
+                                  </span>
+                                  {notif.titulo.toLowerCase().includes('observad') && (
+                                    <span className="text-[10px] font-bold text-amber-700 bg-amber-100/80 px-2 py-0.5 rounded-md">
+                                      Ir a Subsanar →
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
 
               {/* Perfil del Usuario */}
               <div className="flex items-center space-x-3 pl-2 sm:pl-4 border-l border-slate-200">
