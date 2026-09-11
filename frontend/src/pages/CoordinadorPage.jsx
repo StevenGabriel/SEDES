@@ -671,57 +671,130 @@ export default function CoordinadorPage() {
                     className="fixed inset-0 z-40"
                     onClick={() => setNotifDropdownOpen(false)}
                   />
-                  <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-white rounded-2xl shadow-2xl border border-slate-200 z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150">
-                    <div className="p-3.5 bg-slate-900 text-white flex items-center justify-between">
-                      <div className="flex items-center space-x-2">
-                        <Bell className="w-4 h-4 text-sky-400" />
-                        <span className="font-bold text-xs tracking-wide uppercase">Notificaciones</span>
-                        {notifNoLeidas > 0 && (
-                          <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
-                            {notifNoLeidas} nuevas
-                          </span>
-                        )}
+                  <div className="absolute right-0 mt-2 w-96 sm:w-[460px] md:w-[500px] max-w-[95vw] bg-white rounded-2xl shadow-2xl border border-slate-200/90 z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150 ring-1 ring-black/5">
+                    {/* Cabecera */}
+                    <div className="px-5 py-4 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 text-white flex items-center justify-between border-b border-slate-700/60 shadow-xs">
+                      <div className="flex items-center space-x-2.5">
+                        <div className="w-8 h-8 rounded-xl bg-sky-500/20 text-sky-400 flex items-center justify-center border border-sky-500/30">
+                          <Bell className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <div className="flex items-center space-x-2">
+                            <span className="font-extrabold text-xs tracking-wider uppercase">Notificaciones</span>
+                            {notifNoLeidas > 0 && (
+                              <span className="bg-rose-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full shadow-xs">
+                                {notifNoLeidas} {notifNoLeidas === 1 ? 'nueva' : 'nuevas'}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-[11px] text-slate-400 font-normal">Avisos y actualizaciones técnicas en tiempo real</p>
+                        </div>
                       </div>
                       {notificaciones.length > 0 && (
                         <button
                           onClick={handleMarcarTodasNotifsLeidas}
-                          className="text-[11px] text-sky-300 hover:text-white transition font-medium cursor-pointer"
+                          className="text-[11px] text-sky-300 hover:text-white hover:bg-white/10 px-2.5 py-1.5 rounded-lg transition font-semibold flex items-center space-x-1 cursor-pointer"
+                          title="Marcar todas como leídas"
                         >
-                          Marcar leídas
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          <span>Marcar leídas</span>
                         </button>
                       )}
                     </div>
 
-                    <div className="max-h-80 overflow-y-auto divide-y divide-slate-100">
+                    {/* Lista de Notificaciones */}
+                    <div className="max-h-[390px] sm:max-h-[440px] overflow-y-auto divide-y divide-slate-100">
                       {notificaciones.length === 0 ? (
-                        <div className="p-6 text-center text-slate-400 text-xs">
-                          <CheckCircle className="w-8 h-8 mx-auto mb-2 text-slate-300" />
-                          No tienes notificaciones pendientes
+                        <div className="p-8 text-center text-slate-400">
+                          <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto mb-3 text-slate-400">
+                            <CheckCircle className="w-6 h-6 text-slate-400" />
+                          </div>
+                          <p className="font-bold text-sm text-slate-700">Sin notificaciones pendientes</p>
+                          <p className="text-xs text-slate-400 mt-1 max-w-xs mx-auto">No hay nuevos eventos que requieran su atención en este momento.</p>
                         </div>
                       ) : (
-                        notificaciones.map((notif) => (
-                          <div
-                            key={notif.id}
-                            onClick={() => handleMarcarNotifLeida(notif.id)}
-                            className={`p-3.5 text-xs transition cursor-pointer flex items-start space-x-3 ${
-                              notif.leido ? 'bg-white opacity-70 hover:opacity-100 hover:bg-slate-50' : 'bg-sky-50/60 hover:bg-sky-50 font-medium'
-                            }`}
-                          >
-                            <span className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${notif.leido ? 'bg-slate-300' : 'bg-[#0077c8] ring-2 ring-sky-200'}`} />
-                            <div className="flex-1 min-w-0">
-                              <p className={`text-slate-800 ${notif.leido ? 'font-medium' : 'font-bold'}`}>
-                                {notif.titulo}
-                              </p>
-                              <p className="text-slate-600 mt-0.5 leading-relaxed break-words text-[11px]">
-                                {notif.mensaje}
-                              </p>
-                              <span className="text-[10px] text-slate-400 mt-1 block">
-                                {new Date(notif.fecha_creacion).toLocaleString('es-BO', { dateStyle: 'short', timeStyle: 'short' })}
-                              </span>
+                        notificaciones.map((notif) => {
+                          const esObs = notif.titulo?.toLowerCase().includes('observad') || notif.titulo?.toLowerCase().includes('rechaz');
+                          const esAprob = notif.titulo?.toLowerCase().includes('aprobad');
+                          const esSubsan = notif.titulo?.toLowerCase().includes('subsanad') || notif.titulo?.toLowerCase().includes('subir') || notif.titulo?.toLowerCase().includes('documento');
+                          const esAsign = notif.titulo?.toLowerCase().includes('asignad') || notif.titulo?.toLowerCase().includes('inspecci');
+
+                          const fechaMostrar = notif.tiempoRelativo || notif.fecha || (notif.fecha_creacion ? new Date(notif.fecha_creacion).toLocaleDateString('es-BO', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : 'Reciente');
+                          const fechaTooltip = notif.fecha || (notif.fecha_creacion ? new Date(notif.fecha_creacion).toLocaleString('es-BO') : '');
+
+                          return (
+                            <div
+                              key={notif.id}
+                              onClick={() => handleMarcarNotifLeida(notif.id)}
+                              className={`p-4 transition cursor-pointer flex items-start gap-3.5 ${
+                                notif.leido 
+                                  ? 'bg-white hover:bg-slate-50 opacity-80 hover:opacity-100' 
+                                  : 'bg-sky-50/70 hover:bg-sky-50/90 border-l-4 border-l-[#0077c8]'
+                              }`}
+                            >
+                              {/* Icono contextual */}
+                              <div className={`w-9 h-9 rounded-xl shrink-0 flex items-center justify-center ${
+                                esObs 
+                                  ? 'bg-rose-100 text-rose-600 border border-rose-200'
+                                  : esAprob
+                                    ? 'bg-emerald-100 text-emerald-600 border border-emerald-200'
+                                    : esSubsan
+                                      ? 'bg-blue-100 text-blue-600 border border-blue-200'
+                                      : esAsign
+                                        ? 'bg-indigo-100 text-indigo-600 border border-indigo-200'
+                                        : 'bg-slate-100 text-slate-600 border border-slate-200'
+                              }`}>
+                                {esObs && <AlertTriangle className="w-4 h-4" />}
+                                {esAprob && <CheckCircle2 className="w-4 h-4" />}
+                                {esSubsan && <FileText className="w-4 h-4" />}
+                                {esAsign && <Calendar className="w-4 h-4" />}
+                                {!esObs && !esAprob && !esSubsan && !esAsign && <Bell className="w-4 h-4" />}
+                              </div>
+
+                              {/* Contenido Completo */}
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-start justify-between gap-2">
+                                  <p className={`text-xs sm:text-sm text-slate-900 leading-snug break-words ${notif.leido ? 'font-semibold' : 'font-extrabold'}`}>
+                                    {notif.titulo}
+                                  </p>
+                                  {!notif.leido && (
+                                    <span className="w-2 h-2 rounded-full bg-[#0077c8] ring-2 ring-sky-200 shrink-0 mt-1" />
+                                  )}
+                                </div>
+
+                                <p className="text-xs text-slate-600 mt-1 leading-relaxed break-words font-normal">
+                                  {notif.mensaje}
+                                </p>
+
+                                <div className="flex items-center justify-between mt-2 pt-1 border-t border-slate-100/80">
+                                  <div className="flex items-center space-x-1.5 text-[11px] font-medium text-slate-400" title={fechaTooltip}>
+                                    <Clock className="w-3.5 h-3.5 text-slate-400" />
+                                    <span>{fechaMostrar}</span>
+                                  </div>
+
+                                  {!notif.leido && (
+                                    <span className="text-[10px] font-bold text-[#0077c8] hover:underline">
+                                      Marcar como leída
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
                             </div>
-                          </div>
-                        ))
+                          );
+                        })
                       )}
+                    </div>
+
+                    {/* Pie del Dropdown */}
+                    <div className="px-4 py-2.5 bg-slate-50 border-t border-slate-200 text-center text-[11px] text-slate-500 font-medium flex items-center justify-between">
+                      <span>Total: <strong>{notificaciones.length}</strong> {notificaciones.length === 1 ? 'notificación' : 'notificaciones'}</span>
+                      <button
+                        onClick={cargarNotificaciones}
+                        className="text-[#0077c8] hover:underline font-bold text-[11px] flex items-center space-x-1 cursor-pointer"
+                      >
+                        <RefreshCw className="w-3 h-3" />
+                        <span>Actualizar</span>
+                      </button>
                     </div>
                   </div>
                 </>
@@ -1210,7 +1283,7 @@ export default function CoordinadorPage() {
                       {/* Botones Globales de Acción del Trámite */}
                       <div className="flex flex-col sm:flex-row items-center gap-3 pt-2">
                         <button
-                          onClick={() => setModalReinspeccionOpen(true)}
+                          onClick={() => navigate('/coordinador/asignar-supervisores')}
                           className="w-full sm:flex-1 py-3 px-5 rounded-xl font-extrabold text-sm text-white bg-[#0077c8] hover:bg-[#0064a7] shadow-md transition-all flex items-center justify-center space-x-2 cursor-pointer"
                         >
                           <Calendar className="w-4 h-4" />
@@ -1291,7 +1364,7 @@ export default function CoordinadorPage() {
                       {/* Botones de acción desde la bitácora de campo */}
                       <div className="flex flex-col sm:flex-row items-center gap-3 pt-2">
                         <button
-                          onClick={() => setModalReinspeccionOpen(true)}
+                          onClick={() => navigate('/coordinador/asignar-supervisores')}
                           className="w-full sm:flex-1 py-3 px-5 rounded-xl font-extrabold text-sm text-white bg-[#0077c8] hover:bg-[#0064a7] shadow-md transition-all flex items-center justify-center space-x-2 cursor-pointer"
                         >
                           <Calendar className="w-4 h-4" />
@@ -1766,111 +1839,7 @@ export default function CoordinadorPage() {
         </div>
       )}
 
-      {/* MODAL 1: Agendar Re-Inspección */}
-      {modalReinspeccionOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-lg w-full overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-            <div className="p-5 bg-gradient-to-r from-[#0077c8] to-[#0094e6] text-white flex items-center justify-between">
-              <div className="flex items-center space-x-2.5">
-                <Calendar className="w-5 h-5 text-cyan-200" />
-                <h3 className="font-extrabold text-base">Agendar Inspección de Campo</h3>
-              </div>
-              <button onClick={() => setModalReinspeccionOpen(false)} className="text-white/80 hover:text-white p-1">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
 
-            <form onSubmit={handleGuardarReinspeccion} className="p-6 space-y-4 text-xs">
-              <div>
-                <label className="font-bold text-slate-700 block mb-1">Establecimiento y Trámite</label>
-                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 font-semibold text-slate-800">
-                  {tramiteActual?.id} - {tramiteActual?.establecimiento} ({tramiteActual?.propietario})
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="font-bold text-slate-700 block mb-1">Supervisor Inspector</label>
-                  <select
-                    value={reinspeccionData.supervisor}
-                    onChange={(e) => setReinspeccionData({ ...reinspeccionData, supervisor: e.target.value })}
-                    className="w-full p-2.5 border border-slate-300 rounded-xl bg-white font-medium text-slate-800 focus:ring-2 focus:ring-[#0077c8]"
-                  >
-                    {supervisoresDisponibles.map((s) => (
-                      <option key={s.id} value={s.nombre}>
-                        {s.nombre}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="font-bold text-slate-700 block mb-1">Prioridad</label>
-                  <select
-                    value={reinspeccionData.prioridad}
-                    onChange={(e) => setReinspeccionData({ ...reinspeccionData, priority: e.target.value })}
-                    className="w-full p-2.5 border border-slate-300 rounded-xl bg-white font-medium text-slate-800 focus:ring-2 focus:ring-[#0077c8]"
-                  >
-                    <option value="Alta">Alta</option>
-                    <option value="Normal">Normal</option>
-                    <option value="Urgente">Urgente</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="font-bold text-slate-700 block mb-1">Fecha Programada</label>
-                  <input
-                    type="date"
-                    value={reinspeccionData.fecha}
-                    onChange={(e) => setReinspeccionData({ ...reinspeccionData, fecha: e.target.value })}
-                    className="w-full p-2.5 border border-slate-300 rounded-xl font-medium text-slate-800 focus:ring-2 focus:ring-[#0077c8]"
-                  />
-                </div>
-
-                <div>
-                  <label className="font-bold text-slate-700 block mb-1">Hora Estimada</label>
-                  <input
-                    type="time"
-                    value={reinspeccionData.hora}
-                    onChange={(e) => setReinspeccionData({ ...reinspeccionData, hora: e.target.value })}
-                    className="w-full p-2.5 border border-slate-300 rounded-xl font-medium text-slate-800 focus:ring-2 focus:ring-[#0077c8]"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="font-bold text-slate-700 block mb-1">Instrucciones / Motivo de Inspección</label>
-                <textarea
-                  rows={3}
-                  value={reinspeccionData.motivo}
-                  onChange={(e) => setReinspeccionData({ ...reinspeccionData, motivo: e.target.value })}
-                  className="w-full p-3 border border-slate-300 rounded-xl font-medium text-slate-800 focus:ring-2 focus:ring-[#0077c8]"
-                  placeholder="Especifique los puntos a verificar durante la inspección técnica..."
-                />
-              </div>
-
-              <div className="pt-3 flex items-center justify-end space-x-3 border-t border-slate-100">
-                <button
-                  type="button"
-                  onClick={() => setModalReinspeccionOpen(false)}
-                  className="px-4 py-2.5 text-slate-600 hover:bg-slate-100 rounded-xl font-bold transition cursor-pointer"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2.5 bg-[#0077c8] hover:bg-[#0062a8] text-white rounded-xl font-extrabold shadow-md transition flex items-center space-x-2 cursor-pointer"
-                >
-                  <Calendar className="w-4 h-4" />
-                  <span>Confirmar y Notificar</span>
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
 
       {/* MODAL 2: Aprobar Trámite Final */}
       {modalAprobacionOpen && (

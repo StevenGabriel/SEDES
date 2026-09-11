@@ -279,14 +279,14 @@ def validar_documento_legal(
                 crear_notificacion_db(
                     db,
                     usuario_id=prop_id,
-                    titulo=f"⚠️ Documento Observado: {nombre_doc[:40]}",
+                    titulo=f"⚠️ Documento Observado: {nombre_doc}",
                     mensaje=f"El documento '{nombre_doc}' de su trámite para '{estab_nombre}' ha sido {payload.estado.lower()}.{obs_detalle} Por favor ingrese a la sección 'Trámites' para subsanar y volver a subir el archivo corregido en PDF."
                 )
             elif payload.estado == "Aprobado":
                 crear_notificacion_db(
                     db,
                     usuario_id=prop_id,
-                    titulo=f"✓ Documento Aprobado: {nombre_doc[:40]}",
+                    titulo=f"✓ Documento Aprobado: {nombre_doc}",
                     mensaje=f"El documento '{nombre_doc}' de su establecimiento '{estab_nombre}' ha sido verificado y aprobado satisfactoriamente por Coordinación."
                 )
     except Exception as e:

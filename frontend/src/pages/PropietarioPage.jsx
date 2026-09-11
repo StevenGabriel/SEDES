@@ -23,6 +23,7 @@ import {
   Navigation,
   Crosshair,
   AlertCircle,
+  AlertTriangle,
   Check,
   Camera,
   Trash2,
@@ -1195,76 +1196,138 @@ export default function PropietarioPage() {
                       className="fixed inset-0 z-40" 
                       onClick={() => setNotifDropdownOpen(false)}
                     />
-                    <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-white rounded-2xl shadow-2xl border border-slate-200 z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150">
-                      <div className="p-3.5 bg-slate-900 text-white flex items-center justify-between">
-                        <div className="flex items-center space-x-2">
-                          <Bell className="w-4 h-4 text-sky-400" />
-                          <span className="font-bold text-xs tracking-wide uppercase">Notificaciones</span>
-                          {notifNoLeidas > 0 && (
-                            <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
-                              {notifNoLeidas} nuevas
-                            </span>
-                          )}
+                    <div className="absolute right-0 mt-2 w-96 sm:w-[460px] md:w-[500px] max-w-[95vw] bg-white rounded-2xl shadow-2xl border border-slate-200/90 z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150 ring-1 ring-black/5">
+                      {/* Cabecera */}
+                      <div className="px-5 py-4 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 text-white flex items-center justify-between border-b border-slate-700/60 shadow-xs">
+                        <div className="flex items-center space-x-2.5">
+                          <div className="w-8 h-8 rounded-xl bg-sky-500/20 text-sky-400 flex items-center justify-center border border-sky-500/30">
+                            <Bell className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <div className="flex items-center space-x-2">
+                              <span className="font-extrabold text-xs tracking-wider uppercase">Notificaciones</span>
+                              {notifNoLeidas > 0 && (
+                                <span className="bg-rose-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full shadow-xs">
+                                  {notifNoLeidas} {notifNoLeidas === 1 ? 'nueva' : 'nuevas'}
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-[11px] text-slate-400 font-normal">Avisos y estados de sus trámites sanitarios</p>
+                          </div>
                         </div>
                         {notificaciones.length > 0 && (
                           <button
                             onClick={handleMarcarTodasNotifsLeidas}
-                            className="text-[11px] text-sky-300 hover:text-white transition font-medium cursor-pointer"
+                            className="text-[11px] text-sky-300 hover:text-white hover:bg-white/10 px-2.5 py-1.5 rounded-lg transition font-semibold flex items-center space-x-1 cursor-pointer"
+                            title="Marcar todas como leídas"
                           >
-                            Marcar leídas
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                            <span>Marcar leídas</span>
                           </button>
                         )}
                       </div>
 
-                      <div className="max-h-80 overflow-y-auto divide-y divide-slate-100">
+                      {/* Lista de Notificaciones */}
+                      <div className="max-h-[390px] sm:max-h-[440px] overflow-y-auto divide-y divide-slate-100">
                         {notificaciones.length === 0 ? (
-                          <div className="p-6 text-center text-slate-400 text-xs">
-                            <CheckCircle2 className="w-8 h-8 mx-auto mb-2 text-slate-300" />
-                            No tienes notificaciones pendientes
+                          <div className="p-8 text-center text-slate-400">
+                            <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto mb-3 text-slate-400">
+                              <CheckCircle2 className="w-6 h-6 text-slate-400" />
+                            </div>
+                            <p className="font-bold text-sm text-slate-700">Sin notificaciones pendientes</p>
+                            <p className="text-xs text-slate-400 mt-1 max-w-xs mx-auto">No tiene avisos nuevos por el momento.</p>
                           </div>
                         ) : (
-                          notificaciones.map((notif) => (
-                            <div
-                              key={notif.id}
-                              onClick={() => {
-                                handleMarcarNotifLeida(notif.id);
-                                setNotifDropdownOpen(false);
-                                if (seccionActiva !== 'tramites') {
-                                  navigate('/propietario/tramites');
-                                }
-                              }}
-                              className={`p-3.5 text-xs transition cursor-pointer flex items-start space-x-3 ${
-                                notif.leido ? 'bg-white opacity-75 hover:opacity-100 hover:bg-slate-50' : 'bg-amber-50/60 hover:bg-amber-50 font-medium'
-                              }`}
-                            >
-                              <span className={`w-2.5 h-2.5 rounded-full mt-1 shrink-0 ${
-                                notif.leido 
-                                  ? 'bg-slate-300' 
-                                  : notif.titulo.toLowerCase().includes('observad') || notif.titulo.toLowerCase().includes('rechaz')
-                                    ? 'bg-amber-500 ring-2 ring-amber-200 animate-pulse'
-                                    : 'bg-[#0077c8] ring-2 ring-sky-200'
-                              }`} />
-                              <div className="flex-1 min-w-0">
-                                <p className={`text-slate-800 ${notif.leido ? 'font-medium' : 'font-bold'}`}>
-                                  {notif.titulo}
-                                </p>
-                                <p className="text-slate-600 mt-0.5 leading-relaxed break-words text-[11px]">
-                                  {notif.mensaje}
-                                </p>
-                                <div className="flex items-center justify-between mt-1.5">
-                                  <span className="text-[10px] text-slate-400">
-                                    {new Date(notif.fecha_creacion).toLocaleString('es-BO', { dateStyle: 'short', timeStyle: 'short' })}
-                                  </span>
-                                  {notif.titulo.toLowerCase().includes('observad') && (
-                                    <span className="text-[10px] font-bold text-amber-700 bg-amber-100/80 px-2 py-0.5 rounded-md">
-                                      Ir a Subsanar →
-                                    </span>
-                                  )}
+                          notificaciones.map((notif) => {
+                            const esObs = notif.titulo?.toLowerCase().includes('observad') || notif.titulo?.toLowerCase().includes('rechaz');
+                            const esAprob = notif.titulo?.toLowerCase().includes('aprobad');
+                            const esSubsan = notif.titulo?.toLowerCase().includes('subsanad') || notif.titulo?.toLowerCase().includes('subir') || notif.titulo?.toLowerCase().includes('documento');
+                            const esAsign = notif.titulo?.toLowerCase().includes('asignad') || notif.titulo?.toLowerCase().includes('inspecci');
+
+                            const fechaMostrar = notif.tiempoRelativo || notif.fecha || (notif.fecha_creacion ? new Date(notif.fecha_creacion).toLocaleDateString('es-BO', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : 'Reciente');
+                            const fechaTooltip = notif.fecha || (notif.fecha_creacion ? new Date(notif.fecha_creacion).toLocaleString('es-BO') : '');
+
+                            return (
+                              <div
+                                key={notif.id}
+                                onClick={() => {
+                                  handleMarcarNotifLeida(notif.id);
+                                  setNotifDropdownOpen(false);
+                                  if (seccionActiva !== 'tramites') {
+                                    navigate('/propietario/tramites');
+                                  }
+                                }}
+                                className={`p-4 transition cursor-pointer flex items-start gap-3.5 ${
+                                  notif.leido 
+                                    ? 'bg-white hover:bg-slate-50 opacity-80 hover:opacity-100' 
+                                    : esObs
+                                      ? 'bg-rose-50/50 hover:bg-rose-50/80 border-l-4 border-l-rose-500'
+                                      : 'bg-sky-50/60 hover:bg-sky-50/80 border-l-4 border-l-[#0077c8]'
+                                }`}
+                              >
+                                {/* Icono contextual */}
+                                <div className={`w-9 h-9 rounded-xl shrink-0 flex items-center justify-center ${
+                                  esObs 
+                                    ? 'bg-rose-100 text-rose-600 border border-rose-200'
+                                    : esAprob
+                                      ? 'bg-emerald-100 text-emerald-600 border border-emerald-200'
+                                      : esSubsan
+                                        ? 'bg-blue-100 text-blue-600 border border-blue-200'
+                                        : esAsign
+                                          ? 'bg-indigo-100 text-indigo-600 border border-indigo-200'
+                                          : 'bg-slate-100 text-slate-600 border border-slate-200'
+                                }`}>
+                                  {esObs && <AlertTriangle className="w-4 h-4" />}
+                                  {esAprob && <CheckCircle2 className="w-4 h-4" />}
+                                  {esSubsan && <FileText className="w-4 h-4" />}
+                                  {esAsign && <Calendar className="w-4 h-4" />}
+                                  {!esObs && !esAprob && !esSubsan && !esAsign && <Bell className="w-4 h-4" />}
+                                </div>
+
+                                {/* Contenido Completo */}
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-start justify-between gap-2">
+                                    <p className={`text-xs sm:text-sm text-slate-900 leading-snug break-words ${notif.leido ? 'font-semibold' : 'font-extrabold'}`}>
+                                      {notif.titulo}
+                                    </p>
+                                    {!notif.leido && (
+                                      <span className={`w-2 h-2 rounded-full shrink-0 mt-1 ${esObs ? 'bg-rose-500 ring-2 ring-rose-200' : 'bg-[#0077c8] ring-2 ring-sky-200'}`} />
+                                    )}
+                                  </div>
+
+                                  <p className="text-xs text-slate-600 mt-1 leading-relaxed break-words font-normal">
+                                    {notif.mensaje}
+                                  </p>
+
+                                  <div className="flex items-center justify-between mt-2.5 pt-1 border-t border-slate-100/80 gap-2">
+                                    <div className="flex items-center space-x-1.5 text-[11px] font-medium text-slate-400" title={fechaTooltip}>
+                                      <Clock className="w-3.5 h-3.5 text-slate-400" />
+                                      <span>{fechaMostrar}</span>
+                                    </div>
+
+                                    {esObs && (
+                                      <span className="text-[11px] font-bold text-rose-700 bg-rose-100/90 hover:bg-rose-200 px-2.5 py-1 rounded-lg transition shadow-2xs">
+                                        Ir a Subsanar →
+                                      </span>
+                                    )}
+                                  </div>
                                 </div>
                               </div>
-                            </div>
-                          ))
+                            );
+                          })
                         )}
+                      </div>
+
+                      {/* Pie del Dropdown */}
+                      <div className="px-4 py-2.5 bg-slate-50 border-t border-slate-200 text-center text-[11px] text-slate-500 font-medium flex items-center justify-between">
+                        <span>Total: <strong>{notificaciones.length}</strong> {notificaciones.length === 1 ? 'notificación' : 'notificaciones'}</span>
+                        <button
+                          onClick={() => usuario?.id && fetchNotificaciones(usuario.id)}
+                          className="text-[#0077c8] hover:underline font-bold text-[11px] flex items-center space-x-1 cursor-pointer"
+                        >
+                          <RefreshCw className="w-3 h-3" />
+                          <span>Actualizar</span>
+                        </button>
                       </div>
                     </div>
                   </>
