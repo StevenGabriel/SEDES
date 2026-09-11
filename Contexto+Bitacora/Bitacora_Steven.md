@@ -1495,13 +1495,33 @@ Centralizar y sincronizar la base de datos relacional y geoespacial del sistema 
   - Despliegue de la observación puntual del supervisor técnico del SEDES en caja destacada.
   - Indicador de archivo seleccionado con tamaño en KB y opción para deseleccionar/quitar (`X`).
   - Botón individual *"Enviar"* y botón global *"Enviar Todo"* con indicadores de carga (`Loader2`).
-* **Actualización en Tabla Principal:** La tabla de requisitos también refleja la selección local y cuenta con el botón de *"Enviar Corrección"*.
+* **Actualización en Tabla Principal:** Se eliminaron los botones duplicados de subida directa en la tabla inferior para mantener un único punto de carga claro y ordenado en el panel superior. En la tabla inferior ahora se muestra el botón *"👁️ Ver PDF"* (si tenía archivo previo) junto a un botón de acceso directo *"⚠️ Subsanar arriba ↑"* con desplazamiento suave.
 
 ---
 
 ### 📊 Verificación y Pruebas Realizadas
-* **Compilación Frontend:** `npm run build` verificado exitosamente (1840 módulos transformados, 0 errores).
+* **Compilación Frontend:** `npm run build` verificado exitosamente (1840 módulos transformados, 0 errores en 850 ms).
 * **Integración:** Flujo de selección ➡️ revisión del nombre del archivo ➡️ clic en Enviar ➡️ modal de confirmación verificado.
+
+---
+
+## [2026-09-11] Simplificación del Modal de Edición de Información Pública
+### 📌 Objetivo
+Depurar el formulario emergente *"Editar Información Pública"* de los laboratorios en la vista de *Mis Establecimientos*, retirando las secciones de *"Servicios y Especialidades Autorizados"* y *"Ubicación y Coordenadas GPS (PostGIS)"*, manteniendo los campos operativos esenciales de atención al público.
+
+---
+
+### 🛠️ Archivos Modificados
+#### 1. `frontend/src/pages/PropietarioPage.jsx` [MODIFICADO]
+* **Eliminación de Secciones:** 
+  - Se removió el selector tipo píldora de áreas/servicios autorizados.
+  - Se removió el mapa interactivo de coordenadas GPS y botón de geolocalización.
+* **Campos Mantenidos:** Horario de atención al público, teléfono/celular de contacto, correo electrónico de contacto, responsable técnico, descripción de presentación y fotografía de portada del establecimiento.
+
+---
+
+### 📊 Verificación y Pruebas Realizadas
+* **Compilación Frontend:** `npm run build` completado exitosamente en 638 ms sin errores.
 
 ---
 *Bitácora actualizada por: Steven*

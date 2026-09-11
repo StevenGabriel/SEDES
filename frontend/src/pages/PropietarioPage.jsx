@@ -1845,38 +1845,26 @@ export default function PropietarioPage() {
                                         )
                                       ) : esRechazado ? (
                                         <div className="inline-flex items-center space-x-2">
-                                          {archivoSeleccionado ? (
+                                          {doc.archivo_url && (
                                             <button
                                               type="button"
-                                              onClick={() => handleEnviarSubsanacionIndividual(tramiteActual.tramite_id, doc)}
-                                              disabled={isSubmittingThis}
-                                              className="inline-flex items-center space-x-1.5 bg-[#005596] hover:bg-[#003e6d] text-white text-xs font-bold px-4 py-2 rounded-xl transition shadow-sm cursor-pointer"
-                                              title={`Enviar ${archivoSeleccionado.name}`}
+                                              onClick={() => window.open(`http://localhost:8000${doc.archivo_url}`, '_blank')}
+                                              className="inline-flex items-center space-x-1.5 bg-white hover:bg-slate-100 text-[#19324d] border border-slate-200 text-xs font-bold px-3.5 py-1.5 rounded-xl transition shadow-2xs cursor-pointer"
+                                              title="Visualizar documento observado"
                                             >
-                                              {isSubmittingThis ? (
-                                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                              ) : (
-                                                <Send className="w-3.5 h-3.5" />
-                                              )}
-                                              <span>Enviar Corrección</span>
+                                              <Eye className="w-3.5 h-3.5 text-[#19324d]" />
+                                              <span>Ver PDF</span>
                                             </button>
-                                          ) : (
-                                            <label className="inline-flex items-center space-x-1.5 bg-[#2563eb] hover:bg-[#1d4ed8] text-white text-xs font-bold px-4 py-2 rounded-xl transition shadow-sm cursor-pointer">
-                                              <UploadCloud className="w-3.5 h-3.5 text-white" />
-                                              <span>Seleccionar PDF</span>
-                                              <input
-                                                type="file"
-                                                accept=".pdf"
-                                                disabled={isSubmittingThis}
-                                                onChange={(e) => {
-                                                  const f = e.target.files?.[0];
-                                                  if (f) handleSeleccionarArchivoSubsanacion(docKey, f);
-                                                  e.target.value = '';
-                                                }}
-                                                className="hidden"
-                                              />
-                                            </label>
                                           )}
+                                          <button
+                                            type="button"
+                                            onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+                                            className="inline-flex items-center space-x-1 text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 text-xs font-bold px-3 py-1.5 rounded-xl transition cursor-pointer shadow-2xs"
+                                            title="Subsanar este documento en el panel superior"
+                                          >
+                                            <AlertCircle className="w-3.5 h-3.5 text-rose-600" />
+                                            <span>Subsanar arriba ↑</span>
+                                          </button>
                                         </div>
                                       ) : (
                                         /* Pendiente */
@@ -2525,259 +2513,129 @@ export default function PropietarioPage() {
             {/* Formulario de Edición */}
             <form onSubmit={handleGuardarCambios} className="space-y-6">
               
-              {/* ============================================================= */}
-              {/* SECCIÓN A: SERVICIOS Y ESPECIALIDADES (BOTONES TIPO PÍLDORA)  */}
-              {/* ============================================================= */}
-              <div className="space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider">
-                    Servicios y Especialidades Autorizados
-                  </label>
-                  <span className="text-[11px] text-[#0073c6] font-semibold">
-                    {formEdit.servicios.length} seleccionada(s)
-                  </span>
-                </div>
-
-                <p className="text-xs text-slate-500">
-                  Haga clic para activar o desactivar las áreas autorizadas de su laboratorio:
-                </p>
-
-                {/* Grid de Píldoras según diseño */}
-                <div className="flex flex-wrap gap-2 pt-1">
-                  {ESPECIALIDADES_OFICIALES.map((esp) => {
-                    const isSelected = formEdit.servicios.some(s => s.toLowerCase() === esp.toLowerCase());
-
-                    return (
-                      <button
-                        type="button"
-                        key={esp}
-                        onClick={() => toggleEspecialidad(esp)}
-                        className={`
-                          px-4 py-2 rounded-full text-xs font-bold transition-all duration-200 cursor-pointer flex items-center space-x-1.5 border
-                          ${isSelected
-                            ? 'bg-[#19324d] text-white border-[#19324d] shadow-sm ring-2 ring-[#19324d]/15'
-                            : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300 hover:bg-slate-50'
-                          }
-                        `}
-                      >
-                        {isSelected && <Check className="w-3.5 h-3.5 stroke-[3]" />}
-                        <span>{esp}</span>
-                      </button>
-                    );
-                  })}
-                </div>
+              {/* Horario de Atención Asistido */}
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                  Horario de Atención al Público
+                </label>
+                <HorarioPicker
+                  value={formEdit.horario}
+                  onChange={(nuevoHorario) => setFormEdit({ ...formEdit, horario: nuevoHorario })}
+                />
               </div>
 
-              {/* ============================================================= */}
-              {/* SECCIÓN B: HORARIO, CONTACTO Y RESPONSABLE                    */}
-              {/* ============================================================= */}
-              <div className="space-y-4 pt-2 border-t border-slate-100">
-                
-                {/* Horario de Atención Asistido */}
-                <div className="space-y-1.5">
-                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
-                    Horario de Atención al Público
-                  </label>
-                  <HorarioPicker
-                    value={formEdit.horario}
-                    onChange={(nuevoHorario) => setFormEdit({ ...formEdit, horario: nuevoHorario })}
-                  />
-                </div>
-
-                {/* Teléfono y Email */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">
-                      Teléfono / Celular de Contacto
-                    </label>
-                    <div className="relative flex items-center">
-                      <Phone className="w-4 h-4 text-slate-400 absolute left-3 pointer-events-none" />
-                      <input
-                        type="text"
-                        required
-                        value={formEdit.telefono}
-                        onChange={(e) => setFormEdit({ ...formEdit, telefono: e.target.value })}
-                        placeholder="Ej. +591 4 4251890 / 71723456"
-                        className="w-full pl-9 pr-3.5 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#0073c6]/20 focus:border-[#0073c6]"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">
-                      Correo Electrónico de Contacto
-                    </label>
-                    <div className="relative flex items-center">
-                      <Mail className="w-4 h-4 text-slate-400 absolute left-3 pointer-events-none" />
-                      <input
-                        type="email"
-                        required
-                        value={formEdit.email_contacto}
-                        onChange={(e) => setFormEdit({ ...formEdit, email_contacto: e.target.value })}
-                        placeholder="contacto@laboratorio.bo"
-                        className="w-full pl-9 pr-3.5 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#0073c6]/20 focus:border-[#0073c6]"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Responsable Técnico */}
+              {/* Teléfono y Email */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Responsable Técnico del Laboratorio
+                    Teléfono / Celular de Contacto
                   </label>
-                  <input
-                    type="text"
-                    value={formEdit.responsable_laboratorio}
-                    onChange={(e) => setFormEdit({ ...formEdit, responsable_laboratorio: e.target.value })}
-                    placeholder="Nombre y Matrícula Profesional"
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#0073c6]/20 focus:border-[#0073c6]"
-                  />
-                </div>
-
-                {/* Campo: Descripción / Presentación del Establecimiento */}
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Descripción / Presentación del Laboratorio (Ficha Pública)
-                  </label>
-                  <textarea
-                    rows="3"
-                    value={formEdit.descripcion}
-                    onChange={(e) => setFormEdit({ ...formEdit, descripcion: e.target.value })}
-                    placeholder="Establecimiento de salud acreditado para la toma de muestras, diagnóstico clínico y análisis microbiológicos bajo normativa sanitaria vigente del Departamento de Cochabamba."
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#0073c6]/20 focus:border-[#0073c6]"
-                  />
-                </div>
-
-                {/* Campo: Fotografía / Imagen de Portada del Laboratorio */}
-                <div className="pt-2 border-t border-slate-100">
-                  <div className="flex items-center justify-between mb-1.5">
-                    <label className="block text-xs font-bold text-slate-700">
-                      Fotografía del Establecimiento (Imagen de la Ficha Pública)
-                    </label>
-                    <span className="text-[11px] text-slate-400 font-medium">
-                      JPG, PNG o WEBP (Máx. 5 MB)
-                    </span>
-                  </div>
-
-                  <div className="flex flex-col sm:flex-row items-center gap-4 p-3.5 rounded-2xl bg-slate-50 border border-slate-200">
-                    {/* Vista previa de la fotografía */}
-                    <div className="relative w-full sm:w-44 h-28 rounded-xl overflow-hidden shadow-xs border border-slate-200 bg-slate-200 shrink-0">
-                      <img
-                        src={previewImagen || heroBg}
-                        alt="Vista previa de portada"
-                        className="w-full h-full object-cover"
-                        onError={(e) => { e.currentTarget.src = heroBg; }}
-                      />
-                      <span className="absolute bottom-1.5 left-1.5 px-2 py-0.5 rounded-md text-[9px] font-bold bg-black/70 text-white backdrop-blur-xs">
-                        {archivoImagen ? 'Nueva seleccionada' : (previewImagen ? 'Foto actual' : 'Predeterminada')}
-                      </span>
-                    </div>
-
-                    {/* Botones de acción */}
-                    <div className="space-y-2 w-full text-center sm:text-left">
-                      <p className="text-xs text-slate-600 font-medium leading-relaxed">
-                        Esta imagen se mostrará en la cabecera de la página de su laboratorio para los pacientes y el SEDES.
-                      </p>
-
-                      <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 pt-0.5">
-                        <label className="inline-flex items-center space-x-1.5 bg-[#0073c6] hover:bg-[#005da3] text-white text-xs font-bold px-3.5 py-2 rounded-xl cursor-pointer shadow-xs transition">
-                          <Camera className="w-3.5 h-3.5" />
-                          <span>{previewImagen ? 'Cambiar Fotografía' : 'Subir Fotografía'}</span>
-                          <input
-                            type="file"
-                            accept="image/jpeg,image/png,image/webp"
-                            onChange={handleSeleccionarImagen}
-                            className="hidden"
-                          />
-                        </label>
-
-                        {previewImagen && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setArchivoImagen(null);
-                              setPreviewImagen(null);
-                              setFormEdit(prev => ({ ...prev, imagen_url: '' }));
-                            }}
-                            className="inline-flex items-center space-x-1 text-xs font-semibold text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 px-3 py-2 rounded-xl border border-rose-200 transition cursor-pointer"
-                            title="Restablecer a la imagen oficial por defecto"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                            <span>Restablecer predeterminada</span>
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-              </div>
-
-              {/* ============================================================= */}
-              {/* SECCIÓN C: DIRECCIÓN Y MAPA INTERACTIVO DE COORDENADAS GPS     */}
-              {/* ============================================================= */}
-              <div className="space-y-3 pt-2 border-t border-slate-100">
-                <div className="flex items-center justify-between">
-                  <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider">
-                    Ubicación y Coordenadas GPS (PostGIS)
-                  </label>
-
-                  <button
-                    type="button"
-                    onClick={handleObtenerUbicacionActual}
-                    className="inline-flex items-center space-x-1.5 text-xs font-bold text-[#0073c6] hover:text-[#005da3] bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-xl transition cursor-pointer"
-                  >
-                    <Crosshair className="w-3.5 h-3.5" />
-                    <span>Usar mi GPS</span>
-                  </button>
-                </div>
-
-                {/* Campo Texto Dirección */}
-                <div>
                   <div className="relative flex items-center">
-                    <MapPin className="w-4 h-4 text-slate-400 absolute left-3 pointer-events-none" />
+                    <Phone className="w-4 h-4 text-slate-400 absolute left-3 pointer-events-none" />
                     <input
                       type="text"
                       required
-                      value={formEdit.direccion}
-                      onChange={(e) => setFormEdit({ ...formEdit, direccion: e.target.value })}
-                      placeholder="Av. Ayacucho Nº 345 entre Ecuador y Mayor Rocha"
+                      value={formEdit.telefono}
+                      onChange={(e) => setFormEdit({ ...formEdit, telefono: e.target.value })}
+                      placeholder="Ej. +591 4 4251890 / 71723456"
                       className="w-full pl-9 pr-3.5 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#0073c6]/20 focus:border-[#0073c6]"
                     />
                   </div>
                 </div>
 
-                {/* Mapa Real Interactivo (Leaflet + OpenStreetMap) */}
-                <div className="space-y-2">
-                  <p className="text-[11px] text-slate-500">
-                    💡 <strong>Haga clic o arrastre el marcador</strong> en el mapa satelital/callejero real de Cochabamba para fijar la ubicación exacta de su laboratorio:
-                  </p>
-
-                  <RealMapPicker
-                    latitud={formEdit.latitud}
-                    longitud={formEdit.longitud}
-                    onChange={({ lat, lng }) => {
-                      setFormEdit(prev => ({
-                        ...prev,
-                        latitud: lat,
-                        longitud: lng
-                      }));
-                    }}
-                    height="260px"
-                  />
-
-                  {/* Insignia Inferior de Coordenadas PostGIS */}
-                  <div className="flex items-center justify-between text-xs text-slate-600 bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-xl">
-                    <span className="font-semibold">
-                      📍 Lat: <strong className="text-slate-900">{formEdit.latitud.toFixed(6)}</strong> • Lng: <strong className="text-slate-900">{formEdit.longitud.toFixed(6)}</strong>
-                    </span>
-                    <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">
-                      PostGIS SRID 4326
-                    </span>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Correo Electrónico de Contacto
+                  </label>
+                  <div className="relative flex items-center">
+                    <Mail className="w-4 h-4 text-slate-400 absolute left-3 pointer-events-none" />
+                    <input
+                      type="email"
+                      required
+                      value={formEdit.email_contacto}
+                      onChange={(e) => setFormEdit({ ...formEdit, email_contacto: e.target.value })}
+                      placeholder="contacto@laboratorio.bo"
+                      className="w-full pl-9 pr-3.5 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#0073c6]/20 focus:border-[#0073c6]"
+                    />
                   </div>
                 </div>
+              </div>
 
+              {/* Campo: Descripción / Presentación del Establecimiento */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Descripción / Presentación del Laboratorio (Ficha Pública)
+                </label>
+                <textarea
+                  rows="3"
+                  value={formEdit.descripcion}
+                  onChange={(e) => setFormEdit({ ...formEdit, descripcion: e.target.value })}
+                  placeholder="Establecimiento de salud acreditado para la toma de muestras, diagnóstico clínico y análisis microbiológicos bajo normativa sanitaria vigente del Departamento de Cochabamba."
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#0073c6]/20 focus:border-[#0073c6]"
+                />
+              </div>
+
+              {/* Campo: Fotografía / Imagen de Portada del Laboratorio */}
+              <div className="pt-2 border-t border-slate-100">
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-xs font-bold text-slate-700">
+                    Fotografía del Establecimiento (Imagen de la Ficha Pública)
+                  </label>
+                  <span className="text-[11px] text-slate-400 font-medium">
+                    JPG, PNG o WEBP (Máx. 5 MB)
+                  </span>
+                </div>
+
+                <div className="flex flex-col sm:flex-row items-center gap-4 p-3.5 rounded-2xl bg-slate-50 border border-slate-200">
+                  {/* Vista previa de la fotografía */}
+                  <div className="relative w-full sm:w-44 h-28 rounded-xl overflow-hidden shadow-xs border border-slate-200 bg-slate-200 shrink-0">
+                    <img
+                      src={previewImagen || heroBg}
+                      alt="Vista previa de portada"
+                      className="w-full h-full object-cover"
+                      onError={(e) => { e.currentTarget.src = heroBg; }}
+                    />
+                    <span className="absolute bottom-1.5 left-1.5 px-2 py-0.5 rounded-md text-[9px] font-bold bg-black/70 text-white backdrop-blur-xs">
+                      {archivoImagen ? 'Nueva seleccionada' : (previewImagen ? 'Foto actual' : 'Predeterminada')}
+                    </span>
+                  </div>
+
+                  {/* Botones de acción */}
+                  <div className="space-y-2 w-full text-center sm:text-left">
+                    <p className="text-xs text-slate-600 font-medium leading-relaxed">
+                      Esta imagen se mostrará en la cabecera de la página de su laboratorio para los pacientes y el SEDES.
+                    </p>
+
+                    <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 pt-0.5">
+                      <label className="inline-flex items-center space-x-1.5 bg-[#0073c6] hover:bg-[#005da3] text-white text-xs font-bold px-3.5 py-2 rounded-xl cursor-pointer shadow-xs transition">
+                        <Camera className="w-3.5 h-3.5" />
+                        <span>{previewImagen ? 'Cambiar Fotografía' : 'Subir Fotografía'}</span>
+                        <input
+                          type="file"
+                          accept="image/jpeg,image/png,image/webp"
+                          onChange={handleSeleccionarImagen}
+                          className="hidden"
+                        />
+                      </label>
+
+                      {previewImagen && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setArchivoImagen(null);
+                            setPreviewImagen(null);
+                            setFormEdit(prev => ({ ...prev, imagen_url: '' }));
+                          }}
+                          className="inline-flex items-center space-x-1 text-xs font-semibold text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 px-3 py-2 rounded-xl border border-rose-200 transition cursor-pointer"
+                          title="Restablecer a la imagen oficial por defecto"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          <span>Restablecer predeterminada</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
               </div>
 
               {/* Botones de Acción del Modal */}
