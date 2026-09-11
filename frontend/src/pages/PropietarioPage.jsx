@@ -1802,8 +1802,8 @@ export default function PropietarioPage() {
                                             )}
                                           </div>
                                           
-                                          {/* Observación del Supervisor en Rojo (si fue Rechazado) */}
-                                          {doc.observaciones_supervisor && (
+                                          {/* Observación del Supervisor en Rojo (si fue Rechazado u Observado) */}
+                                          {doc.observaciones_supervisor && esRechazado && (
                                             <p className="text-xs font-semibold text-rose-600 pt-0.5">
                                               * {doc.observaciones_supervisor}
                                             </p>

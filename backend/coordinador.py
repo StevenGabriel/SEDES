@@ -234,8 +234,12 @@ def validar_documento_legal(
         raise HTTPException(status_code=404, detail="Documento no encontrado en la base de datos.")
 
     doc.estado_validacion = payload.estado
-    if payload.observacion is not None:
-        doc.observaciones_supervisor = payload.observacion
+    if payload.estado in ["Aprobado", "En Revisión"]:
+        # Al aprobar o restablecer a revisión, se eliminan las observaciones previas a menos que se especifique una nota
+        doc.observaciones_supervisor = payload.observacion.strip() if (payload.observacion and payload.observacion.strip()) else None
+    else:
+        # En caso de rechazo u observación, guardar el motivo
+        doc.observaciones_supervisor = payload.observacion.strip() if (payload.observacion and payload.observacion.strip()) else "Documento observado para corrección."
     
     db.commit()
     db.refresh(doc)

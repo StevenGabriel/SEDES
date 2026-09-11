@@ -421,11 +421,14 @@ export default function CoordinadorPage() {
       });
 
       if (response.ok) {
+        const respData = await response.json();
+        const obsFinal = respData.observaciones !== undefined ? respData.observaciones : (nuevoEstado === 'Aprobado' || nuevoEstado === 'En Revisión' ? null : observacionTexto);
+
         setTramites(prev => prev.map(t => {
           if (t.id === tramiteActual.id) {
             const nuevosDocs = t.documentos.map(d => {
               if (d.id === docActual.id) {
-                return { ...d, estado: nuevoEstado, observaciones_supervisor: observacionTexto };
+                return { ...d, estado: nuevoEstado, observaciones_supervisor: obsFinal };
               }
               return d;
             });
@@ -1006,7 +1009,7 @@ export default function CoordinadorPage() {
                                     <span>{doc.numRegistro}</span>
                                     <span>&bull;</span>
                                     <span>{doc.es_obligatorio ? 'Obligatorio' : 'Opcional'}</span>
-                                    {doc.observaciones_supervisor && (
+                                    {doc.observaciones_supervisor && (doc.estado === 'Observado' || doc.estado === 'Rechazado') && (
                                       <>
                                         <span>&bull;</span>
                                         <span className="text-rose-600 font-medium truncate">Obs: {doc.observaciones_supervisor}</span>
@@ -1158,7 +1161,7 @@ export default function CoordinadorPage() {
                           )}
 
                           {/* Alerta de observación si existe */}
-                          {docActual.observaciones_supervisor && (
+                          {docActual.observaciones_supervisor && (docActual.estado === 'Observado' || docActual.estado === 'Rechazado') && (
                             <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-800 flex items-start space-x-2">
                               <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
                               <div>
