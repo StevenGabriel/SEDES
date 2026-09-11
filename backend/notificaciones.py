@@ -122,7 +122,8 @@ def obtener_notificaciones_usuario(
             "mensaje": n.mensaje,
             "leido": n.leido,
             "fecha": n.fecha_creacion.strftime("%d %b %Y - %H:%M") if n.fecha_creacion else "Hoy",
-            "tiempoRelativo": formatear_tiempo(n.fecha_creacion)
+            "tiempoRelativo": formatear_tiempo(n.fecha_creacion),
+            "fecha_creacion": n.fecha_creacion.isoformat() if n.fecha_creacion else datetime.now().isoformat()
         }
         for n in notificaciones_db
     ]
@@ -181,7 +182,8 @@ def obtener_notificaciones_por_rol(
             "mensaje": n.mensaje,
             "leido": n.leido,
             "fecha": n.fecha_creacion.strftime("%d %b %Y - %H:%M") if n.fecha_creacion else "Hoy",
-            "tiempoRelativo": formatear_tiempo(n.fecha_creacion)
+            "tiempoRelativo": formatear_tiempo(n.fecha_creacion),
+            "fecha_creacion": n.fecha_creacion.isoformat() if n.fecha_creacion else datetime.now().isoformat()
         }
         for n in notifs
     ]
