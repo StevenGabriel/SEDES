@@ -272,6 +272,13 @@ async def subsanar_documento_tramite(
             detail="Solo se admiten documentos en formato PDF."
         )
 
+    tramite = db.query(models.Tramite).filter(models.Tramite.id == t_uuid).first()
+    if not tramite:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Trámite no encontrado."
+        )
+
     # Carpeta física organizada por cuenta de usuario y trámite
     tramite_folder, web_prefix = obtener_ruta_almacenamiento_tramite(db, tramite)
 

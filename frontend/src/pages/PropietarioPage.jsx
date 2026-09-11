@@ -292,6 +292,9 @@ export default function PropietarioPage() {
   const [tramiteSeleccionadoId, setTramiteSeleccionadoId] = useState(null);
   const [cargandoTramites, setCargandoTramites] = useState(false);
   const [subiendoSubsanacion, setSubiendoSubsanacion] = useState(false);
+  const [archivosSubsanacion, setArchivosSubsanacion] = useState({}); // { [docKey]: File }
+  const [subsanandoDocId, setSubsanandoDocId] = useState(null); // 'ALL' o docKey específico
+  const [modalFeedback, setModalFeedback] = useState(null); // { tipo: 'success' | 'error' | 'info', titulo: string, mensaje: string }
 
   // Catálogo dinámico de requisitos gestionado por el Administrador
   const [seccionesRequisitos, setSeccionesRequisitos] = useState(DEFAULT_SECCIONES_REQUISITOS);
@@ -423,39 +426,149 @@ export default function PropietarioPage() {
     }
   };
 
-  // 4. Subsanar documento rechazado
-  const handleSubsanarDocumento = async (tramiteId, docId, e) => {
-    const file = e.target.files?.[0];
+  // 4. Manejo de Selección y Envío de Documentos para Subsanación (con confirmación previa)
+  const handleSeleccionarArchivoSubsanacion = (docKey, file) => {
     if (!file) return;
-
     if (!file.name.toLowerCase().endsWith('.pdf')) {
-      alert('Solo se admiten documentos en formato PDF.');
+      setModalFeedback({
+        tipo: 'error',
+        titulo: 'Formato no permitido',
+        mensaje: 'Solo se admiten documentos en formato PDF (.pdf).'
+      });
+      return;
+    }
+    setArchivosSubsanacion(prev => ({
+      ...prev,
+      [docKey]: file
+    }));
+  };
+
+  const handleRemoverArchivoSubsanacion = (docKey) => {
+    setArchivosSubsanacion(prev => {
+      const nuevo = { ...prev };
+      delete nuevo[docKey];
+      return nuevo;
+    });
+  };
+
+  const handleEnviarSubsanacionIndividual = async (tramiteId, doc) => {
+    const docKey = doc.documento_id || String(doc.requisito_id);
+    const file = archivosSubsanacion[docKey];
+    if (!file) {
+      setModalFeedback({
+        tipo: 'error',
+        titulo: 'Archivo no seleccionado',
+        mensaje: 'Por favor seleccione un archivo PDF antes de presionar el botón de Enviar.'
+      });
       return;
     }
 
     const formData = new FormData();
     formData.append('file', file);
 
-    setSubiendoSubsanacion(true);
+    setSubsanandoDocId(docKey);
     try {
-      const res = await fetch(`http://localhost:8000/api/tramites/${tramiteId}/documentos/${docId}/subsanar`, {
-        method: 'POST',
-        body: formData
-      });
+      let res;
+      if (doc.documento_id) {
+        res = await fetch(`http://localhost:8000/api/tramites/${tramiteId}/documentos/${doc.documento_id}/subsanar`, {
+          method: 'POST',
+          body: formData
+        });
+      } else {
+        formData.append('requisito_id', String(doc.requisito_id));
+        res = await fetch(`http://localhost:8000/api/tramites/${tramiteId}/documentos`, {
+          method: 'POST',
+          body: formData
+        });
+      }
 
       if (!res.ok) {
         const err = await res.json();
         throw new Error(err.detail || 'Error al subsanar documento.');
       }
 
-      alert('¡Documento subsanado exitosamente! Ha pasado al estado "En Revisión".');
+      handleRemoverArchivoSubsanacion(docKey);
+
+      setModalFeedback({
+        tipo: 'success',
+        titulo: '¡Documento Subsanado con Éxito!',
+        mensaje: `El documento "${doc.requisito_nombre}" ha sido cargado y enviado a revisión técnica.`
+      });
+
       if (usuario?.id) {
         await fetchTramitesUsuario(usuario.id);
       }
     } catch (err) {
-      alert(err.message || 'Error al conectar con el servidor.');
+      setModalFeedback({
+        tipo: 'error',
+        titulo: 'Error en la operación',
+        mensaje: err.message || 'Error al conectar con el servidor.'
+      });
     } finally {
-      setSubiendoSubsanacion(false);
+      setSubsanandoDocId(null);
+    }
+  };
+
+  const handleEnviarTodasLasSubsanaciones = async (tramiteId, docsRechazados) => {
+    const docsConArchivo = docsRechazados.filter(d => {
+      const k = d.documento_id || String(d.requisito_id);
+      return Boolean(archivosSubsanacion[k]);
+    });
+
+    if (docsConArchivo.length === 0) {
+      setModalFeedback({
+        tipo: 'error',
+        titulo: 'Ningún archivo seleccionado',
+        mensaje: 'Seleccione al menos un archivo PDF corregido antes de enviar.'
+      });
+      return;
+    }
+
+    setSubsanandoDocId('ALL');
+    let exitos = 0;
+    try {
+      for (const doc of docsConArchivo) {
+        const docKey = doc.documento_id || String(doc.requisito_id);
+        const file = archivosSubsanacion[docKey];
+        const formData = new FormData();
+        formData.append('file', file);
+        
+        let res;
+        if (doc.documento_id) {
+          res = await fetch(`http://localhost:8000/api/tramites/${tramiteId}/documentos/${doc.documento_id}/subsanar`, {
+            method: 'POST',
+            body: formData
+          });
+        } else {
+          formData.append('requisito_id', String(doc.requisito_id));
+          res = await fetch(`http://localhost:8000/api/tramites/${tramiteId}/documentos`, {
+            method: 'POST',
+            body: formData
+          });
+        }
+        if (res.ok) {
+          exitos++;
+          handleRemoverArchivoSubsanacion(docKey);
+        }
+      }
+
+      setModalFeedback({
+        tipo: 'success',
+        titulo: '¡Subsanaciones Enviadas con Éxito!',
+        mensaje: `Se enviaron correctamente ${exitos} documento(s) corregido(s) al equipo técnico del SEDES.`
+      });
+
+      if (usuario?.id) {
+        await fetchTramitesUsuario(usuario.id);
+      }
+    } catch (err) {
+      setModalFeedback({
+        tipo: 'error',
+        titulo: 'Error en el envío',
+        mensaje: err.message || 'Ocurrió un error al enviar los documentos.'
+      });
+    } finally {
+      setSubsanandoDocId(null);
     }
   };
 
@@ -465,7 +578,11 @@ export default function PropietarioPage() {
     if (!file) return;
 
     if (!file.name.toLowerCase().endsWith('.pdf')) {
-      alert('Solo se admiten documentos en formato PDF.');
+      setModalFeedback({
+        tipo: 'error',
+        titulo: 'Formato no permitido',
+        mensaje: 'Solo se admiten documentos en formato PDF (.pdf).'
+      });
       return;
     }
 
@@ -485,12 +602,21 @@ export default function PropietarioPage() {
         throw new Error(err.detail || 'Error al subir documento.');
       }
 
-      alert('¡Documento cargado exitosamente! Ha pasado al estado "En Revisión".');
+      setModalFeedback({
+        tipo: 'success',
+        titulo: '¡Documento Cargado con Éxito!',
+        mensaje: 'El archivo se ha registrado correctamente y pasa a estado "En Revisión" para validación técnica.'
+      });
+
       if (usuario?.id) {
         await fetchTramitesUsuario(usuario.id);
       }
     } catch (err) {
-      alert(err.message || 'Error al conectar con el servidor.');
+      setModalFeedback({
+        tipo: 'error',
+        titulo: 'Error en la operación',
+        mensaje: err.message || 'Error al conectar con el servidor.'
+      });
     } finally {
       setSubiendoSubsanacion(false);
     }
@@ -1431,6 +1557,7 @@ export default function PropietarioPage() {
                       )}
 
                       {/* Encabezado del Trámite (Estilo Figma) */}
+                      {/* Encabezado del Trámite (Estilo Figma) */}
                       <div className="space-y-2">
                         <span className="inline-block bg-[#19324d] text-white text-[11px] font-black px-3.5 py-1 rounded-md tracking-wider shadow-xs uppercase">
                           {tramiteActual.codigo_tramite}
@@ -1442,6 +1569,171 @@ export default function PropietarioPage() {
                           Realice el seguimiento técnico y subsane las observaciones identificadas para la habilitación de su establecimiento.
                         </p>
                       </div>
+
+                      {/* ===================================================================== */}
+                      {/* PANEL SUPERIOR: DOCUMENTOS OBSERVADOS / RECHAZADOS (SUBSANACIÓN)      */}
+                      {/* ===================================================================== */}
+                      {(() => {
+                        const docsRechazados = (tramiteActual?.documentos || []).filter(
+                          d => d.estado_validacion === 'Rechazado' || d.estado_validacion === 'Observado'
+                        );
+
+                        if (docsRechazados.length === 0) return null;
+
+                        const cantConArchivo = docsRechazados.filter(
+                          d => Boolean(archivosSubsanacion[d.documento_id || String(d.requisito_id)])
+                        ).length;
+
+                        return (
+                          <div className="bg-rose-50/80 border-2 border-rose-200/90 rounded-3xl p-6 sm:p-7 shadow-xs space-y-5 animate-fadeIn">
+                            {/* Cabecera del Panel */}
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-rose-200/60 pb-4">
+                              <div className="flex items-start space-x-3.5">
+                                <div className="w-11 h-11 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center shrink-0 shadow-inner">
+                                  <AlertCircle className="w-6 h-6" />
+                                </div>
+                                <div>
+                                  <div className="flex items-center space-x-2.5 flex-wrap">
+                                    <h3 className="text-base sm:text-lg font-black text-slate-900 tracking-tight">
+                                      Documentos Observados que Requieren Subsanación
+                                    </h3>
+                                    <span className="text-xs font-black bg-rose-600 text-white px-2.5 py-0.5 rounded-full shadow-2xs">
+                                      {docsRechazados.length} {docsRechazados.length === 1 ? 'observado' : 'observados'}
+                                    </span>
+                                  </div>
+                                  <p className="text-xs text-rose-950/80 mt-1">
+                                    El SEDES ha emitido observaciones sobre los siguientes documentos. Seleccione los nuevos archivos PDF corregidos y presione <strong>"Enviar"</strong> para someterlos a revisión.
+                                  </p>
+                                </div>
+                              </div>
+
+                              {/* Botón Global para enviar todo junto */}
+                              {docsRechazados.length > 1 && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleEnviarTodasLasSubsanaciones(tramiteActual.tramite_id, docsRechazados)}
+                                  disabled={subsanandoDocId !== null || cantConArchivo === 0}
+                                  className="self-start sm:self-auto bg-[#2563eb] hover:bg-[#1d4ed8] text-white text-xs font-bold px-5 py-2.5 rounded-xl transition shadow-md flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer shrink-0"
+                                >
+                                  {subsanandoDocId === 'ALL' ? (
+                                    <>
+                                      <Loader2 className="w-4 h-4 animate-spin" />
+                                      <span>Enviando correcciones...</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Send className="w-4 h-4" />
+                                      <span>Enviar Todo ({cantConArchivo}/{docsRechazados.length})</span>
+                                    </>
+                                  )}
+                                </button>
+                              )}
+                            </div>
+
+                            {/* Lista de Items Observados */}
+                            <div className="space-y-3">
+                              {docsRechazados.map((doc) => {
+                                const docKey = doc.documento_id || String(doc.requisito_id);
+                                const archivoSeleccionado = archivosSubsanacion[docKey];
+                                const isSubmittingThis = subsanandoDocId === docKey || subsanandoDocId === 'ALL';
+
+                                return (
+                                  <div 
+                                    key={docKey}
+                                    className="bg-white rounded-2xl p-4 sm:p-5 border border-rose-200 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-4 transition hover:border-rose-300"
+                                  >
+                                    {/* Info del Requisito y Observación */}
+                                    <div className="space-y-1.5 flex-1 min-w-0">
+                                      <div className="flex items-center space-x-2 flex-wrap">
+                                        <span className="text-[10px] font-black uppercase tracking-wider text-rose-700 bg-rose-100 px-2 py-0.5 rounded-md">
+                                          Secc. {doc.seccion_codigo}
+                                        </span>
+                                        <p className="text-xs sm:text-sm font-bold text-slate-900 leading-snug">
+                                          {doc.requisito_nombre}
+                                        </p>
+                                      </div>
+
+                                      {doc.observaciones_supervisor && (
+                                        <div className="bg-rose-50 border-l-4 border-rose-500 px-3 py-1.5 rounded-r-lg">
+                                          <p className="text-xs font-semibold text-rose-700">
+                                            <span className="font-bold">Observación del SEDES:</span> {doc.observaciones_supervisor}
+                                          </p>
+                                        </div>
+                                      )}
+                                    </div>
+
+                                    {/* Selector de Archivo + Botón Enviar */}
+                                    <div className="flex flex-col sm:flex-row sm:items-center gap-2.5 shrink-0">
+                                      {/* Archivo Seleccionado con Preview */}
+                                      {archivoSeleccionado ? (
+                                        <div className="flex items-center space-x-2 bg-blue-50 border border-blue-200 px-3 py-2 rounded-xl text-xs text-blue-900 max-w-xs">
+                                          <FileText className="w-4 h-4 text-[#005596] shrink-0" />
+                                          <span className="truncate font-semibold text-xs max-w-[130px] sm:max-w-[160px]" title={archivoSeleccionado.name}>
+                                            {archivoSeleccionado.name}
+                                          </span>
+                                          <span className="text-[10px] text-blue-600 shrink-0 font-medium">
+                                            ({(archivoSeleccionado.size / 1024).toFixed(0)} KB)
+                                          </span>
+                                          <button
+                                            type="button"
+                                            onClick={() => handleRemoverArchivoSubsanacion(docKey)}
+                                            className="text-rose-500 hover:text-rose-700 p-0.5 rounded transition shrink-0 cursor-pointer"
+                                            title="Quitar este archivo"
+                                          >
+                                            <X className="w-3.5 h-3.5" />
+                                          </button>
+                                        </div>
+                                      ) : (
+                                        <label className="inline-flex items-center justify-center space-x-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 text-xs font-bold px-4 py-2.5 rounded-xl transition cursor-pointer shadow-2xs">
+                                          <UploadCloud className="w-4 h-4 text-[#2563eb]" />
+                                          <span>Seleccionar PDF</span>
+                                          <input
+                                            type="file"
+                                            accept=".pdf"
+                                            disabled={isSubmittingThis}
+                                            onChange={(e) => {
+                                              const f = e.target.files?.[0];
+                                              if (f) handleSeleccionarArchivoSubsanacion(docKey, f);
+                                              e.target.value = '';
+                                            }}
+                                            className="hidden"
+                                          />
+                                        </label>
+                                      )}
+
+                                      {/* Botón explícito de Enviar */}
+                                      <button
+                                        type="button"
+                                        onClick={() => handleEnviarSubsanacionIndividual(tramiteActual.tramite_id, doc)}
+                                        disabled={!archivoSeleccionado || isSubmittingThis}
+                                        className={`inline-flex items-center justify-center space-x-2 text-xs font-bold px-4 py-2.5 rounded-xl transition shadow-sm cursor-pointer ${
+                                          archivoSeleccionado
+                                            ? 'bg-[#005596] hover:bg-[#003e6d] text-white'
+                                            : 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed'
+                                        }`}
+                                        title={archivoSeleccionado ? "Enviar documento corregido a revisión" : "Seleccione primero un archivo PDF"}
+                                      >
+                                        {isSubmittingThis ? (
+                                          <>
+                                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                            <span>Enviando...</span>
+                                          </>
+                                        ) : (
+                                          <>
+                                            <Send className="w-3.5 h-3.5" />
+                                            <span>Enviar</span>
+                                          </>
+                                        )}
+                                      </button>
+                                    </div>
+
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      })()}
 
                       {/* Tarjeta de Documentación Requerida (Figma) */}
                       <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/90 shadow-2xs space-y-6">
@@ -1475,10 +1767,13 @@ export default function PropietarioPage() {
                             </thead>
                             <tbody className="divide-y divide-slate-100">
                               {tramiteActual.documentos.map((doc, idx) => {
+                                const docKey = doc.documento_id || String(doc.requisito_id);
                                 const estado = doc.estado_validacion || (doc.tiene_archivo ? 'En Revisión' : 'Pendiente');
                                 const esRechazado = estado === 'Rechazado' || estado === 'Observado';
                                 const esAprobado = estado === 'Aprobado';
                                 const esEnRevision = estado === 'En Revisión';
+                                const archivoSeleccionado = archivosSubsanacion[docKey];
+                                const isSubmittingThis = subsanandoDocId === docKey || subsanandoDocId === 'ALL';
 
                                 return (
                                   <tr key={doc.documento_id || doc.requisito_id || idx} className="hover:bg-slate-50/70 transition-colors">
@@ -1549,23 +1844,40 @@ export default function PropietarioPage() {
                                           <span className="text-xs text-slate-400 italic">Sin archivo</span>
                                         )
                                       ) : esRechazado ? (
-                                        <label className="inline-flex items-center space-x-1.5 bg-[#2563eb] hover:bg-[#1d4ed8] text-white text-xs font-bold px-4 py-2 rounded-xl transition shadow-sm cursor-pointer">
-                                          <RefreshCw className="w-3.5 h-3.5 text-white" />
-                                          <span>Volver a Subir</span>
-                                          <input
-                                            type="file"
-                                            accept=".pdf"
-                                            disabled={subiendoSubsanacion}
-                                            onChange={(e) => {
-                                              if (doc.documento_id) {
-                                                handleSubsanarDocumento(tramiteActual.tramite_id, doc.documento_id, e);
-                                              } else {
-                                                handleSubirNuevoDocumentoTramite(tramiteActual.tramite_id, doc.requisito_id, e);
-                                              }
-                                            }}
-                                            className="hidden"
-                                          />
-                                        </label>
+                                        <div className="inline-flex items-center space-x-2">
+                                          {archivoSeleccionado ? (
+                                            <button
+                                              type="button"
+                                              onClick={() => handleEnviarSubsanacionIndividual(tramiteActual.tramite_id, doc)}
+                                              disabled={isSubmittingThis}
+                                              className="inline-flex items-center space-x-1.5 bg-[#005596] hover:bg-[#003e6d] text-white text-xs font-bold px-4 py-2 rounded-xl transition shadow-sm cursor-pointer"
+                                              title={`Enviar ${archivoSeleccionado.name}`}
+                                            >
+                                              {isSubmittingThis ? (
+                                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                              ) : (
+                                                <Send className="w-3.5 h-3.5" />
+                                              )}
+                                              <span>Enviar Corrección</span>
+                                            </button>
+                                          ) : (
+                                            <label className="inline-flex items-center space-x-1.5 bg-[#2563eb] hover:bg-[#1d4ed8] text-white text-xs font-bold px-4 py-2 rounded-xl transition shadow-sm cursor-pointer">
+                                              <UploadCloud className="w-3.5 h-3.5 text-white" />
+                                              <span>Seleccionar PDF</span>
+                                              <input
+                                                type="file"
+                                                accept=".pdf"
+                                                disabled={isSubmittingThis}
+                                                onChange={(e) => {
+                                                  const f = e.target.files?.[0];
+                                                  if (f) handleSeleccionarArchivoSubsanacion(docKey, f);
+                                                  e.target.value = '';
+                                                }}
+                                                className="hidden"
+                                              />
+                                            </label>
+                                          )}
+                                        </div>
                                       ) : (
                                         /* Pendiente */
                                         <label className="inline-flex items-center space-x-1.5 bg-white hover:bg-blue-50 text-[#005596] border border-slate-200 hover:border-[#005596]/40 text-xs font-bold px-4 py-2 rounded-xl transition shadow-2xs cursor-pointer">
@@ -1576,11 +1888,7 @@ export default function PropietarioPage() {
                                             accept=".pdf"
                                             disabled={subiendoSubsanacion}
                                             onChange={(e) => {
-                                              if (doc.documento_id) {
-                                                handleSubsanarDocumento(tramiteActual.tramite_id, doc.documento_id, e);
-                                              } else {
-                                                handleSubirNuevoDocumentoTramite(tramiteActual.tramite_id, doc.requisito_id, e);
-                                              }
+                                              handleSubirNuevoDocumentoTramite(tramiteActual.tramite_id, doc.requisito_id, e);
                                             }}
                                             className="hidden"
                                           />
@@ -2579,6 +2887,60 @@ export default function PropietarioPage() {
                 className="w-full sm:w-auto bg-[#005596] hover:bg-[#003e6d] text-white text-xs font-bold px-6 py-2.5 rounded-xl transition shadow-md cursor-pointer"
               >
                 Entendido, voy a adjuntarlos
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
+      {/* ===================================================================== */}
+      {/* MODAL MODERNO: FEEDBACK Y NOTIFICACIONES DE ACCIONES                 */}
+      {/* ===================================================================== */}
+      {modalFeedback && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fadeIn">
+          <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl border border-slate-100 overflow-hidden flex flex-col transform transition-all scale-100">
+            
+            <div className="p-6 text-center">
+              {/* Icono del Modal */}
+              <div className={`w-16 h-16 rounded-2xl mx-auto flex items-center justify-center mb-4 shadow-inner ${
+                modalFeedback.tipo === 'success'
+                  ? 'bg-emerald-100 text-emerald-600'
+                  : modalFeedback.tipo === 'error'
+                    ? 'bg-rose-100 text-rose-600'
+                    : 'bg-blue-100 text-[#005596]'
+              }`}>
+                {modalFeedback.tipo === 'success' ? (
+                  <CheckCircle2 className="w-8 h-8" />
+                ) : (
+                  <AlertCircle className="w-8 h-8" />
+                )}
+              </div>
+
+              {/* Título */}
+              <h3 className="text-lg font-black text-slate-900 tracking-tight mb-2">
+                {modalFeedback.titulo}
+              </h3>
+
+              {/* Mensaje */}
+              <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
+                {modalFeedback.mensaje}
+              </p>
+            </div>
+
+            {/* Botón de Acción */}
+            <div className="p-4 bg-slate-50 border-t border-slate-100 flex items-center justify-center">
+              <button
+                type="button"
+                onClick={() => setModalFeedback(null)}
+                className={`w-full text-white text-xs sm:text-sm font-bold px-6 py-2.5 rounded-xl transition shadow-md cursor-pointer ${
+                  modalFeedback.tipo === 'success'
+                    ? 'bg-emerald-600 hover:bg-emerald-700'
+                    : modalFeedback.tipo === 'error'
+                      ? 'bg-rose-600 hover:bg-rose-700'
+                      : 'bg-[#005596] hover:bg-[#003e6d]'
+                }`}
+              >
+                Aceptar
               </button>
             </div>
 

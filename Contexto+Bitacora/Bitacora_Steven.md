@@ -1456,4 +1456,52 @@ Centralizar y sincronizar la base de datos relacional y geoespacial del sistema 
 * Cada cambio estructural debe anotarse en esta bitácora especificando el nombre de las tablas y campos modificados.
 
 ---
+
+## [2026-09-10] Implementación de Modal Emergente de Notificaciones y Corrección de Subsanación
+### 📌 Objetivo
+1. **Reemplazo de Alertas Nativas:** Sustituir los cuadros de diálogo emergentes estándar del navegador (`window.alert`) por un componente modal reactivo y personalizado acorde a la identidad gráfica del SEDES.
+2. **Corrección en Endpoint de Subsanación:** Resolver el error al recuperar la instancia del trámite en `POST /api/tramites/{id}/documentos/{doc_id}/subsanar` durante la generación de rutas dinámicas por cuenta.
+
+---
+
+### 🛠️ Archivos Modificados
+#### 1. `frontend/src/pages/PropietarioPage.jsx` [MODIFICADO]
+* **Estado `modalFeedback`:** Gestión centralizada de alertas con soporte para estados de éxito (`success`), advertencia (`warning`) y error (`error`).
+* **Componente Modal Integrado:** Renderizado con fondo atenuado (`backdrop-blur`), iconografía oficial de Lucide (`CheckCircle2`, `AlertCircle`), tipografía refinada y botón de confirmación.
+* **Integración en Funciones:** Actualización de `handleSubsanarDocumento` y `handleSubirNuevoDocumentoTramite` para disparar el modal estilizado.
+
+#### 2. `backend/tramites.py` [MODIFICADO]
+* **Consulta de Trámite en Subsanación:** Inclusión de la consulta explícita `db.query(models.Tramite).filter(...)` antes de invocar `obtener_ruta_almacenamiento_tramite`.
+
+---
+
+### 📊 Verificación y Pruebas Realizadas
+* **Compilación Frontend:** `npm run build` completado exitosamente en 822 ms sin errores de sintaxis.
+* **Prueba Funcional:** Documento subsanado cambia a estado *"En Revisión"* y despliega el modal emergente corporativo.
+
+---
+
+## [2026-09-11] Panel Superior Destacado de Subsanaciones con Confirmación y Botón de Envío
+### 📌 Objetivo
+1. **Agrupación Superior de Documentos Observados:** Implementar un panel prominente al inicio de la vista de Trámites del Propietario que consolide todos los documentos observados/rechazados, evitando que el usuario tenga que desplazarse buscando cada fila en la tabla completa.
+2. **Flujo de Selección y Envío con Confirmación:** Permitir al usuario seleccionar el archivo PDF, previsualizar su nombre y tamaño en memoria, y presionar explícitamente el botón *"Enviar"* (individual o masivo), previniendo la subida accidental de documentos erróneos.
+
+---
+
+### 🛠️ Archivos Modificados
+#### 1. `frontend/src/pages/PropietarioPage.jsx` [MODIFICADO]
+* **Panel Superior `docsRechazados`:** 
+  - Renderizado condicional destacado en tono carmesí/rosado cuando existan documentos con estado *"Rechazado"* u *"Observado"*.
+  - Despliegue de la observación puntual del supervisor técnico del SEDES en caja destacada.
+  - Indicador de archivo seleccionado con tamaño en KB y opción para deseleccionar/quitar (`X`).
+  - Botón individual *"Enviar"* y botón global *"Enviar Todo"* con indicadores de carga (`Loader2`).
+* **Actualización en Tabla Principal:** La tabla de requisitos también refleja la selección local y cuenta con el botón de *"Enviar Corrección"*.
+
+---
+
+### 📊 Verificación y Pruebas Realizadas
+* **Compilación Frontend:** `npm run build` verificado exitosamente (1840 módulos transformados, 0 errores).
+* **Integración:** Flujo de selección ➡️ revisión del nombre del archivo ➡️ clic en Enviar ➡️ modal de confirmación verificado.
+
+---
 *Bitácora actualizada por: Steven*
