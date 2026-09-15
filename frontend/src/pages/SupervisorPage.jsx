@@ -36,6 +36,7 @@ import {
 import logoL1 from '../assets/L1.png';
 import logoL2 from '../assets/L2.png';
 import RutasInspeccionView from '../components/supervisor/RutasInspeccionView';
+import ActasEmitidasView from '../components/supervisor/ActasEmitidasView';
 
 // Obtener iniciales de 2 a 4 letras a partir de nombres y apellidos
 const getInitials = (u) => {
@@ -876,8 +877,16 @@ export default function SupervisorPage() {
             />
           )}
 
-          {/* OTRAS VISTAS DEL MENÚ LATERAL (Actas, Citaciones) */}
-          {seccionActiva !== 'mi-agenda' && seccionActiva !== 'rutas-inspeccion' && (
+          {/* VISTA 3: ACTAS EMITIDAS */}
+          {seccionActiva === 'actas-emitidas' && (
+            <ActasEmitidasView
+              usuario={usuario}
+              mostrarToast={mostrarToast}
+            />
+          )}
+
+          {/* OTRAS VISTAS DEL MENÚ LATERAL (Citaciones) */}
+          {seccionActiva !== 'mi-agenda' && seccionActiva !== 'rutas-inspeccion' && seccionActiva !== 'actas-emitidas' && (
             <div className="bg-white rounded-3xl p-8 sm:p-12 border border-slate-200 shadow-2xs min-h-[420px] flex flex-col items-center justify-center text-center space-y-3">
               <div className="w-16 h-16 rounded-2xl bg-blue-50 text-[#005596] flex items-center justify-center">
                 <itemActivo.icon className="w-8 h-8" />
@@ -886,7 +895,7 @@ export default function SupervisorPage() {
                 Sección: {itemActivo.label}
               </h3>
               <p className="text-xs text-slate-400 max-w-md">
-                Estructura del supervisor lista para implementar los módulos de actas técnicas y citaciones en campo.
+                Estructura del supervisor lista para implementar el módulo de citaciones sanitarias en campo.
               </p>
             </div>
           )}

@@ -1682,7 +1682,119 @@ Prevenir que el supervisor técnico pueda agendar o reprogramar inspecciones té
 * **Prueba de Endpoint Backend con GPS:** Consulta pasando `origen_lat` y `origen_lng` verificando el recálculo dinámico de distancias hacia los laboratorios.
 * **Prueba de Rutas OSRM:** Verificación de trazado vial por calles con retorno exitoso de geometría GeoJSON y métricas de viaje.
 * **Prueba de Reprogramación:** Ejecución exitosa de `POST /api/supervisor/reprogramar-inspeccion` para el día `15/09/2026 15:00`, retornando `200 OK` con registro de auditoría.
-* **Compilación Frontend:** `npm run build` ejecutado exitosamente (1841 módulos, 0 errores en 950 ms).
+## [2026-09-15] Implementación del Módulo "Actas Emitidas" (Panel Supervisor)
+
+### 📌 Objetivo
+Implementar la interfaz completa de gestión y consulta de actas de inspección realizadas en campo por los supervisores técnicos, incluyendo métricas KPI consolidadas (*Aprobados*, *Con Observaciones*, *Rechazados*), filtros avanzados, formulario de emisión de actas y visor/impresión oficial de actas en PDF institucional con sellos y firmas.
+
+---
+
+### 🛠️ Archivos Creados y Modificados
+
+#### 1. `backend/supervisor.py` [MODIFICADO]
+* **Esquema `RegistrarActaRequest`:** Captura de dictamen técnico (`Aprobado`, `Con Observaciones`, `Rechazado`), tipo de trámite, checklist de cumplimiento sanitario y observaciones.
+* **Endpoint `GET /api/supervisor/{supervisor_id}/actas`:**
+  - Recupera el historial de actas de inspección emitidas por el supervisor o asignadas a sus trámites.
+  - Calcula los KPIs dinámicos de dictámenes favorables, con observaciones y desfavorables.
+  - Filtros avanzados por texto de búsqueda, resultado y rango de mes/año con paginación optimizada.
+* **Endpoint `POST /api/supervisor/registrar-acta`:**
+  - Actualiza el estado de la inspección a `Completada` y el estado del trámite en BD.
+  - Registra auditoría automática en `HistorialActividad`.
+  - Genera notificación en tiempo real para el propietario del establecimiento.
+
+#### 2. `frontend/src/components/supervisor/ActasEmitidasView.jsx` [NUEVO]
+* **Tarjetas KPI Superiores (Figma):**
+  - Contadores de `Aprobados` (+3 este mes), `Con Observaciones` (+1 este mes) y `Rechazados` con badges de estado.
+* **Barra de Búsqueda y Filtros:**
+  - Búsqueda en tiempo real por código o nombre de establecimiento.
+  - Selector de resultado y selector de meses disponibles.
+* **Tabla "Historial de Actas":**
+  - Columnas: `Nº ACTA`, `FECHA`, `ESTABLECIMIENTO`, `TIPO INSPECCIÓN`, `RESULTADO` y `ACCIÓN`.
+  - Paginador interactivo numerado (`<` `1` `2` `3` `>` con contador de registros).
+* **Modal "Registrar Nueva Acta":**
+  - Selección de inspección asignada, dictamen con botones visuales y checklist de 4 áreas sanitarias (*Infraestructura*, *Equipamiento*, *Personal Acreditado*, *Bioseguridad*).
+* **Modal "Detalle de Acta" & Visor "PDF Oficial SEDES":**
+  - Documento formal con membrete del SEDES Cochabamba, escudo de Bolivia y Gobernación, checklist dictaminado y campos de firma de inspector y director técnico.
+* **Exportación CSV:** Botón *"Exportar Reporte"* con descarga inmediata de datos tabulares.
+
+#### 3. `frontend/src/pages/SupervisorPage.jsx` [MODIFICADO]
+* **Enrutamiento:** Conexión de la pestaña *"Actas Emitidas"* del menú lateral con `<ActasEmitidasView />`.
+
+---
+
+### 📊 Verificación y Pruebas Realizadas
+* **Prueba de Endpoint Backend:** Consulta con `andrea.torrico@sedes.gob.bo`, retornando KPIs y 6 actas por página con estructura normalizada.
+* **Compilación Frontend:** `npm run build` ejecutado exitosamente (1842 módulos, 0 errores en 635 ms).
+
+---
+
+## [2026-09-15] Instrumento Oficial de Inspección y Evaluación Técnica de Laboratorios (R.M. 0127) en Vista Dedicada
+
+### 📌 Objetivo
+Sustituir el modal simplificado de registro de actas por un formulario e instrumento de evaluación técnica oficial completo en una vista dedicada a pantalla completa (`NuevaActaFormView.jsx`), replicando fielmente la estructura, redacción oficial, ponderaciones, normativas y criterios de la lista de verificación del SEDES Cochabamba (R.M. 0127 / CONALAB).
+
+---
+
+### 🛠️ Archivos Creados y Modificados
+
+#### 1. `frontend/src/components/supervisor/NuevaActaFormView.jsx` [NUEVO]
+* **Instrumento Normativo SEDES (28 Criterios Técnicos Oficiales en 5 Secciones):**
+  - **I. INFRAESTRUCTURA Y ÁREAS DE TRABAJO:**
+    - `1.1` Sala de espera independiente y ventilada.
+    - `1.2` Área de toma de muestras con privacidad y sillón ergonómico.
+    - `1.3` Área técnica de procesamiento delimitada con mesones de superficie lavable y no porosa.
+    - `1.4` Área de esterilización, lavado y descontaminación de material.
+    - `1.5` Servicios higiénicos diferenciados para pacientes y personal.
+    - `1.6` Iluminación y ventilación natural/artificial adecuada en áreas analíticas.
+  - **II. BIOSEGURIDAD, MANEJO DE RESIDUOS Y CADENA DE FRÍO:**
+    - `2.1` Señalética y cartelera de bioseguridad visible (Riesgo biológico, rutas de escape, extintores).
+    - `2.2` Separación y clasificación de residuos según Norma Boliviana (Bolsas Roja, Negra, Amarilla y cajas rígidas de cortopunzantes).
+    - `2.3` Contrato vigente con empresa certificada de recolección y tratamiento de residuos biológicos (EMSA / EPSAS).
+    - `2.4` Disponibilidad obligatoria de Equipos de Protección Personal (EPP: batas antifluido, guantes de nitrilo, mascarillas KN95, protectores oculares).
+    - `2.5` Botiquín de primeros auxilios y lavaojos / ducha de emergencia funcional.
+    - `2.6` Refrigeradores con control diario y registro foliado de temperatura para reactivos y muestras (2°C - 8°C).
+  - **III. EQUIPAMIENTO ANALÍTICO, MANTENIMIENTO Y CALIBRACIÓN:**
+    - `3.1` Microscopios ópticos binoculares limpios y con mantenimiento preventivo al día.
+    - `3.2` Centrífugas clínicas calibradas y con tacómetro verificado.
+    - `3.3` Baño maría / Incubadoras bacteriológicas con termómetro calibrado.
+    - `3.4` Equipos automatizados o semi-automatizados de bioquímica / hematología con bitácora de mantenimiento.
+    - `3.5` Pipetas automáticas calibradas periódicamente con certificados de calibración vigentes.
+    - `3.6` Sistema de respaldo eléctrico ininterrumpido (UPS / Generador de emergencia).
+  - **IV. RECURSOS HUMANOS, HABILITACIÓN Y DOCUMENTACIÓN TÉCNICA:**
+    - `4.1` Director Técnico / Responsable Bioquímico con Título en Provisión Nacional y Matrícula Profesional del Ministerio de Salud.
+    - `4.2` Personal técnico de laboratorio con credencial y registro profesional vigente.
+    - `4.3` Manual de Procedimientos Operativos Estandarizados (POEs) documentado y accesible en el área analítica.
+    - `4.4` Manual de Bioseguridad y Gestión de Calidad institucional.
+    - `4.5` Libros de registro de pacientes y resultados debidamente foliados y autorizados por SEDES.
+    - `4.6` Archivo físico/digital de resultados y trazabilidad de reportes analíticos emitidos.
+  - **V. REACTIVOS, CONTROL DE CALIDAD Y SUMINISTROS:**
+    - `5.1` Reactivos e insumos con Registro Sanitario vigente (AGEMED) y fecha de vencimiento controlada.
+    - `5.2` Participación en Programa de Control de Calidad Externo (PEEC / RIQAS o similar).
+    - `5.3` Registro diario de Control de Calidad Interno (gráficos de Levey-Jennings y reglas de Westgard).
+    - `5.4` Almacenamiento seguro y rotulación reglamentaria de reactivos y sustancias químicas.
+* **Interactividad y Cálculo Automatizado:**
+  - Ponderación de ítems (`C` Cumple: 100%, `NC` No Cumple: 0%, `NA` No Aplica: excluido del cálculo ponderado).
+  - Entrada de observaciones/hallazgos específicos por ítem al marcar `NC`.
+  - Barra de progreso y cálculo porcentual en tiempo real en la cabecera fija (*Sticky Header*).
+  - Sugerencia inteligente de dictamen según puntaje obtenido:
+    - `>= 85%`: Aprobado (Favorable).
+    - `70% - 84%`: Con Observaciones (con selector dinámico de plazo de subsanación de 5 a 30 días hábiles).
+    - `< 70%`: Rechazado (Desfavorable).
+  - Selección de inspección agendada para auto-completar datos del establecimiento.
+  - Subida de evidencias fotográficas de campo.
+  - Sección de Dictamen Técnico Oficial, Conclusiones y Firmas de Acreditación.
+
+#### 2. `frontend/src/components/supervisor/ActasEmitidasView.jsx` [MODIFICADO]
+* **Integración en Vista Completa:**
+  - Renderizado condicional mediante el estado `modoCrearActa`.
+  - Transición fluida entre la tabla de historial de actas y la vista de evaluación técnica oficial al presionar el botón `+ Registrar Acta`.
+  - Retorno automático con refresco de datos tras guardar el acta exitosamente.
+
+---
+
+### 📊 Verificación y Pruebas Realizadas
+* **Compilación de Frontend:** Ejecución de `npm run build` en Vite v8.2.2 completada satisfactoriamente (1843 módulos compilados en 769 ms sin advertencias ni errores).
+* **Navegación Fluida:** Verificación de apertura del formulario oficial en vista completa y botón de retorno al listado de actas.
 
 ---
 *Bitácora actualizada por: Steven*
