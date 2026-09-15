@@ -1524,4 +1524,167 @@ Depurar el formulario emergente *"Editar Información Pública"* de los laborato
 * **Compilación Frontend:** `npm run build` completado exitosamente en 638 ms sin errores.
 
 ---
+
+## [2026-09-15] Implementación Dinámica e Interactiva de la Agenda del Supervisor (Mi Agenda)
+
+### 📌 Objetivo
+1. **Conectar la vista "Mi Agenda" (`/supervisor/mi-agenda`) con la base de datos relacional:** Reemplazar los datos estáticos de la interfaz por registros reales de PostgreSQL (Neon Cloud) vinculados al supervisor técnico autenticado (ej. *Lic. Andrea Torrico*).
+2. **Columna de Inspecciones Pendientes:** Listar en tiempo real los trámites y establecimientos asignados por el Coordinador SEDES que aún no cuentan con un horario de inspección fijado.
+3. **Calendario Semanal Interactivo y Agendamiento Dinámico:** 
+   - Permitir a la supervisora seleccionar cualquier inspección asignada o hacer clic en una celda horaria (de 08:00 a 17:00, Lunes a Viernes) para calendarizar la inspección técnica (fecha, hora de inicio, duración estimada y observaciones).
+   - Calcular dinámicamente las posiciones en la cuadrícula horaria en base a la hora de inicio y duración.
+   - Brindar soporte para reprogramar inspecciones agendadas o devolverlas a la lista de pendientes.
+   - Navegación por semanas (`<` / `>`) con cálculo automático de días hábiles.
+   - Registro automático en la tabla de auditoría `historial_actividades` y emisión de notificaciones en tiempo real al propietario del laboratorio.
+
+---
+
+### 🛠️ Archivos Creados y Modificados
+
+#### 1. `backend/supervisor.py` [NUEVO]
+* **Router de FastAPI (`/api/supervisor`):**
+  - `GET /api/supervisor/{supervisor_id}/agenda`: Retorna los datos del supervisor, el rango de la semana solicitada con sus días hábiles (Lun-Vie), la lista de trámites pendientes asignados y los eventos/inspecciones programadas en esa semana.
+  - `POST /api/supervisor/agendar-inspeccion`: Agenda una inspección fijando fecha y hora, actualiza el estado del trámite a *"Inspección Programada"*, crea el registro de auditoría en `HistorialActividad` y notifica al propietario.
+  - `POST /api/supervisor/reprogramar-inspeccion`: Permite modificar fecha y hora de una inspección con justificación técnica y notificación de cambio.
+  - `POST /api/supervisor/desagendar-inspeccion`: Devuelve la inspección al estado *"Pendiente"* para su posterior reorganización.
+
+#### 2. `backend/main.py` [MODIFICADO]
+* Registro del router `supervisor.router` en la aplicación principal de FastAPI.
+
+#### 3. `frontend/src/pages/SupervisorPage.jsx` [MODIFICADO]
+* **Conexión Dinámica al Backend:** Carga automática de la agenda del supervisor logueado con soporte para desplazamiento de semanas (`semanaActualOffset`).
+* **Renderizado de Inspecciones Pendientes:** Tarjetas estilizadas con badge de tipo (*Apertura* en azul, *Renovación* en ámbar), nombre del establecimiento, municipio y botón directo para agendar.
+* **Calendario Semanal Interactivo:**
+  - Posicionamiento matemático exacto de los bloques de eventos según su horario de inicio (`startMinutes`) y duración (`durationMinutes`).
+  - Clic en cualquier horario o celda vacía para agendar rápidamente.
+  - Clic en un bloque de evento para ver el detalle técnico, reprogramar o iniciar acta de inspección en campo.
+* **Modal de Programación:** Selector de trámite asignado, fecha, hora de inicio, duración estimada (60, 90, 120 min) y observaciones con feedback visual mediante toasts y spinners.
+
+---
+
+### 📊 Verificación y Pruebas Realizadas
+* **Base de Datos PostgreSQL (Neon Cloud):** Verificación con el usuario *Lic. Andrea Torrico* (`ee0a941b-0cc6-4bcf-8f04-9da73ac3fdc8`). Al ser asignado el laboratorio *"Lab uro"*, apareció de inmediato en la columna de Inspecciones Pendientes.
+* **Prueba de Agendamiento:** Se programó la inspección para el Lunes 14 de Septiembre a las 10:00 - 11:30. El trámite se movió de pendientes a la cuadrícula del calendario correctamente posicionado.
+* **Auditoría y Notificaciones:** Registro generado en `historial_actividades` y notificación emitida al propietario del establecimiento.
+* **Compilación Frontend:** `npm run build` ejecutado exitosamente con 0 errores (1840 módulos).
+
+---
+
+## [2026-09-15] Rediseño Estructural del Modal "Nuevo Registro de Inspección" conforme a Diseño Figma
+
+### 📌 Objetivo
+Adaptar la estructura visual y de campos del modal de programación de inspecciones en la vista del Supervisor (`/supervisor/mi-agenda`) según la maqueta de diseño Figma institucional:
+1. **Sección 1: DATOS DEL ESTABLECIMIENTO:**
+   - Selector desplegable de establecimiento asignado.
+   - Campos de autocompletado bloqueados (`Código del Establecimiento`, `Dirección` y `Propietario / Responsable`) con mensaje *"Se completará automáticamente"*.
+2. **Sección 2: DATOS DE LA INSPECCIÓN:**
+   - Selector de `Fecha de Inspección`.
+   - Campos independientes de `Hora de Inicio` y `Hora de Finalización` sincronizados.
+   - Supresión del campo *"Tipo de Inspección"* a solicitud expresa del usuario.
+3. **Botones de Acción:**
+   - Botón *"Cancelar"* con borde neutro y botón primario *"Registrar"* en azul marino oscuro institucional (`#1b2533`).
+
+---
+
+### 🛠️ Archivos Modificados
+* **`frontend/src/pages/SupervisorPage.jsx`:** Implementación del diseño a 2 columnas con grid responsivo, estado `formHoraFin` y cálculo dinámico de duración.
+* **`backend/supervisor.py`:** Incorporación de los campos `propietario` y `codigo_establecimiento` en el payload de trámites pendientes.
+
+---
+
+### 📊 Verificación y Pruebas Realizadas
+* **Compilación Frontend:** `npm run build` ejecutado exitosamente en 588 ms sin advertencias.
+* **Autocompletado:** Al seleccionar *"Lab uro"*, los campos de Código (`EST-EA5A7A75`), Dirección (`Av Beijing esq Tadeo Aenke`) y Propietario se rellenan automáticamente.
+
+---
+
+## [2026-09-15] Validación Estricta de Fechas y Horarios Futuros para Inspecciones
+
+### 📌 Objetivo
+Prevenir que el supervisor técnico pueda agendar o reprogramar inspecciones técnicas en fechas u horarios que ya hayan transcurrido respecto al momento actual del sistema (ej. si hoy es martes 15/09/2026 a las 09:46 am, no se podrá asignar una inspección en días u horas previas).
+
+---
+
+### 🛠️ Archivos Modificados
+
+#### 1. `backend/supervisor.py` [MODIFICADO]
+* **Helper `parsear_fecha_hora`:** Soporte multiformato (`YYYY-MM-DD`, `DD/MM/YYYY`, marcas de tiempo ISO `YYYY-MM-DDTHH:MM:SS`) con sanitización previa de separadores `T` y espacios.
+* **Validación en `agendar_inspeccion` y `reprogramar_inspeccion`:**
+  - Comparación de `fecha_prog_dt` contra `datetime.now()` con un margen de tolerancia de 2 minutos para evitar falsos positivos por desfase de reloj.
+  - Retorno de error `HTTP 400 Bad Request` con mensaje informativo si la fecha/hora seleccionada es pasada: *"No es posible agendar/reprogramar una inspección en una fecha u hora pasada (...). Por favor seleccione una fecha y horario actual o posterior."*
+
+#### 2. `frontend/src/pages/SupervisorPage.jsx` [MODIFICADO]
+* **Normalización `normalizarAFechaIso` y `parseFechaHoraJs`:** Sanitización de fechas ISO y conversión estandarizada a `YYYY-MM-DD` antes de la validación y envío al servidor.
+* **Restricción de Calendario (`min`):** Atributo `min={hoyLocalIso()}` en los selectores de fecha tanto en el modal de Nuevo Registro como en el modal de Reprogramación para inhabilitar días pasados en el calendario nativo.
+* **Validación Frontend `esFechaHoraPasada`:** Verificación al enviar el formulario y feedback inmediato mediante toast informativo en caso de intentar ingresar una hora previa al momento actual.
+* **Validación en Cuadrícula Semanal:** Al hacer clic sobre celdas horarias pasadas en la vista semanal, se previene la selección con mensaje de advertencia.
+* **Validación de Rango Horario:** Validación de que la hora de finalización sea estrictamente posterior a la hora de inicio (`hora_fin > hora_inicio`).
+* **Corrección de Capa Superior de Mensajes Emergentes (Toast):** Reubicación del componente Toast al final del DOM con `z-index: 9999` para asegurar que las alertas se visualicen nítidas y siempre por encima de cualquier ventana modal o fondo difuminado (*backdrop blur*).
+
+---
+
+### 📊 Verificación y Pruebas Realizadas
+* **Prueba con Fecha Local Actual e ISO:** Agendamiento probado con fecha `15/09/2026` y `2026-09-15T00:00:00` a las `11:00`, parseándose correctamente como `2026-09-15 11:00:00` sin fallar en enero.
+* **Compilación Frontend:** `npm run build` verificado exitosamente (1840 módulos, 0 errores en 712 ms).
+
+## [2026-09-15] Corrección de Zona Horaria (Bolivia UTC-4) y Módulo "Rutas de Inspección" con Mapa GPS
+
+### 📌 Objetivos
+1. **Ajuste de Zona Horaria Oficial (Bolivia UTC-4):** Garantizar que las validaciones de fecha y hora se ejecuten bajo la hora oficial de Bolivia (`UTC-4`) independientemente del entorno del servidor o base de datos en la nube.
+2. **Implementación de la Vista "Rutas de Inspección" (Panel Supervisor):** Desarrollar la interfaz visual interactiva que permite a los supervisores visualizar en el mapa de Cochabamba el recorrido secuencial optimizado de sus paradas del día, con punto de partida oficial en las oficinas del SEDES, cálculo de distancias y enlace de navegación GPS en tiempo real.
+
+---
+
+### 🛠️ Archivos Creados y Modificados
+
+#### 1. `backend/supervisor.py` [MODIFICADO]
+* **Zona Horaria Explícita `TZ_BOLIVIA`:** Definición de `timezone(timedelta(hours=-4))` y helper `ahora_bolivia()` para comparar de forma precisa las fechas y horas registradas por el supervisor en Cochabamba.
+* **Cálculo de Distancias Urbanas `calcular_distancia_km`:** Algoritmo de Haversine con factor de corrección vial de 1.25x sobre la trama urbana de Cochabamba.
+* **Endpoint `GET /api/supervisor/{supervisor_id}/rutas`:**
+  - Extrae las inspecciones programadas para una fecha seleccionada con sus coordenadas PostGIS (`ST_X`, `ST_Y`).
+  - Ordena cronológicamente las paradas del día (1, 2, 3...).
+  - Define el punto de origen en la sede central del SEDES (`Av. Aniceto Arce #2875`).
+  - Retorna métricas acumuladas: distancia total (km), tiempo estimado de traslado (min) y total de paradas.
+  - Genera la lista de fechas disponibles con inspecciones agendadas para el selector rápido de días.
+
+#### 2. `frontend/src/components/supervisor/RutasInspeccionView.jsx` [NUEVO]
+* **Mapa Interactivo con Leaflet:**
+  - Marcador de origen institucional: *"● Inicio (Oficina SEDES)"* en color esmeralda.
+  - Marcadores circulares numerados oscuros (`1`, `2`, `3`...) con etiquetas de nombres de laboratorio/establecimiento.
+  - Trazado de ruta vial en línea discontinua (*dashed polyline*) que conecta la secuencia completa del recorrido.
+  - Popups informativos con datos del establecimiento, titular, horario y botón de acción.
+* **Barra de Métricas Inferior (Estilo Figma):**
+  - Indicadores en tiempo real de `Distancia total`, `Tiempo estimado` y `Establecimientos / paradas`.
+* **Columna "Paradas del Día":**
+  - Lista de tarjetas ordenadas por hora con badges de estado (`Apertura` / `Renovación`).
+  - Botón interactivo *"Iniciar Navegación"* que abre la ruta en Google Maps y centra el visor del mapa.
+* **Selector Dinámico de Día:**
+  - Dropdown desplegable con acceso directo a fechas con inspecciones activas y selector de fecha manual.
+* **Estado Vacío Amigable:**
+  - Ilustración y mensaje cuando no existen paradas programadas para el día, con botón de redirección rápida a *"Mi Agenda"*.
+
+#### 3. `frontend/src/pages/SupervisorPage.jsx` [MODIFICADO]
+* **Integración del Módulo:** Conexión de la pestaña *"Rutas de Inspección"* del menú lateral con el componente `<RutasInspeccionView />`.
+
+* **Capa Cartográfica Estándar:** Homogeneización de la capa de teselas hacia **OpenStreetMap estándar** (`https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png`) manteniendo coherencia total con la Landing Page (`RealMultiMapView.jsx`, `RealMapPicker.jsx`).
+
+* **Geolocalización GPS en Tiempo Real:** Integración con la API nativa `navigator.geolocation` del navegador para capturar la ubicación GPS exacta del supervisor en campo con marcador de radar azul animado y cálculo dinámico de ruta.
+* **Trazado de Rutas por Calles Reales (OSRM):** Integración con el motor de enrutamiento *Open Source Routing Machine (OSRM)* para trazar el recorrido real calle por calle en Cochabamba y calcular distancias y tiempos de traslado exactos.
+* **Navegación GPS Turn-by-Turn:** Botón *"Iniciar Navegación GPS"* que genera el enlace directo de Google Maps con origen dinámico (GPS actual del supervisor o sede SEDES) y coordenadas exactas del laboratorio registrado (`lat, lng`).
+
+* **Corrección en `parsear_fecha_hora`:** Se restauró la sentencia `return datetime(...)` que faltaba en la función utilitaria de fechas en `backend/supervisor.py`, subsanando el fallo `500 Internal Server Error` durante la reprogramación de horarios en la agenda del supervisor.
+
+---
+
+### 📊 Verificación y Pruebas Realizadas
+* **Prueba de Endpoint Backend con GPS:** Consulta pasando `origen_lat` y `origen_lng` verificando el recálculo dinámico de distancias hacia los laboratorios.
+* **Prueba de Rutas OSRM:** Verificación de trazado vial por calles con retorno exitoso de geometría GeoJSON y métricas de viaje.
+* **Prueba de Reprogramación:** Ejecución exitosa de `POST /api/supervisor/reprogramar-inspeccion` para el día `15/09/2026 15:00`, retornando `200 OK` con registro de auditoría.
+* **Compilación Frontend:** `npm run build` ejecutado exitosamente (1841 módulos, 0 errores en 930 ms).
+
+---
 *Bitácora actualizada por: Steven*
+
+
+
+

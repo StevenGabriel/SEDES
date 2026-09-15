@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { 
   Calendar as CalendarIcon, 
@@ -24,11 +24,18 @@ import {
   Compass,
   FileCheck2,
   CalendarCheck,
-  FlaskConical
+  FlaskConical,
+  RefreshCw,
+  Phone,
+  CalendarPlus,
+  AlertTriangle,
+  Layers,
+  ChevronDown
 } from 'lucide-react';
 
 import logoL1 from '../assets/L1.png';
 import logoL2 from '../assets/L2.png';
+import RutasInspeccionView from '../components/supervisor/RutasInspeccionView';
 
 // Obtener iniciales de 2 a 4 letras a partir de nombres y apellidos
 const getInitials = (u) => {
@@ -85,13 +92,47 @@ export default function SupervisorPage() {
   const [usuario, setUsuario] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [semanaActualOffset, setSemanaActualOffset] = useState(0);
+  const [cargando, setCargando] = useState(false);
+  const [toast, setToast] = useState(null);
+
+  // Datos reales de la Agenda
+  const [inspeccionesPendientes, setInspeccionesPendientes] = useState([]);
+  const [eventosSemana, setEventosSemana] = useState([]);
+  const [semanaInfo, setSemanaInfo] = useState({
+    rango_texto: 'Cargando semana...',
+    dias: [
+      { key: 'Lun', nombre: 'Lun', numero: 11, fecha_iso: '' },
+      { key: 'Mar', nombre: 'Mar', numero: 12, fecha_iso: '' },
+      { key: 'Mié', nombre: 'Mié', numero: 13, fecha_iso: '' },
+      { key: 'Jue', nombre: 'Jue', numero: 14, fecha_iso: '' },
+      { key: 'Vie', nombre: 'Vie', numero: 15, fecha_iso: '' }
+    ]
+  });
 
   // Modal de detalle de inspección
   const [modalInspeccionOpen, setModalInspeccionOpen] = useState(false);
   const [inspeccionSeleccionada, setInspeccionSeleccionada] = useState(null);
+  const [modoReprogramar, setModoReprogramar] = useState(false);
+  const [reprogramarFecha, setReprogramarFecha] = useState('');
+  const [reprogramarHora, setReprogramarHora] = useState('10:00');
+  const [reprogramarMotivo, setReprogramarMotivo] = useState('');
 
-  // Modal de nueva inspección
-  const [modalNuevaInspeccionOpen, setModalNuevaInspeccionOpen] = useState(false);
+  // Modal de agendar inspección (para pendientes o nuevo registro)
+  const [modalAgendarOpen, setModalAgendarOpen] = useState(false);
+  const [tramiteSeleccionado, setTramiteSeleccionado] = useState(null);
+  const [formFecha, setFormFecha] = useState('');
+  const [formHora, setFormHora] = useState('09:00');
+  const [formHoraFin, setFormHoraFin] = useState('11:00');
+  const [formObservaciones, setFormObservaciones] = useState('');
+  const [guardandoAgendamiento, setGuardandoAgendamiento] = useState(false);
+
+  // Mostrar mensaje emergente Toast
+  const mostrarToast = (mensaje, tipo = 'success') => {
+    setToast({ mensaje, tipo });
+    setTimeout(() => {
+      setToast(null);
+    }, 4500);
+  };
 
   // 1. Cargar usuario logueado
   useEffect(() => {
@@ -109,6 +150,45 @@ export default function SupervisorPage() {
     localStorage.removeItem('usuario');
     navigate('/login');
   };
+
+  // 2. Cargar datos de la Agenda desde el Backend FastAPI
+  const cargarAgendaBackend = useCallback(async () => {
+    const supervisorId = usuario?.id || usuario?.email || 'Lic. Andrea Torrico';
+    setCargando(true);
+    try {
+      const url = `http://localhost:8000/api/supervisor/${encodeURIComponent(supervisorId)}/agenda?offset_semanas=${semanaActualOffset}`;
+      const res = await fetch(url);
+      if (res.ok) {
+        const data = await res.json();
+        setInspeccionesPendientes(data.pendientes || []);
+        setEventosSemana(data.eventos || []);
+        if (data.semana) {
+          setSemanaInfo(data.semana);
+          // Si no hay fecha seleccionada en formulario, seleccionar el lunes por defecto
+          if (data.semana.dias && data.semana.dias.length > 0) {
+            setFormFecha(data.semana.dias[0].fecha_iso);
+            setReprogramarFecha(data.semana.dias[0].fecha_iso);
+          }
+        }
+      } else {
+        console.warn('No se pudo cargar la agenda desde el servidor.');
+      }
+    } catch (err) {
+      console.warn('Error de red al cargar agenda:', err);
+    } finally {
+      setCargando(false);
+    }
+  }, [usuario, semanaActualOffset]);
+
+  useEffect(() => {
+    cargarAgendaBackend();
+  }, [cargarAgendaBackend]);
+
+  // Horas del calendario (08:00 a 17:00)
+  const horasGrid = [
+    '08:00', '09:00', '10:00', '11:00', '12:00', 
+    '13:00', '14:00', '15:00', '16:00', '17:00'
+  ];
 
   // Menú lateral estructurado
   const menuItems = [
@@ -146,154 +226,242 @@ export default function SupervisorPage() {
 
   const nombreSupervisor = usuario 
     ? `${usuario.nombres} ${usuario.apellidos}` 
-    : 'Ing. Marco Vargas';
+    : 'Lic. Andrea Torrico';
 
-  // Inspecciones pendientes por programar (Columna Izquierda)
-  const [inspeccionesPendientes, setInspeccionesPendientes] = useState([
-    {
-      id: 'pend_1',
-      tipo: 'Apertura',
-      tipoTag: 'Renovación',
-      tagColor: 'orange',
-      nombre: 'Apertura - Farmacia Vida',
-      establecimiento: 'Farmacia Vida Central',
-      direccion: 'Av. Blanco Galindo Km 4, Quillacollo',
-      municipio: 'QUILLACOLLO',
-      fechaSolicitud: '10/08/2026',
-      nivel: 'Nivel 1'
-    },
-    {
-      id: 'pend_2',
-      tipo: 'Renovación',
-      tipoTag: 'Apertura',
-      tagColor: 'blue',
-      nombre: 'Renovación - Clínica Esperanza',
-      establecimiento: 'Clínica de Especialidades Esperanza',
-      direccion: 'Calle Sucre #240, Cercado',
-      municipio: 'CERCADO',
-      fechaSolicitud: '10/08/2026',
-      nivel: 'Nivel 2'
-    },
-    {
-      id: 'pend_3',
-      tipo: 'Apertura',
-      tipoTag: 'Renovación',
-      tagColor: 'orange',
-      nombre: 'Apertura - Lab. Génesis',
-      establecimiento: 'Laboratorio de Diagnóstico Génesis',
-      direccion: 'Av. América #580, Cercado',
-      municipio: 'CERCADO',
-      fechaSolicitud: '11/08/2026',
-      nivel: 'Nivel 1'
-    },
-    {
-      id: 'pend_4',
-      tipo: 'Renovación',
-      tipoTag: 'Apertura',
-      tagColor: 'blue',
-      nombre: 'Renovación - Centro Dental Smile',
-      establecimiento: 'Centro Odontológico Smile',
-      direccion: 'Calle Jordán #120, Cercado',
-      municipio: 'CERCADO',
-      fechaSolicitud: '12/08/2026',
-      nivel: 'Nivel 1'
-    },
-    {
-      id: 'pend_5',
-      tipo: 'Apertura',
-      tipoTag: 'Apertura',
-      tagColor: 'blue',
-      nombre: 'Apertura - Lab. San Simón',
-      establecimiento: 'Laboratorio Bioquímico San Simón',
-      direccion: 'Av. Petrolera Km 2, Cercado',
-      municipio: 'CERCADO',
-      fechaSolicitud: '12/08/2026',
-      nivel: 'Nivel 2'
+  // Helper para obtener fecha local de hoy en formato YYYY-MM-DD
+  const hoyLocalIso = () => {
+    const d = new Date();
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  // Helper robusto para parsear cualquier formato de fecha y hora
+  const parseFechaHoraJs = (fechaStr, horaStr = '00:00') => {
+    if (!fechaStr) return null;
+    const fechaLimpia = String(fechaStr).trim().split('T')[0].split(' ')[0];
+    const horaLimpia = String(horaStr || '00:00').trim().split('T').pop().split(' ').pop();
+
+    let year = 2026, month = 1, day = 1;
+    if (fechaLimpia.includes('-')) {
+      const parts = fechaLimpia.split('-').map(Number);
+      if (parts.length >= 3) {
+        if (parts[0] > 1000) {
+          [year, month, day] = parts;
+        } else {
+          [day, month, year] = parts;
+        }
+      }
+    } else if (fechaLimpia.includes('/')) {
+      const parts = fechaLimpia.split('/').map(Number);
+      if (parts.length >= 3) {
+        if (parts[0] > 1000) {
+          [year, month, day] = parts;
+        } else {
+          [day, month, year] = parts;
+        }
+      }
+    } else {
+      return null;
     }
-  ]);
 
-  // Eventos programados en el calendario semanal (Columna Derecha)
-  const eventosSemana = [
-    {
-      id: 'evt_1',
-      dia: 'Lun', // Lunes 11
-      diaIndex: 0,
-      horaInicio: '10:00',
-      horaFin: '11:30',
-      startMinutes: 10 * 60,
-      durationMinutes: 90,
-      titulo: 'Inspección Técnica...',
-      subtitulo: '10:00 - 11:30',
-      establecimiento: 'Farmacia Vida Central',
-      direccion: 'Av. Blanco Galindo Km 4, Quillacollo',
-      tipo: 'Inspección Técnica',
-      color: 'amber' // Fondo ambar / borde naranja
-    },
-    {
-      id: 'evt_2',
-      dia: 'Mar', // Martes 12
-      diaIndex: 1,
-      horaInicio: '09:00',
-      horaFin: '10:30',
-      startMinutes: 9 * 60,
-      durationMinutes: 90,
-      titulo: 'Apertura - Lab...',
-      subtitulo: '09:00 - 10:30',
-      establecimiento: 'Laboratorio Central BioTest',
-      direccion: 'Av. Heroínas #789, Cercado',
-      tipo: 'Apertura',
-      color: 'blue' // Fondo azul claro / borde azul
-    },
-    {
-      id: 'evt_3',
-      dia: 'Mié', // Miércoles 13
-      diaIndex: 2,
-      horaInicio: '11:00',
-      horaFin: '12:30',
-      startMinutes: 11 * 60,
-      durationMinutes: 90,
-      titulo: 'Inspección Ho...',
-      subtitulo: '11:00 - 12:30',
-      establecimiento: 'Hospital San Juan de Dios',
-      direccion: 'Calle Esteban Arze #450, Punata',
-      tipo: 'Inspección Hospitalaria',
-      color: 'amber'
-    },
-    {
-      id: 'evt_4',
-      dia: 'Jue', // Jueves 14
-      diaIndex: 3,
-      horaInicio: '10:00',
-      horaFin: '11:00',
-      startMinutes: 10 * 60,
-      durationMinutes: 60,
-      titulo: 'Renovación - ...',
-      subtitulo: '10:00 - 11:00',
-      establecimiento: 'Laboratorio Clínico América',
-      direccion: 'Av. América #320, Cercado',
-      tipo: 'Renovación',
-      color: 'blue'
+    const [hour, minute] = horaLimpia.split(':').map(Number);
+    return new Date(year, month - 1, day, hour || 0, minute || 0, 0, 0);
+  };
+
+  // Normalizar cualquier fecha a estándar YYYY-MM-DD
+  const normalizarAFechaIso = (fechaStr) => {
+    const d = parseFechaHoraJs(fechaStr);
+    if (!d || isNaN(d.getTime())) return fechaStr;
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  };
+
+  // Helper para verificar si una combinación de fecha y hora está en el pasado (con 2 min de tolerancia)
+  const esFechaHoraPasada = (fechaStr, horaStr) => {
+    const d = parseFechaHoraJs(fechaStr, horaStr);
+    if (!d || isNaN(d.getTime())) return false;
+    const ahora = new Date();
+    ahora.setMinutes(ahora.getMinutes() - 2);
+    return d < ahora;
+  };
+
+  // Abrir modal para programar una inspección pendiente
+  const handleAbrirProgramar = (item, diaSugerido = null, horaSugerida = null) => {
+    setTramiteSeleccionado(item);
+    const fechaHoy = hoyLocalIso();
+    
+    if (diaSugerido && diaSugerido >= fechaHoy) {
+      setFormFecha(diaSugerido);
+    } else if (semanaInfo.dias && semanaInfo.dias.length > 0) {
+      const primerDiaFuturo = semanaInfo.dias.find(d => d.fecha_iso >= fechaHoy);
+      setFormFecha(primerDiaFuturo ? primerDiaFuturo.fecha_iso : fechaHoy);
+    } else {
+      setFormFecha(fechaHoy);
     }
-  ];
 
-  // Días de la semana laboral
-  const diasSemana = [
-    { key: 'Lun', nombre: 'Lun', numero: 11 },
-    { key: 'Mar', nombre: 'Mar', numero: 12 },
-    { key: 'Mié', nombre: 'Mié', numero: 13 },
-    { key: 'Jue', nombre: 'Jue', numero: 14 },
-    { key: 'Vie', nombre: 'Vie', numero: 15 }
-  ];
+    const hInicio = horaSugerida || '09:00';
+    setFormHora(hInicio);
 
-  // Horas del calendario (08:00 a 17:00)
-  const horasGrid = [
-    '08:00', '09:00', '10:00', '11:00', '12:00', 
-    '13:00', '14:00', '15:00', '16:00', '17:00'
-  ];
+    // Calcular hora de fin por defecto (1 hora y media después)
+    try {
+      const [hh, mm] = hInicio.split(':').map(Number);
+      const totalMin = hh * 60 + mm + 90;
+      const endH = String(Math.floor(totalMin / 60)).padStart(2, '0');
+      const endM = String(totalMin % 60).padStart(2, '0');
+      setFormHoraFin(`${endH}:${endM}`);
+    } catch {
+      setFormHoraFin('11:00');
+    }
 
-  const handleVerDetalleInspeccion = (evento) => {
+    setFormObservaciones('');
+    setModalAgendarOpen(true);
+  };
+
+  // Guardar agendamiento en base de datos
+  const handleGuardarAgendamiento = async (e) => {
+    e.preventDefault();
+    if (!tramiteSeleccionado) {
+      mostrarToast('Por favor seleccione un establecimiento asignado de la lista.', 'warning');
+      return;
+    }
+    if (!formFecha) {
+      mostrarToast('Seleccione la fecha de inspección.', 'warning');
+      return;
+    }
+
+    // Validación estricta contra fechas u horas pasadas
+    if (esFechaHoraPasada(formFecha, formHora)) {
+      mostrarToast('No es posible programar una inspección en una fecha u hora pasada.', 'warning');
+      return;
+    }
+
+    // Validación de horario de finalización
+    if (formHoraFin && formHoraFin <= formHora) {
+      mostrarToast('La hora de finalización debe ser posterior a la hora de inicio.', 'warning');
+      return;
+    }
+
+    // Calcular duración en minutos a partir de inicio y fin
+    let duracionMin = 90;
+    try {
+      const [h1, m1] = formHora.split(':').map(Number);
+      const [h2, m2] = (formHoraFin || '11:00').split(':').map(Number);
+      const diff = (h2 * 60 + m2) - (h1 * 60 + m1);
+      if (diff > 0) duracionMin = diff;
+    } catch {
+      duracionMin = 90;
+    }
+
+    setGuardandoAgendamiento(true);
+    try {
+      const fechaIsoFinal = normalizarAFechaIso(formFecha);
+      const response = await fetch('http://localhost:8000/api/supervisor/agendar-inspeccion', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tramite_id: tramiteSeleccionado.tramite_id || tramiteSeleccionado.id,
+          supervisor_id: usuario?.id || usuario?.email || 'Lic. Andrea Torrico',
+          fecha: fechaIsoFinal,
+          hora_inicio: formHora,
+          hora_fin: formHoraFin,
+          duracion_minutos: duracionMin,
+          observaciones: formObservaciones
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        mostrarToast(data.mensaje || '¡Inspección registrada con éxito!', 'success');
+        setModalAgendarOpen(false);
+        setTramiteSeleccionado(null);
+        cargarAgendaBackend();
+      } else {
+        const err = await response.json();
+        mostrarToast(err.detail || 'Error al registrar la inspección.', 'warning');
+      }
+    } catch (err) {
+      console.warn('Error al agendar inspección:', err);
+      mostrarToast('Error de conexión con el servidor al registrar.', 'warning');
+    } finally {
+      setGuardandoAgendamiento(false);
+    }
+  };
+
+  // Abrir detalle de evento en calendario
+  const handleVerDetalleEvento = (evento) => {
     setInspeccionSeleccionada(evento);
+    setModoReprogramar(false);
+    setReprogramarFecha(evento.fecha || '');
+    setReprogramarHora(evento.horaInicio || '10:00');
+    setReprogramarMotivo('');
     setModalInspeccionOpen(true);
+  };
+
+  // Reprogramar inspección
+  const handleGuardarReprogramacion = async (e) => {
+    e.preventDefault();
+    if (!inspeccionSeleccionada) return;
+
+    // Validación estricta contra fechas u horas pasadas al reprogramar
+    if (esFechaHoraPasada(reprogramarFecha, reprogramarHora)) {
+      mostrarToast('No es posible reprogramar una inspección en una fecha u hora pasada.', 'warning');
+      return;
+    }
+
+    try {
+      const fechaIsoFinal = normalizarAFechaIso(reprogramarFecha);
+      const response = await fetch('http://localhost:8000/api/supervisor/reprogramar-inspeccion', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          inspeccion_id: inspeccionSeleccionada.inspeccion_id || inspeccionSeleccionada.id,
+          fecha: fechaIsoFinal,
+          hora_inicio: reprogramarHora,
+          motivo: reprogramarMotivo
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        mostrarToast(data.mensaje || '¡Inspección reprogramada exitosamente!', 'success');
+        setModalInspeccionOpen(false);
+        cargarAgendaBackend();
+      } else {
+        const err = await response.json();
+        mostrarToast(err.detail || 'Error al reprogramar inspección.', 'warning');
+      }
+    } catch (err) {
+      console.warn('Error al reprogramar:', err);
+      mostrarToast('Error de conexión al reprogramar.', 'warning');
+    }
+  };
+
+  // Desagendar inspección y devolver a pendientes
+  const handleDesagendar = async () => {
+    if (!inspeccionSeleccionada) return;
+    try {
+      const response = await fetch('http://localhost:8000/api/supervisor/desagendar-inspeccion', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          inspeccion_id: inspeccionSeleccionada.inspeccion_id || inspeccionSeleccionada.id
+        })
+      });
+
+      if (response.ok) {
+        mostrarToast('Inspección devuelta a la lista de pendientes.', 'success');
+        setModalInspeccionOpen(false);
+        cargarAgendaBackend();
+      } else {
+        mostrarToast('Error al desagendar inspección.', 'warning');
+      }
+    } catch (err) {
+      console.warn('Error al desagendar:', err);
+    }
   };
 
   return (
@@ -406,19 +574,32 @@ export default function SupervisorPage() {
               </div>
             </div>
 
-            {/* Perfil del Usuario & Notificaciones */}
+            {/* Perfil del Usuario & Acciones */}
             <div className="flex items-center space-x-3 sm:space-x-5">
               
+              {/* Botón Refrescar */}
+              <button
+                type="button"
+                onClick={cargarAgendaBackend}
+                disabled={cargando}
+                className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition cursor-pointer"
+                title="Actualizar agenda"
+              >
+                <RefreshCw className={`w-4 h-4 ${cargando ? 'animate-spin text-[#0060a8]' : ''}`} />
+              </button>
+
               {/* Campana de Notificaciones con Badge */}
               <button 
                 type="button" 
                 className="relative p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition cursor-pointer"
-                title="3 Notificaciones pendientes"
+                title="Notificaciones de inspección"
               >
                 <Bell className="w-5 h-5" />
-                <span className="absolute top-1.5 right-1.5 w-4 h-4 bg-red-500 text-white rounded-full text-[10px] font-extrabold flex items-center justify-center ring-2 ring-white">
-                  3
-                </span>
+                {inspeccionesPendientes.length > 0 && (
+                  <span className="absolute top-1.5 right-1.5 w-4 h-4 bg-red-500 text-white rounded-full text-[10px] font-extrabold flex items-center justify-center ring-2 ring-white">
+                    {inspeccionesPendientes.length}
+                  </span>
+                )}
               </button>
 
               {/* Perfil del Supervisor */}
@@ -471,7 +652,7 @@ export default function SupervisorPage() {
                   </p>
                 </div>
 
-                {/* Navegador Semanal */}
+                {/* Navegador Semanal Dinámico */}
                 <div className="flex items-center bg-white px-3 py-1.5 rounded-xl border border-slate-200 shadow-2xs space-x-2 text-xs font-bold text-slate-700 self-start md:self-auto">
                   <button
                     type="button"
@@ -481,8 +662,8 @@ export default function SupervisorPage() {
                   >
                     <ChevronLeft className="w-4 h-4" />
                   </button>
-                  <span className="px-1 text-slate-800">
-                    Semana del 11 - 15 Agosto 2026
+                  <span className="px-1 text-slate-800 font-extrabold min-w-[200px] text-center">
+                    {semanaInfo.rango_texto}
                   </span>
                   <button
                     type="button"
@@ -492,6 +673,15 @@ export default function SupervisorPage() {
                   >
                     <ChevronRight className="w-4 h-4" />
                   </button>
+                  {semanaActualOffset !== 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setSemanaActualOffset(0)}
+                      className="text-[10px] text-[#0060a8] hover:underline font-bold pl-1"
+                    >
+                      Hoy
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -503,51 +693,64 @@ export default function SupervisorPage() {
                 {/* ------------------------------------------------------------- */}
                 <div className="lg:col-span-4 bg-white rounded-3xl p-5 border border-slate-200 shadow-2xs space-y-4">
                   <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                    <h3 className="text-sm sm:text-base font-extrabold text-slate-900 tracking-tight">
-                      Inspecciones Pendientes
+                    <h3 className="text-sm sm:text-base font-extrabold text-slate-900 tracking-tight flex items-center space-x-2">
+                      <span>Inspecciones Pendientes</span>
                     </h3>
-                    <span className="text-[11px] font-bold text-amber-800 bg-amber-100/90 px-2.5 py-0.5 rounded-full border border-amber-200">
+                    <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full border ${
+                      inspeccionesPendientes.length > 0 
+                        ? 'text-amber-800 bg-amber-100/90 border-amber-200' 
+                        : 'text-slate-600 bg-slate-100 border-slate-200'
+                    }`}>
                       {inspeccionesPendientes.length} pendientes
                     </span>
                   </div>
 
                   {/* Lista de Tarjetas de Inspecciones Pendientes */}
-                  <div className="space-y-3">
-                    {inspeccionesPendientes.map((item) => (
-                      <div
-                        key={item.id}
-                        onClick={() => handleVerDetalleInspeccion({
-                          titulo: item.nombre,
-                          establecimiento: item.establecimiento,
-                          direccion: item.direccion,
-                          tipo: item.tipo,
-                          municipio: item.municipio,
-                          fechaSolicitud: item.fechaSolicitud,
-                          nivel: item.nivel
-                        })}
-                        className={`
-                          p-3.5 rounded-2xl bg-white border border-slate-200/90 hover:border-slate-300 hover:shadow-md transition cursor-pointer space-y-2 relative overflow-hidden
-                          ${item.tagColor === 'orange' ? 'border-l-4 border-l-amber-500' : 'border-l-4 border-l-blue-600'}
-                        `}
-                      >
-                        <h4 className="text-xs sm:text-sm font-bold text-slate-800 leading-snug">
-                          {item.nombre}
-                        </h4>
-
-                        <div className="flex items-center justify-between pt-1">
-                          <span className={`
-                            text-[10px] font-extrabold px-2 py-0.5 rounded-md
-                            ${item.tagColor === 'orange' ? 'bg-amber-50 text-amber-700 border border-amber-200' : 'bg-blue-50 text-blue-700 border border-blue-200'}
-                          `}>
-                            {item.tipoTag}
-                          </span>
-
-                          <span className="text-[10px] text-slate-400 font-medium">
-                            {item.municipio}
-                          </span>
-                        </div>
+                  <div className="space-y-3 min-h-[140px]">
+                    {inspeccionesPendientes.length === 0 ? (
+                      <div className="text-center py-8 px-4 bg-slate-50/70 rounded-2xl border border-dashed border-slate-200 space-y-2">
+                        <CheckCircle2 className="w-8 h-8 text-emerald-500 mx-auto opacity-80" />
+                        <p className="text-xs font-bold text-slate-700">¡Al día!</p>
+                        <p className="text-[11px] text-slate-400">
+                          No tienes inspecciones pendientes de programar por el momento.
+                        </p>
                       </div>
-                    ))}
+                    ) : (
+                      inspeccionesPendientes.map((item) => (
+                        <div
+                          key={item.id}
+                          onClick={() => handleAbrirProgramar(item)}
+                          className={`
+                            p-3.5 rounded-2xl bg-white border border-slate-200/90 hover:border-slate-300 hover:shadow-md transition cursor-pointer space-y-2 relative overflow-hidden group
+                            ${item.tagColor === 'orange' ? 'border-l-4 border-l-amber-500' : 'border-l-4 border-l-blue-600'}
+                          `}
+                          title="Clic para programar horario de inspección"
+                        >
+                          <div className="flex items-start justify-between">
+                            <h4 className="text-xs sm:text-sm font-bold text-slate-800 leading-snug group-hover:text-[#0060a8] transition">
+                              {item.nombre}
+                            </h4>
+                            <span className="opacity-0 group-hover:opacity-100 transition text-[#0060a8] text-[10px] font-bold flex items-center space-x-0.5 bg-blue-50 px-1.5 py-0.5 rounded-md">
+                              <CalendarPlus className="w-3 h-3" />
+                              <span>Agendar</span>
+                            </span>
+                          </div>
+
+                          <div className="flex items-center justify-between pt-1">
+                            <span className={`
+                              text-[10px] font-extrabold px-2 py-0.5 rounded-md uppercase tracking-wider
+                              ${item.tagColor === 'orange' ? 'bg-amber-50 text-amber-700 border border-amber-200' : 'bg-blue-50 text-blue-700 border border-blue-200'}
+                            `}>
+                              {item.tipoTag}
+                            </span>
+
+                            <span className="text-[10px] text-slate-400 font-medium">
+                              {item.municipio}
+                            </span>
+                          </div>
+                        </div>
+                      ))
+                    )}
                   </div>
                 </div>
 
@@ -563,7 +766,7 @@ export default function SupervisorPage() {
                       {/* Cabecera de Días */}
                       <div className="grid grid-cols-6 border-b border-slate-200 pb-3 text-center">
                         <div className="text-xs font-bold text-slate-400">Hora</div>
-                        {diasSemana.map((dia) => (
+                        {semanaInfo.dias.map((dia) => (
                           <div key={dia.key} className="space-y-0.5">
                             <span className="text-xs font-bold text-slate-700 block">{dia.nombre}</span>
                             <span className="text-xs text-slate-400 font-medium">{dia.numero}</span>
@@ -578,95 +781,68 @@ export default function SupervisorPage() {
                             <div className="font-mono text-[11px] text-slate-400 pr-2">
                               {hora}
                             </div>
-                            <div className="border-l border-slate-100 h-full" />
-                            <div className="border-l border-slate-100 h-full" />
-                            <div className="border-l border-slate-100 h-full" />
-                            <div className="border-l border-slate-100 h-full" />
-                            <div className="border-l border-slate-100 h-full" />
+                            {semanaInfo.dias.map((dia) => (
+                              <div 
+                                key={dia.key} 
+                                onClick={() => {
+                                  if (dia.fecha_iso && esFechaHoraPasada(dia.fecha_iso, hora)) {
+                                    mostrarToast('No es posible seleccionar un horario que ya ha transcurrido.', 'warning');
+                                    return;
+                                  }
+                                  if (inspeccionesPendientes.length > 0) {
+                                    handleAbrirProgramar(inspeccionesPendientes[0], dia.fecha_iso, hora);
+                                  } else {
+                                    handleAbrirProgramar(null, dia.fecha_iso, hora);
+                                  }
+                                }}
+                                className="border-l border-slate-100 h-full hover:bg-blue-50/30 transition cursor-pointer" 
+                                title={`Programar inspección para el ${dia.nombre} ${dia.numero} a las ${hora}`}
+                              />
+                            ))}
                           </div>
                         ))}
 
-                        {/* Bloques de Eventos Programados sobre la cuadrícula */}
-                        
-                        {/* Evento 1: Lunes 10:00 - 11:30 (Inspección Técnica) */}
-                        <div 
-                          onClick={() => handleVerDetalleInspeccion(eventosSemana[0])}
-                          style={{
-                            position: 'absolute',
-                            left: 'calc(16.66% * 1 + 4px)',
-                            width: 'calc(16.66% - 8px)',
-                            top: '96px', // 2 horas después de 08:00 (48px * 2)
-                            height: '72px' // 1.5 horas (48px * 1.5)
-                          }}
-                          className="bg-amber-100/90 border-l-4 border-l-amber-500 border border-amber-200 rounded-xl p-2 cursor-pointer hover:shadow-md transition shadow-2xs flex flex-col justify-between text-left overflow-hidden z-10"
-                        >
-                          <span className="font-bold text-slate-900 text-[11px] truncate">
-                            Inspección Téc...
-                          </span>
-                          <span className="text-[10px] text-amber-900 font-medium">
-                            10:00 - 11:30
-                          </span>
-                        </div>
+                        {/* Bloques Dinámicos de Eventos Programados */}
+                        {eventosSemana.map((evt) => {
+                          const startM = evt.startMinutes || (9 * 60);
+                          const durM = evt.durationMinutes || 90;
+                          
+                          // Cálculo preciso de posición top y altura (08:00 es el minuto 480)
+                          const topPx = Math.max(0, ((startM - 8 * 60) / 60) * 48);
+                          const heightPx = Math.max(36, (durM / 60) * 48);
+                          const leftPct = (evt.diaIndex + 1) * 16.666;
 
-                        {/* Evento 2: Martes 09:00 - 10:30 (Apertura) */}
-                        <div 
-                          onClick={() => handleVerDetalleInspeccion(eventosSemana[1])}
-                          style={{
-                            position: 'absolute',
-                            left: 'calc(16.66% * 2 + 4px)',
-                            width: 'calc(16.66% - 8px)',
-                            top: '48px', // 1 hora después de 08:00
-                            height: '72px'
-                          }}
-                          className="bg-blue-100/90 border-l-4 border-l-blue-600 border border-blue-200 rounded-xl p-2 cursor-pointer hover:shadow-md transition shadow-2xs flex flex-col justify-between text-left overflow-hidden z-10"
-                        >
-                          <span className="font-bold text-slate-900 text-[11px] truncate">
-                            Apertura - Lab...
-                          </span>
-                          <span className="text-[10px] text-blue-900 font-medium">
-                            09:00 - 10:30
-                          </span>
-                        </div>
+                          const isBlue = evt.color === 'blue';
 
-                        {/* Evento 3: Miércoles 11:00 - 12:30 (Inspección Hospitalaria) */}
-                        <div 
-                          onClick={() => handleVerDetalleInspeccion(eventosSemana[2])}
-                          style={{
-                            position: 'absolute',
-                            left: 'calc(16.66% * 3 + 4px)',
-                            width: 'calc(16.66% - 8px)',
-                            top: '144px', // 3 horas después de 08:00
-                            height: '72px'
-                          }}
-                          className="bg-amber-100/90 border-l-4 border-l-amber-500 border border-amber-200 rounded-xl p-2 cursor-pointer hover:shadow-md transition shadow-2xs flex flex-col justify-between text-left overflow-hidden z-10"
-                        >
-                          <span className="font-bold text-slate-900 text-[11px] truncate">
-                            Inspección Ho...
-                          </span>
-                          <span className="text-[10px] text-amber-900 font-medium">
-                            11:00 - 12:30
-                          </span>
-                        </div>
-
-                        {/* Evento 4: Jueves 10:00 - 11:00 (Renovación) */}
-                        <div 
-                          onClick={() => handleVerDetalleInspeccion(eventosSemana[3])}
-                          style={{
-                            position: 'absolute',
-                            left: 'calc(16.66% * 4 + 4px)',
-                            width: 'calc(16.66% - 8px)',
-                            top: '96px', // 2 horas después de 08:00
-                            height: '48px' // 1 hora
-                          }}
-                          className="bg-blue-100/90 border-l-4 border-l-blue-600 border border-blue-200 rounded-xl p-2 cursor-pointer hover:shadow-md transition shadow-2xs flex flex-col justify-between text-left overflow-hidden z-10"
-                        >
-                          <span className="font-bold text-slate-900 text-[11px] truncate">
-                            Renovación - ...
-                          </span>
-                          <span className="text-[10px] text-blue-900 font-medium">
-                            10:00 - 11:00
-                          </span>
-                        </div>
+                          return (
+                            <div 
+                              key={evt.id}
+                              onClick={() => handleVerDetalleEvento(evt)}
+                              style={{
+                                position: 'absolute',
+                                left: `calc(${leftPct}% + 4px)`,
+                                width: 'calc(16.666% - 8px)',
+                                top: `${topPx}px`,
+                                height: `${heightPx}px`
+                              }}
+                              className={`
+                                rounded-xl p-2 cursor-pointer hover:shadow-md transition shadow-2xs flex flex-col justify-between text-left overflow-hidden z-10
+                                ${isBlue 
+                                  ? 'bg-blue-100/90 border-l-4 border-l-blue-600 border border-blue-200' 
+                                  : 'bg-amber-100/90 border-l-4 border-l-amber-500 border border-amber-200'
+                                }
+                              `}
+                              title={`${evt.establecimiento} (${evt.subtitulo})`}
+                            >
+                              <span className="font-bold text-slate-900 text-[11px] truncate">
+                                {evt.titulo || evt.establecimiento}
+                              </span>
+                              <span className={`text-[10px] font-medium ${isBlue ? 'text-blue-900' : 'text-amber-900'}`}>
+                                {evt.subtitulo || `${evt.horaInicio} - ${evt.horaFin}`}
+                              </span>
+                            </div>
+                          );
+                        })}
 
                       </div>
                     </div>
@@ -680,7 +856,7 @@ export default function SupervisorPage() {
               <div className="flex justify-end pt-4">
                 <button
                   type="button"
-                  onClick={() => setModalNuevaInspeccionOpen(true)}
+                  onClick={() => handleAbrirProgramar(inspeccionesPendientes[0] || null)}
                   className="bg-[#1b2533] hover:bg-[#111827] text-white text-xs sm:text-sm font-bold px-6 py-3.5 rounded-full shadow-lg hover:shadow-xl transition flex items-center space-x-2 cursor-pointer"
                 >
                   <Plus className="w-4 h-4 text-white" />
@@ -691,8 +867,17 @@ export default function SupervisorPage() {
             </div>
           )}
 
-          {/* OTRAS VISTAS DEL MENÚ LATERAL */}
-          {seccionActiva !== 'mi-agenda' && (
+          {/* VISTA 2: RUTAS DE INSPECCIÓN */}
+          {seccionActiva === 'rutas-inspeccion' && (
+            <RutasInspeccionView
+              usuario={usuario}
+              onCambiarSeccion={(sec) => navigate(`/supervisor/${sec}`)}
+              mostrarToast={mostrarToast}
+            />
+          )}
+
+          {/* OTRAS VISTAS DEL MENÚ LATERAL (Actas, Citaciones) */}
+          {seccionActiva !== 'mi-agenda' && seccionActiva !== 'rutas-inspeccion' && (
             <div className="bg-white rounded-3xl p-8 sm:p-12 border border-slate-200 shadow-2xs min-h-[420px] flex flex-col items-center justify-center text-center space-y-3">
               <div className="w-16 h-16 rounded-2xl bg-blue-50 text-[#005596] flex items-center justify-center">
                 <itemActivo.icon className="w-8 h-8" />
@@ -701,7 +886,7 @@ export default function SupervisorPage() {
                 Sección: {itemActivo.label}
               </h3>
               <p className="text-xs text-slate-400 max-w-md">
-                Estructura y enrutamiento del supervisor listos para implementar los mapas de ruta y actas de inspección en campo.
+                Estructura del supervisor lista para implementar los módulos de actas técnicas y citaciones en campo.
               </p>
             </div>
           )}
@@ -711,7 +896,7 @@ export default function SupervisorPage() {
       </div>
 
       {/* ===================================================================== */}
-      {/* 4. MODAL: DETALLE DE INSPECCIÓN PROGRAMADA                            */}
+      {/* 4. MODAL: DETALLE / REPROGRAMACIÓN DE INSPECCIÓN                       */}
       {/* ===================================================================== */}
       {modalInspeccionOpen && inspeccionSeleccionada && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fadeIn">
@@ -734,129 +919,340 @@ export default function SupervisorPage() {
               </button>
             </div>
 
-            <div className="space-y-3 text-xs">
-              <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200 space-y-2">
-                <div className="flex justify-between">
-                  <span className="text-slate-400 font-medium">Tipo de Trámite:</span>
-                  <span className="font-bold text-slate-800">{inspeccionSeleccionada.tipo || 'Inspección de Apertura'}</span>
+            {!modoReprogramar ? (
+              <div className="space-y-4 text-xs">
+                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-2.5">
+                  <div className="flex justify-between">
+                    <span className="text-slate-400 font-medium">Tipo de Trámite:</span>
+                    <span className="font-bold text-slate-800">{inspeccionSeleccionada.tipo || 'Inspección de Apertura'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-400 font-medium">Horario Programado:</span>
+                    <span className="font-bold text-[#005596]">{inspeccionSeleccionada.subtitulo || `${inspeccionSeleccionada.horaInicio} - ${inspeccionSeleccionada.horaFin}`}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-400 font-medium">Fecha:</span>
+                    <span className="font-bold text-slate-800">{inspeccionSeleccionada.fecha || 'Semana Actual'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-400 font-medium">Municipio:</span>
+                    <span className="font-bold text-slate-800">{inspeccionSeleccionada.municipio || 'CERCADO'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-400 font-medium">Dirección:</span>
+                    <span className="font-bold text-slate-800 text-right max-w-[200px]">{inspeccionSeleccionada.direccion || 'Cochabamba'}</span>
+                  </div>
+                  {inspeccionSeleccionada.telefono && (
+                    <div className="flex justify-between">
+                      <span className="text-slate-400 font-medium">Contacto:</span>
+                      <span className="font-bold text-slate-800">{inspeccionSeleccionada.telefono}</span>
+                    </div>
+                  )}
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-400 font-medium">Horario Asignado:</span>
-                  <span className="font-bold text-[#005596]">{inspeccionSeleccionada.subtitulo || '10:00 - 11:30'}</span>
+
+                <div className="flex items-center justify-between text-xs text-slate-500 pt-1">
+                  <span>Estado: <strong className="text-emerald-700">{inspeccionSeleccionada.estado_inspeccion || 'Programada'}</strong></span>
+                  <button
+                    type="button"
+                    onClick={() => setModoReprogramar(true)}
+                    className="text-[#0060a8] hover:underline font-bold cursor-pointer"
+                  >
+                    Reprogramar fecha/hora
+                  </button>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-400 font-medium">Dirección:</span>
-                  <span className="font-bold text-slate-800 text-right max-w-[200px]">{inspeccionSeleccionada.direccion || 'Cochabamba'}</span>
+
+                <div className="flex items-center justify-between pt-4 border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={handleDesagendar}
+                    className="text-rose-600 hover:text-rose-800 text-xs font-bold hover:underline cursor-pointer"
+                  >
+                    Mover a Pendientes
+                  </button>
+
+                  <div className="flex items-center space-x-2">
+                    <button
+                      type="button"
+                      onClick={() => setModalInspeccionOpen(false)}
+                      className="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold px-4 py-2.5 rounded-xl transition cursor-pointer"
+                    >
+                      Cerrar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        mostrarToast('Iniciando acta técnica de inspección en campo...', 'success');
+                        setModalInspeccionOpen(false);
+                      }}
+                      className="bg-[#005596] hover:bg-[#003e6d] text-white text-xs font-bold px-4 py-2.5 rounded-xl transition shadow-md cursor-pointer flex items-center space-x-1.5"
+                    >
+                      <FileCheck2 className="w-4 h-4" />
+                      <span>Iniciar Acta</span>
+                    </button>
+                  </div>
                 </div>
               </div>
+            ) : (
+              <form onSubmit={handleGuardarReprogramacion} className="space-y-4 text-xs">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <label className="font-bold text-slate-700">Nueva Fecha</label>
+                    <input
+                      type="date"
+                      required
+                      min={hoyLocalIso()}
+                      value={reprogramarFecha}
+                      onChange={(e) => setReprogramarFecha(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-800 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-[#0073c6]"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="font-bold text-slate-700">Nueva Hora</label>
+                    <input
+                      type="time"
+                      required
+                      value={reprogramarHora}
+                      onChange={(e) => setReprogramarHora(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-800 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-[#0073c6]"
+                    />
+                  </div>
+                </div>
 
-              <p className="text-slate-500 text-xs">
-                Esta inspección fue asignada por la Dirección del SEDES para verificación técnica de ambientes y bioseguridad.
-              </p>
-            </div>
+                <div className="space-y-1.5">
+                  <label className="font-bold text-slate-700">Motivo del Cambio</label>
+                  <input
+                    type="text"
+                    placeholder="Ej: Solicitud de reprogramación por el laboratorio"
+                    value={reprogramarMotivo}
+                    onChange={(e) => setReprogramarMotivo(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-800 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-[#0073c6]"
+                  />
+                </div>
 
-            <div className="flex items-center justify-end space-x-3 pt-3 border-t border-slate-100">
-              <button
-                type="button"
-                onClick={() => setModalInspeccionOpen(false)}
-                className="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold px-4 py-2.5 rounded-xl transition cursor-pointer"
-              >
-                Cerrar
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  alert('Iniciando acta de inspección en campo para este establecimiento.');
-                  setModalInspeccionOpen(false);
-                }}
-                className="bg-[#005596] hover:bg-[#003e6d] text-white text-xs font-bold px-5 py-2.5 rounded-xl transition shadow-md cursor-pointer flex items-center space-x-1.5"
-              >
-                <FileCheck2 className="w-4 h-4" />
-                <span>Iniciar Acta en Campo</span>
-              </button>
-            </div>
+                <div className="flex items-center justify-end space-x-3 pt-3 border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => setModoReprogramar(false)}
+                    className="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold px-4 py-2.5 rounded-xl transition cursor-pointer"
+                  >
+                    Volver
+                  </button>
+                  <button
+                    type="submit"
+                    className="bg-[#005596] hover:bg-[#003e6d] text-white text-xs font-bold px-5 py-2.5 rounded-xl transition shadow-md cursor-pointer"
+                  >
+                    Confirmar Cambio
+                  </button>
+                </div>
+              </form>
+            )}
           </div>
         </div>
       )}
 
       {/* ===================================================================== */}
-      {/* 5. MODAL: NUEVO REGISTRO DE INSPECCIÓN                                */}
+      {/* 5. MODAL: NUEVO REGISTRO DE INSPECCIÓN (ESTRUCTURA FIGMA INSTITUCIONAL) */}
       {/* ===================================================================== */}
-      {modalNuevaInspeccionOpen && (
+      {modalAgendarOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fadeIn">
-          <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl border border-slate-100 space-y-5">
-            <div className="flex items-start justify-between border-b border-slate-100 pb-4">
+          <div className="bg-white rounded-3xl max-w-2xl w-full p-6 sm:p-8 shadow-2xl border border-slate-100 space-y-6">
+            
+            {/* Cabecera del Modal */}
+            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
               <div>
-                <span className="text-[10px] font-extrabold text-[#005596] uppercase tracking-wider">
-                  Programación de Inspección
-                </span>
-                <h3 className="text-lg font-black text-slate-900 tracking-tight mt-0.5">
-                  Registrar Nueva Inspección
+                <h3 className="text-xl font-black text-slate-900 tracking-tight">
+                  Nuevo Registro de Inspección
                 </h3>
               </div>
               <button
                 type="button"
-                onClick={() => setModalNuevaInspeccionOpen(false)}
-                className="p-1 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition cursor-pointer"
+                onClick={() => setModalAgendarOpen(false)}
+                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-100 transition cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={(e) => {
-              e.preventDefault();
-              alert('Inspección programada con éxito.');
-              setModalNuevaInspeccionOpen(false);
-            }} className="space-y-4 text-xs">
+            <form onSubmit={handleGuardarAgendamiento} className="space-y-6 text-xs">
               
-              <div className="space-y-1.5">
-                <label className="font-bold text-slate-700">Establecimiento de Salud</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="Ej: Laboratorio Clínico Central"
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-slate-800 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-[#0073c6]"
-                />
+              {/* ------------------------------------------------------------- */}
+              {/* SECCIÓN 1: DATOS DEL ESTABLECIMIENTO                          */}
+              {/* ------------------------------------------------------------- */}
+              <div className="space-y-3.5">
+                <h4 className="text-[11px] font-black text-slate-800 tracking-wider uppercase">
+                  1. DATOS DEL ESTABLECIMIENTO
+                </h4>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {/* Establecimiento */}
+                  <div className="space-y-1.5">
+                    <label className="font-bold text-slate-700">Establecimiento</label>
+                    <select
+                      value={tramiteSeleccionado?.tramite_id || tramiteSeleccionado?.id || ''}
+                      onChange={(e) => {
+                        const sel = inspeccionesPendientes.find(p => (p.tramite_id === e.target.value || p.id === e.target.value));
+                        setTramiteSeleccionado(sel || null);
+                      }}
+                      required
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-slate-800 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-[#0073c6] cursor-pointer"
+                    >
+                      <option value="">Seleccione un establecimiento</option>
+                      {inspeccionesPendientes.map((p) => (
+                        <option key={p.id} value={p.tramite_id || p.id}>
+                          {p.establecimiento || p.nombre}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Código del Establecimiento */}
+                  <div className="space-y-1.5">
+                    <label className="font-bold text-slate-700">Código del Establecimiento</label>
+                    <input
+                      type="text"
+                      disabled
+                      value={tramiteSeleccionado ? (tramiteSeleccionado.codigo_establecimiento || tramiteSeleccionado.codigo || '') : ''}
+                      placeholder="Se completará automáticamente"
+                      className="w-full bg-slate-100/80 border border-slate-200/80 rounded-xl px-3.5 py-2.5 text-slate-500 text-xs font-medium cursor-not-allowed select-none"
+                    />
+                  </div>
+
+                  {/* Dirección */}
+                  <div className="space-y-1.5">
+                    <label className="font-bold text-slate-700">Dirección</label>
+                    <input
+                      type="text"
+                      disabled
+                      value={tramiteSeleccionado ? (tramiteSeleccionado.direccion || '') : ''}
+                      placeholder="Se completará automáticamente"
+                      className="w-full bg-slate-100/80 border border-slate-200/80 rounded-xl px-3.5 py-2.5 text-slate-500 text-xs font-medium cursor-not-allowed select-none"
+                    />
+                  </div>
+
+                  {/* Propietario / Responsable */}
+                  <div className="space-y-1.5">
+                    <label className="font-bold text-slate-700">Propietario / Responsable</label>
+                    <input
+                      type="text"
+                      disabled
+                      value={tramiteSeleccionado ? (tramiteSeleccionado.propietario || '') : ''}
+                      placeholder="Se completará automáticamente"
+                      className="w-full bg-slate-100/80 border border-slate-200/80 rounded-xl px-3.5 py-2.5 text-slate-500 text-xs font-medium cursor-not-allowed select-none"
+                    />
+                  </div>
+                </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <label className="font-bold text-slate-700">Día de Inspección</label>
-                  <select className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-800 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-[#0073c6] cursor-pointer">
-                    <option value="Lun">Lunes 11</option>
-                    <option value="Mar">Martes 12</option>
-                    <option value="Mié">Miércoles 13</option>
-                    <option value="Jue">Jueves 14</option>
-                    <option value="Vie">Viernes 15</option>
-                  </select>
-                </div>
+              {/* ------------------------------------------------------------- */}
+              {/* SECCIÓN 2: DATOS DE LA INSPECCIÓN                             */}
+              {/* ------------------------------------------------------------- */}
+              <div className="space-y-3.5 pt-2">
+                <h4 className="text-[11px] font-black text-slate-800 tracking-wider uppercase">
+                  2. DATOS DE LA INSPECCIÓN
+                </h4>
 
-                <div className="space-y-1.5">
-                  <label className="font-bold text-slate-700">Horario</label>
-                  <input
-                    type="time"
-                    defaultValue="10:00"
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-[#0073c6]"
-                  />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {/* Fecha de Inspección */}
+                  <div className="sm:col-span-2 space-y-1.5">
+                    <label className="font-bold text-slate-700">Fecha de Inspección</label>
+                    <input
+                      type="date"
+                      required
+                      min={hoyLocalIso()}
+                      value={formFecha}
+                      onChange={(e) => setFormFecha(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-slate-800 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-[#0073c6]"
+                    />
+                  </div>
+
+                  {/* Hora de Inicio */}
+                  <div className="space-y-1.5">
+                    <label className="font-bold text-slate-700">Hora de Inicio</label>
+                    <input
+                      type="time"
+                      required
+                      value={formHora}
+                      onChange={(e) => {
+                        const hIni = e.target.value;
+                        setFormHora(hIni);
+                        try {
+                          const [hh, mm] = hIni.split(':').map(Number);
+                          const totalMin = hh * 60 + mm + 90;
+                          const endH = String(Math.floor(totalMin / 60)).padStart(2, '0');
+                          const endM = String(totalMin % 60).padStart(2, '0');
+                          setFormHoraFin(`${endH}:${endM}`);
+                        } catch {
+                          // keep default
+                        }
+                      }}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-slate-800 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-[#0073c6]"
+                    />
+                  </div>
+
+                  {/* Hora de Finalización */}
+                  <div className="space-y-1.5">
+                    <label className="font-bold text-slate-700">Hora de Finalización</label>
+                    <input
+                      type="time"
+                      required
+                      value={formHoraFin}
+                      onChange={(e) => setFormHoraFin(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-slate-800 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-[#0073c6]"
+                    />
+                  </div>
                 </div>
               </div>
 
-              <div className="flex items-center justify-end space-x-3 pt-3 border-t border-slate-100">
+              {/* Botones de Acción (Estilo Figma) */}
+              <div className="flex items-center justify-end space-x-3 pt-5 border-t border-slate-100">
                 <button
                   type="button"
-                  onClick={() => setModalNuevaInspeccionOpen(false)}
-                  className="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold px-4 py-2.5 rounded-xl transition cursor-pointer"
+                  onClick={() => setModalAgendarOpen(false)}
+                  className="bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-xs font-bold px-6 py-2.5 rounded-xl transition cursor-pointer"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  className="bg-[#1b2533] hover:bg-[#111827] text-white text-xs font-bold px-5 py-2.5 rounded-xl transition shadow-md cursor-pointer"
+                  disabled={guardandoAgendamiento || !tramiteSeleccionado}
+                  className="bg-[#1b2533] hover:bg-[#111827] text-white text-xs font-bold px-7 py-2.5 rounded-xl transition shadow-md cursor-pointer flex items-center space-x-2 disabled:opacity-50"
                 >
-                  Guardar en Agenda
+                  {guardandoAgendamiento ? (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      <span>Registrando...</span>
+                    </>
+                  ) : (
+                    <span>Registrar</span>
+                  )}
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ===================================================================== */}
+      {/* 6. TOAST NOTIFICATION FLOTANTE (CAPA SUPERIOR Z-[9999])               */}
+      {/* ===================================================================== */}
+      {toast && (
+        <div 
+          style={{ zIndex: 9999 }}
+          className={`
+            fixed bottom-6 right-6 flex items-center space-x-3 px-5 py-4 rounded-2xl shadow-2xl border text-xs font-bold animate-slideUp max-w-md
+            ${toast.tipo === 'success' 
+              ? 'bg-slate-900 text-emerald-400 border-slate-700 shadow-emerald-950/20' 
+              : toast.tipo === 'warning'
+              ? 'bg-amber-950 text-amber-300 border-amber-800 shadow-amber-950/40'
+              : 'bg-rose-950 text-rose-300 border-rose-800 shadow-rose-950/40'
+            }
+          `}
+        >
+          {toast.tipo === 'success' && <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />}
+          {toast.tipo === 'warning' && <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0" />}
+          {toast.tipo === 'error' && <AlertCircle className="w-5 h-5 text-rose-400 shrink-0" />}
+          <div className="leading-snug">
+            {toast.mensaje}
           </div>
         </div>
       )}
