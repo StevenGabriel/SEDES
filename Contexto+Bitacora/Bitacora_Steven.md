@@ -1674,13 +1674,15 @@ Prevenir que el supervisor técnico pueda agendar o reprogramar inspecciones té
 
 * **Corrección en `parsear_fecha_hora`:** Se restauró la sentencia `return datetime(...)` que faltaba en la función utilitaria de fechas en `backend/supervisor.py`, subsanando el fallo `500 Internal Server Error` durante la reprogramación de horarios en la agenda del supervisor.
 
+* **Corrección Visual de Marcadores (Pines Circulares):** Se aplicaron reglas de no encogimiento (`flex-shrink: 0`, `aspect-ratio: 1/1`, `min-width/min-height` y reset de `iconSize` en Leaflet `divIcon`) para evitar que los círculos numerados se deformaran u ovalaran cuando el nombre del laboratorio o la etiqueta de hora fuera extensa.
+
 ---
 
 ### 📊 Verificación y Pruebas Realizadas
 * **Prueba de Endpoint Backend con GPS:** Consulta pasando `origen_lat` y `origen_lng` verificando el recálculo dinámico de distancias hacia los laboratorios.
 * **Prueba de Rutas OSRM:** Verificación de trazado vial por calles con retorno exitoso de geometría GeoJSON y métricas de viaje.
 * **Prueba de Reprogramación:** Ejecución exitosa de `POST /api/supervisor/reprogramar-inspeccion` para el día `15/09/2026 15:00`, retornando `200 OK` con registro de auditoría.
-* **Compilación Frontend:** `npm run build` ejecutado exitosamente (1841 módulos, 0 errores en 930 ms).
+* **Compilación Frontend:** `npm run build` ejecutado exitosamente (1841 módulos, 0 errores en 950 ms).
 
 ---
 *Bitácora actualizada por: Steven*

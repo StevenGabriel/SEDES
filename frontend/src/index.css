@@ -28,3 +28,13 @@ path.leaflet-interactive:focus,
 .leaflet-pane svg path:focus {
   outline: none !important;
 }
+
+/* Marcadores personalizados de Leaflet (evitar fondos blancos y bordes por defecto) */
+.leaflet-div-icon,
+.custom-div-icon-stop,
+.custom-div-icon-origin,
+.custom-gps-icon {
+  background: transparent !important;
+  border: none !important;
+}
+

@@ -185,10 +185,10 @@ export default function RutasInspeccionView({ usuario, onCambiarSeccion, mostrar
     if (origenActual.esGps || (usarGpsComoOrigen && ubicacionGps)) {
       // Marcador animado estilo GPS Radar Azul
       const gpsIconHtml = `
-        <div style="position:relative;display:flex;align-items:center;cursor:pointer;">
-          <div style="position:relative;width:32px;height:32px;display:flex;align-items:center;justify-content:center;">
+        <div style="position:relative;display:flex;align-items:center;cursor:pointer;width:max-content;">
+          <div style="position:relative;width:34px;height:34px;min-width:34px;min-height:34px;flex-shrink:0;aspect-ratio:1/1;display:flex;align-items:center;justify-content:center;">
             <span style="position:absolute;width:100%;height:100%;border-radius:50%;background:#38bdf8;opacity:0.6;animation:ping 1.5s cubic-bezier(0,0,0.2,1) infinite;"></span>
-            <div style="position:relative;width:24px;height:24px;border-radius:50%;background:#0284c7;color:#ffffff;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(2,132,199,0.5);border:2.5px solid #ffffff;">
+            <div style="position:relative;width:24px;height:24px;min-width:24px;min-height:24px;flex-shrink:0;border-radius:50%;background:#0284c7;color:#ffffff;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(2,132,199,0.5);border:2.5px solid #ffffff;">
               <svg style="width:13px;height:13px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a8 8 0 0 0-8 8c0 5.25 8 12 8 12s8-6.75 8-12a8 8 0 0 0-8-8z"/><circle cx="12" cy="10" r="3"/></svg>
             </div>
           </div>
@@ -201,8 +201,8 @@ export default function RutasInspeccionView({ usuario, onCambiarSeccion, mostrar
       const gpsIcon = L.divIcon({
         className: 'custom-gps-icon',
         html: gpsIconHtml,
-        iconSize: [180, 36],
-        iconAnchor: [16, 18]
+        iconSize: [0, 0],
+        iconAnchor: [17, 17]
       });
 
       const gpsMarker = L.marker([origenActual.lat, origenActual.lng], { icon: gpsIcon });
@@ -223,8 +223,8 @@ export default function RutasInspeccionView({ usuario, onCambiarSeccion, mostrar
     } else {
       // Marcador SEDES Central
       const origenIconHtml = `
-        <div style="display:flex;align-items:center;cursor:pointer;">
-          <div style="width:28px;height:28px;border-radius:50%;background:#059669;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:12px;box-shadow:0 4px 10px rgba(0,0,0,0.25);border:2px solid #ffffff;">
+        <div style="display:flex;align-items:center;cursor:pointer;width:max-content;">
+          <div style="width:30px;height:30px;min-width:30px;min-height:30px;flex-shrink:0;aspect-ratio:1/1;border-radius:50%;background:#059669;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:12px;box-shadow:0 4px 10px rgba(0,0,0,0.25);border:2.5px solid #ffffff;">
             ●
           </div>
           <div style="margin-left:6px;background:#ecfdf5;color:#065f46;border:1px solid #6ee7b7;font-weight:800;font-size:11px;padding:3px 8px;border-radius:9999px;box-shadow:0 2px 5px rgba(0,0,0,0.1);white-space:nowrap;">
@@ -236,8 +236,8 @@ export default function RutasInspeccionView({ usuario, onCambiarSeccion, mostrar
       const origenIcon = L.divIcon({
         className: 'custom-div-icon-origin',
         html: origenIconHtml,
-        iconSize: [180, 32],
-        iconAnchor: [14, 16]
+        iconSize: [0, 0],
+        iconAnchor: [15, 15]
       });
 
       const origenMarker = L.marker([origenActual.lat, origenActual.lng], { icon: origenIcon });
@@ -258,8 +258,8 @@ export default function RutasInspeccionView({ usuario, onCambiarSeccion, mostrar
       puntosRuta.push([p.lat, p.lng]);
 
       const stopIconHtml = `
-        <div style="display:flex;align-items:center;cursor:pointer;">
-          <div style="width:30px;height:30px;border-radius:50%;background:#1b2533;color:#ffffff;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:13px;box-shadow:0 4px 12px rgba(0,0,0,0.35);border:2.5px solid #ffffff;">
+        <div style="display:flex;align-items:center;cursor:pointer;width:max-content;">
+          <div style="width:32px;height:32px;min-width:32px;min-height:32px;flex-shrink:0;aspect-ratio:1/1;border-radius:50%;background:#1b2533;color:#ffffff;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:13px;box-shadow:0 4px 12px rgba(0,0,0,0.35);border:2.5px solid #ffffff;">
             ${p.numero}
           </div>
           <div style="margin-left:6px;background:#ffffff;color:#0f172a;border:1px solid #cbd5e1;font-weight:800;font-size:11px;padding:3px 8px;border-radius:8px;box-shadow:0 2px 6px rgba(0,0,0,0.12);white-space:nowrap;display:flex;align-items:center;gap:4px;">
@@ -272,8 +272,8 @@ export default function RutasInspeccionView({ usuario, onCambiarSeccion, mostrar
       const stopIcon = L.divIcon({
         className: 'custom-div-icon-stop',
         html: stopIconHtml,
-        iconSize: [200, 32],
-        iconAnchor: [15, 16]
+        iconSize: [0, 0],
+        iconAnchor: [16, 16]
       });
 
       const stopMarker = L.marker([p.lat, p.lng], { icon: stopIcon });
