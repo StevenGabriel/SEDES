@@ -239,7 +239,7 @@ def obtener_agenda_supervisor(
         tipo_tramite = trm.tipo_tramite or "Apertura"
         tag_color = "blue" if "apertura" in tipo_tramite.lower() else "orange"
         estab_nombre = estab.nombre_comercial if estab else f"Establecimiento ({str(trm.id)[:8]})"
-        estab_dir = estab.direccion if estab else "Cochabamba"
+        estab_dir = estab.direccion if (estab and estab.direccion) else "Cochabamba"
         estab_mun = (estab.municipio if estab and estab.municipio else "CERCADO").upper()
         estab_nivel = estab.nivel if estab and estab.nivel else "Nivel 1"
         estab_telefono = estab.telefono if estab else (prop.telefono if prop else "N/A")
@@ -249,7 +249,15 @@ def obtener_agenda_supervisor(
 
         es_programada = insp and insp.estado_inspeccion in ["Programada", "Reprogramada", "Completada"] and insp.fecha_programada is not None
 
-        prop_nombre = f"{prop.nombres} {prop.apellidos}" if prop else "Propietario / Responsable"
+        # Priorizar nombre del responsable técnico del laboratorio registrado; si no existe, usar nombre del propietario
+        if estab and estab.responsable_laboratorio and estab.responsable_laboratorio.strip():
+            resp_lab = estab.responsable_laboratorio.strip()
+        elif prop and prop.nombres:
+            resp_lab = f"{prop.nombres} {prop.apellidos}".strip()
+        else:
+            resp_lab = "Responsable Técnico"
+
+        prop_nombre = f"{prop.nombres} {prop.apellidos}".strip() if (prop and prop.nombres) else resp_lab
         cod_estab = f"EST-{str(estab.id)[:8].upper()}" if (estab and estab.id) else f"TRM-{str(trm.id)[:8].upper()}"
 
         if not es_programada:
@@ -260,7 +268,9 @@ def obtener_agenda_supervisor(
                 "inspeccion_id": str(insp.id) if insp else None,
                 "codigo": f"TRM-{str(trm.id)[:8].upper()}",
                 "codigo_establecimiento": cod_estab,
-                "propietario": prop_nombre,
+                "propietario": resp_lab,
+                "responsable_laboratorio": resp_lab,
+                "propietario_nombre": prop_nombre,
                 "tipo": tipo_tramite,
                 "tipoTag": tipo_tramite,
                 "tagColor": tag_color,
@@ -303,93 +313,9 @@ def obtener_agenda_supervisor(
                         "titulo": f"{tipo_tramite} - {estab_nombre[:12]}...",
                         "subtitulo": f"{hora_ini_str} - {hora_fin_str}",
                         "establecimiento": estab_nombre,
-                        "direccion": estab_dir,
-                        "municipio": estab_mun,
-                        "nivel": estab_nivel,
-                        "telefono": estab_telefono,
-                        "tipo": tipo_tramite,
-                        "color": "blue" if tag_color == "blue" else "amber",
-                        "estado_inspeccion": insp.estado_inspeccion,
-                        "veredicto_final": insp.veredicto_final or "Pendiente de Inspección"
-                    })
-
-    for trm in tramites_asignados:
-        estab = trm.establecimiento
-        prop = estab.propietario if estab else None
-        
-        # Buscar inspección asociada
-        insp = db.query(models.Inspeccion).filter(
-            models.Inspeccion.tramite_id == trm.id,
-            models.Inspeccion.estado == True
-        ).order_by(models.Inspeccion.fecha_creacion.desc()).first()
-
-        tipo_tramite = trm.tipo_tramite or "Apertura"
-        tag_color = "blue" if "apertura" in tipo_tramite.lower() else "orange"
-        estab_nombre = estab.nombre_comercial if estab else f"Establecimiento ({str(trm.id)[:8]})"
-        estab_dir = estab.direccion if estab else "Cochabamba"
-        estab_mun = (estab.municipio if estab and estab.municipio else "CERCADO").upper()
-        estab_nivel = estab.nivel if estab and estab.nivel else "Nivel 1"
-        estab_telefono = estab.telefono if estab else (prop.telefono if prop else "N/A")
-        f_solicitud = trm.fecha_ingreso.strftime("%d/%m/%Y") if trm.fecha_ingreso else (
-            trm.fecha_creacion.strftime("%d/%m/%Y") if trm.fecha_creacion else "Hoy"
-        )
-
-        es_programada = insp and insp.estado_inspeccion in ["Programada", "Reprogramada", "Completada"] and insp.fecha_programada is not None
-
-        prop_nombre = f"{prop.nombres} {prop.apellidos}" if prop else "Propietario / Responsable"
-        cod_estab = f"EST-{str(estab.id)[:8].upper()}" if (estab and estab.id) else f"TRM-{str(trm.id)[:8].upper()}"
-
-        if not es_programada:
-            # Está pendiente de programar fecha/hora
-            pendientes.append({
-                "id": str(insp.id) if insp else str(trm.id),
-                "tramite_id": str(trm.id),
-                "inspeccion_id": str(insp.id) if insp else None,
-                "codigo": f"TRM-{str(trm.id)[:8].upper()}",
-                "codigo_establecimiento": cod_estab,
-                "propietario": prop_nombre,
-                "tipo": tipo_tramite,
-                "tipoTag": tipo_tramite,
-                "tagColor": tag_color,
-                "nombre": f"{tipo_tramite} - {estab_nombre}",
-                "establecimiento": estab_nombre,
-                "direccion": estab_dir,
-                "municipio": estab_mun,
-                "nivel": estab_nivel,
-                "telefono": estab_telefono,
-                "fechaSolicitud": f_solicitud,
-                "estado_tramite": trm.estado_tramite or "Pendiente",
-                "estado_inspeccion": insp.estado_inspeccion if insp else "Pendiente"
-            })
-        else:
-            # Está programada, verificar si cae en la semana seleccionada
-            dt_prog = insp.fecha_programada
-            if inicio_semana_dt <= dt_prog <= fin_semana_dt:
-                dia_semana_idx = dt_prog.weekday() # 0 = Lunes, 4 = Viernes
-                if dia_semana_idx < 5:
-                    hora_ini_str = dt_prog.strftime("%H:%M")
-                    # Calculamos fin sumando 90 minutos por defecto
-                    dt_fin = dt_prog + timedelta(minutes=90)
-                    hora_fin_str = dt_fin.strftime("%H:%M")
-
-                    start_minutes = dt_prog.hour * 60 + dt_prog.minute
-                    duration_minutes = 90
-
-                    eventos_semana.append({
-                        "id": str(insp.id),
-                        "inspeccion_id": str(insp.id),
-                        "tramite_id": str(trm.id),
-                        "codigo_tramite": f"TRM-{str(trm.id)[:8].upper()}",
-                        "fecha": dt_prog.date().isoformat(),
-                        "dia": DIAS_NOMBRES[dia_semana_idx],
-                        "diaIndex": dia_semana_idx,
-                        "horaInicio": hora_ini_str,
-                        "horaFin": hora_fin_str,
-                        "startMinutes": start_minutes,
-                        "durationMinutes": duration_minutes,
-                        "titulo": f"{tipo_tramite} - {estab_nombre[:12]}...",
-                        "subtitulo": f"{hora_ini_str} - {hora_fin_str}",
-                        "establecimiento": estab_nombre,
+                        "propietario": resp_lab,
+                        "responsable_laboratorio": resp_lab,
+                        "propietario_nombre": prop_nombre,
                         "direccion": estab_dir,
                         "municipio": estab_mun,
                         "nivel": estab_nivel,

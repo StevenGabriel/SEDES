@@ -1965,7 +1965,88 @@ Limpiar la tabla `usuarios` y registrar exactamente las 7 cuentas oficiales del 
 * **Compilación de Frontend:** `npm run build` ejecutado exitosamente con 0 errores (1843 módulos en 659 ms).
 
 ---
+
+## [2026-09-16] Corrección de Duplicidad en Inspecciones Pendientes del Supervisor
+
+### 📌 Objetivo
+Identificar y solucionar la causa por la cual las inspecciones asignadas por el coordinador se visualizaban duplicadas (2 veces) en la tarjeta de **Inspecciones Pendientes** y en el calendario semanal de la vista **Mi Agenda** (`/supervisor/mi-agenda`).
+
+---
+
+### 🛠️ Archivos Creados y Modificados
+
+#### 1. `backend/supervisor.py` [MODIFICADO]
+* **Corrección en `obtener_agenda_supervisor`:**
+  - Se detectó que el bucle de iteración sobre `tramites_asignados` estaba ejecutándose dos veces consecutivas en la misma función (`for trm in tramites_asignados:` duplicado en las líneas 229 y 316), lo que provocaba que cada trámite o inspección asignada se añadiera dos veces a la lista `pendientes` y a `eventos_semana`.
+  - Se eliminó el bloque de código redundante.
+
+---
+
+### 📊 Verificación y Pruebas Realizadas
+* **Verificación de Base de Datos vs API:**
+  - Consulta en PostgreSQL confirmando la existencia de exactamente 1 único trámite asignado (`TRM-70B05A6F`) para el *Laboratorio Clínico Boliviano*.
+  - Ejecución de prueba directa sobre `obtener_agenda_supervisor('supervisor@sedes.gob.bo')`, retornando ahora `Total pendientes: 1` de forma limpia y precisa.
+
+---
+
+## [2026-09-16] Bloqueo y Validación de Asignación Única de Supervisores (Consola del Coordinador)
+
+### 📌 Objetivo
+Implementar la regla de negocio y validación visual para que una vez que el Coordinador asigna un supervisor oficial a un trámite/laboratorio en `/coordinador/asignar-supervisores`, dicha asignación quede fija y no pueda ser modificada ni reasignada.
+
+---
+
+### 🛠️ Archivos Creados y Modificados
+
+#### 1. `backend/coordinador.py` [MODIFICADO]
+* **Validación de Asignación en `POST /api/coordinador/asignar-supervisor`:**
+  - Si el trámite ya cuenta con `supervisor_asignado_id`, el backend rechaza la solicitud retornando `HTTP 400 Bad Request` indicando que el trámite ya fue asignado previamente y no admite modificaciones.
+* **Flag `yaAsignado` en `GET /api/coordinador/tramites-asignacion`:**
+  - Se añadió la propiedad booleana `yaAsignado: True | False` para que la interfaz pueda identificar de forma confiable los trámites fijados.
+
+#### 2. `frontend/src/pages/CoordinadorPage.jsx` [MODIFICADO]
+* **Bloqueo Visual en la Tabla de Asignación:**
+  - Para trámites asignados (`yaAsignado === true`):
+    - La columna **Supervisor Asignado** oculta el `<select>` interactivo y renderiza una tarjeta fija con fondo verde e indicador de supervisor oficial.
+    - La columna **Acción** oculta el botón interactivo de "Asignar" y muestra una etiqueta estática con icono de verificación **`✓ Asignado`**.
+
+---
+
+### 📊 Verificación y Pruebas Realizadas
+* **Prueba de Re-asignación Backend:** Intento de reasignación al trámite `TRM-70B05A6F` arrojando error controlado `400: El trámite ya fue asignado previamente a Marco Antonio Vargas Rojas y no puede ser reasignado.`
+* **Compilación de Frontend:** `npm run build` ejecutado exitosamente con 0 errores (1843 módulos en 662 ms).
+
+## [2026-09-16] Autocompletado Oficial y Bloqueo de Edición en Formulario de Actas de Inspección
+
+### 📌 Objetivo
+Garantizar que al abrir el Instrumento de Evaluación Técnica de Laboratorios (R.M. 0127) para registrar un acta en `/supervisor/actas-emitidas`, los campos **Responsable / Director Técnico** y **Dirección del Establecimiento** se carguen automáticamente con la información real registrada en la base de datos para el laboratorio correspondiente, y permanezcan en modo de **solo lectura (bloqueados)** junto al **Supervisor Acreditado**, impidiendo cualquier modificación manual no autorizada.
+
+---
+
+### 🛠️ Archivos Creados y Modificados
+
+#### 1. `backend/supervisor.py` [MODIFICADO]
+* **Carga de Datos Oficiales en `GET /api/supervisor/{id}/agenda`:**
+  - Se actualizó la serialización de eventos de la semana (`eventos_semana`) y pendientes (`pendientes`) para priorizar `establecimiento.responsable_laboratorio` (o alternativamente el nombre completo del propietario registrado) en los campos `propietario` y `responsable_laboratorio`.
+  - Se aseguró el envío exacto de `direccion` oficial del establecimiento en ambos listados.
+
+#### 2. `frontend/src/components/supervisor/NuevaActaFormView.jsx` [MODIFICADO]
+* **Sincronización de Estado:**
+  - `cargarInspecciones` y `handleSeleccionarEstablecimiento` ahora leen `responsable_laboratorio` / `propietario` y `direccion` directamente del objeto de la inspección seleccionada.
+* **Bloqueo Visual y Funcional (Read-Only):**
+  - Los campos `Responsable / Director Técnico`, `Dirección del Establecimiento` y `Supervisor Acreditado SEDES` fueron establecidos con `readOnly`, estilos distintivos de seguridad (`bg-slate-100/90 border-slate-200 cursor-not-allowed select-none font-bold text-slate-700`) e insignias de estado **"Oficial"**.
+
+---
+
+### 📊 Verificación y Pruebas Realizadas
+* **Prueba de API:** Comprobación del endpoint `/api/supervisor/supervisor@sedes.gob.bo/agenda` retornando `"establecimiento": "Laboratorio Clínico Boliviano"`, `"responsable_laboratorio": "Doctor prueba LCB"`, `"direccion": "C. George Washingtong"`.
+* **Compilación Frontend:** `npm run build` ejecutado de forma limpia con 0 errores (1843 módulos).
+
+---
 *Bitácora actualizada por: Steven*
+
+
+
 
 
 

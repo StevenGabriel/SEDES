@@ -272,12 +272,12 @@ export default function NuevaActaFormView({ usuario, onVolver, onActaGuardada, m
   // Datos Generales
   const [inspeccionesDisponibles, setInspeccionesDisponibles] = useState([]);
   const [inspeccionSeleccionadaId, setInspeccionSeleccionadaId] = useState('');
-  const [establecimientoNombre, setEstablecimientoNombre] = useState('Laboratorio Prueba 2');
-  const [propietarioNombre, setPropietarioNombre] = useState('Dr. Juan Pérez');
+  const [establecimientoNombre, setEstablecimientoNombre] = useState('');
+  const [propietarioNombre, setPropietarioNombre] = useState('');
   const [tipoTramite, setTipoTramite] = useState('Apertura');
-  const [direccionTexto, setDireccionTexto] = useState('Av. Juan de la Rosa #1234');
+  const [direccionTexto, setDireccionTexto] = useState('');
   const [municipioTexto, setMunicipioTexto] = useState('CERCADO');
-  const [codigoTramite, setCodigoTramite] = useState('TRM-EA5A7A75');
+  const [codigoTramite, setCodigoTramite] = useState('');
   const [fechaInspeccion, setFechaInspeccion] = useState(() => new Date().toISOString().slice(0, 10));
 
   // Respuestas del checklist: { [criterioId]: 'C' | 'NC' | 'NA' }
@@ -317,7 +317,7 @@ export default function NuevaActaFormView({ usuario, onVolver, onActaGuardada, m
             const first = lista[0];
             setInspeccionSeleccionadaId(first.inspeccion_id || first.id || '');
             setEstablecimientoNombre(first.establecimiento || first.nombre || '');
-            setPropietarioNombre(first.propietario || 'Responsable Técnico');
+            setPropietarioNombre(first.responsable_laboratorio || first.propietario || 'Responsable Técnico');
             setTipoTramite(first.tipo || 'Apertura');
             setDireccionTexto(first.direccion || 'Cochabamba');
             setMunicipioTexto(first.municipio || 'CERCADO');
@@ -338,7 +338,7 @@ export default function NuevaActaFormView({ usuario, onVolver, onActaGuardada, m
     const item = inspeccionesDisponibles.find(i => (i.inspeccion_id === id || i.id === id));
     if (item) {
       setEstablecimientoNombre(item.establecimiento || item.nombre || '');
-      setPropietarioNombre(item.propietario || 'Responsable Técnico');
+      setPropietarioNombre(item.responsable_laboratorio || item.propietario || 'Responsable Técnico');
       setTipoTramite(item.tipo || 'Apertura');
       setDireccionTexto(item.direccion || 'Cochabamba');
       setMunicipioTexto(item.municipio || 'CERCADO');
@@ -597,40 +597,52 @@ export default function NuevaActaFormView({ usuario, onVolver, onActaGuardada, m
 
           {/* Director Técnico / Propietario */}
           <div className="space-y-1">
-            <label className="text-[11px] font-extrabold text-slate-600 block uppercase tracking-wider">
-              Responsable / Director Técnico:
-            </label>
+            <div className="flex items-center justify-between">
+              <label className="text-[11px] font-extrabold text-slate-600 block uppercase tracking-wider">
+                Responsable / Director Técnico:
+              </label>
+              <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">Oficial</span>
+            </div>
             <input
               type="text"
-              value={propietarioNombre}
-              onChange={(e) => setPropietarioNombre(e.target.value)}
-              className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-2xl font-semibold text-slate-800 focus:bg-white focus:ring-2 focus:ring-[#0060a8] outline-none"
+              readOnly
+              value={propietarioNombre || 'Responsable Registrado'}
+              title="Dato oficial registrado en SEDES (Solo lectura)"
+              className="w-full px-4 py-2.5 bg-slate-100/90 border border-slate-200 rounded-2xl font-bold text-slate-700 cursor-not-allowed select-none outline-none"
             />
           </div>
 
           {/* Dirección */}
           <div className="space-y-1">
-            <label className="text-[11px] font-extrabold text-slate-600 block uppercase tracking-wider">
-              Dirección del Establecimiento:
-            </label>
+            <div className="flex items-center justify-between">
+              <label className="text-[11px] font-extrabold text-slate-600 block uppercase tracking-wider">
+                Dirección del Establecimiento:
+              </label>
+              <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">Oficial</span>
+            </div>
             <input
               type="text"
-              value={direccionTexto}
-              onChange={(e) => setDireccionTexto(e.target.value)}
-              className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-2xl font-semibold text-slate-800 focus:bg-white focus:ring-2 focus:ring-[#0060a8] outline-none"
+              readOnly
+              value={direccionTexto || 'Dirección Registrada'}
+              title="Dato oficial registrado en SEDES (Solo lectura)"
+              className="w-full px-4 py-2.5 bg-slate-100/90 border border-slate-200 rounded-2xl font-bold text-slate-700 cursor-not-allowed select-none outline-none"
             />
           </div>
 
           {/* Supervisor Técnico */}
           <div className="space-y-1">
-            <label className="text-[11px] font-extrabold text-slate-600 block uppercase tracking-wider">
-              Supervisor Acreditado SEDES:
-            </label>
+            <div className="flex items-center justify-between">
+              <label className="text-[11px] font-extrabold text-slate-600 block uppercase tracking-wider">
+                Supervisor Acreditado SEDES:
+              </label>
+              <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">Oficial</span>
+            </div>
             <input
               type="text"
-              disabled
+              readOnly
               value={supervisorNombre}
-              className="w-full px-4 py-2.5 bg-slate-100 border border-slate-200 rounded-2xl font-bold text-slate-700 cursor-not-allowed"
+              title="Supervisor acreditado SEDES en sesión"
+              className="w-full px-4 py-2.5 bg-slate-100/90 border border-slate-200 rounded-2xl font-bold text-slate-700 cursor-not-allowed select-none outline-none"
             />
           </div>
 

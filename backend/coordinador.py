@@ -526,6 +526,8 @@ def listar_tramites_asignacion(db: Session = Depends(get_db)):
         )
         sup_nombre = f"{sup.nombres} {sup.apellidos}" if sup else ""
 
+        esta_asignado = bool(t.supervisor_asignado_id)
+
         resultados.append({
             "codigo": f"TRM-{str(t.id)[:8].upper()}",
             "tramite_uuid": str(t.id),
@@ -535,7 +537,8 @@ def listar_tramites_asignacion(db: Session = Depends(get_db)):
             "estado": t.estado_tramite or "Pendiente",
             "fechaIngreso": f_ingreso,
             "supervisorAsignado": sup_nombre,
-            "supervisor_id": str(sup.id) if sup else ""
+            "supervisor_id": str(sup.id) if sup else "",
+            "yaAsignado": esta_asignado
         })
 
     return {
@@ -566,6 +569,15 @@ def asignar_supervisor(
 
     if not tramite:
         raise HTTPException(status_code=404, detail="Trámite no encontrado en la base de datos.")
+
+    # Validar que no haya sido asignado previamente
+    if tramite.supervisor_asignado_id is not None:
+        sup_actual = tramite.supervisor_asignado
+        sup_act_nombre = f"{sup_actual.nombres} {sup_actual.apellidos}" if sup_actual else "un supervisor oficial"
+        raise HTTPException(
+            status_code=400,
+            detail=f"El trámite ya fue asignado previamente a {sup_act_nombre} y no puede ser reasignado."
+        )
 
     # Buscar supervisor por ID o por nombre
     supervisor = None

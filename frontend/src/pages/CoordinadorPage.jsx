@@ -1546,39 +1546,58 @@ export default function CoordinadorPage() {
                             {item.fechaIngreso}
                           </td>
 
-                          {/* Supervisor Asignado (Selector) */}
+                          {/* Supervisor Asignado (Selector o Badge Fijo) */}
                           <td className="py-4 pr-3">
-                            <div className="relative">
-                              <select
-                                value={item.supervisorAsignado}
-                                onChange={(e) => handleSelectSupervisorChange(item.codigo, e.target.value)}
-                                className="w-full bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-[#0077c8] cursor-pointer appearance-none pr-8"
-                              >
-                                <option value="">Seleccionar supervisor...</option>
-                                {supervisoresDisponibles.map((s) => (
-                                  <option
-                                    key={s.id}
-                                    value={s.nombre}
-                                    disabled={s.asignados >= s.maxCapacidad && item.supervisorAsignado !== s.nombre}
-                                  >
-                                    {s.nombre} ({s.asignados}/{s.maxCapacidad}{s.asignados >= s.maxCapacidad ? ' - Lleno' : ''})
-                                  </option>
-                                ))}
-                              </select>
-                              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-slate-400">
-                                <ChevronRight className="w-3.5 h-3.5 rotate-90" />
+                            {item.yaAsignado ? (
+                              <div className="flex items-center space-x-2 bg-emerald-50 border border-emerald-200/90 rounded-lg px-3 py-1.5 text-xs text-emerald-800 font-bold">
+                                <div className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
+                                <span className="truncate">{item.supervisorAsignado || 'Supervisor Asignado'}</span>
                               </div>
-                            </div>
+                            ) : (
+                              <div className="relative">
+                                <select
+                                  value={item.supervisorAsignado}
+                                  onChange={(e) => handleSelectSupervisorChange(item.codigo, e.target.value)}
+                                  className="w-full bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-[#0077c8] cursor-pointer appearance-none pr-8"
+                                >
+                                  <option value="">Seleccionar supervisor...</option>
+                                  {supervisoresDisponibles.map((s) => (
+                                    <option
+                                      key={s.id}
+                                      value={s.nombre}
+                                      disabled={s.asignados >= s.maxCapacidad && item.supervisorAsignado !== s.nombre}
+                                    >
+                                      {s.nombre} ({s.asignados}/{s.maxCapacidad}{s.asignados >= s.maxCapacidad ? ' - Lleno' : ''})
+                                    </option>
+                                  ))}
+                                </select>
+                                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-slate-400">
+                                  <ChevronRight className="w-3.5 h-3.5 rotate-90" />
+                                </div>
+                              </div>
+                            )}
                           </td>
 
                           {/* Botón Acción */}
                           <td className="py-4 text-center">
-                            <button
-                              onClick={() => handleAsignarSupervisor(item.codigo)}
-                              className="bg-[#19324d] hover:bg-[#102235] text-white font-bold text-xs px-5 py-1.5 rounded-lg transition-all shadow-xs cursor-pointer active:scale-95"
-                            >
-                              Asignar
-                            </button>
+                            {item.yaAsignado ? (
+                              <span className="inline-flex items-center space-x-1.5 text-emerald-700 bg-emerald-50 border border-emerald-200 font-extrabold text-[11px] px-3.5 py-1.5 rounded-lg shadow-2xs">
+                                <Check className="w-3.5 h-3.5 stroke-[2.5]" />
+                                <span>Asignado</span>
+                              </span>
+                            ) : (
+                              <button
+                                onClick={() => handleAsignarSupervisor(item.codigo)}
+                                disabled={!item.supervisorAsignado}
+                                className={`font-bold text-xs px-5 py-1.5 rounded-lg transition-all shadow-xs active:scale-95 ${
+                                  item.supervisorAsignado
+                                    ? 'bg-[#19324d] hover:bg-[#102235] text-white cursor-pointer'
+                                    : 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed'
+                                }`}
+                              >
+                                Asignar
+                              </button>
+                            )}
                           </td>
 
                         </tr>
