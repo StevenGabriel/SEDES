@@ -2042,8 +2042,78 @@ Garantizar que al abrir el Instrumento de Evaluación Técnica de Laboratorios (
 * **Prueba de API:** Comprobación del endpoint `/api/supervisor/supervisor@sedes.gob.bo/agenda` retornando `"establecimiento": "Laboratorio Clínico Boliviano"`, `"responsable_laboratorio": "Doctor prueba LCB"`, `"direccion": "C. George Washingtong"`.
 * **Compilación Frontend:** `npm run build` ejecutado de forma limpia con 0 errores (1843 módulos).
 
+## [2026-09-16] Integración de la Lista Oficial de Verificación SEDES (R.M. 0202) con Observaciones y Segunda Evaluación
+
+### 📌 Objetivo
+Actualizar integralmente el formulario oficial de evaluación técnica de laboratorios (`NuevaActaFormView.jsx`) para incorporar con precisión el 100% de las preguntas, artículos e incisos normativos del formulario oficial del SEDES Cochabamba según el documento de referencia `Acta-Ejemplo.pdf` (R.M. 0202). Mantener la botonera de evaluación interactiva (**SÍ / NO / N/A**) y añadir los campos individuales de **Observaciones** y **Segunda Evaluación Después de Observado** para cada ítem.
+
+---
+
+### 🛠️ Archivos Creados y Modificados
+
+#### 1. `frontend/src/components/supervisor/NuevaActaFormView.jsx` [MODIFICADO]
+* **Catálogo Normativo Oficial (8 Secciones):**
+  1. **I. DE LAS INSTALACIONES:** Art. 40 (Inc. a), Art. 41 (Inc. a-n), Art. 42 (Inc. a-e), Art. 43 (Inc. a-k), Art. 44 (Inc. a).
+  2. **II. DE LOS REQUISITOS DE EQUIPAMIENTO E INSUMOS:** Art. 47 (Inc. a-c), Art. 48 (Inc. a-f).
+  3. **III. DE LOS REQUISITOS DE REACTIVOS:** Art. 49 (Inc. a-d), Art. 51 (Inc. a).
+  4. **IV. DE LOS RECURSOS HUMANOS:** Art. 29 (Inc. a-d).
+  5. **V. DE LA GESTIÓN DE CALIDAD:** Art. 52 (Inc. a-m), Art. 53 (Inc. a), Art. 55 (Inc. a), Art. 56 (Inc. a-b), Art. 60 (Inc. a).
+  6. **VI. DE LA BIOSEGURIDAD:** Art. 61 (Inc. a-d).
+  7. **VII. DE LOS PRINCIPIOS ÉTICOS:** Art. 69 (Inc. a-b).
+  8. **VIII. TRAZABILIDAD:** Art. 52 (Fase Preanalítica, Fase Analítica y Fase Posanalítica).
+* **Columnas y Campos de Evaluación Dinámicos:**
+  - **Artículo / Inciso:** Badges identificadores oficiales.
+  - **Requisito y Criterios de Evaluación:** Texto íntegro del requerimiento y la pauta de verificación in-situ.
+  - **Botones de Selección (SÍ / NO / N/A):** Botones ergonómicos con estados verde (Cumple), rojo (No cumple) y gris (No aplica).
+  - **Campo de Observaciones:** Input de texto por ítem para registrar deficiencias o anotaciones específicas.
+  - **Campo de Segunda Evaluación Después de Observado:** Input de texto por ítem para registrar notas de seguimiento tras la primera observación.
+* **Cálculo de Puntaje y Dictamen en Tiempo Real:**
+  - Ponderación porcentual automática (Aprobado $\ge$ 85%, Con Observaciones 70-84%, Rechazado < 70%).
+
+---
+
+---
+
+## [2026-09-16] Implementación de Descarga Oficial de Formulario R.M. 0202 y Sección 3 (Subida de Acta con Firmas Autorizadas y Visor PDF)
+
+### 📌 Objetivo
+Completar el flujo técnico de emisión de actas de inspección in-situ para los supervisores SEDES:
+1. Permitir la generación y descarga en formato PDF del formulario oficial completo de la Lista de Verificación (R.M. 0202) con todos los artículos, incisos, ponderaciones y recuadros para firmas del Supervisor SEDES y Director Técnico.
+2. Incorporar la barra de acciones rápidas (`Descargar Formulario` y `Limpiar Formulario`).
+3. Diseñar e integrar la **"Sección 3: Subir Documento con Firmas Autorizadas"** con botones `[Subir archivo]`, `[Ver PDF]`, `[Quitar documento]` y contenedor de visor previo interactivo (soporte para PDF e imágenes escaneadas con sellos).
+4. Implementar el panel de **"Notas del Supervisor"** con resumen automático de no-conformidades y observaciones levantadas durante la visita técnica.
+5. Habilitar el endpoint en el backend (`POST /api/supervisor/subir-acta-firmada`) y persistir el documento escaneado en `inspecciones.acta_pdf_url`.
+
+---
+
+### 🛠️ Archivos Creados y Modificados
+
+#### 1. `backend/supervisor.py` [MODIFICADO]
+* **Endpoint de Subida de Archivo:** Implementación de `POST /api/supervisor/subir-acta-firmada` utilizando `UploadFile`, almacenando los documentos en `uploads/actas/` y actualizando `inspeccion.acta_pdf_url`.
+* **Esquema `RegistrarActaRequest`:** Se añadió el campo opcional `archivo_pdf_firmado_url` para vincular automáticamente el archivo digitalizado al emitir el acta.
+
+#### 2. `frontend/src/components/supervisor/NuevaActaFormView.jsx` [MODIFICADO]
+* **Descarga de Formulario en PDF:** Integración de `jsPDF` y `jspdf-autotable` para exportar el formulario oficial idéntico al formato de SEDES Cochabamba (encabezados institucionales, datos del establecimiento y responsable, tabla completa de 8 secciones, dictamen y recuadros de firma y sello).
+* **Botón `Limpiar Formulario`:** Función con confirmación para restablecer evaluaciones a "SÍ", borrar observaciones y limpiar archivos cargados.
+* **Sección 3: Subir Documento con Firmas Autorizadas:**
+  * Botón `[Subir archivo]` conectado a un input file oculto (`.pdf`, `.png`, `.jpg`, `.jpeg`).
+  * Botón `[Ver PDF]` para previsualizar en nueva pestaña o ventana el documento cargado.
+  * Botón `[Quitar documento]` para resetear el archivo adjunto.
+  * Contenedor de visualización en vivo con soporte para iframe PDF e imágenes de alta definición.
+* **Panel de Notas del Supervisor:** Resumen dinámico de las observaciones y aspectos a subsanar detectados en la inspección.
+
+---
+
+### 📊 Verificación y Pruebas Realizadas
+* **Generación de PDF:** Verificación de maquetación en PDF tamaño carta con tablas completas y formato oficial.
+* **Subida y Previsualización:** Prueba de carga de documentos en PDF e imágenes escaneadas con firmas, verificando visualización en el visor y envío al backend.
+* **Compilación Frontend:** `npm run build` ejecutado exitosamente con 0 errores (2044 módulos transformados).
+* **Compilación Backend:** `python -m py_compile backend/supervisor.py` sin errores de sintaxis.
+
 ---
 *Bitácora actualizada por: Steven*
+
+
 
 
 

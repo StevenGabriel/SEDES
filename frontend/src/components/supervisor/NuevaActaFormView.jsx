@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   ArrowLeft,
   FileCheck2,
@@ -17,252 +17,710 @@ import {
   Info,
   Layers,
   Award,
-  AlertCircle
+  AlertCircle,
+  Download,
+  RotateCcw,
+  Upload,
+  Eye,
+  Trash2,
+  FileText
 } from 'lucide-react';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 import logoL1 from '../../assets/L1.png';
 import logoL2 from '../../assets/L2.png';
 
-// CATÁLOGO OFICIAL DE CRITERIOS DE INSPECCIÓN SEDES COCHABAMBA
-const SECCIONES_FORMULARIO = [
+// ==============================================================================
+// CATÁLOGO OFICIAL DE LA LISTA DE VERIFICACIÓN (R.M. 0202 - SEDES COCHABAMBA)
+// Extraído fielmente del formulario oficial "Acta-Ejemplo.pdf"
+// ==============================================================================
+export const SECCIONES_FORMULARIO = [
   {
     id: 'sec1',
     codigo: 'I',
-    titulo: 'INFRAESTRUCTURA Y AMBIENTES FÍSICOS',
-    subtitulo: 'Condiciones edilicias, delimitación de áreas y saneamiento básico.',
-    peso: 25,
+    titulo: 'DE LAS INSTALACIONES',
+    subtitulo: 'Condiciones edilicias, delimitación física, saneamiento básico e instalaciones eléctricas.',
+    peso: 20,
     criterios: [
       {
-        id: 'c1',
-        num: '1.1',
-        criterio: 'Sala de Espera y Recepción de Pacientes',
-        estandar: 'Espacio ventilado, iluminado, con asientos confortables y cartelera informativa de horarios y aranceles.',
-        pesoItem: 3
+        id: 'art40_a',
+        articulo: 'Art. 40',
+        inciso: 'a',
+        criterio: '¿El laboratorio se encuentra construido en zona no vulnerable a desastres, y está instalado en área independiente al ambiente de una vivienda?',
+        estandar: 'Verificar el área de construcción y separación física efectiva del laboratorio con el ambiente de una vivienda.',
+        pesoItem: 1
       },
       {
-        id: 'c2',
-        num: '1.2',
-        criterio: 'Área de Toma de Muestras Biológicas',
-        estandar: 'Sillón de flebotomía con descansabrazos, lavamanos con jabón antiséptico, toallas desechables y camilla ginecológica si aplica.',
-        pesoItem: 4
+        id: 'art41_a',
+        articulo: 'Art. 41',
+        inciso: 'a',
+        criterio: '¿El laboratorio cuenta con sala de espera destinada al laboratorio o de uso común?',
+        estandar: 'La sala de espera es acorde a la demanda de atención del laboratorio.',
+        pesoItem: 1
       },
       {
-        id: 'c3',
-        num: '1.3',
-        criterio: 'Área Técnica / Analítica Principal',
-        estandar: 'Mesones lisos de material lavable no poroso (granito/cerámica), resistentes a ácidos, con tomas eléctricas con conexión a tierra.',
-        pesoItem: 5
+        id: 'art41_b',
+        articulo: 'Art. 41',
+        inciso: 'b',
+        criterio: '¿El laboratorio cuenta con baños para pacientes?',
+        estandar: 'La sala de espera cuenta con baño accesible para el paciente.',
+        pesoItem: 1
       },
       {
-        id: 'c4',
-        num: '1.4',
-        criterio: 'Área de Lavado y Esterilización de Material',
-        estandar: 'Fregadero con doble poceta, provisión continua de agua potable y drenaje adecuado para desechos líquidos.',
-        pesoItem: 4
+        id: 'art41_c',
+        articulo: 'Art. 41',
+        inciso: 'c',
+        criterio: '¿El laboratorio cuenta con área de recepción de muestras?',
+        estandar: 'Verificar la existencia de área señalizada para recepción de muestras.',
+        pesoItem: 1
       },
       {
-        id: 'c5',
-        num: '1.5',
-        criterio: 'Almacén y Depósito de Reactivos',
-        estandar: 'Ambiente exclusivo, fresco, protegido de la radiación solar directa, con estantes metálicos seguros.',
-        pesoItem: 3
+        id: 'art41_d',
+        articulo: 'Art. 41',
+        inciso: 'd',
+        criterio: '¿El laboratorio cuenta con Ambiente de toma de muestras?',
+        estandar: 'El ambiente de toma de muestras está separada física y efectivamente del área analítica y administrativa, que asegure la privacidad del paciente.',
+        pesoItem: 1
       },
       {
-        id: 'c6',
-        num: '1.6',
-        criterio: 'Servicios Higiénicos Diferenciados',
-        estandar: 'Baño para pacientes y baño independiente para el personal técnico, provistos de insumos de aseo continuo.',
-        pesoItem: 3
+        id: 'art41_e',
+        articulo: 'Art. 41',
+        inciso: 'e',
+        criterio: '¿El laboratorio cuenta con un Área o ambiente administrativo?',
+        estandar: 'Verificar la existencia de un área o ambiente exclusivo para administración.',
+        pesoItem: 1
       },
       {
-        id: 'c7',
-        num: '1.7',
-        criterio: 'Señalización y Rutas de Evacuación',
-        estandar: 'Señalética de seguridad, salida de emergencia, riesgo biológico e iluminación de emergencia funcional.',
-        pesoItem: 3
+        id: 'art41_f',
+        articulo: 'Art. 41',
+        inciso: 'f',
+        criterio: '¿El laboratorio cuenta con el ambiente de procesamiento analítico de muestras separado y diferenciado?',
+        estandar: 'El ambiente de procesamiento general tiene separación física y efectiva de áreas técnicamente incompatibles.',
+        pesoItem: 1
+      },
+      {
+        id: 'art41_g',
+        articulo: 'Art. 41',
+        inciso: 'g',
+        criterio: '¿Cumple el ambiente de procesamiento analítico con las dimensiones mínimas de 16 mt²?',
+        estandar: 'Verificar las medidas mínimas.',
+        pesoItem: 1
+      },
+      {
+        id: 'art41_h',
+        articulo: 'Art. 41',
+        inciso: 'h',
+        criterio: '¿El laboratorio cuenta con ambiente separado para microbiología? *',
+        estandar: 'Verificar si el laboratorio cuenta con un ambiente exclusivo para microbiología.',
+        pesoItem: 1
+      },
+      {
+        id: 'art41_i',
+        articulo: 'Art. 41',
+        inciso: 'i',
+        criterio: '¿* El laboratorio cuenta con ambiente separado para preparación de medios para microbiología? *',
+        estandar: 'Verificar si el laboratorio cuenta con un ambiente exclusivo para preparación de medios para microbiología.',
+        pesoItem: 1
+      },
+      {
+        id: 'art41_j',
+        articulo: 'Art. 41',
+        inciso: 'j',
+        criterio: '¿El laboratorio cuenta con área de lavado de materiales?',
+        estandar: 'Verificar si el laboratorio cuenta con un área de lavado de materiales.',
+        pesoItem: 1
+      },
+      {
+        id: 'art41_k',
+        articulo: 'Art. 41',
+        inciso: 'k',
+        criterio: '¿El laboratorio cuenta con un área o ambiente de depósito para almacenamiento de reactivos, materiales e insumos?',
+        estandar: 'Verificar si el laboratorio cuenta con un ambiente o área identificada para depósito o almacenamiento de reactivos, materiales e insumos.',
+        pesoItem: 1
+      },
+      {
+        id: 'art41_l',
+        articulo: 'Art. 41',
+        inciso: 'l',
+        criterio: '¿El laboratorio cuenta con vestidor o casilleros para el personal de laboratorio?',
+        estandar: 'Verificar la existencia de vestidor o casilleros individuales para el guardado de ropa y enseres personales.',
+        pesoItem: 1
+      },
+      {
+        id: 'art41_m',
+        articulo: 'Art. 41',
+        inciso: 'm',
+        criterio: '¿El laboratorio tiene baños para el personal de laboratorio?',
+        estandar: 'Verificar la existencia de baños para el personal de laboratorio.',
+        pesoItem: 1
+      },
+      {
+        id: 'art41_n',
+        articulo: 'Art. 41',
+        inciso: 'n',
+        criterio: '¿El laboratorio tiene un área de descanso para el personal cuando se hacen turnos de guardia?',
+        estandar: 'Verificar el área de descanso cuando aplique.',
+        pesoItem: 1
+      },
+      {
+        id: 'art42_a',
+        articulo: 'Art. 42',
+        inciso: 'a',
+        criterio: 'El laboratorio tiene techos lisos, impermeables y lavables libres de fisura',
+        estandar: 'Verificar la calidad de los materiales en la construcción del laboratorio.',
+        pesoItem: 1
+      },
+      {
+        id: 'art42_b',
+        articulo: 'Art. 42',
+        inciso: 'b',
+        criterio: 'El laboratorio tiene Paredes revocadas, lisas, pintadas con material impermeable, colores mate, libres de fisuras',
+        estandar: 'Verificar la calidad de los materiales en la construcción del laboratorio.',
+        pesoItem: 1
+      },
+      {
+        id: 'art42_c',
+        articulo: 'Art. 42',
+        inciso: 'c',
+        criterio: 'El laboratorio tiene Pisos lisos, lavables, libres de fisuras',
+        estandar: 'Verificar la calidad de los materiales en la construcción del laboratorio.',
+        pesoItem: 1
+      },
+      {
+        id: 'art42_d',
+        articulo: 'Art. 42',
+        inciso: 'd',
+        criterio: 'El laboratorio tiene Puertas y ventanas impermeables y lavables con protectores para vectores',
+        estandar: 'Verificar la calidad de los materiales de las puertas y ventanas del laboratorio.',
+        pesoItem: 1
+      },
+      {
+        id: 'art42_e',
+        articulo: 'Art. 42',
+        inciso: 'e',
+        criterio: 'El laboratorio cuenta con Mesones rígidos con superficies lisas, impermeables y lavables con el ancho de medidas estándar',
+        estandar: 'Verificar la calidad y cantidad de mesones.',
+        pesoItem: 1
+      },
+      {
+        id: 'art43_a',
+        articulo: 'Art. 43',
+        inciso: 'a',
+        criterio: 'El laboratorio cuenta con iluminación natural y artificial adecuada',
+        estandar: 'Verificar la calidad de iluminación.',
+        pesoItem: 1
+      },
+      {
+        id: 'art43_b',
+        articulo: 'Art. 43',
+        inciso: 'b',
+        criterio: '¿Se cuenta con ventilación natural o artificial adecuada?',
+        estandar: 'Verificar la calidad de ventilación.',
+        pesoItem: 1
+      },
+      {
+        id: 'art43_c',
+        articulo: 'Art. 43',
+        inciso: 'c',
+        criterio: '¿Extractor de aire? (si aplica)',
+        estandar: 'Verificar funcionamiento de extractor.',
+        pesoItem: 1
+      },
+      {
+        id: 'art43_d',
+        articulo: 'Art. 43',
+        inciso: 'd',
+        criterio: '¿Aire acondicionado? (si aplica)',
+        estandar: 'Verificar sistema de climatización si aplica.',
+        pesoItem: 1
+      },
+      {
+        id: 'art43_e',
+        articulo: 'Art. 43',
+        inciso: 'e',
+        criterio: '¿El laboratorio cuenta con puntos de agua potable?',
+        estandar: 'Verificar las conexiones de agua potable continua.',
+        pesoItem: 1
+      },
+      {
+        id: 'art43_f',
+        articulo: 'Art. 43',
+        inciso: 'f',
+        criterio: '¿El laboratorio cuenta con instalaciones eléctricas?',
+        estandar: 'Verificar la instalación de energía eléctrica segura.',
+        pesoItem: 1
+      },
+      {
+        id: 'art43_g',
+        articulo: 'Art. 43',
+        inciso: 'g',
+        criterio: '¿El laboratorio utiliza un tomacorrientes para cada equipo?',
+        estandar: 'Verificar los puntos de toma corriente exclusivos sin sobrecarga.',
+        pesoItem: 1
+      },
+      {
+        id: 'art43_h',
+        articulo: 'Art. 43',
+        inciso: 'h',
+        criterio: '¿La instalación eléctrica cuenta con línea a tierra y estabilizadores de corriente?',
+        estandar: 'Verificar la instalación con línea a tierra y estabilizadores de corriente.',
+        pesoItem: 1
+      },
+      {
+        id: 'art43_i',
+        articulo: 'Art. 43',
+        inciso: 'i',
+        criterio: '¿El laboratorio cuenta con puntos de desagüe?',
+        estandar: 'Verificar los puntos de desagüe y sifones.',
+        pesoItem: 1
+      },
+      {
+        id: 'art43_j',
+        articulo: 'Art. 43',
+        inciso: 'j',
+        criterio: '¿El laboratorio cuenta con lavaderos de material impermeable?',
+        estandar: 'Verificar la calidad de los lavaderos.',
+        pesoItem: 1
+      },
+      {
+        id: 'art43_k',
+        articulo: 'Art. 43',
+        inciso: 'k',
+        criterio: '¿El laboratorio cuenta con alcantarillado o pozo séptico?',
+        estandar: 'Verificar la instalación sanitaria legal.',
+        pesoItem: 1
+      },
+      {
+        id: 'art44_a',
+        articulo: 'Art. 44',
+        inciso: 'a',
+        criterio: '¿El laboratorio tiene señalización de acceso restringido a los ambientes del laboratorio?',
+        estandar: 'Verificar la señalización de advertencia y restricción de paso.',
+        pesoItem: 1
       }
     ]
   },
   {
     id: 'sec2',
     codigo: 'II',
-    titulo: 'BIOSEGURIDAD Y GESTIÓN DE RESIDUOS SÓLIDOS',
-    subtitulo: 'Protocolos de protección personal, manejo de RPBI y contingencias.',
-    peso: 25,
+    titulo: 'DE LOS REQUISITOS DE EQUIPAMIENTO E INSUMOS',
+    subtitulo: 'Disponibilidad de aparatos diagnósticos, inventario, calibración y bitácoras técnicas.',
+    peso: 15,
     criterios: [
       {
-        id: 'c8',
-        num: '2.1',
-        criterio: 'Uso Obligatorio de Equipos de Protección Personal (EPP)',
-        estandar: 'Uso permanente de bata blanca abotonada, guantes de látex/nitrilo, mascarilla quirúrgica/KN95 y gafas de bioseguridad.',
-        pesoItem: 4
+        id: 'art47_a',
+        articulo: 'Art. 47',
+        inciso: 'a',
+        criterio: '¿El laboratorio dispone de equipos necesarios acorde a la oferta de servicios?',
+        estandar: 'Verificar si cuenta con equipos enumerados en el Anexo 3 del Reglamento General de Habilitación por especialidades.',
+        pesoItem: 1
       },
       {
-        id: 'c9',
-        num: '2.2',
-        criterio: 'Segregación de Residuos Infecciosos (Bolsa Roja)',
-        estandar: 'Basureros de pedal con bolsa roja rotulada para gasas, torundas, guantes y muestras biológicas.',
-        pesoItem: 4
+        id: 'art47_b',
+        articulo: 'Art. 47',
+        inciso: 'b',
+        criterio: '¿Cuenta con silla de toma de muestra?',
+        estandar: 'Verificar existencia y estado ergonómico con descansabrazos.',
+        pesoItem: 1
       },
       {
-        id: 'c10',
-        num: '2.3',
-        criterio: 'Contenedores Rígidos para Cortopunzantes',
-        estandar: 'Recipientes plásticos rígidos e impermeables con tapa hermética para agujas, lancetas y capilares al 75% de llenado.',
-        pesoItem: 5
+        id: 'art47_c',
+        articulo: 'Art. 47',
+        inciso: 'c',
+        criterio: '¿Cuenta con camilla para toma de muestras?',
+        estandar: 'Verificar existencia de camilla ginecológica o clínica.',
+        pesoItem: 1
       },
       {
-        id: 'c11',
-        num: '2.4',
-        criterio: 'Segregación de Residuos Comunes (Bolsa Negra)',
-        estandar: 'Tachos con bolsa negra para papeles, envoltorios y residuos no biológicos en salas de espera y oficinas.',
-        pesoItem: 3
+        id: 'art48_a',
+        articulo: 'Art. 48',
+        inciso: 'a',
+        criterio: '¿El laboratorio cuenta con un Inventario actualizado de los Equipos?',
+        estandar: 'Verificar existencia de Inventario y Kardex de los Equipos.',
+        pesoItem: 1
       },
       {
-        id: 'c12',
-        num: '2.5',
-        criterio: 'Contrato y Registro de Disposición Final de Residuos',
-        estandar: 'Contrato vigente con empresa de recojo de residuos biocontaminados y manifiestos de retiro al día.',
-        pesoItem: 4
+        id: 'art48_b',
+        articulo: 'Art. 48',
+        inciso: 'b',
+        criterio: '¿El laboratorio cuenta con un programa de mantenimiento preventivo de equipos?',
+        estandar: 'Verificar Fichas técnicas de mantenimiento preventivo y correctivo.',
+        pesoItem: 1
       },
       {
-        id: 'c13',
-        num: '2.6',
-        criterio: 'Extintores con Carga y Sello Vigentes',
-        estandar: 'Extintores ABC y CO2 con prueba hidrostática y carga vigente, instalados a 1.50 metros sobre el nivel del suelo.',
-        pesoItem: 3
+        id: 'art48_c',
+        articulo: 'Art. 48',
+        inciso: 'c',
+        criterio: '¿El laboratorio cuenta con registros de control de temperatura de los diferentes equipos?',
+        estandar: 'Verificar existencia de registros de control de temperaturas, refrigerador, baño María y estufas.',
+        pesoItem: 1
       },
       {
-        id: 'c14',
-        num: '2.7',
-        criterio: 'Manual de Bioseguridad y Kit ante Derrames',
-        estandar: 'Manual de bioseguridad accesible y kit de neutralización (hipoclorito 5%, aserrín/arena, guantes gruesos).',
-        pesoItem: 2
+        id: 'art48_d',
+        articulo: 'Art. 48',
+        inciso: 'd',
+        criterio: '¿El laboratorio cuenta con registros de control de temperatura de equipos de uso en el área de bacteriología? *',
+        estandar: 'Verificar existencia de registros de control de temperatura de estufa de incubación, estufa pupinel, refrigerador del área de bacteriología.',
+        pesoItem: 1
+      },
+      {
+        id: 'art48_e',
+        articulo: 'Art. 48',
+        inciso: 'e',
+        criterio: '¿El laboratorio cuenta con Procedimientos técnicos escritos de uso de los equipos?',
+        estandar: 'Verificar la existencia de procedimientos técnicos de uso de cada uno de los equipos (POEs).',
+        pesoItem: 1
+      },
+      {
+        id: 'art48_f',
+        articulo: 'Art. 48',
+        inciso: 'f',
+        criterio: '¿El laboratorio cuenta con fichas de registro histórico de cada equipo?',
+        estandar: 'Verificar la existencia de fichas de Registro y trazabilidad de los equipos.',
+        pesoItem: 1
       }
     ]
   },
   {
     id: 'sec3',
     codigo: 'III',
-    titulo: 'EQUIPAMIENTO, INSTRUMENTAL Y CALIBRACIÓN',
-    subtitulo: 'Aparatos de diagnóstico analítico, registros de mantenimiento y calibración.',
-    peso: 25,
+    titulo: 'DE LOS REQUISITOS DE REACTIVOS',
+    subtitulo: 'Inventario de reactivos, control de vencimiento, almacenamiento y registro sanitario AGEMED.',
+    peso: 15,
     criterios: [
       {
-        id: 'c15',
-        num: '3.1',
-        criterio: 'Microscopio Óptico Binocular',
-        estandar: 'En óptimo estado de alineación y limpieza, con objetivos 10x, 40x y 100x de inmersión y aceite de inmersión de calidad.',
-        pesoItem: 4
+        id: 'art49_a',
+        articulo: 'Art. 49',
+        inciso: 'a',
+        criterio: '¿El laboratorio cuenta con un inventario de los reactivos en uso, y de fecha vigente?',
+        estandar: 'Verificar el Inventario General de Reactivos y fechas de vencimiento.',
+        pesoItem: 1
       },
       {
-        id: 'c16',
-        num: '3.2',
-        criterio: 'Centrífuga de Tubos Analítica',
-        estandar: 'Centrífuga con tacómetro, control de tiempo, freno gradual y certificación de mantenimiento semestral.',
-        pesoItem: 4
+        id: 'art49_b',
+        articulo: 'Art. 49',
+        inciso: 'b',
+        criterio: '¿El laboratorio cuenta con fichas de Reactivos en uso con fecha vigente?',
+        estandar: 'Verificar las fichas y fechas de caducidad de los reactivos.',
+        pesoItem: 1
       },
       {
-        id: 'c17',
-        num: '3.3',
-        criterio: 'Baño María / Incubadora Termostática',
-        estandar: 'Termostato constante regulado a 37°C con termómetro calibrado sumergido en agua para verificación diaria.',
-        pesoItem: 3
+        id: 'art49_c',
+        articulo: 'Art. 49',
+        inciso: 'c',
+        criterio: '¿El laboratorio cuenta con reactivos preparados en laboratorio con Identificación y fecha de elaboración?',
+        estandar: 'Verificar los Reactivos preparados, rótulos con identificación, concentración y fechas de elaboración.',
+        pesoItem: 1
       },
       {
-        id: 'c18',
-        num: '3.4',
-        criterio: 'Espectrofotómetro / Analizador Bioquímico',
-        estandar: 'Analizador clínico calibrado con curvas de calibración vigentes y registros de mantenimiento preventivo.',
-        pesoItem: 5
+        id: 'art49_d',
+        articulo: 'Art. 49',
+        inciso: 'd',
+        criterio: '¿El laboratorio cumple las condiciones de almacenamiento indicadas por el fabricante de reactivos?',
+        estandar: 'Verificar la conservación adecuada (cadena de frío, protección de luz, humedad).',
+        pesoItem: 1
       },
       {
-        id: 'c19',
-        num: '3.5',
-        criterio: 'Refrigerador Exclusivo para Reactivos',
-        estandar: 'Heladera con termómetro de máxima y mínima colocado en estante medio (rango obligatorio entre 2°C y 8°C).',
-        pesoItem: 4
-      },
-      {
-        id: 'c20',
-        num: '3.6',
-        criterio: 'Micropipetas Automáticas Calibradas',
-        estandar: 'Micropipetas de volumen variable con puntas estériles y certificados de calibración periódica.',
-        pesoItem: 3
-      },
-      {
-        id: 'c21',
-        num: '3.7',
-        criterio: 'Programa de Control de Calidad Interno y Externo',
-        estandar: 'Planillas de control de calidad interno (gráficos de Levey-Jennings) y constancia de participación en PEEC.',
-        pesoItem: 2
+        id: 'art51_a',
+        articulo: 'Art. 51',
+        inciso: 'a',
+        criterio: '¿El laboratorio cuenta con la lista de reactivos con Registro Sanitario vigente?',
+        estandar: 'Verificar la lista de reactivos con Registro Sanitario otorgado por AGEMED.',
+        pesoItem: 1
       }
     ]
   },
   {
     id: 'sec4',
     codigo: 'IV',
-    titulo: 'RECURSOS HUMANOS Y DOCUMENTACIÓN NORMATIVA',
-    subtitulo: 'Acreditación profesional, registros de pacientes y expedientes.',
-    peso: 15,
+    titulo: 'DE LOS RECURSOS HUMANOS',
+    subtitulo: 'Acreditación profesional, regencia bioquímica y cualificación del personal técnico y auxiliar.',
+    peso: 10,
     criterios: [
       {
-        id: 'c22',
-        num: '4.1',
-        criterio: 'Título en Provisión Nacional y Matrícula Profesional',
-        estandar: 'Título de Bioquímico(a) / Farmacéutico(a) y Matrícula Profesional emitida por el Ministerio de Salud / SEDES.',
-        pesoItem: 4
+        id: 'art29_a',
+        articulo: 'Art. 29',
+        inciso: 'a',
+        criterio: '¿El Laboratorio cuenta con un Regente Bioquímico?',
+        estandar: 'Verificar título habilitante en Provisión Nacional y Matrícula del profesional Bioquímico Regente.',
+        pesoItem: 1
       },
       {
-        id: 'c23',
-        num: '4.2',
-        criterio: 'Registro en Colegio de Bioquímica y Farmacia',
-        estandar: 'Certificado de compatibilidad horaria y constancia de inscripción colegiada vigente.',
-        pesoItem: 3
+        id: 'art29_b',
+        articulo: 'Art. 29',
+        inciso: 'b',
+        criterio: '¿El Laboratorio cuenta con profesionales Bioquímicos por áreas?',
+        estandar: 'Verificar título habilitante del personal profesional Bioquímico asignado.',
+        pesoItem: 1
       },
       {
-        id: 'c24',
-        num: '4.3',
-        criterio: 'Libro de Registro de Pacientes Foliado / Digital',
-        estandar: 'Libro foliado notariado o sistema informático con control de accesos y respaldo diario de datos.',
-        pesoItem: 4
+        id: 'art29_c',
+        articulo: 'Art. 29',
+        inciso: 'c',
+        criterio: '¿El Laboratorio cuenta con Técnicos Superiores de Laboratorio?',
+        estandar: 'Verificar título habilitante del Técnico Superior de Laboratorio.',
+        pesoItem: 1
       },
       {
-        id: 'c25',
-        num: '4.4',
-        criterio: 'Archivo y Custodia de Resultados (Mínimo 5 Años)',
-        estandar: 'Archivo físico ordenado o base de datos digital garantizando confidencialidad y conservación por 5 años.',
-        pesoItem: 4
+        id: 'art29_d',
+        articulo: 'Art. 29',
+        inciso: 'd',
+        criterio: '¿El Laboratorio cuenta con personal auxiliar de laboratorio? (Secretaria, manuales y otros)',
+        estandar: 'Verificar la certificación e inducción del personal auxiliar de Laboratorios.',
+        pesoItem: 1
       }
     ]
   },
   {
     id: 'sec5',
     codigo: 'V',
-    titulo: 'REACTIVOS, MATERIALES Y SUMINISTROS',
-    subtitulo: 'Registro sanitario AGEMED, conservación y trazabilidad.',
+    titulo: 'DE LA GESTIÓN DE CALIDAD',
+    subtitulo: 'Documentación normativa, control interno/externo, POEs, entrega y custodia de resultados.',
+    peso: 20,
+    criterios: [
+      {
+        id: 'art52_a',
+        articulo: 'Art. 52',
+        inciso: 'a',
+        criterio: '¿El Laboratorio se encuentra Registrado ante la autoridad Competente?',
+        estandar: 'Verificar registro o resolución de autorización de apertura en lugar visible.',
+        pesoItem: 1
+      },
+      {
+        id: 'art52_b',
+        articulo: 'Art. 52',
+        inciso: 'b',
+        criterio: '¿El Laboratorio cuenta con la descripción de su Misión y Visión?',
+        estandar: 'Verificar la descripción documentada de la Misión y Visión.',
+        pesoItem: 1
+      },
+      {
+        id: 'art52_c',
+        articulo: 'Art. 52',
+        inciso: 'c',
+        criterio: '¿El Laboratorio cuenta con su organigrama y descripción de funciones?',
+        estandar: 'Verificar existencia del organigrama y manual de funciones.',
+        pesoItem: 1
+      },
+      {
+        id: 'art52_d',
+        articulo: 'Art. 52',
+        inciso: 'd',
+        criterio: '¿El Laboratorio cuenta con la lista de las determinaciones que oferta a los usuarios?',
+        estandar: 'Verificar la lista de determinaciones y cartera de servicios ofertada.',
+        pesoItem: 1
+      },
+      {
+        id: 'art52_e',
+        articulo: 'Art. 52',
+        inciso: 'e',
+        criterio: '¿El Laboratorio cuenta con el personal capacitado para las funciones que realizan?',
+        estandar: 'Verificar certificaciones de capacitación del personal, registro de capacitaciones y cronograma anual.',
+        pesoItem: 1
+      },
+      {
+        id: 'art52_f',
+        articulo: 'Art. 52',
+        inciso: 'f',
+        criterio: '¿El Laboratorio cuenta con Procedimientos Técnicos escritos para las pruebas que realiza?',
+        estandar: 'Verificar los Procedimientos Técnicos escritos (insertos provistos por fabricantes acordes con el lote de reactivo en uso).',
+        pesoItem: 1
+      },
+      {
+        id: 'art52_g',
+        articulo: 'Art. 52',
+        inciso: 'g',
+        criterio: '¿El Laboratorio cuenta con Criterios de Aceptación y Rechazo de Muestras de forma escrita?',
+        estandar: 'Verificar el documento de criterios de aceptación y rechazo y guías para garantizar la calidad analítica.',
+        pesoItem: 1
+      },
+      {
+        id: 'art52_h',
+        articulo: 'Art. 52',
+        inciso: 'h',
+        criterio: '¿El laboratorio cuenta con sistema de control de la documentación y Mantiene actualizados sus registros?',
+        estandar: 'Verificar que los registros se encuentran al día a la fecha de inspección.',
+        pesoItem: 1
+      },
+      {
+        id: 'art52_i',
+        articulo: 'Art. 52',
+        inciso: 'i',
+        criterio: '¿El laboratorio cuenta con un manual de Toma y Manejo de muestras?',
+        estandar: 'Verificar Manual de toma y manejo de muestras disponible para el personal técnico.',
+        pesoItem: 1
+      },
+      {
+        id: 'art52_j',
+        articulo: 'Art. 52',
+        inciso: 'j',
+        criterio: '¿El laboratorio cuenta con un sistema de control de calidad interno?',
+        estandar: 'Verificar registros de Control de Calidad Interno (gráficas de Levey-Jennings) y acciones correctivas aplicadas.',
+        pesoItem: 1
+      },
+      {
+        id: 'art52_k',
+        articulo: 'Art. 52',
+        inciso: 'k',
+        criterio: '¿El laboratorio participa al menos de un programa de evaluación externa de la calidad?',
+        estandar: 'Verificar constancia y resultados de participación en programas de evaluación externa (PEEC / redes de vigilancia).',
+        pesoItem: 1
+      },
+      {
+        id: 'art52_l',
+        articulo: 'Art. 52',
+        inciso: 'l',
+        criterio: '¿El laboratorio cuenta con un sistema de información que asegure la confidencialidad, integridad y restricción del acceso?',
+        estandar: 'Verificar acceso restringido a la información y compromiso escrito de confidencialidad del personal.',
+        pesoItem: 1
+      },
+      {
+        id: 'art52_m',
+        articulo: 'Art. 52',
+        inciso: 'm',
+        criterio: '¿El laboratorio cuenta con convenios, contratos escritos para la derivación de muestras a otros laboratorios?',
+        estandar: 'Verificar convenios o contratos de derivación vigentes con laboratorios de referencia autorizados.',
+        pesoItem: 1
+      },
+      {
+        id: 'art53_a',
+        articulo: 'Art. 53',
+        inciso: 'a',
+        criterio: '¿El laboratorio cumple la emisión del informe de resultados con el formato oficial indicado en el Art. 2.10?',
+        estandar: 'Verificar que el formato de los informes de resultados cumple con la normativa SEDES.',
+        pesoItem: 1
+      },
+      {
+        id: 'art55_a',
+        articulo: 'Art. 55',
+        inciso: 'a',
+        criterio: '¿El laboratorio cuenta con un registro de liberación de resultados?',
+        estandar: 'Verificar registro de entrega a paciente ambulatorio, médico tratante, representante legal o personal de piso.',
+        pesoItem: 1
+      },
+      {
+        id: 'art56_a',
+        articulo: 'Art. 56',
+        inciso: 'a',
+        criterio: '¿El laboratorio cumple con la notificación inmediata de los resultados que impliquen un riesgo de salud pública?',
+        estandar: 'Verificar registro de informes a médicos solicitantes ante valores de alerta crítica.',
+        pesoItem: 1
+      },
+      {
+        id: 'art56_b',
+        articulo: 'Art. 56',
+        inciso: 'b',
+        criterio: '¿El laboratorio cumple con la información y notificación obligatoria a la autoridad sanitaria?',
+        estandar: 'Verificar registro de informes del formulario 303 para vigilancia epidemiológica.',
+        pesoItem: 1
+      },
+      {
+        id: 'art60_a',
+        articulo: 'Art. 60',
+        inciso: 'a',
+        criterio: '¿El laboratorio cuenta con archivos de registros de los cinco años?',
+        estandar: 'Verificar custodia de archivos por 5 años en condiciones que aseguren su integridad y rápida recuperación.',
+        pesoItem: 1
+      }
+    ]
+  },
+  {
+    id: 'sec6',
+    codigo: 'VI',
+    titulo: 'DE LA BIOSEGURIDAD',
+    subtitulo: 'Salud ocupacional, esquema de vacunación, dotación de insumos y evaluación COSBES.',
     peso: 10,
     criterios: [
       {
-        id: 'c26',
-        num: '5.1',
-        criterio: 'Registro Sanitario Vigente (AGEMED)',
-        estandar: 'Kits y reactivos diagnósticos con Registro Sanitario vigente otorgado por AGEMED.',
-        pesoItem: 4
+        id: 'art61_a',
+        articulo: 'Art. 61',
+        inciso: 'a',
+        criterio: '¿El laboratorio cuenta con un programa de control de salud ocupacional del personal y con la aplicación del esquema de vacunación completa?',
+        estandar: 'Verificar las fichas médicas y carnets de vacunación completa de cada funcionario del laboratorio.',
+        pesoItem: 1
       },
       {
-        id: 'c27',
-        num: '5.2',
-        criterio: 'Control Estricto de Fechas de Vencimiento',
-        estandar: 'Inexistencia total de reactivos, tiras o insumos con fecha de caducidad expirada en estanterías o heladera.',
-        pesoItem: 3
+        id: 'art61_b',
+        articulo: 'Art. 61',
+        inciso: 'b',
+        criterio: '¿El laboratorio cuenta con los recursos previstos para dotar de los insumos necesarios para el cumplimiento de la Norma de Bioseguridad y de Residuos?',
+        estandar: 'Verificar los POAS y gestiones administrativas para confirmar la dotación continua de EPPs y bolsas/recipientes RPBI.',
+        pesoItem: 1
       },
       {
-        id: 'c28',
-        num: '5.3',
-        criterio: 'Provisión de Agua de Calidad Analítica',
-        estandar: 'Agua destilada o desionizada para lavado de material crítico y preparación de soluciones.',
-        pesoItem: 3
+        id: 'art61_c',
+        articulo: 'Art. 61',
+        inciso: 'c',
+        criterio: '¿El laboratorio cuenta con la última evaluación realizada por COSBES?',
+        estandar: 'Verificar y solicitar copia de la evaluación del Comité Departamental de Bioseguridad.',
+        pesoItem: 1
+      },
+      {
+        id: 'art61_d',
+        articulo: 'Art. 61',
+        inciso: 'd',
+        criterio: '¿El laboratorio cuenta con un sistema de gestión de bioseguridad implementado?',
+        estandar: 'Verificar manuales de bioseguridad y protocolos de contingencia ante derrames o accidentes.',
+        pesoItem: 1
+      }
+    ]
+  },
+  {
+    id: 'sec7',
+    codigo: 'VII',
+    titulo: 'DE LOS PRINCIPIOS ÉTICOS',
+    subtitulo: 'Código de ética profesional, confidencialidad y principios declarados.',
+    peso: 5,
+    criterios: [
+      {
+        id: 'art69_a',
+        articulo: 'Art. 69',
+        inciso: 'a',
+        criterio: '¿El laboratorio cuenta con un Código de Ética escrito y de conocimiento de todo el personal del laboratorio?',
+        estandar: 'Verificar el documento escrito y firmado por el personal.',
+        pesoItem: 1
+      },
+      {
+        id: 'art69_b',
+        articulo: 'Art. 69',
+        inciso: 'b',
+        criterio: '¿El Código de Ética manifiesta los principios del Laboratorio?',
+        estandar: 'Verificar instructivos que certifiquen el cumplimiento estricto de los principios éticos en la atención.',
+        pesoItem: 1
+      }
+    ]
+  },
+  {
+    id: 'sec8',
+    codigo: 'VIII',
+    titulo: 'TRAZABILIDAD',
+    subtitulo: 'Evaluación de las tres fases del proceso analítico: Preanalítica, Analítica y Posanalítica.',
+    peso: 5,
+    criterios: [
+      {
+        id: 'art52_j1',
+        articulo: 'Art. 52',
+        inciso: 'j (1)',
+        criterio: 'FASE PREANALÍTICA',
+        estandar: 'Verificar en recepción atención al paciente, registro adecuado, instructivos para preparación de muestra, criterios de rechazo/aceptación y privacidad.',
+        pesoItem: 1
+      },
+      {
+        id: 'art52_j2',
+        articulo: 'Art. 52',
+        inciso: 'j (2)',
+        criterio: 'FASE ANALÍTICA',
+        estandar: 'Verificar sistema de validación de resultados, POEs al alcance de operadores y correcta utilización de reactivos e instrumental.',
+        pesoItem: 1
+      },
+      {
+        id: 'art52_j3',
+        articulo: 'Art. 52',
+        inciso: 'j (3)',
+        criterio: 'FASE POSANALÍTICA',
+        estandar: 'Verificar sistema adecuado de liberación de resultados, cuadernos de no conformidades y aplicación de acciones correctivas/preventivas.',
+        pesoItem: 1
       }
     ]
   }
@@ -280,12 +738,12 @@ export default function NuevaActaFormView({ usuario, onVolver, onActaGuardada, m
   const [codigoTramite, setCodigoTramite] = useState('');
   const [fechaInspeccion, setFechaInspeccion] = useState(() => new Date().toISOString().slice(0, 10));
 
-  // Respuestas del checklist: { [criterioId]: 'C' | 'NC' | 'NA' }
+  // Respuestas del checklist: { [criterioId]: 'SI' | 'NO' | 'NA' }
   const [evaluaciones, setEvaluaciones] = useState(() => {
     const init = {};
     SECCIONES_FORMULARIO.forEach(sec => {
       sec.criterios.forEach(c => {
-        init[c.id] = 'C'; // Por defecto "Cumple"
+        init[c.id] = 'SI'; // Por defecto "SÍ"
       });
     });
     return init;
@@ -294,13 +752,23 @@ export default function NuevaActaFormView({ usuario, onVolver, onActaGuardada, m
   // Observaciones específicas por criterio: { [criterioId]: string }
   const [observacionesItems, setObservacionesItems] = useState({});
 
+  // Segunda Evaluación Después de Observado: { [criterioId]: string }
+  const [segundaEvaluacionItems, setSegundaEvaluacionItems] = useState({});
+
   // Dictamen y Conclusiones Finales
   const [resultadoFinal, setResultadoFinal] = useState('Aprobado');
   const [plazoSubsanacionDias, setPlazoSubsanacionDias] = useState(10);
   const [conclusionesGenerales, setConclusionesGenerales] = useState(
-    'El establecimiento cumple satisfactoriamente con los requisitos de infraestructura, equipamiento calibrado y personal técnico acreditado según la normativa de salud de SEDES Cochabamba.'
+    'El establecimiento cumple con los requerimientos técnicos y sanitarios establecidos en el Reglamento General de Habilitación de Laboratorios (R.M. 0202) del SEDES Cochabamba.'
   );
   const [guardando, setGuardando] = useState(false);
+
+  // Subida de documento firmado (Sección 3)
+  const fileInputRef = useRef(null);
+  const [archivoFirmado, setArchivoFirmado] = useState(null);
+  const [archivoFirmadoUrl, setArchivoFirmadoUrl] = useState('');
+  const [archivoFirmadoNombre, setArchivoFirmadoNombre] = useState('');
+  const [archivoFirmadoEsPdf, setArchivoFirmadoEsPdf] = useState(false);
 
   // 1. Cargar inspecciones desde el backend
   useEffect(() => {
@@ -347,23 +815,23 @@ export default function NuevaActaFormView({ usuario, onVolver, onActaGuardada, m
   };
 
   // 2. Calcular porcentaje de cumplimiento en tiempo real
-  const { puntajeTotal, maxPuntaje, porcentaje, conteoC, conteoNC, conteoNA } = useMemo(() => {
+  const { puntajeTotal, maxPuntaje, porcentaje, conteoSI, conteoNO, conteoNA } = useMemo(() => {
     let total = 0;
     let max = 0;
-    let c = 0;
-    let nc = 0;
+    let si = 0;
+    let no = 0;
     let na = 0;
 
     SECCIONES_FORMULARIO.forEach(sec => {
       sec.criterios.forEach(crit => {
-        const estado = evaluaciones[crit.id] || 'C';
-        if (estado === 'C') {
+        const estado = evaluaciones[crit.id] || 'SI';
+        if (estado === 'SI') {
           total += crit.pesoItem;
           max += crit.pesoItem;
-          c++;
-        } else if (estado === 'NC') {
+          si++;
+        } else if (estado === 'NO') {
           max += crit.pesoItem;
-          nc++;
+          no++;
         } else {
           // 'NA' no penaliza el total máximo
           na++;
@@ -372,7 +840,7 @@ export default function NuevaActaFormView({ usuario, onVolver, onActaGuardada, m
     });
 
     const pct = max > 0 ? Math.round((total / max) * 100) : 100;
-    return { puntajeTotal: total, maxPuntaje: max, porcentaje: pct, conteoC: c, conteoNC: nc, conteoNA: na };
+    return { puntajeTotal: total, maxPuntaje: max, porcentaje: pct, conteoSI: si, conteoNO: no, conteoNA: na };
   }, [evaluaciones]);
 
   // Actualizar dictamen sugerido automáticamente según porcentaje
@@ -386,7 +854,7 @@ export default function NuevaActaFormView({ usuario, onVolver, onActaGuardada, m
     }
   }, [porcentaje]);
 
-  // Cambiar evaluación de un criterio (C, NC, NA)
+  // Cambiar evaluación de un criterio (SI, NO, NA)
   const handleCambiarEvaluacion = (criterioId, valor) => {
     setEvaluaciones(prev => ({ ...prev, [criterioId]: valor }));
   };
@@ -395,6 +863,351 @@ export default function NuevaActaFormView({ usuario, onVolver, onActaGuardada, m
   const handleCambiarObservacion = (criterioId, texto) => {
     setObservacionesItems(prev => ({ ...prev, [criterioId]: texto }));
   };
+
+  // Cambiar segunda evaluación después de observado
+  const handleCambiarSegundaEvaluacion = (criterioId, texto) => {
+    setSegundaEvaluacionItems(prev => ({ ...prev, [criterioId]: texto }));
+  };
+
+  // Manejo de archivo firmado
+  const handleArchivoSeleccionado = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const esPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
+    const esImg = file.type.startsWith('image/') || /\.(jpg|jpeg|png)$/i.test(file.name);
+
+    if (!esPdf && !esImg) {
+      mostrarToast?.('Por favor seleccione un archivo en formato PDF o Imagen (JPG, PNG).', 'warning');
+      return;
+    }
+
+    setArchivoFirmado(file);
+    setArchivoFirmadoNombre(file.name);
+    setArchivoFirmadoEsPdf(esPdf);
+    const objectUrl = URL.createObjectURL(file);
+    setArchivoFirmadoUrl(objectUrl);
+    mostrarToast?.(`Documento "${file.name}" cargado para vista previa.`, 'success');
+  };
+
+  const handleQuitarDocumento = () => {
+    setArchivoFirmado(null);
+    setArchivoFirmadoUrl('');
+    setArchivoFirmadoNombre('');
+    setArchivoFirmadoEsPdf(false);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+    mostrarToast?.('Documento quitado.', 'info');
+  };
+
+  const handleVerPdf = () => {
+    if (!archivoFirmadoUrl) {
+      mostrarToast?.('No hay ningún documento cargado para visualizar.', 'warning');
+      return;
+    }
+    window.open(archivoFirmadoUrl, '_blank');
+  };
+
+  // Generador de PDF oficial de la lista de verificación (R.M. 0202)
+  const handleDescargarFormularioPDF = () => {
+    try {
+      const doc = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'letter'
+      });
+
+      const pageWidth = doc.internal.pageSize.getWidth();
+
+      // Cabecera Institucional
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8);
+      doc.setTextColor(30, 41, 59);
+      doc.text('ESTADO PLURINACIONAL DE BOLIVIA', pageWidth / 2, 12, { align: 'center' });
+      doc.setFontSize(7);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(71, 85, 105);
+      doc.text('GOBIERNO AUTÓNOMO DEPARTAMENTAL DE COCHABAMBA', pageWidth / 2, 15.5, { align: 'center' });
+      doc.text('SECRETARÍA DEPARTAMENTAL DE DESARROLLO HUMANO INTEGRAL', pageWidth / 2, 19, { align: 'center' });
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(0, 85, 150);
+      doc.text('SERVICIO DEPARTAMENTAL DE SALUD - SEDES COCHABAMBA', pageWidth / 2, 22.5, { align: 'center' });
+      doc.text('COORDINACIÓN DEPARTAMENTAL DE LABORATORIOS', pageWidth / 2, 26, { align: 'center' });
+
+      // Título Oficial
+      doc.setFillColor(241, 245, 249);
+      doc.rect(14, 28.5, pageWidth - 28, 7.5, 'F');
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(15, 23, 42);
+      doc.text(
+        'LISTA DE VERIFICACIÓN PARA LA APLICACIÓN DEL REGLAMENTO DE HABILITACIÓN (R.M. 0202)',
+        pageWidth / 2,
+        33.5,
+        { align: 'center' }
+      );
+
+      // Cuadro de Datos Generales
+      doc.setFontSize(7);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(15, 23, 42);
+
+      const startY = 38;
+      doc.setDrawColor(203, 213, 225);
+      doc.setFillColor(248, 250, 252);
+      doc.roundedRect(14, startY, pageWidth - 28, 19, 1.5, 1.5, 'FD');
+
+      doc.setFont('helvetica', 'bold');
+      doc.text('Establecimiento:', 16, startY + 4.5);
+      doc.setFont('helvetica', 'normal');
+      doc.text(`${establecimientoNombre || 'Laboratorio Clínico'}`, 42, startY + 4.5);
+
+      doc.setFont('helvetica', 'bold');
+      doc.text('Trámite / Cód:', 130, startY + 4.5);
+      doc.setFont('helvetica', 'normal');
+      doc.text(`${codigoTramite || 'TRM-SEDES'} (${tipoTramite || 'Apertura'})`, 152, startY + 4.5);
+
+      doc.setFont('helvetica', 'bold');
+      doc.text('Responsable Técnico:', 16, startY + 9);
+      doc.setFont('helvetica', 'normal');
+      doc.text(`${propietarioNombre || 'Responsable Registrado'}`, 48, startY + 9);
+
+      doc.setFont('helvetica', 'bold');
+      doc.text('Fecha Inspección:', 130, startY + 9);
+      doc.setFont('helvetica', 'normal');
+      doc.text(`${fechaInspeccion || new Date().toISOString().split('T')[0]}`, 156, startY + 9);
+
+      doc.setFont('helvetica', 'bold');
+      doc.text('Dirección:', 16, startY + 13.5);
+      doc.setFont('helvetica', 'normal');
+      doc.text(`${direccionTexto || 'Cochabamba'} - ${municipioTexto || 'CERCADO'}`, 32, startY + 13.5);
+
+      doc.setFont('helvetica', 'bold');
+      doc.text('Supervisor SEDES:', 130, startY + 13.5);
+      doc.setFont('helvetica', 'normal');
+      doc.text(`${supervisorNombre}`, 158, startY + 13.5);
+
+      // Construcción de filas de la tabla
+      const tableRows = [];
+
+      SECCIONES_FORMULARIO.forEach((sec) => {
+        tableRows.push([
+          {
+            content: `${sec.codigo}. ${sec.titulo} (Ponderación: ${sec.peso}%)`,
+            colSpan: 6,
+            styles: {
+              fillColor: [0, 85, 150],
+              textColor: [255, 255, 255],
+              fontStyle: 'bold',
+              fontSize: 7,
+              halign: 'left'
+            }
+          }
+        ]);
+
+        sec.criterios.forEach((crit) => {
+          const evalVal = evaluaciones[crit.id] || 'SI';
+          const obsVal = observacionesItems[crit.id] || '';
+          const segVal = segundaEvaluacionItems[crit.id] || '';
+
+          tableRows.push([
+            crit.articulo,
+            crit.inciso,
+            `${crit.criterio}\n[Criterio: ${crit.estandar}]`,
+            evalVal,
+            obsVal,
+            segVal
+          ]);
+        });
+      });
+
+      autoTable(doc, {
+        startY: startY + 21,
+        head: [
+          [
+            'ART.',
+            'INC.',
+            'REQUISITO Y CRITERIOS DE EVALUACIÓN',
+            'EVAL.',
+            'OBSERVACIONES',
+            'SEGUNDA EVALUACIÓN TRAS OBSERVADO'
+          ]
+        ],
+        body: tableRows,
+        theme: 'grid',
+        headStyles: {
+          fillColor: [30, 41, 59],
+          textColor: [255, 255, 255],
+          fontSize: 6.5,
+          fontStyle: 'bold',
+          halign: 'center',
+          valign: 'middle'
+        },
+        bodyStyles: {
+          fontSize: 6,
+          textColor: [15, 23, 42],
+          cellPadding: 1.2,
+          valign: 'top'
+        },
+        columnStyles: {
+          0: { cellWidth: 14, halign: 'center', fontStyle: 'bold' },
+          1: { cellWidth: 9, halign: 'center', fontStyle: 'bold' },
+          2: { cellWidth: 80 },
+          3: { cellWidth: 14, halign: 'center', fontStyle: 'bold' },
+          4: { cellWidth: 36 },
+          5: { cellWidth: 35 }
+        },
+        alternateRowStyles: {
+          fillColor: [248, 250, 252]
+        },
+        margin: { top: 10, bottom: 22, left: 14, right: 14 },
+        didParseCell: function(data) {
+          if (data.column.index === 3 && data.section === 'body') {
+            if (data.cell.raw === 'SI') {
+              data.cell.styles.textColor = [16, 185, 129];
+              data.cell.styles.fontStyle = 'bold';
+            } else if (data.cell.raw === 'NO') {
+              data.cell.styles.textColor = [225, 29, 72];
+              data.cell.styles.fontStyle = 'bold';
+            } else if (data.cell.raw === 'NA') {
+              data.cell.styles.textColor = [100, 116, 139];
+            }
+          }
+        }
+      });
+
+      // Pie de página oficial
+      const totalPages = doc.internal.getNumberOfPages();
+      for (let i = 1; i <= totalPages; i++) {
+        doc.setPage(i);
+        doc.setFontSize(6);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(148, 163, 184);
+        doc.text(
+          `Página ${i} de ${totalPages}   |   SEDES Cochabamba - R.M. 0202 Formulario Oficial de Inspección In-Situ`,
+          pageWidth / 2,
+          doc.internal.pageSize.getHeight() - 6,
+          { align: 'center' }
+        );
+      }
+
+      // Espacio para Dictamen y Firmas en la última página o nueva página
+      let finalY = doc.lastAutoTable ? doc.lastAutoTable.finalY + 6 : 200;
+      if (finalY > doc.internal.pageSize.getHeight() - 60) {
+        doc.addPage();
+        finalY = 16;
+      }
+
+      // Cuadro de Dictamen Final
+      doc.setFillColor(248, 250, 252);
+      doc.setDrawColor(203, 213, 225);
+      doc.roundedRect(14, finalY, pageWidth - 28, 20, 1.5, 1.5, 'FD');
+
+      doc.setFontSize(7);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(15, 23, 42);
+      doc.text('DICTAMEN TÉCNICO Y CONCLUSIONES:', 18, finalY + 4.5);
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(6.5);
+      const splitConclusiones = doc.splitTextToSize(conclusionesGenerales || 'Sin observaciones.', pageWidth - 36);
+      doc.text(splitConclusiones, 18, finalY + 8.5);
+
+      doc.setFont('helvetica', 'bold');
+      doc.text(`Cumplimiento: ${porcentaje}% (${puntajeTotal}/${maxPuntaje} pts)   |   Veredicto Oficial: ${resultadoFinal.toUpperCase()}`, 18, finalY + 16.5);
+
+      // Espacios de Firmas y Sellos
+      const firmasy = finalY + 24;
+      if (firmasy > doc.internal.pageSize.getHeight() - 36) {
+        doc.addPage();
+      }
+
+      // Firma Supervisor SEDES
+      doc.setDrawColor(100, 116, 139);
+      doc.line(25, firmasy + 15, 85, firmasy + 15);
+      doc.setFontSize(6.5);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(15, 23, 42);
+      doc.text(`${supervisorNombre}`, 55, firmasy + 19, { align: 'center' });
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(6);
+      doc.setTextColor(71, 85, 105);
+      doc.text('Supervisor Técnico SEDES Cochabamba', 55, firmasy + 22.5, { align: 'center' });
+      doc.text('(Firma y Sello Oficial)', 55, firmasy + 25.5, { align: 'center' });
+
+      // Firma Director Técnico / Responsable
+      doc.line(pageWidth - 85, firmasy + 15, pageWidth - 25, firmasy + 15);
+      doc.setFontSize(6.5);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(15, 23, 42);
+      doc.text(`${propietarioNombre || 'Director Técnico'}`, pageWidth - 55, firmasy + 19, { align: 'center' });
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(6);
+      doc.setTextColor(71, 85, 105);
+      doc.text('Director Técnico / Responsable del Laboratorio', pageWidth - 55, firmasy + 22.5, { align: 'center' });
+      doc.text('(Firma y Sello)', pageWidth - 55, firmasy + 25.5, { align: 'center' });
+
+      // Guardar PDF
+      const nombreArchivo = `Formulario_Inspeccion_RM0202_${(establecimientoNombre || 'Establecimiento').replace(/[^a-zA-Z0-9]/g, '_')}_${fechaInspeccion || '2026'}.pdf`;
+      doc.save(nombreArchivo);
+      mostrarToast?.('Formulario oficial PDF generado y descargado con éxito.', 'success');
+    } catch (err) {
+      console.error('Error al generar PDF del formulario:', err);
+      mostrarToast?.('Error al generar el PDF del formulario.', 'warning');
+    }
+  };
+
+  // Limpiar Formulario
+  const handleLimpiarFormulario = () => {
+    if (window.confirm('¿Está seguro de que desea limpiar todos los campos y restablecer el formulario a sus valores por defecto?')) {
+      const resetEvals = {};
+      SECCIONES_FORMULARIO.forEach(sec => {
+        sec.criterios.forEach(crit => {
+          resetEvals[crit.id] = 'SI';
+        });
+      });
+      setEvaluaciones(resetEvals);
+      setObservacionesItems({});
+      setSegundaEvaluacionItems({});
+      setConclusionesGenerales('El establecimiento cumple con los requerimientos técnicos y sanitarios establecidos en el Reglamento General de Habilitación de Laboratorios (R.M. 0202) del SEDES Cochabamba.');
+      setArchivoFirmado(null);
+      setArchivoFirmadoUrl('');
+      setArchivoFirmadoNombre('');
+      setArchivoFirmadoEsPdf(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+      mostrarToast?.('Formulario restablecido correctamente.', 'info');
+    }
+  };
+
+  // Notas del supervisor generadas dinámicamente según observaciones
+  const notasSupervisor = useMemo(() => {
+    const items = [];
+    SECCIONES_FORMULARIO.forEach(sec => {
+      sec.criterios.forEach(crit => {
+        const evalVal = evaluaciones[crit.id];
+        const obsVal = observacionesItems[crit.id]?.trim();
+        const segVal = segundaEvaluacionItems[crit.id]?.trim();
+
+        if (evalVal === 'NO') {
+          items.push(`• [${crit.articulo} Inc. ${crit.inciso}] ${crit.criterio}${obsVal ? ` — Obs: ${obsVal}` : ''}${segVal ? ` (Segunda evaluación: ${segVal})` : ''}`);
+        } else if (obsVal) {
+          items.push(`• [${crit.articulo} Inc. ${crit.inciso}] ${obsVal}`);
+        }
+      });
+    });
+
+    if (items.length === 0) {
+      return [
+        '• Se verificó el cumplimiento de las condiciones edilicias y de bioseguridad conforme a la R.M. 0202.',
+        '• Toda la documentación y manuales de procedimientos técnicos se encuentran disponibles para auditoría.',
+        '• No se detectaron no-conformidades críticas en la presente evaluación in-situ.'
+      ];
+    }
+    return items;
+  }, [evaluaciones, observacionesItems, segundaEvaluacionItems]);
 
   // Guardar y Emitir Acta Oficial
   const handleEmitirActa = async (e) => {
@@ -410,13 +1223,53 @@ export default function NuevaActaFormView({ usuario, onVolver, onActaGuardada, m
       const ahora = new Date();
       const numActaGenerado = `ACT-${ahora.getFullYear()}-${String(Math.floor(Math.random() * 900) + 100).padStart(3, '0')}`;
 
-      // Recopilar observaciones de ítems con no cumplimiento
+      // 1. Subir archivo firmado si fue adjuntado por el supervisor
+      let urlFirmado = null;
+      if (archivoFirmado) {
+        try {
+          const formData = new FormData();
+          formData.append('file', archivoFirmado);
+          if (inspeccionSeleccionadaId) {
+            formData.append('inspeccion_id', inspeccionSeleccionadaId);
+          }
+          const uploadRes = await fetch('http://localhost:8000/api/supervisor/subir-acta-firmada', {
+            method: 'POST',
+            body: formData
+          });
+          if (uploadRes.ok) {
+            const uploadData = await uploadRes.json();
+            urlFirmado = uploadData.url;
+          }
+        } catch (uploadErr) {
+          console.warn('Error al subir documento firmado:', uploadErr);
+        }
+      }
+
+      // Recopilar observaciones de ítems observados y segundas evaluaciones
       const noCumplidos = [];
+      const detallesObservaciones = [];
+
       SECCIONES_FORMULARIO.forEach(sec => {
         sec.criterios.forEach(crit => {
-          if (evaluaciones[crit.id] === 'NC') {
-            const obs = observacionesItems[crit.id] ? ` (${observacionesItems[crit.id]})` : '';
-            noCumplidos.push(`• [${crit.num}] ${crit.criterio}${obs}`);
+          const evalItem = evaluaciones[crit.id];
+          const obsItem = observacionesItems[crit.id]?.trim();
+          const segItem = segundaEvaluacionItems[crit.id]?.trim();
+
+          if (evalItem === 'NO') {
+            const detalleObs = obsItem ? ` | Obs: ${obsItem}` : '';
+            const detalleSeg = segItem ? ` | 2da Eval: ${segItem}` : '';
+            noCumplidos.push(`• [${crit.articulo} - Inc. ${crit.inciso}] ${crit.criterio}${detalleObs}${detalleSeg}`);
+          }
+
+          if (obsItem || segItem) {
+            detallesObservaciones.push({
+              id: crit.id,
+              articulo: crit.articulo,
+              inciso: crit.inciso,
+              evaluacion: evalItem,
+              observacion: obsItem || '',
+              segunda_evaluacion: segItem || ''
+            });
           }
         });
       });
@@ -439,6 +1292,7 @@ export default function NuevaActaFormView({ usuario, onVolver, onActaGuardada, m
           tipo_inspeccion: tipoTramite,
           observaciones: obsCompuesta,
           numero_acta: numActaGenerado,
+          archivo_pdf_firmado_url: urlFirmado,
           cumple_infraestructura: porcentaje >= 70,
           cumple_equipamiento: porcentaje >= 70,
           cumple_personal: porcentaje >= 70,
@@ -464,7 +1318,7 @@ export default function NuevaActaFormView({ usuario, onVolver, onActaGuardada, m
 
   const supervisorNombre = usuario 
     ? `${usuario.nombres} ${usuario.apellidos}` 
-    : 'Supervisor Técnico';
+    : 'Supervisor Técnico SEDES';
 
   return (
     <div className="space-y-6 animate-fadeIn pb-12">
@@ -485,16 +1339,16 @@ export default function NuevaActaFormView({ usuario, onVolver, onActaGuardada, m
           </button>
 
           <div>
-            <div className="flex items-center space-x-2">
+            <div className="flex flex-wrap items-center gap-2">
               <span className="text-[10px] font-extrabold uppercase bg-blue-50 text-[#0060a8] border border-blue-200 px-2.5 py-0.5 rounded-full">
                 Formulario Oficial SEDES
               </span>
-              <span className="text-xs font-bold text-slate-400">
-                Resolución Ministerial Nº 0127
+              <span className="text-xs font-bold text-slate-500">
+                Reglamento de Habilitación R.M. 0202
               </span>
             </div>
-            <h2 className="text-lg sm:text-xl font-black text-slate-900 tracking-tight mt-0.5">
-              Instrumento de Evaluación Técnica de Laboratorios
+            <h2 className="text-base sm:text-xl font-black text-slate-900 tracking-tight mt-0.5">
+              Lista de Verificación para la Aplicación del Reglamento de Habilitación
             </h2>
           </div>
         </div>
@@ -505,7 +1359,7 @@ export default function NuevaActaFormView({ usuario, onVolver, onActaGuardada, m
           {/* Indicador de Porcentaje */}
           <div className="text-right">
             <div className="text-xs text-slate-400 font-bold uppercase tracking-wider">
-              Puntaje Global
+              Cumplimiento
             </div>
             <div className={`text-xl font-black ${
               porcentaje >= 85 ? 'text-emerald-600' : porcentaje >= 70 ? 'text-amber-600' : 'text-rose-600'
@@ -549,7 +1403,7 @@ export default function NuevaActaFormView({ usuario, onVolver, onActaGuardada, m
             <span>1. DATOS GENERALES DEL ESTABLECIMIENTO INSPECCIONADO</span>
           </h3>
           <span className="text-xs font-bold text-slate-400">
-            {codigoTramite}
+            {codigoTramite || 'TRM-SEDES'}
           </span>
         </div>
 
@@ -575,9 +1429,9 @@ export default function NuevaActaFormView({ usuario, onVolver, onActaGuardada, m
             ) : (
               <input
                 type="text"
-                value={establecimientoNombre}
-                onChange={(e) => setEstablecimientoNombre(e.target.value)}
-                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-slate-800 focus:bg-white focus:ring-2 focus:ring-[#0060a8] outline-none"
+                readOnly
+                value={establecimientoNombre || 'Laboratorio Clínico Registrado'}
+                className="w-full px-4 py-2.5 bg-slate-100/90 border border-slate-200 rounded-2xl font-bold text-slate-700 cursor-not-allowed select-none outline-none"
               />
             )}
           </div>
@@ -651,7 +1505,7 @@ export default function NuevaActaFormView({ usuario, onVolver, onActaGuardada, m
       </div>
 
       {/* ===================================================================== */}
-      {/* 3. TABLAS DE EVALUACIÓN POR CATEGORÍAS NORMATIVAS (I a V)            */}
+      {/* 3. TABLAS DE EVALUACIÓN OFICIAL POR SECCIONES (I a VIII)              */}
       {/* ===================================================================== */}
       <div className="space-y-6">
         {SECCIONES_FORMULARIO.map((sec) => (
@@ -678,118 +1532,140 @@ export default function NuevaActaFormView({ usuario, onVolver, onActaGuardada, m
               </span>
             </div>
 
-            {/* Tabla de Criterios */}
+            {/* Tabla de Criterios Oficiales */}
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
                 
-                <thead className="bg-white text-[11px] font-extrabold text-slate-400 uppercase tracking-wider border-b border-slate-100">
+                <thead className="bg-white text-[10px] sm:text-[11px] font-extrabold text-slate-400 uppercase tracking-wider border-b border-slate-100">
                   <tr>
-                    <th className="px-4 py-3 w-12 text-center">Nº</th>
-                    <th className="px-4 py-3 min-w-[260px]">CRITERIO Y EXIGENCIA NORMATIVA</th>
-                    <th className="px-4 py-3 w-48 text-center">EVALUACIÓN</th>
-                    <th className="px-4 py-3 min-w-[200px]">HALLAZGOS / OBSERVACIONES</th>
+                    <th className="px-3 py-3 w-20 text-center">ARTÍCULO</th>
+                    <th className="px-2 py-3 w-12 text-center">INCISO</th>
+                    <th className="px-4 py-3 min-w-[280px]">REQUISITO Y CRITERIOS DE EVALUACIÓN</th>
+                    <th className="px-4 py-3 w-36 text-center">EVALUACIÓN</th>
+                    <th className="px-3 py-3 min-w-[180px]">OBSERVACIONES</th>
+                    <th className="px-3 py-3 min-w-[180px]">SEGUNDA EVALUACIÓN DESPUÉS DE OBSERVADO</th>
                   </tr>
                 </thead>
 
                 <tbody className="divide-y divide-slate-100 font-medium">
                   {sec.criterios.map((crit) => {
-                    const evalActual = evaluaciones[crit.id] || 'C';
+                    const evalActual = evaluaciones[crit.id] || 'SI';
                     const obsActual = observacionesItems[crit.id] || '';
+                    const segActual = segundaEvaluacionItems[crit.id] || '';
 
                     return (
                       <tr 
                         key={crit.id}
                         className={`
                           transition-colors
-                          ${evalActual === 'NC' ? 'bg-rose-50/40' : evalActual === 'NA' ? 'bg-slate-50/40' : 'hover:bg-slate-50/70'}
+                          ${evalActual === 'NO' ? 'bg-rose-50/40' : evalActual === 'NA' ? 'bg-slate-50/40' : 'hover:bg-slate-50/70'}
                         `}
                       >
-                        {/* Número */}
-                        <td className="px-4 py-3.5 text-center font-extrabold text-slate-500">
-                          {crit.num}
+                        {/* Artículo */}
+                        <td className="px-3 py-3.5 text-center font-extrabold text-slate-700 whitespace-nowrap text-[11px]">
+                          <span className="px-2 py-0.5 rounded-lg bg-slate-100 border border-slate-200 text-slate-800">
+                            {crit.articulo}
+                          </span>
                         </td>
 
-                        {/* Criterio y Estándar */}
-                        <td className="px-4 py-3.5 space-y-0.5">
-                          <p className="font-extrabold text-slate-900 text-xs">
+                        {/* Inciso */}
+                        <td className="px-2 py-3.5 text-center font-black text-[#0060a8] text-xs">
+                          {crit.inciso}
+                        </td>
+
+                        {/* Requisito y Criterios */}
+                        <td className="px-4 py-3.5 space-y-1">
+                          <p className="font-extrabold text-slate-900 text-xs leading-snug">
                             {crit.criterio}
                           </p>
-                          <p className="text-[11px] text-slate-500 leading-snug">
-                            {crit.estandar}
+                          <p className="text-[11px] text-slate-500 leading-relaxed font-normal">
+                            <span className="font-semibold text-slate-600">Criterio:</span> {crit.estandar}
                           </p>
                         </td>
 
-                        {/* Botones de Evaluación: Cumple / No Cumple / No Aplica */}
+                        {/* Botones de Evaluación: SÍ / NO / NA */}
                         <td className="px-4 py-3.5 text-center">
-                          <div className="inline-flex items-center p-1 bg-slate-100 rounded-xl space-x-1 border border-slate-200">
+                          <div className="inline-flex items-center p-1 bg-slate-100 rounded-xl space-x-1 border border-slate-200 shadow-2xs">
                             
-                            {/* Cumple (C) */}
+                            {/* SÍ */}
                             <button
                               type="button"
-                              onClick={() => handleCambiarEvaluacion(crit.id, 'C')}
+                              onClick={() => handleCambiarEvaluacion(crit.id, 'SI')}
                               className={`
                                 px-2.5 py-1 rounded-lg text-[11px] font-black transition cursor-pointer
-                                ${evalActual === 'C' 
+                                ${evalActual === 'SI' 
                                   ? 'bg-emerald-600 text-white shadow-2xs' 
                                   : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200'
                                 }
                               `}
-                              title="Cumple con el estándar normativo"
+                              title="Cumple con el requisito (SÍ)"
                             >
-                              C
+                              SÍ
                             </button>
 
-                            {/* No Cumple (NC) */}
+                            {/* NO */}
                             <button
                               type="button"
-                              onClick={() => handleCambiarEvaluacion(crit.id, 'NC')}
+                              onClick={() => handleCambiarEvaluacion(crit.id, 'NO')}
                               className={`
                                 px-2.5 py-1 rounded-lg text-[11px] font-black transition cursor-pointer
-                                ${evalActual === 'NC' 
+                                ${evalActual === 'NO' 
                                   ? 'bg-rose-600 text-white shadow-2xs' 
                                   : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200'
                                 }
                               `}
-                              title="No cumple con el estándar"
+                              title="No cumple con el requisito (NO)"
                             >
-                              NC
+                              NO
                             </button>
 
-                            {/* No Aplica (NA) */}
+                            {/* NA */}
                             <button
                               type="button"
                               onClick={() => handleCambiarEvaluacion(crit.id, 'NA')}
                               className={`
-                                px-2.5 py-1 rounded-lg text-[11px] font-black transition cursor-pointer
+                                px-2 py-1 rounded-lg text-[11px] font-black transition cursor-pointer
                                 ${evalActual === 'NA' 
                                   ? 'bg-slate-700 text-white shadow-2xs' 
                                   : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200'
                                 }
                               `}
-                              title="No aplica a este nivel de complejidad"
+                              title="No aplica a este nivel (N/A)"
                             >
-                              NA
+                              N/A
                             </button>
 
                           </div>
                         </td>
 
-                        {/* Observación Específica */}
-                        <td className="px-4 py-3.5">
+                        {/* Campo 1: Observaciones */}
+                        <td className="px-3 py-3.5">
                           <input
                             type="text"
-                            placeholder={evalActual === 'NC' ? 'Especifique la deficiencia...' : 'Observación (opcional)...'}
+                            placeholder={evalActual === 'NO' ? 'Especifique deficiencia u observación...' : 'Observación (opcional)...'}
                             value={obsActual}
                             onChange={(e) => handleCambiarObservacion(crit.id, e.target.value)}
                             className={`
-                              w-full px-3 py-1.5 rounded-xl text-xs font-semibold outline-none transition border
-                              ${evalActual === 'NC' 
-                                ? 'bg-white border-rose-300 text-rose-900 focus:ring-2 focus:ring-rose-400 placeholder-rose-300' 
+                              w-full px-3 py-1.5 rounded-xl text-xs font-medium outline-none transition border
+                              ${evalActual === 'NO' 
+                                ? 'bg-white border-rose-300 text-rose-900 focus:ring-2 focus:ring-rose-400 placeholder-rose-300 font-semibold' 
                                 : 'bg-slate-50 border-slate-200 text-slate-700 focus:bg-white focus:ring-2 focus:ring-[#0060a8]'
                               }
                             `}
                           />
                         </td>
+
+                        {/* Campo 2: Segunda Evaluación Después de Observado */}
+                        <td className="px-3 py-3.5">
+                          <input
+                            type="text"
+                            placeholder="Segunda evaluación tras observación..."
+                            value={segActual}
+                            onChange={(e) => handleCambiarSegundaEvaluacion(crit.id, e.target.value)}
+                            className="w-full px-3 py-1.5 rounded-xl text-xs font-medium outline-none transition border bg-slate-50 border-slate-200 text-slate-700 focus:bg-white focus:ring-2 focus:ring-[#0060a8]"
+                          />
+                        </td>
+
                       </tr>
                     );
                   })}
@@ -800,6 +1676,154 @@ export default function NuevaActaFormView({ usuario, onVolver, onActaGuardada, m
 
           </div>
         ))}
+      </div>
+
+      {/* ===================================================================== */}
+      {/* BOTONES DE ACCIÓN: DESCARGAR FORMULARIO Y LIMPIAR FORMULARIO          */}
+      {/* ===================================================================== */}
+      <div className="bg-white rounded-3xl p-4 sm:p-5 border border-slate-200 shadow-2xs flex flex-wrap items-center justify-end gap-3">
+        <button
+          type="button"
+          onClick={handleDescargarFormularioPDF}
+          className="px-5 py-2.5 rounded-xl border border-slate-300 bg-white text-slate-800 font-bold text-xs hover:bg-slate-50 transition cursor-pointer shadow-2xs flex items-center space-x-2"
+          title="Descargar formulario oficial en formato PDF para impresión y firmas"
+        >
+          <Download className="w-4 h-4 text-slate-600" />
+          <span>Descargar Formulario</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={handleLimpiarFormulario}
+          className="px-5 py-2.5 rounded-xl border border-slate-300 bg-white text-slate-800 font-bold text-xs hover:bg-slate-50 transition cursor-pointer shadow-2xs flex items-center space-x-2"
+          title="Restablecer todos los campos del formulario"
+        >
+          <RotateCcw className="w-4 h-4 text-slate-600" />
+          <span>Limpiar Formulario</span>
+        </button>
+      </div>
+
+      {/* ===================================================================== */}
+      {/* SECCIÓN 3: SUBIR DOCUMENTO CON FIRMAS AUTORIZADAS                     */}
+      {/* ===================================================================== */}
+      <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-2xs space-y-6">
+        
+        <div>
+          <h3 className="text-base sm:text-lg font-black text-[#1e293b] tracking-tight">
+            Sección 3: Subir Documento con Firmas Autorizadas
+          </h3>
+          <p className="text-xs font-bold text-slate-600 mt-1">
+            Suba su Archivo Formato PDF
+          </p>
+        </div>
+
+        {/* Botones de Archivo */}
+        <div className="flex flex-wrap items-center gap-3">
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleArchivoSeleccionado}
+            accept=".pdf,image/png,image/jpeg,image/jpg"
+            className="hidden"
+          />
+
+          {/* Subir archivo */}
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className="px-4 py-2 bg-white hover:bg-slate-50 border border-slate-300 text-slate-800 font-bold text-xs rounded-xl transition cursor-pointer shadow-2xs flex items-center space-x-2"
+          >
+            <Upload className="w-4 h-4 text-slate-700" />
+            <span>Subir archivo</span>
+          </button>
+
+          {/* Ver PDF */}
+          <button
+            type="button"
+            onClick={handleVerPdf}
+            disabled={!archivoFirmadoUrl}
+            className="px-4 py-2 bg-white hover:bg-slate-50 border-2 border-slate-900 text-slate-900 font-black text-xs rounded-xl transition cursor-pointer shadow-2xs flex items-center space-x-2 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <Eye className="w-4 h-4" />
+            <span>Ver PDF</span>
+          </button>
+
+          {/* Quitar documento */}
+          <button
+            type="button"
+            onClick={handleQuitarDocumento}
+            disabled={!archivoFirmadoUrl}
+            className="px-4 py-2 bg-[#e53e3e] hover:bg-rose-700 text-white font-bold text-xs rounded-xl transition cursor-pointer shadow-2xs flex items-center space-x-2 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <Trash2 className="w-4 h-4" />
+            <span>Quitar documento</span>
+          </button>
+
+          {archivoFirmadoNombre && (
+            <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-xl border border-emerald-200">
+              ✓ {archivoFirmadoNombre}
+            </span>
+          )}
+        </div>
+
+        {/* Visor / Vista Previa del Documento */}
+        <div className="bg-[#eef2f6] border border-slate-200/80 rounded-2xl p-4 sm:p-6 min-h-[480px] flex items-center justify-center overflow-hidden">
+          {archivoFirmadoUrl ? (
+            archivoFirmadoEsPdf ? (
+              <iframe
+                src={archivoFirmadoUrl}
+                title="Vista previa del documento oficial firmado"
+                className="w-full h-[650px] rounded-xl border border-slate-300 bg-white shadow-md"
+              />
+            ) : (
+              <div className="max-h-[650px] overflow-auto flex items-center justify-center w-full">
+                <img
+                  src={archivoFirmadoUrl}
+                  alt="Acta Oficial Escaneada"
+                  className="max-h-[620px] w-auto max-w-full object-contain rounded-lg shadow-md bg-white"
+                />
+              </div>
+            )
+          ) : (
+            <div className="text-center p-8 space-y-3 max-w-md">
+              <div className="w-16 h-16 mx-auto rounded-2xl bg-white border border-slate-200 flex items-center justify-center shadow-xs text-slate-400">
+                <FileText className="w-8 h-8 text-slate-400" />
+              </div>
+              <p className="text-sm font-black text-slate-700">
+                Ningún documento firmado cargado todavía
+              </p>
+              <p className="text-xs text-slate-500 leading-relaxed font-medium">
+                Descargue el formulario, imprímalo, recabe las firmas y sellos en campo con el Director Técnico del laboratorio, y luego cárguelo aquí en formato PDF o imagen escaneada.
+              </p>
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="px-4 py-2 bg-white border border-slate-300 hover:bg-slate-50 text-slate-800 text-xs font-bold rounded-xl transition cursor-pointer inline-flex items-center space-x-1.5 shadow-2xs mt-2"
+              >
+                <Upload className="w-3.5 h-3.5 text-slate-600" />
+                <span>Seleccionar archivo para subir</span>
+              </button>
+            </div>
+          )}
+        </div>
+
+      </div>
+
+      {/* ===================================================================== */}
+      {/* NOTAS DEL SUPERVISOR                                                  */}
+      {/* ===================================================================== */}
+      <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-2xs space-y-4">
+        <h3 className="text-sm sm:text-base font-black text-slate-900 tracking-tight">
+          Notas del Supervisor
+        </h3>
+        
+        <div className="bg-[#f8fafc] border border-slate-200/80 rounded-2xl p-5 text-xs text-slate-700 leading-relaxed font-medium space-y-2">
+          {notasSupervisor.map((nota, idx) => (
+            <p key={idx} className="text-slate-800 font-semibold">
+              {nota}
+            </p>
+          ))}
+        </div>
       </div>
 
       {/* ===================================================================== */}
@@ -829,23 +1853,23 @@ export default function NuevaActaFormView({ usuario, onVolver, onActaGuardada, m
           <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center space-x-3 text-emerald-900">
             <CheckCircle2 className="w-6 h-6 text-emerald-600 shrink-0" />
             <div>
-              <p className="text-[10px] uppercase text-emerald-700">Criterios Cumplidos (C)</p>
-              <p className="text-lg font-black">{conteoC} ítems</p>
+              <p className="text-[10px] uppercase text-emerald-700">Requisitos Cumplidos (SÍ)</p>
+              <p className="text-lg font-black">{conteoSI} ítems</p>
             </div>
           </div>
 
           <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 flex items-center space-x-3 text-rose-900">
             <XCircle className="w-6 h-6 text-rose-600 shrink-0" />
             <div>
-              <p className="text-[10px] uppercase text-rose-700">No Cumplidos (NC)</p>
-              <p className="text-lg font-black">{conteoNC} ítems</p>
+              <p className="text-[10px] uppercase text-rose-700">No Cumplidos (NO)</p>
+              <p className="text-lg font-black">{conteoNO} ítems</p>
             </div>
           </div>
 
           <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 flex items-center space-x-3 text-slate-700">
             <Info className="w-6 h-6 text-slate-400 shrink-0" />
             <div>
-              <p className="text-[10px] uppercase text-slate-500">No Aplican (NA)</p>
+              <p className="text-[10px] uppercase text-slate-500">No Aplican (N/A)</p>
               <p className="text-lg font-black">{conteoNA} ítems</p>
             </div>
           </div>
@@ -874,7 +1898,7 @@ export default function NuevaActaFormView({ usuario, onVolver, onActaGuardada, m
               <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
               <div>
                 <p className="font-black text-slate-900 text-xs">APROBADO (Favorable)</p>
-                <p className="text-[11px] text-slate-500 mt-0.5">Cumplimiento &ge; 85% sin infracciones críticas.</p>
+                <p className="text-[11px] text-slate-500 mt-0.5">Cumplimiento &ge; 85% sin observaciones críticas.</p>
               </div>
             </button>
 

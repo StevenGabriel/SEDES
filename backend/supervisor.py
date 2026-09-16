@@ -1,8 +1,10 @@
 import math
+import os
+import shutil
 import uuid
 from datetime import datetime, date, timedelta, timezone
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status, UploadFile, File, Form
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 from sqlalchemy import desc, func, or_, cast, Date
@@ -59,6 +61,7 @@ class RegistrarActaRequest(BaseModel):
     cumple_personal: Optional[bool] = True
     cumple_bioseguridad: Optional[bool] = True
     numero_acta: Optional[str] = None
+    archivo_pdf_firmado_url: Optional[str] = None
 
 # ==============================================================================
 # HELPERS DE FECHAS Y SERIALIZACIÓN
@@ -1002,10 +1005,12 @@ def registrar_acta_inspeccion(
 
     sup_nombre = f"{sup_usuario.nombres} {sup_usuario.apellidos}" if sup_usuario else "Supervisor SEDES"
 
+    pdf_o_codigo = payload.archivo_pdf_firmado_url or cod_acta
+
     if insp:
         insp.estado_inspeccion = "Completada"
         insp.veredicto_final = veredicto_db
-        insp.acta_pdf_url = cod_acta
+        insp.acta_pdf_url = pdf_o_codigo
         insp.fecha_modificacion = ahora_dt
         trm = insp.tramite
         if trm:
@@ -1052,7 +1057,7 @@ def registrar_acta_inspeccion(
             fecha_programada=ahora_dt,
             estado_inspeccion="Completada",
             veredicto_final=veredicto_db,
-            acta_pdf_url=cod_acta,
+            acta_pdf_url=pdf_o_codigo,
             estado=True,
             fecha_creacion=ahora_dt,
             fecha_modificacion=ahora_dt
@@ -1094,5 +1099,53 @@ def registrar_acta_inspeccion(
         "mensaje": f"¡Acta {cod_acta} registrada con éxito!",
         "codigo_acta": cod_acta,
         "resultado": veredicto_db,
+        "archivo_url": pdf_o_codigo,
         "fecha": ahora_dt.strftime("%d/%m/%Y %H:%M")
     }
+
+@router.post("/subir-acta-firmada", summary="Subir documento PDF o escaneado con firmas del acta oficial")
+async def subir_acta_firmada(
+    file: UploadFile = File(...),
+    inspeccion_id: Optional[str] = Form(None),
+    tramite_id: Optional[str] = Form(None),
+    db: Session = Depends(get_db)
+):
+    """
+    Guarda el archivo PDF o imagen escaneada del formulario de inspección con firmas y sellos reales.
+    Almacena el archivo en uploads/actas/ y retorna la URL pública.
+    """
+    try:
+        dir_destino = os.path.join("uploads", "actas")
+        os.makedirs(dir_destino, exist_ok=True)
+        
+        ext = file.filename.split(".")[-1].lower() if "." in file.filename else "pdf"
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        nombre_guardado = f"acta_firmada_{timestamp}_{uuid.uuid4().hex[:8]}.{ext}"
+        ruta_archivo = os.path.join(dir_destino, nombre_guardado)
+        
+        with open(ruta_archivo, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+            
+        archivo_url = f"/uploads/actas/{nombre_guardado}"
+        
+        # Si se envió inspeccion_id, actualizar directamente
+        if inspeccion_id:
+            try:
+                i_uuid = uuid.UUID(inspeccion_id)
+                insp = db.query(models.Inspeccion).filter(models.Inspeccion.id == i_uuid).first()
+                if insp:
+                    insp.acta_pdf_url = archivo_url
+                    db.commit()
+            except Exception:
+                pass
+                
+        return {
+            "url": archivo_url,
+            "nombre_archivo": file.filename,
+            "mensaje": "Documento con firmas cargado exitosamente."
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error al subir el archivo firmado: {str(e)}"
+        )
