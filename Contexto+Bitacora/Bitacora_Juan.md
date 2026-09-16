@@ -2,6 +2,66 @@
 
 ---
 
+## [2026-09-11] Optimización del Flujo de Observaciones / Subsanaciones, Redirección de Inspección y Rediseño Integral de Notificaciones
+
+### 📌 Objetivos
+1. **Flujo y Limpieza Automática de Observaciones Técnicas:** Garantizar que cuando un documento es observado o rechazado por Coordinación, al momento en que el Propietario vuelve a subir el PDF corregido (subsanación), las observaciones previas se limpien automáticamente en PostgreSQL (`observaciones_supervisor = None`) y el documento pase a estado *"En Revisión"*. Asimismo, asegurar que tanto en la vista del Propietario como en la del Coordinador desaparezcan las notas de observación roja y avisos residuales al subsanar o aprobar el documento.
+2. **Navegación Directa de Agendamiento de Inspección de Campo:** Cambiar el comportamiento del botón *"Agendar Inspección de Campo"* en la consola de Coordinación para redirigir directamente a la vista de **Asignar Supervisores** (`/coordinador/asignar-supervisores`), eliminando la ventana emergente (*popup modal*) para una navegación más fluida y centralizada.
+3. **Rediseño, Formato y Títulos Completos en Notificaciones:** Solucionar el truncamiento de títulos a 40 caracteres, eliminar el error visual de `Invalid Date` y ampliar las dimensiones del menú desplegable de notificaciones con diseño responsivo, iconos temáticos por tipo de evento y marcas temporales relativas (*"Hace 5 min"*, *"Hace 1 h"*).
+
+---
+
+### 🛠️ Archivos Modificados y Desarrollados
+
+#### 1. `backend/coordinador.py` [MODIFICADO]
+* **Limpieza de Observaciones al Validar/Aprobar:**
+  * En `PATCH /api/coordinador/documentos/{documento_id}/validar`, al dictaminar un documento como `"Aprobado"` o `"En Revisión"`, se limpian automáticamente las observaciones en la base de datos (`doc.observaciones_supervisor = None`), evitando que observaciones antiguas persistan en documentos ya conformes.
+  * Si el documento es `"Observado"` o `"Rechazado"`, se almacena el motivo técnico ingresado en el modal.
+* **Títulos Completos en Notificaciones:**
+  * Se eliminó el truncamiento de 40 caracteres (`[:40]`), permitiendo que el título completo del requisito normativo sea visible sin recortes (`⚠️ Documento Observado: {nombre_doc}` y `✓ Documento Aprobado: {nombre_doc}`).
+
+#### 2. `backend/tramites.py` [MODIFICADO]
+* **Restablecimiento y Limpieza en Subsanación:**
+  * En `POST /api/tramites/{tramite_id}/documentos/{documento_id}/subsanar` y `POST /api/tramites/{tramite_id}/documentos`, al subir el propietario el nuevo PDF corregido, se actualiza la URL del archivo, el estado de validación se restablece a `"En Revisión"` y se limpian las observaciones técnicas previas (`doc.observaciones_supervisor = None`).
+  * Se notifica de inmediato a los Coordinadores y al Supervisor asignado sobre la subsanación.
+
+#### 3. `backend/notificaciones.py` [MODIFICADO]
+* **Estructura Enriquecida de Notificaciones:**
+  * Se añadió el campo `fecha_creacion` en formato ISO estándar (`isoformat()`), `fecha` formateada y `tiempoRelativo` (*"Hace un momento"*, *"Hace X min"*, *"Ayer"*), proveyendo al frontend datos fiables de tiempo.
+
+#### 4. `frontend/src/pages/CoordinadorPage.jsx` [MODIFICADO]
+* **Flujo de Documentos y Observaciones:**
+  * Al aprobar un documento en el visor, el estado local y backend se actualizan sin conservar observaciones residuales.
+  * Los tags y cajas de alerta de observaciones técnicas ahora sólo se muestran si el documento se encuentra activamente en estado `Observado` o `Rechazado`.
+* **Redirección de Agendar Inspección:**
+  * El botón *"Agendar Inspección de Campo"* (en ambas pestañas de Documentación y Fiscalización) ejecuta `navigate('/coordinador/asignar-supervisores')` directamente.
+  * Se removió el modal emergente de re-inspección (`modalReinspeccionOpen`) para unificar la asignación y fiscalización en la tabla de supervisores.
+* **Rediseño del Dropdown de Notificaciones:**
+  * Se amplió el ancho del panel (`w-96 sm:w-[460px] md:w-[500px]`) con bordes redondeados y sombra profunda.
+  * Integración de iconos contextuales con badges temáticos (rojo para observaciones, verde para aprobaciones, azul para documentos/subsanaciones y violeta para inspecciones/supervisores).
+  * Despliegue de títulos completos, mensaje con interlineado adecuado, timestamp relativo con icono de reloj y botón de recarga rápida.
+
+#### 5. `frontend/src/pages/PropietarioPage.jsx` [MODIFICADO]
+* **Experiencia de Subsanación Documental:**
+  * Al enviar una subsanación individual o masiva, el documento desaparece inmediatamente de la tarjeta de *Documentos Observados que Requieren Subsanación*.
+  * En la tabla general de requisitos, la observación roja se oculta automáticamente al pasar a estado `"En Revisión"`.
+* **Menú Desplegable de Notificaciones Mejorado:**
+  * Diseño sincronizado con cabecera oscura moderna, títulos completos sin recortar, badges de tiempo relativo y botón de acción directa *"Ir a Subsanar →"* para documentos con observaciones.
+
+#### 6. `Base de Datos PostgreSQL (Neon)` [DEPURACIÓN Y LIMPIEZA]
+* Se ejecutó script de depuración sobre la tabla `tramite_documentos` para limpiar observaciones residuales en documentos aprobados (`DOC-4093800F` - *Horario de atención del establecimiento*).
+* Se actualizaron en la tabla `notificaciones` los títulos truncados previamente registrados.
+
+---
+
+### 📊 Verificación y Pruebas Realizadas
+* **Prueba de Subsanación en Vivo:** Se verificó el flujo completo: Coordinador observa -> Propietario recibe notificación completa -> Propietario sube PDF -> Documento se limpia de observaciones -> Coordinador lo recibe en *"En Revisión"* limpio -> Coordinador lo aprueba y queda sin observaciones.
+* **Navegación de Inspección:** Clic en *"Agendar Inspección de Campo"* redirige inmediatamente a la ruta `/coordinador/asignar-supervisores` sin mostrar popup.
+* **Dropdown de Notificaciones:** Verificación visual del nuevo layout responsivo, títulos completos y visualización correcta de fechas relativas (sin `Invalid Date`).
+* **Compilación de Producción:** Ejecución de `npm run build` en el frontend finalizada con 0 errores y 1840 módulos transformados con éxito.
+
+---
+
 ## [2026-09-10] Implementación del Sistema Integral de Notificaciones en Tiempo Real (PostgreSQL + Coordinador + Propietario + Subsanaciones)
 
 ### 📌 Objetivo
