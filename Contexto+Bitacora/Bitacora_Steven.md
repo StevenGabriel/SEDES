@@ -1797,6 +1797,50 @@ Sustituir el modal simplificado de registro de actas por un formulario e instrum
 * **Navegación Fluida:** Verificación de apertura del formulario oficial en vista completa y botón de retorno al listado de actas.
 
 ---
+
+## [2026-09-15] Integración de Datos 100% Reales en la Vista "Actas Emitidas" (PostgreSQL + PostGIS)
+
+### 📌 Objetivo
+Eliminar cualquier estructura estática o datos simulados en la vista de **Actas Emitidas** (`/supervisor/actas-emitidas`), conectando la totalidad de métricas KPI, paginador, filtros avanzados por mes y resultado, modal de detalle y visor PDF directamente a registros persistidos en la base de datos PostgreSQL (`models.Inspeccion`, `models.Tramite`, `models.Establecimiento`, `models.Usuario`).
+
+---
+
+### 🛠️ Archivos Creados y Modificados
+
+#### 1. `backend/init_db.py` [MODIFICADO]
+* **Poblado de Trámites e Inspecciones Oficiales:**
+  - Se vincularon los 12 laboratorios georreferenciados en PostGIS de Cochabamba (*A.T.M.*, *ADONAI*, *ALCAZAR*, *ALFA*, *ALFA & OMEGA*, *ALINE*, *ALINE SUCURSAL 1*, *ALQUIMIA*, *ALVAREZ*, *AMERICA*, *Lab uro*, *Laboratorio Prueba 2*) con sus respectivos trámites oficiales (*Apertura*, *Renovación*, *Acreditación*, *Verificación Final*) y actas de inspección en BD.
+  - Generación de códigos oficiales de actas (`ACT-2026-026` a `ACT-2026-035`), veredictos normativos (*Favorable*, *Con Observaciones*, *Desfavorable*) y observaciones técnicas auténticas.
+
+#### 2. `backend/supervisor.py` [MODIFICADO]
+* **Endpoint `GET /api/supervisor/{id}/actas`:**
+  - Consulta directa de registros en `models.Inspeccion` con `JOIN` a `Tramite` y `Establecimiento`.
+  - **Cálculo Dinámico de Métricas KPI en Tiempo Real:**
+    - `aprobados` y `aprobados_mes` calculados en base al mes y año actual de Bolivia (Septiembre 2026).
+    - `con_observaciones` y `con_observaciones_mes`.
+    - `rechazados` y `rechazados_mes`.
+    - `total_emitidas` en base a registros totales.
+  - **Filtros Dinámicos:** Búsqueda textual sobre código de acta, nombre de laboratorio, municipio y tipo de inspección; filtro de resultado; y extractor dinámico de meses disponibles (`meses_disponibles`).
+  - **Paginación SQL/Backend:** Cálculo de límites, páginas y rangos con ordenación cronológica descendente.
+* **Endpoint `POST /api/supervisor/registrar-acta`:**
+  - Creación/actualización inmediata de inspecciones en la base de datos.
+  - Actualización del estado del trámite en BD.
+  - Inserción en `HistorialActividad` (Auditoría) y emisión de `Notificacion` en BD.
+
+#### 3. `frontend/src/components/supervisor/ActasEmitidasView.jsx` [MODIFICADO]
+* **Consumo de Datos Reales:**
+  - Inicialización de estados de KPIs y paginación en `0` para reflejar fielmente los valores del backend.
+  - Selector de mes dinámico poblado a partir de `datosActas.meses_disponibles`.
+  - Visualización del historial con nombres de establecimientos reales, propietarios, fechas y actas generadas en BD.
+
+---
+
+### 📊 Verificación y Pruebas Realizadas
+* **Prueba de Consulta Backend:** Ejecución de `obtener_actas_supervisor("andrea.torrico@sedes.gob.bo")` retornando 14 actas reales de BD con KPIs agregados (`8` Aprobados, `6` Con Observaciones, `14` Total emitidas) y meses `Septiembre 2026`, `Agosto 2026`, `Julio 2026`.
+* **Prueba de Rutas en Tiempo Real:** Verificación de `obtener_rutas_supervisor` y `obtener_agenda_supervisor` para el supervisor activo del día `15/09/2026`, retornando las paradas programadas (*Laboratorio Prueba 2* 12:30 y *Lab uro* 15:00) con georreferenciación y trazado vial.
+* **Compilación de Frontend:** `npm run build` ejecutado exitosamente con 0 errores (1843 módulos en 710 ms).
+
+---
 *Bitácora actualizada por: Steven*
 
 

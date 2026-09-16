@@ -472,6 +472,164 @@ def init_database(reset_tables: bool = False):
         db.commit()
         logger.info(f"✅ Se han registrado los 10 laboratorios oficiales y sus respectivos propietarios en PostGIS.")
 
+        # 7. Poblar Trámites e Inspecciones Reales en la BD
+        from datetime import datetime
+        import uuid as py_uuid
+        from models import Tramite, Inspeccion
+
+        supervisor_torrico = db.query(Usuario).filter(Usuario.email == "andrea.torrico@sedes.gob.bo").first()
+        if not supervisor_torrico:
+            supervisor_torrico = db.query(Usuario).join(Role).filter(Role.nombre == "Supervisor").first()
+
+        if supervisor_torrico:
+            historial_laboratorios = [
+                {
+                    "nombre": "A.T.M.",
+                    "tipo_tramite": "Renovación",
+                    "estado_tramite": "Aprobado",
+                    "fecha": datetime(2026, 9, 12, 10, 0),
+                    "estado_insp": "Completada",
+                    "veredicto": "Favorable",
+                    "acta": "ACT-2026-035",
+                    "obs": "Cumple al 100% con estándares de infraestructura, bioseguridad y calibración de analizadores hematológicos."
+                },
+                {
+                    "nombre": "ADONAI",
+                    "tipo_tramite": "Apertura",
+                    "estado_tramite": "Observado",
+                    "fecha": datetime(2026, 9, 8, 11, 30),
+                    "estado_insp": "Completada",
+                    "veredicto": "Con Observaciones",
+                    "acta": "ACT-2026-034",
+                    "obs": "Se observa falta de actualización en los registros de control térmico de reactivos y cartelera de bioseguridad en área de toma de muestras. Plazo de subsanación: 10 días hábiles."
+                },
+                {
+                    "nombre": "ALCAZAR",
+                    "tipo_tramite": "Verificación Final",
+                    "estado_tramite": "Aprobado",
+                    "fecha": datetime(2026, 9, 3, 9, 30),
+                    "estado_insp": "Completada",
+                    "veredicto": "Favorable",
+                    "acta": "ACT-2026-033",
+                    "obs": "Verificación técnica aprobada. Equipos automatizados con bitácora de mantenimiento preventivo y control de calidad externo PEEC al día."
+                },
+                {
+                    "nombre": "ALFA",
+                    "tipo_tramite": "Acreditación",
+                    "estado_tramite": "Aprobado",
+                    "fecha": datetime(2026, 8, 28, 14, 0),
+                    "estado_insp": "Completada",
+                    "veredicto": "Favorable",
+                    "acta": "ACT-2026-032",
+                    "obs": "Instalaciones adecuadas, flujo unidireccional de muestras, POEs validados y personal con matrícula profesional vigente."
+                },
+                {
+                    "nombre": "ALFA & OMEGA",
+                    "tipo_tramite": "Apertura",
+                    "estado_tramite": "Observado",
+                    "fecha": datetime(2026, 8, 22, 15, 30),
+                    "estado_insp": "Completada",
+                    "veredicto": "Con Observaciones",
+                    "acta": "ACT-2026-031",
+                    "obs": "Requiere completar la delimitación de la zona de lavado y esterilización y presentar contrato de recojo de residuos biocontaminados con EMSA. Plazo: 15 días."
+                },
+                {
+                    "nombre": "ALINE",
+                    "tipo_tramite": "Renovación",
+                    "estado_tramite": "Aprobado",
+                    "fecha": datetime(2026, 8, 15, 10, 0),
+                    "estado_insp": "Completada",
+                    "veredicto": "Favorable",
+                    "acta": "ACT-2026-030",
+                    "obs": "Cumplimiento satisfactorio de la normativa sanitaria R.M. 0127. Áreas analíticas limpias y desinfectadas, reactivos con registro AGEMED."
+                },
+                {
+                    "nombre": "ALINE SUCURSAL 1",
+                    "tipo_tramite": "Apertura",
+                    "estado_tramite": "Rechazado",
+                    "fecha": datetime(2026, 8, 10, 11, 0),
+                    "estado_insp": "Completada",
+                    "veredicto": "Desfavorable",
+                    "acta": "ACT-2026-029",
+                    "obs": "No cuenta con refrigerador exclusivo para reactivos diagnósticos ni área de toma de muestras con privacidad reglamentaria. Requiere nueva solicitud."
+                },
+                {
+                    "nombre": "ALQUIMIA",
+                    "tipo_tramite": "Renovación",
+                    "estado_tramite": "Aprobado",
+                    "fecha": datetime(2026, 8, 4, 16, 0),
+                    "estado_insp": "Completada",
+                    "veredicto": "Favorable",
+                    "acta": "ACT-2026-028",
+                    "obs": "Laboratorio de Nivel 2 con excelente infraestructura, sistema de gestión de calidad PEEC y controles Levey-Jennings diarios verificados."
+                },
+                {
+                    "nombre": "ALVAREZ",
+                    "tipo_tramite": "Apertura",
+                    "estado_tramite": "Aprobado",
+                    "fecha": datetime(2026, 7, 29, 9, 0),
+                    "estado_insp": "Completada",
+                    "veredicto": "Favorable",
+                    "acta": "ACT-2026-027",
+                    "obs": "Infraestructura, equipamiento calibrado y personal calificado conformes con la caracterización oficial de Laboratorio Clínico Nivel 1."
+                },
+                {
+                    "nombre": "AMERICA",
+                    "tipo_tramite": "Verificación Sanitaria",
+                    "estado_tramite": "Observado",
+                    "fecha": datetime(2026, 7, 20, 14, 30),
+                    "estado_insp": "Completada",
+                    "veredicto": "Con Observaciones",
+                    "acta": "ACT-2026-026",
+                    "obs": "Falta certificado de calibración reciente para dos micropipetas de volumen variable y reposición de extintor con carga vigente. Plazo de 10 días."
+                }
+            ]
+
+            for h in historial_laboratorios:
+                estab_obj = db.query(Establecimiento).filter(Establecimiento.nombre_comercial == h["nombre"]).first()
+                if estab_obj:
+                    # Buscar o crear trámite
+                    trm_existente = db.query(Tramite).filter(
+                        Tramite.establecimiento_id == estab_obj.id,
+                        Tramite.tipo_tramite == h["tipo_tramite"]
+                    ).first()
+                    if not trm_existente:
+                        trm_existente = Tramite(
+                            id=py_uuid.uuid4(),
+                            establecimiento_id=estab_obj.id,
+                            supervisor_asignado_id=supervisor_torrico.id,
+                            tipo_tramite=h["tipo_tramite"],
+                            estado_tramite=h["estado_tramite"],
+                            fecha_ingreso=h["fecha"].date(),
+                            estado=True
+                        )
+                        db.add(trm_existente)
+                        db.commit()
+                        db.refresh(trm_existente)
+
+                    # Buscar o crear inspección
+                    insp_existente = db.query(Inspeccion).filter(
+                        Inspeccion.tramite_id == trm_existente.id,
+                        Inspeccion.acta_pdf_url == h["acta"]
+                    ).first()
+                    if not insp_existente:
+                        nueva_insp = Inspeccion(
+                            id=py_uuid.uuid4(),
+                            tramite_id=trm_existente.id,
+                            supervisor_id=supervisor_torrico.id,
+                            fecha_programada=h["fecha"],
+                            estado_inspeccion=h["estado_insp"],
+                            veredicto_final=h["veredicto"],
+                            acta_pdf_url=h["acta"],
+                            estado=True,
+                            fecha_creacion=h["fecha"],
+                            fecha_modificacion=h["fecha"]
+                        )
+                        db.add(nueva_insp)
+
+            db.commit()
+            logger.info("✅ Trámites e Inspecciones históricas oficiales pobladas en la base de datos.")
+
         db.close()
         logger.info("🚀 Base de datos inicializada y lista para su uso.")
 

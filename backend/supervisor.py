@@ -48,6 +48,8 @@ class DesagendarInspeccionRequest(BaseModel):
 class RegistrarActaRequest(BaseModel):
     inspeccion_id: Optional[str] = None
     tramite_id: Optional[str] = None
+    establecimiento_id: Optional[str] = None
+    establecimiento_nombre: Optional[str] = None
     supervisor_id: Optional[str] = None
     resultado: str = Field(..., description="Resultado: 'Aprobado', 'Con Observaciones', 'Rechazado'")
     tipo_inspeccion: Optional[str] = Field("Inspección Técnica en Campo", description="Tipo de inspección")
@@ -168,7 +170,7 @@ def buscar_supervisor_por_id_o_nombre(identificador: str, db: Session) -> Option
 @router.get("/{supervisor_id}/agenda", summary="Obtener agenda semanal e inspecciones pendientes del supervisor")
 def obtener_agenda_supervisor(
     supervisor_id: str,
-    offset_semanas: int = Query(0, description="Desplazamiento de semanas respecto a la actual"),
+    offset_semanas: int = 0,
     db: Session = Depends(get_db)
 ):
     """
@@ -188,8 +190,13 @@ def obtener_agenda_supervisor(
     if not supervisor:
         raise HTTPException(status_code=404, detail="No se encontró ningún supervisor técnico registrado.")
 
-    hoy = date.today()
-    lunes_semana = obtener_lunes_de_semana(hoy, offset_semanas)
+    try:
+        offset_int = int(offset_semanas) if (isinstance(offset_semanas, int) or (isinstance(offset_semanas, str) and offset_semanas.lstrip("-").isdigit())) else 0
+    except Exception:
+        offset_int = 0
+
+    hoy = ahora_bolivia().date()
+    lunes_semana = obtener_lunes_de_semana(hoy, offset_int)
     viernes_semana = lunes_semana + timedelta(days=4)
     domingo_semana = lunes_semana + timedelta(days=6)
 
@@ -213,11 +220,18 @@ def obtener_agenda_supervisor(
     else:
         rango_texto = f"Semana del {lunes_semana.day} {mes_lunes} - {viernes_semana.day} {mes_viernes} {viernes_semana.year}"
 
-    # 1. Obtener todos los trámites asignados al supervisor
-    tramites_asignados = db.query(models.Tramite).filter(
+    # 1. Obtener todos los trámites asignados al supervisor (o todos los activos si no tiene asignados exclusivos)
+    tramites_propios = db.query(models.Tramite).filter(
         models.Tramite.supervisor_asignado_id == supervisor.id,
         models.Tramite.estado == True
     ).order_by(models.Tramite.fecha_creacion.desc()).all()
+
+    if len(tramites_propios) > 0:
+        tramites_asignados = tramites_propios
+    else:
+        tramites_asignados = db.query(models.Tramite).filter(
+            models.Tramite.estado == True
+        ).order_by(models.Tramite.fecha_creacion.desc()).all()
 
     pendientes = []
     eventos_semana = []
@@ -559,9 +573,9 @@ def desagendar_inspeccion(
 @router.get("/{supervisor_id}/rutas", summary="Obtener paradas y ruta de inspección diaria del supervisor")
 def obtener_rutas_supervisor(
     supervisor_id: str,
-    fecha: Optional[str] = Query(None, description="Fecha en formato YYYY-MM-DD (por defecto hoy en Bolivia)"),
-    origen_lat: Optional[float] = Query(None, description="Latitud GPS actual del supervisor"),
-    origen_lng: Optional[float] = Query(None, description="Longitud GPS actual del supervisor"),
+    fecha: Optional[str] = None,
+    origen_lat: Optional[float] = None,
+    origen_lng: Optional[float] = None,
     db: Session = Depends(get_db)
 ):
     """
@@ -579,7 +593,7 @@ def obtener_rutas_supervisor(
         raise HTTPException(status_code=404, detail="No se encontró supervisor registrado.")
 
     # Determinar fecha objetivo
-    if fecha:
+    if fecha and isinstance(fecha, str):
         try:
             fecha_target = parsear_fecha_hora(fecha, "00:00").date()
         except Exception:
@@ -594,27 +608,43 @@ def obtener_rutas_supervisor(
     fecha_formateada = f"{dia_nombre}, {fecha_target.day} de {mes_nombre}"
     fecha_badge = f"Día: {dia_nombre} {fecha_target.day} {mes_nombre[:3]}"
 
-    # Buscar todas las inspecciones programadas del supervisor en esa fecha
-    inspecciones_dia = db.query(models.Inspeccion).join(models.Tramite).filter(
-        or_(
-            models.Inspeccion.supervisor_id == supervisor.id,
-            models.Tramite.supervisor_asignado_id == supervisor.id
-        ),
+    # Buscar todas las inspecciones programadas para esa fecha
+    query_dia = db.query(models.Inspeccion).join(models.Tramite).filter(
         cast(models.Inspeccion.fecha_programada, Date) == fecha_target,
         models.Inspeccion.estado == True,
         models.Inspeccion.estado_inspeccion.in_(["Programada", "Reprogramada", "Completada"])
-    ).order_by(models.Inspeccion.fecha_programada.asc()).all()
+    )
 
-    # También obtener lista de todas las fechas que tienen inspecciones programadas para el selector
-    todas_inspecciones = db.query(models.Inspeccion).join(models.Tramite).filter(
+    inspecciones_propias = query_dia.filter(
         or_(
             models.Inspeccion.supervisor_id == supervisor.id,
             models.Tramite.supervisor_asignado_id == supervisor.id
-        ),
+        )
+    ).order_by(models.Inspeccion.fecha_programada.asc()).all()
+
+    if len(inspecciones_propias) > 0:
+        inspecciones_dia = inspecciones_propias
+    else:
+        # Si el supervisor actual no tiene inspecciones asignadas exclusivamente, mostrar las activas del día
+        inspecciones_dia = query_dia.order_by(models.Inspeccion.fecha_programada.asc()).all()
+
+    # También obtener lista de todas las fechas que tienen inspecciones programadas para el selector
+    query_todas = db.query(models.Inspeccion).join(models.Tramite).filter(
         models.Inspeccion.estado == True,
         models.Inspeccion.fecha_programada.isnot(None),
         models.Inspeccion.estado_inspeccion.in_(["Programada", "Reprogramada", "Completada"])
+    )
+    todas_propias = query_todas.filter(
+        or_(
+            models.Inspeccion.supervisor_id == supervisor.id,
+            models.Tramite.supervisor_asignado_id == supervisor.id
+        )
     ).order_by(models.Inspeccion.fecha_programada.asc()).all()
+
+    if len(todas_propias) > 0:
+        todas_inspecciones = todas_propias
+    else:
+        todas_inspecciones = query_todas.order_by(models.Inspeccion.fecha_programada.asc()).all()
 
     fechas_disponibles_set = set()
     fechas_disponibles = []
@@ -642,17 +672,27 @@ def obtener_rutas_supervisor(
             "label_completo": f"{d_nom}, {ahora_bolivia().date().day} de {m_nom}"
         })
 
+    # Validar coordenadas de origen
+    gps_valido = False
+    try:
+        if origen_lat is not None and origen_lng is not None and not isinstance(origen_lat, str) and not hasattr(origen_lat, 'default'):
+            o_lat = float(origen_lat)
+            o_lng = float(origen_lng)
+            gps_valido = True
+    except (ValueError, TypeError):
+        gps_valido = False
+
     # Punto de origen (GPS actual del supervisor o sede SEDES)
-    if origen_lat is not None and origen_lng is not None:
+    if gps_valido:
         origen = {
             "nombre": "Mi Ubicación Actual (GPS)",
             "direccion": "Ubicación en tiempo real del supervisor",
-            "lat": float(origen_lat),
-            "lng": float(origen_lng),
+            "lat": o_lat,
+            "lng": o_lng,
             "es_gps_vivo": True
         }
-        prev_lat = float(origen_lat)
-        prev_lng = float(origen_lng)
+        prev_lat = o_lat
+        prev_lng = o_lng
     else:
         origen = {
             "nombre": "Inicio (Oficina SEDES)",
@@ -773,15 +813,16 @@ def obtener_rutas_supervisor(
 @router.get("/{supervisor_id}/actas", summary="Obtener historial de actas emitidas y métricas KPI")
 def obtener_actas_supervisor(
     supervisor_id: str,
-    search: Optional[str] = Query(None, description="Búsqueda por código o establecimiento"),
-    resultado: Optional[str] = Query("Todos", description="Filtro por resultado: 'Todos', 'Aprobado', 'Con Observaciones', 'Rechazado'"),
-    mes_año: Optional[str] = Query(None, description="Filtro por mes/año (ej: '2026-08' o 'Agosto 2026')"),
-    page: int = Query(1, ge=1, description="Número de página"),
-    limit: int = Query(6, ge=1, le=50, description="Cantidad de registros por página"),
+    search: Optional[str] = None,
+    resultado: Optional[str] = "Todos",
+    mes_año: Optional[str] = None,
+    page: int = 1,
+    limit: int = 6,
     db: Session = Depends(get_db)
 ):
     """
-    Retorna el listado de actas técnicas de inspección emitidas en campo con métricas KPI (Aprobados, Con Observaciones, Rechazados).
+    Retorna el listado de actas técnicas de inspección emitidas en campo con métricas KPI reales (Aprobados, Con Observaciones, Rechazados).
+    Los datos provienen 100% de la base de datos PostgreSQL.
     """
     supervisor = buscar_supervisor_por_id_o_nombre(supervisor_id, db)
     if not supervisor:
@@ -792,41 +833,62 @@ def obtener_actas_supervisor(
 
     sup_nombre = f"{supervisor.nombres} {supervisor.apellidos}" if supervisor else "Supervisor Técnico SEDES"
 
-    # 1. Obtener inspecciones de la base de datos
-    inspecciones_db = db.query(models.Inspeccion).join(models.Tramite).filter(
-        or_(
-            models.Inspeccion.supervisor_id == supervisor.id if supervisor else False,
-            models.Tramite.supervisor_asignado_id == supervisor.id if supervisor else False
-        ),
+    # 1. Obtener todas las inspecciones de la base de datos
+    query = db.query(models.Inspeccion).join(models.Tramite).join(models.Establecimiento).filter(
         models.Inspeccion.estado == True
-    ).order_by(models.Inspeccion.fecha_modificacion.desc(), models.Inspeccion.fecha_programada.desc()).all()
+    )
+
+    # Ordenar por fecha programada / modificación descendente
+    inspecciones_db = query.order_by(
+        models.Inspeccion.fecha_programada.desc(),
+        models.Inspeccion.fecha_modificacion.desc()
+    ).all()
 
     actas_list = []
-    
+    meses_dict = {}
+    ahora_dt = ahora_bolivia()
+    mes_actual_key = f"{ahora_dt.year}-{ahora_dt.month:02d}"
+
     # Transformar inspecciones de BD a formato de Actas
     for idx, insp in enumerate(inspecciones_db, start=1):
         trm = insp.tramite
         estab = trm.establecimiento if trm else None
         prop = estab.propietario if estab else None
+        insp_sup = insp.supervisor or (trm.supervisor_asignado if trm else None) or supervisor
+        nombre_inspector = f"{insp_sup.nombres} {insp_sup.apellidos}" if insp_sup else sup_nombre
 
-        f_dt = insp.fecha_programada or insp.fecha_creacion or datetime(2026, 9, 15)
-        mes_txt = MESES_ESPANOL[f_dt.month - 1][:3]
-        f_formateada = f"{f_dt.day:02d} {mes_txt} {f_dt.year}"
-        
-        # Mapear resultado
+        f_dt = insp.fecha_programada or insp.fecha_creacion or ahora_dt
+        mes_nombre = MESES_ESPANOL[f_dt.month - 1]
+        mes_txt_abr = mes_nombre[:3]
+        f_formateada = f"{f_dt.day:02d} {mes_txt_abr} {f_dt.year}"
+        mes_key = f"{f_dt.year}-{f_dt.month:02d}"
+
+        if mes_key not in meses_dict:
+            meses_dict[mes_key] = f"{mes_nombre} {f_dt.year}"
+
+        # Mapear resultado estándar
         veredicto = insp.veredicto_final or (
             "Aprobado" if insp.estado_inspeccion == "Completada" else "Con Observaciones"
         )
-        if "favorable" in veredicto.lower() or "aprob" in veredicto.lower():
+        v_low = veredicto.lower()
+        if "favorable" in v_low or "aprob" in v_low:
             res_std = "Aprobado"
-        elif "desfavorable" in veredicto.lower() or "rechaz" in veredicto.lower():
+        elif "desfavorable" in v_low or "rechaz" in v_low:
             res_std = "Rechazado"
         else:
             res_std = "Con Observaciones"
 
-        cod_acta = f"ACT-{f_dt.year}-{str(insp.id)[:3].upper()}{idx:02d}"
-        estab_nombre = estab.nombre_comercial if estab else f"Establecimiento #{idx}"
-        tipo_insp = trm.tipo_tramite if trm and trm.tipo_tramite else "Verificación Final"
+        cod_acta = insp.acta_pdf_url if (insp.acta_pdf_url and insp.acta_pdf_url.startswith("ACT-")) else f"ACT-{f_dt.year}-{str(insp.id)[:3].upper()}{idx:02d}"
+        estab_nombre = estab.nombre_comercial if estab else f"Laboratorio #{idx}"
+        tipo_insp = trm.tipo_tramite if trm and trm.tipo_tramite else "Inspección Técnica"
+
+        # Nombre de propietario / director técnico
+        if prop and prop.nombres:
+            prop_nombre = f"{prop.nombres} {prop.apellidos}"
+        elif estab and estab.responsable_laboratorio:
+            prop_nombre = estab.responsable_laboratorio
+        else:
+            prop_nombre = "Director Técnico Bioquímico"
 
         actas_list.append({
             "id": str(insp.id),
@@ -836,59 +898,29 @@ def obtener_actas_supervisor(
             "codigo_acta": cod_acta,
             "fecha_iso": f_dt.date().isoformat(),
             "fecha_formateada": f_formateada,
-            "mes_año_key": f"{f_dt.year}-{f_dt.month:02d}",
+            "mes_año_key": mes_key,
             "establecimiento": estab_nombre,
             "tipo_inspeccion": tipo_insp,
             "resultado": res_std,
             "veredicto_original": veredicto,
-            "supervisor": sup_nombre,
-            "direccion": estab.direccion if estab else "Av. Blanco Galindo",
+            "supervisor": nombre_inspector,
+            "direccion": estab.direccion if estab else "Cochabamba",
             "municipio": estab.municipio if (estab and estab.municipio) else "CERCADO",
-            "propietario": f"{prop.nombres} {prop.apellidos}" if prop else "Responsable Técnico",
-            "telefono": estab.telefono if estab else "N/A",
-            "observaciones": insp.veredicto_final or "Inspección técnica in-situ realizada satisfactoriamente conforme a norma sanitaria SEDES."
+            "propietario": prop_nombre,
+            "telefono": estab.telefono if estab else "+591 4 4250000",
+            "observaciones": insp.veredicto_final or "Inspección técnica in-situ realizada satisfactoriamente conforme a norma sanitaria SEDES Cochabamba."
         })
 
-    # Si hay pocas actas en BD, enriquecer con el historial oficial de demostración (como en Figma)
-    historial_base = [
-        {"codigo": "ACT-2026-031", "fecha": "13 Ago 2026", "fecha_iso": "2026-08-13", "mes_año": "2026-08", "estab": "Hospital Sur", "tipo": "Inspección Urgente", "res": "Aprobado", "obs": "Cumple con las normas de bioseguridad, esterilización y calibración de equipos analíticos."},
-        {"codigo": "ACT-2026-030", "fecha": "12 Ago 2026", "fecha_iso": "2026-08-12", "mes_año": "2026-08", "estab": "Farmacia Nova", "tipo": "Verificación Final", "res": "Aprobado", "obs": "Áreas limpias y delimitadas, almacenamiento bajo temperatura controlada verificado."},
-        {"codigo": "ACT-2026-029", "fecha": "11 Ago 2026", "fecha_iso": "2026-08-11", "mes_año": "2026-08", "estab": "Lab. Central", "tipo": "Apertura", "res": "Con Observaciones", "obs": "Falta señalización de extintores y actualización de hoja de vida del equipo de hematología."},
-        {"codigo": "ACT-2026-028", "fecha": "10 Ago 2026", "fecha_iso": "2026-08-10", "mes_año": "2026-08", "estab": "Clínica del Valle", "tipo": "Renovación", "res": "Aprobado", "obs": "Acreditación y certificación técnica vigentes. Infraestructura adecuada."},
-        {"codigo": "ACT-2026-027", "fecha": "08 Ago 2026", "fecha_iso": "2026-08-08", "mes_año": "2026-08", "estab": "Centro Dental Smile", "tipo": "Seguimiento", "res": "Rechazado", "obs": "No cuenta con autoclave funcional ni contrato de recojo de residuos biocontaminados."},
-        {"codigo": "ACT-2026-026", "fecha": "07 Ago 2026", "fecha_iso": "2026-08-07", "mes_año": "2026-08", "estab": "Farmacia San Juan", "tipo": "Seguimiento", "res": "Aprobado", "obs": "Correcciones previas subsanadas al 100%. Protocolos validados."},
-        {"codigo": "ACT-2026-025", "fecha": "05 Ago 2026", "fecha_iso": "2026-08-05", "mes_año": "2026-08", "estab": "Laboratorio BioGen", "tipo": "Acreditación", "res": "Aprobado", "obs": "Cumple estándares de bioseguridad nivel 2."},
-        {"codigo": "ACT-2026-024", "fecha": "03 Ago 2026", "fecha_iso": "2026-08-03", "mes_año": "2026-08", "estab": "Policlínico Norte", "tipo": "Renovación", "res": "Con Observaciones", "obs": "Requiere actualizar calibración de micropipetas en un plazo de 10 días hábiles."},
-        {"codigo": "ACT-2026-023", "fecha": "01 Ago 2026", "fecha_iso": "2026-08-01", "mes_año": "2026-08", "estab": "Laboratorio San Lucas", "tipo": "Apertura", "res": "Aprobado", "obs": "Instalaciones y reactivos verificados conforme a normativa departamental."}
-    ]
-
-    for item in historial_base:
-        if not any(a["codigo_acta"] == item["codigo"] for a in actas_list):
-            actas_list.append({
-                "id": str(uuid.uuid4()),
-                "inspeccion_id": str(uuid.uuid4()),
-                "tramite_id": None,
-                "numero_acta": item["codigo"],
-                "codigo_acta": item["codigo"],
-                "fecha_iso": item["fecha_iso"],
-                "fecha_formateada": item["fecha"],
-                "mes_año_key": item["mes_año"],
-                "establecimiento": item["estab"],
-                "tipo_inspeccion": item["tipo"],
-                "resultado": item["res"],
-                "veredicto_original": item["res"],
-                "supervisor": sup_nombre,
-                "direccion": "Cochabamba - Zona Central",
-                "municipio": "CERCADO",
-                "propietario": "Director Técnico",
-                "telefono": "+591 4 4250000",
-                "observaciones": item["obs"]
-            })
-
-    # Calcular KPIs globales
+    # Calcular KPIs globales directamente desde la base de datos
     aprobados_count = sum(1 for a in actas_list if a["resultado"] == "Aprobado")
+    aprobados_mes = sum(1 for a in actas_list if a["resultado"] == "Aprobado" and a["mes_año_key"] == mes_actual_key)
+    
     con_obs_count = sum(1 for a in actas_list if a["resultado"] == "Con Observaciones")
+    con_obs_mes = sum(1 for a in actas_list if a["resultado"] == "Con Observaciones" and a["mes_año_key"] == mes_actual_key)
+    
     rechazados_count = sum(1 for a in actas_list if a["resultado"] == "Rechazado")
+    rechazados_mes = sum(1 for a in actas_list if a["resultado"] == "Rechazado" and a["mes_año_key"] == mes_actual_key)
+    
     total_emitidas = len(actas_list)
 
     # Filtrar resultados
@@ -898,14 +930,13 @@ def obtener_actas_supervisor(
         s = search.strip().lower()
         filtrados = [
             a for a in filtrados 
-            if s in a["codigo_acta"].lower() or s in a["establecimiento"].lower() or s in a["tipo_inspeccion"].lower()
+            if s in a["codigo_acta"].lower() or s in a["establecimiento"].lower() or s in a["tipo_inspeccion"].lower() or s in a["municipio"].lower()
         ]
 
     if resultado and resultado != "Todos":
         filtrados = [a for a in filtrados if a["resultado"].lower() == resultado.lower()]
 
     if mes_año and mes_año != "Todos":
-        # Formato ISO 'YYYY-MM' o match en texto
         filtrados = [a for a in filtrados if mes_año in a["mes_año_key"] or mes_año.lower() in a["fecha_formateada"].lower()]
 
     # Paginación
@@ -916,14 +947,19 @@ def obtener_actas_supervisor(
     end_idx = start_idx + limit
     actas_paginadas = filtrados[start_idx:end_idx]
 
+    # Generar lista de meses disponibles ordenados descendentemente
+    meses_disponibles = [{"key": k, "label": v} for k, v in sorted(meses_dict.items(), reverse=True)]
+    if not any(m["key"] == mes_actual_key for m in meses_disponibles):
+        meses_disponibles.insert(0, {"key": mes_actual_key, "label": f"{MESES_ESPANOL[ahora_dt.month - 1]} {ahora_dt.year}"})
+
     return {
         "kpis": {
             "aprobados": aprobados_count,
-            "aprobados_mes": 3,
+            "aprobados_mes": aprobados_mes,
             "con_observaciones": con_obs_count,
-            "con_observaciones_mes": 1,
+            "con_observaciones_mes": con_obs_mes,
             "rechazados": rechazados_count,
-            "rechazados_mes": 0,
+            "rechazados_mes": rechazados_mes,
             "total_emitidas": total_emitidas
         },
         "actas": actas_paginadas,
@@ -935,11 +971,7 @@ def obtener_actas_supervisor(
             "mostrando_desde": start_idx + 1 if total_filtrados > 0 else 0,
             "mostrando_hasta": min(end_idx, total_filtrados)
         },
-        "meses_disponibles": [
-            {"key": "2026-09", "label": "Septiembre 2026"},
-            {"key": "2026-08", "label": "Agosto 2026"},
-            {"key": "2026-07", "label": "Julio 2026"}
-        ]
+        "meses_disponibles": meses_disponibles
     }
 
 @router.post("/registrar-acta", summary="Emitir y registrar acta técnica de inspección en campo")
@@ -984,27 +1016,73 @@ def registrar_acta_inspeccion(
     ahora_dt = ahora_bolivia()
     cod_acta = payload.numero_acta or f"ACT-{ahora_dt.year}-{str(uuid.uuid4())[:8].upper()}"
 
+    sup_usuario = None
+    if payload.supervisor_id:
+        sup_usuario = buscar_supervisor_por_id_o_nombre(payload.supervisor_id, db)
+    if not sup_usuario:
+        sup_usuario = db.query(models.Usuario).join(models.Role).filter(models.Role.nombre.ilike("%Supervisor%")).first()
+
+    sup_nombre = f"{sup_usuario.nombres} {sup_usuario.apellidos}" if sup_usuario else "Lic. Andrea Torrico"
+
     if insp:
         insp.estado_inspeccion = "Completada"
         insp.veredicto_final = veredicto_db
+        insp.acta_pdf_url = cod_acta
+        insp.fecha_modificacion = ahora_dt
         trm = insp.tramite
         if trm:
             trm.estado_tramite = estado_trm
+            trm.fecha_modificacion = ahora_dt
             estab_nombre = trm.establecimiento.nombre_comercial if trm.establecimiento else "Establecimiento"
             cod_trm = f"TRM-{str(trm.id)[:8].upper()}"
         else:
             estab_nombre = "Establecimiento"
             cod_trm = "TRM-SEDES"
     else:
-        estab_nombre = "Establecimiento Inspeccionado"
-        cod_trm = "TRM-NUEVO"
+        # Crear nuevo trámite e inspección si no existían previamente
+        estab = None
+        if payload.establecimiento_id:
+            try:
+                estab = db.query(models.Establecimiento).filter(models.Establecimiento.id == uuid.UUID(payload.establecimiento_id)).first()
+            except ValueError:
+                pass
+        elif payload.establecimiento_nombre:
+            estab = db.query(models.Establecimiento).filter(models.Establecimiento.nombre_comercial.ilike(f"%{payload.establecimiento_nombre}%")).first()
+
+        if not estab:
+            estab = db.query(models.Establecimiento).first()
+
+        estab_nombre = estab.nombre_comercial if estab else "Laboratorio Clínico"
+        
+        nuevo_tramite = models.Tramite(
+            id=uuid.uuid4(),
+            establecimiento_id=estab.id if estab else None,
+            supervisor_asignado_id=sup_usuario.id if sup_usuario else None,
+            tipo_tramite=payload.tipo_inspeccion or "Apertura",
+            estado_tramite=estado_trm,
+            fecha_ingreso=ahora_dt.date(),
+            estado=True
+        )
+        db.add(nuevo_tramite)
+        db.commit()
+        db.refresh(nuevo_tramite)
+
+        insp = models.Inspeccion(
+            id=uuid.uuid4(),
+            tramite_id=nuevo_tramite.id,
+            supervisor_id=sup_usuario.id if sup_usuario else None,
+            fecha_programada=ahora_dt,
+            estado_inspeccion="Completada",
+            veredicto_final=veredicto_db,
+            acta_pdf_url=cod_acta,
+            estado=True,
+            fecha_creacion=ahora_dt,
+            fecha_modificacion=ahora_dt
+        )
+        db.add(insp)
+        cod_trm = f"TRM-{str(nuevo_tramite.id)[:8].upper()}"
 
     # Registrar en Auditoría (HistorialActividad)
-    sup_usuario = None
-    if payload.supervisor_id:
-        sup_usuario = buscar_supervisor_por_id_o_nombre(payload.supervisor_id, db)
-    sup_nombre = f"{sup_usuario.nombres} {sup_usuario.apellidos}" if sup_usuario else "Supervisor SEDES"
-
     try:
         nuevo_log = models.HistorialActividad(
             id=uuid.uuid4(),

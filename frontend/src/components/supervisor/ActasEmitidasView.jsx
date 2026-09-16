@@ -234,22 +234,22 @@ export default function ActasEmitidasView({ usuario, mostrarToast }) {
   };
 
   const kpis = datosActas?.kpis || {
-    aprobados: 18,
-    aprobados_mes: 3,
-    con_observaciones: 4,
-    con_observaciones_mes: 1,
-    rechazados: 2,
+    aprobados: 0,
+    aprobados_mes: 0,
+    con_observaciones: 0,
+    con_observaciones_mes: 0,
+    rechazados: 0,
     rechazados_mes: 0,
-    total_emitidas: 24
+    total_emitidas: 0
   };
 
   const actas = datosActas?.actas || [];
   const paginacion = datosActas?.paginacion || {
-    total_registros: 24,
+    total_registros: 0,
     pagina_actual: 1,
-    total_paginas: 4,
-    mostrando_desde: 1,
-    mostrando_hasta: 6
+    total_paginas: 1,
+    mostrando_desde: 0,
+    mostrando_hasta: 0
   };
 
   if (modoCrearActa) {
@@ -425,9 +425,11 @@ export default function ActasEmitidasView({ usuario, mostrarToast }) {
               className="w-full appearance-none px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-bold text-slate-700 focus:bg-white focus:ring-2 focus:ring-[#0060a8] outline-none pr-8 cursor-pointer"
             >
               <option value="Todos">Mes: Todos los meses</option>
-              <option value="2026-09">Mes: Septiembre 2026</option>
-              <option value="2026-08">Mes: Agosto 2026</option>
-              <option value="2026-07">Mes: Julio 2026</option>
+              {datosActas?.meses_disponibles?.map((m) => (
+                <option key={m.key} value={m.key}>
+                  Mes: {m.label}
+                </option>
+              ))}
             </select>
             <CalendarIcon className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
           </div>
