@@ -305,8 +305,9 @@ export default function NuevaActaFormView({ usuario, onVolver, onActaGuardada, m
   // 1. Cargar inspecciones desde el backend
   useEffect(() => {
     const cargarInspecciones = async () => {
+      const supId = usuario?.id || usuario?.email || (usuario?.nombres ? `${usuario.nombres} ${usuario.apellidos}` : '');
+      if (!supId) return;
       try {
-        const supId = usuario?.id || usuario?.email || 'Lic. Andrea Torrico';
         const res = await fetch(`http://localhost:8000/api/supervisor/${encodeURIComponent(supId)}/agenda`);
         if (res.ok) {
           const data = await res.json();
@@ -405,7 +406,7 @@ export default function NuevaActaFormView({ usuario, onVolver, onActaGuardada, m
 
     setGuardando(true);
     try {
-      const supId = usuario?.id || usuario?.email || 'Lic. Andrea Torrico';
+      const supId = usuario?.id || usuario?.email || `${usuario?.nombres || ''} ${usuario?.apellidos || ''}`.trim();
       const ahora = new Date();
       const numActaGenerado = `ACT-${ahora.getFullYear()}-${String(Math.floor(Math.random() * 900) + 100).padStart(3, '0')}`;
 
@@ -463,7 +464,7 @@ export default function NuevaActaFormView({ usuario, onVolver, onActaGuardada, m
 
   const supervisorNombre = usuario 
     ? `${usuario.nombres} ${usuario.apellidos}` 
-    : 'Lic. Andrea Torrico';
+    : 'Supervisor Técnico';
 
   return (
     <div className="space-y-6 animate-fadeIn pb-12">

@@ -1841,7 +1841,134 @@ Eliminar cualquier estructura estática o datos simulados en la vista de **Actas
 * **Compilación de Frontend:** `npm run build` ejecutado exitosamente con 0 errores (1843 módulos en 710 ms).
 
 ---
+
+## [2026-09-16] Aislamiento Estricto de Cuentas y Datos por Supervisor (Multi-tenancy Individual)
+
+### 📌 Objetivo
+Garantizar el aislamiento absoluto e individual de los datos para cada cuenta con rol de **Supervisor Técnico** en el sistema SEDES Lab. Cada supervisor debe visualizar única y exclusivamente sus propios trámites asignados, eventos en "Mi Agenda", paradas diarias en "Rutas de Inspección", actas técnicas registradas y métricas KPI en "Actas Emitidas", eliminando cualquier cruce de información o fallback genérico hacia otras cuentas.
+
+---
+
+### 🛠️ Archivos Creados y Modificados
+
+#### 1. `backend/init_db.py` [MODIFICADO]
+* **Distribución Equitativa y Realista por Supervisor:**
+  - Se distribuyeron los trámites, inspecciones en campo, actas emitidas y auditorías entre los 4 supervisores técnicos oficiales del SEDES Cochabamba:
+    - **Lic. Andrea Torrico** (`andrea.torrico@sedes.gob.bo`): Trámites y actas de *A.T.M.*, *ALCAZAR*, *ALFA*.
+    - **Ing. Marco Antonio Vargas Rojas** (`supervisor@sedes.gob.bo`): Trámites, inspecciones del día y actas de *Laboratorio Prueba 2*, *Lab uro*, *ADONAI*.
+    - **Ing. Carlos Ruiz Mendoza** (`carlos.ruiz@sedes.gob.bo`): Trámites y actas de *ALFA & OMEGA*, *ALQUIMIA*, *AMERICA*.
+    - **Dra. Patricia Valenzuela** (`patricia.valenzuela@sedes.gob.bo`): Trámites y actas de *ALINE*, *ALINE SUCURSAL 1*, *ALVAREZ*.
+
+#### 2. `backend/supervisor.py` [MODIFICADO]
+* **Eliminación de Consultas Globales / Fallbacks Indebidos:**
+  - **`obtener_agenda_supervisor`:** Filtrado estricto por `models.Tramite.supervisor_asignado_id == supervisor.id` sin mezclar agendas ajenas.
+  - **`obtener_rutas_supervisor`:** Eliminación del `else: query_dia.all()` que devolvía las rutas de otros funcionarios si el supervisor no tenía asignaciones ese día. Filtro estricto `or_(models.Inspeccion.supervisor_id == supervisor.id, models.Tramite.supervisor_asignado_id == supervisor.id)`.
+  - **`obtener_actas_supervisor`:** Consulta estricta filtrada por el ID del supervisor autenticado, calculando los KPIs (Aprobados, Observados, Rechazados, Totales) exclusivamente sobre sus propias actas emitidas.
+  - **`registrar_acta_inspeccion`:** Eliminación de texto estático y asignación precisa al supervisor que emite el acta técnica.
+
+#### 3. `frontend/src/pages/SupervisorPage.jsx` y Componentes de Supervisor [MODIFICADOS]
+* **Uso Dinámico de la Sesión del Usuario:**
+  - Se eliminaron todos los fallbacks estáticos a `'Lic. Andrea Torrico'` en `SupervisorPage.jsx`, `RutasInspeccionView.jsx`, `ActasEmitidasView.jsx` y `NuevaActaFormView.jsx`.
+  - Los componentes ahora consultan los endpoints parametrizados con `usuario?.id || usuario?.email` obtenido directamente del contexto de autenticación / `localStorage`.
+
+---
+
+### 📊 Verificación y Pruebas Realizadas
+* **Prueba de Aislamiento de Agenda, Rutas y Actas:**
+  - Ejecución de pruebas automatizadas con las 4 cuentas oficiales de supervisión, verificando que cada una recibe conjuntos de datos 100% disjuntos:
+    - `andrea.torrico@sedes.gob.bo`: 4 actas propias (KPIs: 3 aprobados, 1 con observaciones), agenda con *A.T.M.*
+    - `supervisor@sedes.gob.bo` (Marco Antonio Vargas): 3 actas propias (3 con observaciones), paradas de hoy para *Laboratorio Prueba 2* (12:30) y *Lab uro* (15:00).
+    - `carlos.ruiz@sedes.gob.bo`: 5 actas propias (2 aprobados, 3 con observaciones), agenda con *AMERICA* y *A.T.M.*
+    - `patricia.valenzuela@sedes.gob.bo`: 4 actas propias (4 aprobados) de *ALINE* y *ALVAREZ*.
+* **Compilación de Frontend:** `npm run build` ejecutado exitosamente con 0 errores (1843 módulos en 1.09s).
+
+---
+
+## [2026-09-16] Generación de Respaldo Completo (Backup) y Vaciado de BD para Datos Reales
+
+### 📌 Objetivo
+Crear un respaldo íntegro y exportable de toda la base de datos relacional y geoespacial de PostgreSQL/PostGIS antes de vaciar las tablas operativas, permitiendo arrancar el sistema en un estado 100% limpio y preparado para el registro de laboratorios y trámites reales, asegurando la posibilidad de restauración inmediata si fuera necesario.
+
+---
+
+### 🛠️ Archivos Creados y Modificados
+
+#### 1. `backend/backup_manager.py` [NUEVO]
+* **Módulo integral de Backup, Restauración y Limpieza:**
+  - **`generar_backup()`**:
+    - Extrae de manera estructurada todos los registros de las 10 tablas del sistema (`roles`, `usuarios`, `establecimientos`, `tramites`, `catalogo_requisitos`, `tramite_documentos`, `inspecciones`, `citaciones_infracciones`, `notificaciones`, `historial_actividades`).
+    - Serializa geometrías PostGIS (`coordenadas`) a formato estándar `WKT` (`ST_AsText`).
+    - Guarda los archivos en el directorio `backend/backups/backup_sedes_db_YYYYMMDD_HHMMSS.json`.
+  - **`vaciar_base_datos(conservar_roles_y_personal=True)`**:
+    - Elimina de forma ordenada por integridad referencial los datos transaccionales de prueba (`tramite_documentos`, `inspecciones`, `citaciones_infracciones`, `notificaciones`, `historial_actividades`, `tramites`, `establecimientos` y cuentas de propietarios demo).
+    - **Conserva intacta la infraestructura base requerida:**
+      - Roles oficiales del sistema (`roles`).
+      - Cuentas de personal oficial SEDES (Director, Coordinador, Administrador, Supervisores) para acceso inmediato al sistema.
+      - Catálogo oficial de requisitos normativos (`catalogo_requisitos` secciones 2.1 a 2.5).
+  - **`restaurar_backup(archivo_backup)`**: Función para restablecer en un solo comando la base de datos completa desde cualquier archivo `.json` de respaldo.
+
+#### 2. `backend/init_db.py` [MODIFICADO]
+* **Modo Producción por Defecto:**
+  - Se modificó la firma a `init_database(reset_tables=False, poblar_laboratorios_demo=False)` para que el arranque normal del servidor FastAPI (`main.py`) no vuelva a inyectar laboratorios o trámites simulados sobre la base de datos limpia de producción.
+
+---
+
+### 📊 Verificación y Pruebas Realizadas
+* **Respaldo Generado:** Archivo verificado en `backend/backups/backup_sedes_db_20260916_094247.json` (197.4 KB, 305 registros respaldados).
+* **Estado Actual de la Base de Datos:**
+  - `Establecimientos`: **0**
+  - `Trámites`: **0**
+  - `Inspecciones`: **0**
+  - `Documentos`: **0**
+  - `Citaciones`: **0**
+  - `Notificaciones`: **0**
+  - `Historial Auditoría`: **0**
+  - `Roles Oficiales`: **5**
+  - `Requisitos Normativos`: **46** (Secciones 2.1 a 2.5)
+  - `Cuentas de Personal SEDES`: **8** (Admin, Coordinador, Director, 4 Supervisores y Auxiliar)
+
+---
+
+## [2026-09-16] Limpieza de Tabla de Usuarios y Creación de 7 Cuentas Oficiales Institucionales
+
+### 📌 Objetivo
+Limpiar la tabla `usuarios` y registrar exactamente las 7 cuentas oficiales del personal institucional SEDES (1 Director, 1 Coordinador, 1 Administrador y 4 Supervisores) sin prefijos honoríficos o títulos profesionales (`Dr.`, `Dra.`, `Lic.`, `Ing.`), con nombres limpios y contraseña unificada `Sedes2026!`. Actualizar la documentación en `README.md` y las constantes de vista en `AdminPage.jsx`.
+
+---
+
+### 🛠️ Archivos Creados y Modificados
+
+#### 1. Base de Datos (`PostgreSQL` / `models.Usuario`) [MODIFICADO]
+* Vaciado y recreación de la tabla `usuarios` con las 7 cuentas institucionales activas:
+  1. **Director**: `Fernando Castillo` (`director@sedes.gob.bo`)
+  2. **Coordinador**: `Claudia Morales Valenzuela` (`coordinador@sedes.gob.bo`)
+  3. **Administrador**: `Carlos Quispe` (`admin@sedes.gob.bo`)
+  4. **Supervisor 1**: `Marco Antonio Vargas Rojas` (`supervisor@sedes.gob.bo`)
+  5. **Supervisor 2**: `Andrea Torrico` (`andrea.torrico@sedes.gob.bo`)
+  6. **Supervisor 3**: `Carlos Ruiz Mendoza` (`carlos.ruiz@sedes.gob.bo`)
+  7. **Supervisor 4**: `Patricia Valenzuela` (`patricia.valenzuela@sedes.gob.bo`)
+* **Contraseña unificada:** `Sedes2026!` (hasheada con bcrypt).
+
+#### 2. `backend/init_db.py` [MODIFICADO]
+* Actualización de la lista `personal_sedes` con los 7 perfiles estandarizados sin títulos profesionales.
+
+#### 3. `frontend/src/pages/AdminPage.jsx` [MODIFICADO]
+* Estandarización de `INITIAL_USERS` para coincidir con los 7 usuarios del backend.
+
+#### 4. `README.md` [MODIFICADO]
+* Actualización de la tabla de credenciales institucionales y aclaración sobre el registro abierto para nuevos laboratorios y propietarios.
+
+---
+
+### 📊 Verificación y Pruebas Realizadas
+* **Verificación de Cuentas en BD:** Consulta directa arrojando exactamente 7 registros en `usuarios`, 0 laboratorios y 0 trámites, con relaciones íntegras a los roles correspondientes.
+* **Compilación de Frontend:** `npm run build` ejecutado exitosamente con 0 errores (1843 módulos en 659 ms).
+
+---
 *Bitácora actualizada por: Steven*
+
+
+
 
 
 

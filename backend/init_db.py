@@ -8,7 +8,7 @@ from security import hash_password
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-def init_database(reset_tables: bool = False):
+def init_database(reset_tables: bool = False, poblar_laboratorios_demo: bool = False):
     try:
         # 1. Habilitar extensión espacial PostGIS
         with engine.connect() as conn:
@@ -85,9 +85,9 @@ def init_database(reset_tables: bool = False):
 
         personal_sedes = [
             {
-                "email": "f.castillo@sedes.gob.bo",
+                "email": "director@sedes.gob.bo",
                 "rol": "Director",
-                "nombres": "Dr. Fernando",
+                "nombres": "Fernando",
                 "apellidos": "Castillo",
                 "ci_nit": "3489102 CB",
                 "telefono": "72210045",
@@ -96,7 +96,7 @@ def init_database(reset_tables: bool = False):
             {
                 "email": "coordinador@sedes.gob.bo",
                 "rol": "Coordinador",
-                "nombres": "Dra. Claudia",
+                "nombres": "Claudia",
                 "apellidos": "Morales Valenzuela",
                 "ci_nit": "4589201 CB",
                 "telefono": "71789012",
@@ -105,7 +105,7 @@ def init_database(reset_tables: bool = False):
             {
                 "email": "admin@sedes.gob.bo",
                 "rol": "Administrador",
-                "nombres": "Ing. Carlos",
+                "nombres": "Carlos",
                 "apellidos": "Quispe",
                 "ci_nit": "1000001 CB",
                 "telefono": "70000001",
@@ -114,16 +114,25 @@ def init_database(reset_tables: bool = False):
             {
                 "email": "supervisor@sedes.gob.bo",
                 "rol": "Supervisor",
-                "nombres": "Ing. Marco Antonio",
+                "nombres": "Marco Antonio",
                 "apellidos": "Vargas Rojas",
                 "ci_nit": "6549871 CB",
                 "telefono": "71239845",
                 "estado": True
             },
             {
+                "email": "andrea.torrico@sedes.gob.bo",
+                "rol": "Supervisor",
+                "nombres": "Andrea",
+                "apellidos": "Torrico",
+                "ci_nit": "5291048 CB",
+                "telefono": "71239848",
+                "estado": True
+            },
+            {
                 "email": "carlos.ruiz@sedes.gob.bo",
                 "rol": "Supervisor",
-                "nombres": "Ing. Carlos",
+                "nombres": "Carlos",
                 "apellidos": "Ruiz Mendoza",
                 "ci_nit": "5921840 CB",
                 "telefono": "71239846",
@@ -132,29 +141,11 @@ def init_database(reset_tables: bool = False):
             {
                 "email": "patricia.valenzuela@sedes.gob.bo",
                 "rol": "Supervisor",
-                "nombres": "Dra. Patricia",
+                "nombres": "Patricia",
                 "apellidos": "Valenzuela",
                 "ci_nit": "4892103 CB",
                 "telefono": "71239847",
                 "estado": True
-            },
-            {
-                "email": "andrea.torrico@sedes.gob.bo",
-                "rol": "Supervisor",
-                "nombres": "Lic. Andrea",
-                "apellidos": "Torrico",
-                "ci_nit": "5291048 CB",
-                "telefono": "71239848",
-                "estado": True
-            },
-            {
-                "email": "r.quiroga@sedes.gob.bo",
-                "rol": "Supervisor",
-                "nombres": "Lic. Roberto",
-                "apellidos": "Quiroga",
-                "ci_nit": "5192834 CB",
-                "telefono": "71239849",
-                "estado": False
             }
         ]
 
@@ -189,446 +180,10 @@ def init_database(reset_tables: bool = False):
         db.commit()
         logger.info("✅ Cuentas de Personal SEDES (Coordinador, Administrador, Supervisores Oficiales) inicializadas con correos únicos.")
 
-        # 6. Poblar los 10 Laboratorios Oficiales y sus Cuentas de Propietario (Opción B)
-        laboratorios_data = [
-            {
-                "prop_nombre": "CLAUDIA SILVIA",
-                "prop_apellidos": "ALVAREZ LOPEZ",
-                "prop_ci": "3528447 CB",
-                "prop_email": "claudia.alvarez@propietario.sedes.bo",
-                "prop_tel": "71723456",
-                "cue": "3L0267",
-                "nombre": "A.T.M.",
-                "tipo": "Privado",
-                "nivel": "Nivel 2",
-                "municipio": "CERCADO",
-                "resp_lab": "ALVAREZ LOPEZ CLAUDIA SILVIA - 3528447",
-                "resp_areas": "Inmunología: CLAUDIA SILVIA ALVAREZ LOPEZ",
-                "direccion": "Av. Ayacucho Nº 345 entre Ecuador y Mayor Rocha",
-                "lat": -17.38975019,
-                "lng": -66.15951246,
-                "estado_op": "Habilitado",
-                "horario": "Lun-Vie 7:00 - 19:00, Sáb 8:00 - 13:00",
-                "telefono": "+591 4 4251890",
-                "email": "contacto@atm-lab.bo",
-                "servicios": "Inmunología, Análisis Clínicos Generales, Bioquímica, Hematología, Microbiología, Uroanálisis"
-            },
-            {
-                "prop_nombre": "JHANETH",
-                "prop_apellidos": "GUTIERREZ SAIGUA",
-                "prop_ci": "8726834 CB",
-                "prop_email": "jhaneth.gutierrez@propietario.sedes.bo",
-                "prop_tel": "72234567",
-                "cue": "3L0384",
-                "nombre": "ADONAI",
-                "tipo": "Privado",
-                "nivel": "Nivel 1",
-                "municipio": "PUNATA",
-                "resp_lab": "JHANETH GUTIERREZ SAIGUA - 8726834",
-                "resp_areas": "Análisis Clínicos Básicos",
-                "direccion": "Calle Cobija s/n entre las Calles Ingavi y Ayacucho, zona central de Punata",
-                "lat": -17.54556494,
-                "lng": -65.83973058,
-                "estado_op": "En Trámite",
-                "horario": "Lun-Vie 7:30 - 18:00, Sáb 8:00 - 12:00",
-                "telefono": "+591 4 4578120",
-                "email": "lab.adonai.punata@gmail.com",
-                "servicios": "Análisis Clínicos Generales, Hematología Básica, Bioquímica General"
-            },
-            {
-                "prop_nombre": "GERY IVAN",
-                "prop_apellidos": "ROMERO TAPIA",
-                "prop_ci": "5123984 CB",
-                "prop_email": "gery.romero@propietario.sedes.bo",
-                "prop_tel": "70712389",
-                "cue": "3L0265",
-                "nombre": "ALCAZAR",
-                "tipo": "Privado",
-                "nivel": "Nivel 1",
-                "municipio": "QUILLACOLLO",
-                "resp_lab": "DANIELA OMONTE QUIROZ - 9340566",
-                "resp_areas": "Bioquímica y Hematología",
-                "direccion": "Av. Blanco Galindo Km 13 - Municipio Quillacollo",
-                "lat": -17.40445636,
-                "lng": -66.28240982,
-                "estado_op": "En Trámite",
-                "horario": "Lun-Vie 7:00 - 18:30, Sáb 8:00 - 13:00",
-                "telefono": "+591 4 4367890",
-                "email": "alcazar.lab.cbba@gmail.com",
-                "servicios": "Análisis Clínicos Generales, Hematología, Bioquímica, Coproparasitología"
-            },
-            {
-                "prop_nombre": "MARTHA MAYTE",
-                "prop_apellidos": "RIVERA OLGUIN",
-                "prop_ci": "6412980 CB",
-                "prop_email": "martha.rivera@propietario.sedes.bo",
-                "prop_tel": "76451230",
-                "cue": "Nuevo",
-                "nombre": "ALFA",
-                "tipo": "Privado",
-                "nivel": "Nivel 1",
-                "municipio": "CERCADO",
-                "resp_lab": "MARTHA MAYTE RIVERA OLGUIN - 6412980",
-                "resp_areas": "Análisis Clínicos de Rutina",
-                "direccion": "Av. Encañada y Av. Alonso Yañez Mendoza, Cochabamba",
-                "lat": -17.45721955,
-                "lng": -66.1568581,
-                "estado_op": "Habilitado",
-                "horario": "Lun-Vie 7:00 - 19:00, Sáb 8:00 - 12:30",
-                "telefono": "+591 4 4112233",
-                "email": "laboratorioalfa.cbba@gmail.com",
-                "servicios": "Análisis Clínicos Generales, Hematología, Bioquímica, Uroanálisis"
-            },
-            {
-                "prop_nombre": "MARIA RUTH",
-                "prop_apellidos": "FERRUFINO GONZALES",
-                "prop_ci": "4981273 CB",
-                "prop_email": "maria.ferrufino@propietario.sedes.bo",
-                "prop_tel": "79784512",
-                "cue": "Nuevo",
-                "nombre": "ALFA & OMEGA",
-                "tipo": "Privado",
-                "nivel": "Nivel 1",
-                "municipio": "CERCADO",
-                "resp_lab": "MARIA EUGENIA CABEZAS ALANIZ - 9483829",
-                "resp_areas": "Microbiología y Análisis Clínico",
-                "direccion": "Calle M. Torrico esq. Av. Portales Edf. Portales",
-                "lat": -17.37478496,
-                "lng": -66.15546581,
-                "estado_op": "En Trámite",
-                "horario": "Lun-Vie 7:00 - 20:00, Sáb 7:30 - 14:00",
-                "telefono": "+591 4 4299100",
-                "email": "alfaomega.lab@sedes.bo",
-                "servicios": "Análisis Clínicos Generales, Microbiología, Hematología, Bioquímica"
-            },
-            {
-                "prop_nombre": "JOSE ARMANDO",
-                "prop_apellidos": "ORTEGA CHOQUE",
-                "prop_ci": "7198234 CB",
-                "prop_email": "jose.ortega@propietario.sedes.bo",
-                "prop_tel": "73789012",
-                "cue": "3L0335",
-                "nombre": "ALINE",
-                "tipo": "Privado",
-                "nivel": "Nivel 1",
-                "municipio": "SHINAHOTA",
-                "resp_lab": "MAYRA ESTHEFI RAMOS GUTIERREZ - 14555529",
-                "resp_areas": "Bioquímica y Análisis de Emergencia",
-                "direccion": "Calle Comercio entre Calle Tajibos y Germán Busch - Shinahota",
-                "lat": -16.99415843,
-                "lng": -65.24484581,
-                "estado_op": "En Trámite",
-                "horario": "Lun-Dom 7:00 - 21:00 (Atención Continua)",
-                "telefono": "+591 4 4136655",
-                "email": "lab.aline.shinahota@gmail.com",
-                "servicios": "Análisis Clínicos Generales, Hematología, Bioquímica, Pruebas Rápidas"
-            },
-            {
-                "prop_nombre": "JOSE ARMANDO",
-                "prop_apellidos": "ORTEGA CHOQUE",
-                "prop_ci": "7198234 CB",
-                "prop_email": "jose.ortega@propietario.sedes.bo",
-                "prop_tel": "73789012",
-                "cue": "Nuevo",
-                "nombre": "ALINE SUCURSAL 1",
-                "tipo": "Privado",
-                "nivel": "Nivel 1",
-                "municipio": "VILLA TUNARI",
-                "resp_lab": "JANETH ESTRADA LOPEZ - 8406211",
-                "resp_areas": "Análisis Clínico Tropical y General",
-                "direccion": "Av. de la Resistencia lado mercado 14 de mayo, Eterazama",
-                "lat": -16.8209865,
-                "lng": -65.467362,
-                "estado_op": "En Trámite",
-                "horario": "Lun-Sáb 7:00 - 18:00",
-                "telefono": "+591 4 4138899",
-                "email": "aline.eterazama@gmail.com",
-                "servicios": "Análisis Clínicos Generales, Detección de Enfermedades Tropicales, Hematología"
-            },
-            {
-                "prop_nombre": "ROLANDO",
-                "prop_apellidos": "SANCHEZ RAMOS",
-                "prop_ci": "4129845 CB",
-                "prop_email": "rolando.sanchez@propietario.sedes.bo",
-                "prop_tel": "71490123",
-                "cue": "3L0393",
-                "nombre": "ALQUIMIA",
-                "tipo": "Privado",
-                "nivel": "Nivel 2",
-                "municipio": "CERCADO",
-                "resp_lab": "MARCELA SCARLEN BARRON GAMBOA - 12906321",
-                "resp_areas": "Inmunología: MARCELA SCARLEN BARRON GAMBOA",
-                "direccion": "Av. América Nro. 595 esquina Potosí",
-                "lat": -17.371239,
-                "lng": -66.158721,
-                "estado_op": "Habilitado",
-                "horario": "Lun-Vie 7:00 - 19:30, Sáb 8:00 - 14:00",
-                "telefono": "+591 4 4458900",
-                "email": "informes@alquimia-lab.com.bo",
-                "servicios": "Inmunología, Hormonas, Marcadores Tumorales, Bioquímica, Hematología, Microbiología"
-            },
-            {
-                "prop_nombre": "JAMES ALEX",
-                "prop_apellidos": "ALVAREZ GONZALES",
-                "prop_ci": "5904922 CB",
-                "prop_email": "james.alvarez@propietario.sedes.bo",
-                "prop_tel": "70761234",
-                "cue": "3L0320",
-                "nombre": "ALVAREZ",
-                "tipo": "Privado",
-                "nivel": "Nivel 1",
-                "municipio": "QUILLACOLLO",
-                "resp_lab": "ALVAREZ GONZALES JAMES ALEX - 5904922",
-                "resp_areas": "Análisis de Rutina y Urgencias",
-                "direccion": "Calle Carreras Nº 134 - Municipio Quillacollo",
-                "lat": -17.39626288,
-                "lng": -66.29433138,
-                "estado_op": "Habilitado",
-                "horario": "Lun-Vie 7:00 - 18:00, Sáb 8:00 - 13:00",
-                "telefono": "+591 4 4268811",
-                "email": "lab.alvarez.quillacollo@gmail.com",
-                "servicios": "Análisis Clínicos Generales, Hematología, Bioquímica, Coproparasitología"
-            },
-            {
-                "prop_nombre": "PAOLA ANDREA",
-                "prop_apellidos": "FLORES BONIFACIO",
-                "prop_ci": "7288372 CB",
-                "prop_email": "paola.flores@propietario.sedes.bo",
-                "prop_tel": "78345678",
-                "cue": "Nuevo",
-                "nombre": "AMERICA",
-                "tipo": "Privado",
-                "nivel": "Nivel 1",
-                "municipio": "CERCADO",
-                "resp_lab": "PAOLA ANDREA FLORES BONIFACIO - 7288372",
-                "resp_areas": "Bioquímica y Análisis Clínico",
-                "direccion": "Av. Blanco Galindo Km 2 ½ esq. Zoilo Linares y A. Morón, zona Hipódromo",
-                "lat": -17.39338147,
-                "lng": -66.18197477,
-                "estado_op": "En Trámite",
-                "horario": "Lun-Vie 7:00 - 19:00, Sáb 8:00 - 13:00",
-                "telefono": "+591 4 4118800",
-                "email": "laboratorio.america.cbba@gmail.com",
-                "servicios": "Análisis Clínicos Generales, Hematología, Bioquímica, Uroanálisis, Pruebas Rápidas"
-            }
-        ]
-
-        for lab in laboratorios_data:
-            # 1. Crear usuario propietario si no existe
-            usuario_prop = db.query(Usuario).filter(
-                (Usuario.email == lab["prop_email"]) | (Usuario.ci_nit == lab["prop_ci"])
-            ).first()
-            if not usuario_prop:
-                usuario_prop = Usuario(
-                    rol_id=rol_propietario.id,
-                    nombres=lab["prop_nombre"],
-                    apellidos=lab["prop_apellidos"],
-                    ci_nit=lab["prop_ci"],
-                    email=lab["prop_email"],
-                    password_hash=password_default_hash,
-                    telefono=lab["prop_tel"],
-                    estado=True
-                )
-                db.add(usuario_prop)
-                db.commit()
-                db.refresh(usuario_prop)
-            else:
-                usuario_prop.rol_id = rol_propietario.id
-                usuario_prop.nombres = lab["prop_nombre"]
-                usuario_prop.apellidos = lab["prop_apellidos"]
-                usuario_prop.ci_nit = lab["prop_ci"]
-                usuario_prop.email = lab["prop_email"]
-                usuario_prop.telefono = lab["prop_tel"]
-                db.commit()
-
-            # 2. Crear establecimiento georreferenciado con PostGIS si no existe
-            estab_existente = db.query(Establecimiento).filter(
-                Establecimiento.nombre_comercial == lab["nombre"],
-                Establecimiento.municipio == lab["municipio"]
-            ).first()
-
-            if not estab_existente:
-                punto_geo = f"SRID=4326;POINT({lab['lng']} {lab['lat']})"
-                nuevo_estab = Establecimiento(
-                    propietario_id=usuario_prop.id,
-                    codigo_cue=lab["cue"],
-                    nombre_comercial=lab["nombre"],
-                    tipo=lab["tipo"],
-                    nivel=lab["nivel"],
-                    municipio=lab["municipio"],
-                    responsable_laboratorio=lab["resp_lab"],
-                    responsables_areas=lab["resp_areas"],
-                    direccion=lab["direccion"],
-                    coordenadas=punto_geo,
-                    horario=lab["horario"],
-                    telefono=lab["telefono"],
-                    email_contacto=lab["email"],
-                    servicios=lab["servicios"],
-                    estado_operativo=lab["estado_op"],
-                    estado=True
-                )
-                db.add(nuevo_estab)
-
-        db.commit()
-        logger.info(f"✅ Se han registrado los 10 laboratorios oficiales y sus respectivos propietarios en PostGIS.")
-
-        # 7. Poblar Trámites e Inspecciones Reales en la BD
-        from datetime import datetime
-        import uuid as py_uuid
-        from models import Tramite, Inspeccion
-
-        supervisor_torrico = db.query(Usuario).filter(Usuario.email == "andrea.torrico@sedes.gob.bo").first()
-        if not supervisor_torrico:
-            supervisor_torrico = db.query(Usuario).join(Role).filter(Role.nombre == "Supervisor").first()
-
-        if supervisor_torrico:
-            historial_laboratorios = [
-                {
-                    "nombre": "A.T.M.",
-                    "tipo_tramite": "Renovación",
-                    "estado_tramite": "Aprobado",
-                    "fecha": datetime(2026, 9, 12, 10, 0),
-                    "estado_insp": "Completada",
-                    "veredicto": "Favorable",
-                    "acta": "ACT-2026-035",
-                    "obs": "Cumple al 100% con estándares de infraestructura, bioseguridad y calibración de analizadores hematológicos."
-                },
-                {
-                    "nombre": "ADONAI",
-                    "tipo_tramite": "Apertura",
-                    "estado_tramite": "Observado",
-                    "fecha": datetime(2026, 9, 8, 11, 30),
-                    "estado_insp": "Completada",
-                    "veredicto": "Con Observaciones",
-                    "acta": "ACT-2026-034",
-                    "obs": "Se observa falta de actualización en los registros de control térmico de reactivos y cartelera de bioseguridad en área de toma de muestras. Plazo de subsanación: 10 días hábiles."
-                },
-                {
-                    "nombre": "ALCAZAR",
-                    "tipo_tramite": "Verificación Final",
-                    "estado_tramite": "Aprobado",
-                    "fecha": datetime(2026, 9, 3, 9, 30),
-                    "estado_insp": "Completada",
-                    "veredicto": "Favorable",
-                    "acta": "ACT-2026-033",
-                    "obs": "Verificación técnica aprobada. Equipos automatizados con bitácora de mantenimiento preventivo y control de calidad externo PEEC al día."
-                },
-                {
-                    "nombre": "ALFA",
-                    "tipo_tramite": "Acreditación",
-                    "estado_tramite": "Aprobado",
-                    "fecha": datetime(2026, 8, 28, 14, 0),
-                    "estado_insp": "Completada",
-                    "veredicto": "Favorable",
-                    "acta": "ACT-2026-032",
-                    "obs": "Instalaciones adecuadas, flujo unidireccional de muestras, POEs validados y personal con matrícula profesional vigente."
-                },
-                {
-                    "nombre": "ALFA & OMEGA",
-                    "tipo_tramite": "Apertura",
-                    "estado_tramite": "Observado",
-                    "fecha": datetime(2026, 8, 22, 15, 30),
-                    "estado_insp": "Completada",
-                    "veredicto": "Con Observaciones",
-                    "acta": "ACT-2026-031",
-                    "obs": "Requiere completar la delimitación de la zona de lavado y esterilización y presentar contrato de recojo de residuos biocontaminados con EMSA. Plazo: 15 días."
-                },
-                {
-                    "nombre": "ALINE",
-                    "tipo_tramite": "Renovación",
-                    "estado_tramite": "Aprobado",
-                    "fecha": datetime(2026, 8, 15, 10, 0),
-                    "estado_insp": "Completada",
-                    "veredicto": "Favorable",
-                    "acta": "ACT-2026-030",
-                    "obs": "Cumplimiento satisfactorio de la normativa sanitaria R.M. 0127. Áreas analíticas limpias y desinfectadas, reactivos con registro AGEMED."
-                },
-                {
-                    "nombre": "ALINE SUCURSAL 1",
-                    "tipo_tramite": "Apertura",
-                    "estado_tramite": "Rechazado",
-                    "fecha": datetime(2026, 8, 10, 11, 0),
-                    "estado_insp": "Completada",
-                    "veredicto": "Desfavorable",
-                    "acta": "ACT-2026-029",
-                    "obs": "No cuenta con refrigerador exclusivo para reactivos diagnósticos ni área de toma de muestras con privacidad reglamentaria. Requiere nueva solicitud."
-                },
-                {
-                    "nombre": "ALQUIMIA",
-                    "tipo_tramite": "Renovación",
-                    "estado_tramite": "Aprobado",
-                    "fecha": datetime(2026, 8, 4, 16, 0),
-                    "estado_insp": "Completada",
-                    "veredicto": "Favorable",
-                    "acta": "ACT-2026-028",
-                    "obs": "Laboratorio de Nivel 2 con excelente infraestructura, sistema de gestión de calidad PEEC y controles Levey-Jennings diarios verificados."
-                },
-                {
-                    "nombre": "ALVAREZ",
-                    "tipo_tramite": "Apertura",
-                    "estado_tramite": "Aprobado",
-                    "fecha": datetime(2026, 7, 29, 9, 0),
-                    "estado_insp": "Completada",
-                    "veredicto": "Favorable",
-                    "acta": "ACT-2026-027",
-                    "obs": "Infraestructura, equipamiento calibrado y personal calificado conformes con la caracterización oficial de Laboratorio Clínico Nivel 1."
-                },
-                {
-                    "nombre": "AMERICA",
-                    "tipo_tramite": "Verificación Sanitaria",
-                    "estado_tramite": "Observado",
-                    "fecha": datetime(2026, 7, 20, 14, 30),
-                    "estado_insp": "Completada",
-                    "veredicto": "Con Observaciones",
-                    "acta": "ACT-2026-026",
-                    "obs": "Falta certificado de calibración reciente para dos micropipetas de volumen variable y reposición de extintor con carga vigente. Plazo de 10 días."
-                }
-            ]
-
-            for h in historial_laboratorios:
-                estab_obj = db.query(Establecimiento).filter(Establecimiento.nombre_comercial == h["nombre"]).first()
-                if estab_obj:
-                    # Buscar o crear trámite
-                    trm_existente = db.query(Tramite).filter(
-                        Tramite.establecimiento_id == estab_obj.id,
-                        Tramite.tipo_tramite == h["tipo_tramite"]
-                    ).first()
-                    if not trm_existente:
-                        trm_existente = Tramite(
-                            id=py_uuid.uuid4(),
-                            establecimiento_id=estab_obj.id,
-                            supervisor_asignado_id=supervisor_torrico.id,
-                            tipo_tramite=h["tipo_tramite"],
-                            estado_tramite=h["estado_tramite"],
-                            fecha_ingreso=h["fecha"].date(),
-                            estado=True
-                        )
-                        db.add(trm_existente)
-                        db.commit()
-                        db.refresh(trm_existente)
-
-                    # Buscar o crear inspección
-                    insp_existente = db.query(Inspeccion).filter(
-                        Inspeccion.tramite_id == trm_existente.id,
-                        Inspeccion.acta_pdf_url == h["acta"]
-                    ).first()
-                    if not insp_existente:
-                        nueva_insp = Inspeccion(
-                            id=py_uuid.uuid4(),
-                            tramite_id=trm_existente.id,
-                            supervisor_id=supervisor_torrico.id,
-                            fecha_programada=h["fecha"],
-                            estado_inspeccion=h["estado_insp"],
-                            veredicto_final=h["veredicto"],
-                            acta_pdf_url=h["acta"],
-                            estado=True,
-                            fecha_creacion=h["fecha"],
-                            fecha_modificacion=h["fecha"]
-                        )
-                        db.add(nueva_insp)
-
-            db.commit()
-            logger.info("✅ Trámites e Inspecciones históricas oficiales pobladas en la base de datos.")
+        if poblar_laboratorios_demo:
+            poblar_laboratorios_y_tramites_demo(db)
+        else:
+            logger.info("ℹ️ Base de datos inicializada sin datos demo (modo producción / datos reales).")
 
         db.close()
         logger.info("🚀 Base de datos inicializada y lista para su uso.")

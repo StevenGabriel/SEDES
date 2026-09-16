@@ -175,20 +175,13 @@ def obtener_agenda_supervisor(
 ):
     """
     Retorna:
-    1. Lista de trámites asignados al supervisor que están pendientes de programar.
+    1. Lista de trámites asignados estrictamente al supervisor que están pendientes de programar.
     2. Eventos/Inspecciones ya programadas para la semana solicitada (Lunes a Viernes).
     3. Estructura de días y fechas de la semana.
     """
     supervisor = buscar_supervisor_por_id_o_nombre(supervisor_id, db)
     if not supervisor:
-        # Si no se encuentra exactamente, buscar el primer supervisor disponible
-        supervisor = db.query(models.Usuario).join(models.Role).filter(
-            models.Role.nombre.ilike("%Supervisor%"),
-            models.Usuario.estado == True
-        ).first()
-
-    if not supervisor:
-        raise HTTPException(status_code=404, detail="No se encontró ningún supervisor técnico registrado.")
+        raise HTTPException(status_code=404, detail="No se encontró el supervisor técnico especificado.")
 
     try:
         offset_int = int(offset_semanas) if (isinstance(offset_semanas, int) or (isinstance(offset_semanas, str) and offset_semanas.lstrip("-").isdigit())) else 0
@@ -220,18 +213,11 @@ def obtener_agenda_supervisor(
     else:
         rango_texto = f"Semana del {lunes_semana.day} {mes_lunes} - {viernes_semana.day} {mes_viernes} {viernes_semana.year}"
 
-    # 1. Obtener todos los trámites asignados al supervisor (o todos los activos si no tiene asignados exclusivos)
-    tramites_propios = db.query(models.Tramite).filter(
+    # 1. Obtener los trámites asignados estrictamente a este supervisor
+    tramites_asignados = db.query(models.Tramite).filter(
         models.Tramite.supervisor_asignado_id == supervisor.id,
         models.Tramite.estado == True
     ).order_by(models.Tramite.fecha_creacion.desc()).all()
-
-    if len(tramites_propios) > 0:
-        tramites_asignados = tramites_propios
-    else:
-        tramites_asignados = db.query(models.Tramite).filter(
-            models.Tramite.estado == True
-        ).order_by(models.Tramite.fecha_creacion.desc()).all()
 
     pendientes = []
     eventos_semana = []
@@ -239,6 +225,93 @@ def obtener_agenda_supervisor(
     # Fecha de inicio y fin de la semana para filtrar inspecciones (lunes 00:00:00 a domingo 23:59:59)
     inicio_semana_dt = datetime.combine(lunes_semana, datetime.min.time())
     fin_semana_dt = datetime.combine(domingo_semana, datetime.max.time())
+
+    for trm in tramites_asignados:
+        estab = trm.establecimiento
+        prop = estab.propietario if estab else None
+        
+        # Buscar inspección asociada
+        insp = db.query(models.Inspeccion).filter(
+            models.Inspeccion.tramite_id == trm.id,
+            models.Inspeccion.estado == True
+        ).order_by(models.Inspeccion.fecha_creacion.desc()).first()
+
+        tipo_tramite = trm.tipo_tramite or "Apertura"
+        tag_color = "blue" if "apertura" in tipo_tramite.lower() else "orange"
+        estab_nombre = estab.nombre_comercial if estab else f"Establecimiento ({str(trm.id)[:8]})"
+        estab_dir = estab.direccion if estab else "Cochabamba"
+        estab_mun = (estab.municipio if estab and estab.municipio else "CERCADO").upper()
+        estab_nivel = estab.nivel if estab and estab.nivel else "Nivel 1"
+        estab_telefono = estab.telefono if estab else (prop.telefono if prop else "N/A")
+        f_solicitud = trm.fecha_ingreso.strftime("%d/%m/%Y") if trm.fecha_ingreso else (
+            trm.fecha_creacion.strftime("%d/%m/%Y") if trm.fecha_creacion else "Hoy"
+        )
+
+        es_programada = insp and insp.estado_inspeccion in ["Programada", "Reprogramada", "Completada"] and insp.fecha_programada is not None
+
+        prop_nombre = f"{prop.nombres} {prop.apellidos}" if prop else "Propietario / Responsable"
+        cod_estab = f"EST-{str(estab.id)[:8].upper()}" if (estab and estab.id) else f"TRM-{str(trm.id)[:8].upper()}"
+
+        if not es_programada:
+            # Está pendiente de programar fecha/hora
+            pendientes.append({
+                "id": str(insp.id) if insp else str(trm.id),
+                "tramite_id": str(trm.id),
+                "inspeccion_id": str(insp.id) if insp else None,
+                "codigo": f"TRM-{str(trm.id)[:8].upper()}",
+                "codigo_establecimiento": cod_estab,
+                "propietario": prop_nombre,
+                "tipo": tipo_tramite,
+                "tipoTag": tipo_tramite,
+                "tagColor": tag_color,
+                "nombre": f"{tipo_tramite} - {estab_nombre}",
+                "establecimiento": estab_nombre,
+                "direccion": estab_dir,
+                "municipio": estab_mun,
+                "nivel": estab_nivel,
+                "telefono": estab_telefono,
+                "fechaSolicitud": f_solicitud,
+                "estado_tramite": trm.estado_tramite or "Pendiente",
+                "estado_inspeccion": insp.estado_inspeccion if insp else "Pendiente"
+            })
+        else:
+            # Está programada, verificar si cae en la semana seleccionada
+            dt_prog = insp.fecha_programada
+            if inicio_semana_dt <= dt_prog <= fin_semana_dt:
+                dia_semana_idx = dt_prog.weekday() # 0 = Lunes, 4 = Viernes
+                if dia_semana_idx < 5:
+                    hora_ini_str = dt_prog.strftime("%H:%M")
+                    # Calculamos fin sumando 90 minutos por defecto
+                    dt_fin = dt_prog + timedelta(minutes=90)
+                    hora_fin_str = dt_fin.strftime("%H:%M")
+
+                    start_minutes = dt_prog.hour * 60 + dt_prog.minute
+                    duration_minutes = 90
+
+                    eventos_semana.append({
+                        "id": str(insp.id),
+                        "inspeccion_id": str(insp.id),
+                        "tramite_id": str(trm.id),
+                        "codigo_tramite": f"TRM-{str(trm.id)[:8].upper()}",
+                        "fecha": dt_prog.date().isoformat(),
+                        "dia": DIAS_NOMBRES[dia_semana_idx],
+                        "diaIndex": dia_semana_idx,
+                        "horaInicio": hora_ini_str,
+                        "horaFin": hora_fin_str,
+                        "startMinutes": start_minutes,
+                        "durationMinutes": duration_minutes,
+                        "titulo": f"{tipo_tramite} - {estab_nombre[:12]}...",
+                        "subtitulo": f"{hora_ini_str} - {hora_fin_str}",
+                        "establecimiento": estab_nombre,
+                        "direccion": estab_dir,
+                        "municipio": estab_mun,
+                        "nivel": estab_nivel,
+                        "telefono": estab_telefono,
+                        "tipo": tipo_tramite,
+                        "color": "blue" if tag_color == "blue" else "amber",
+                        "estado_inspeccion": insp.estado_inspeccion,
+                        "veredicto_final": insp.veredicto_final or "Pendiente de Inspección"
+                    })
 
     for trm in tramites_asignados:
         estab = trm.establecimiento
@@ -337,7 +410,7 @@ def obtener_agenda_supervisor(
             "telefono": supervisor.telefono
         },
         "semana": {
-            "offset": offset_semanas,
+            "offset": offset_int,
             "rango_texto": rango_texto,
             "lunes": lunes_semana.isoformat(),
             "viernes": viernes_semana.isoformat(),
@@ -584,13 +657,7 @@ def obtener_rutas_supervisor(
     """
     supervisor = buscar_supervisor_por_id_o_nombre(supervisor_id, db)
     if not supervisor:
-        supervisor = db.query(models.Usuario).join(models.Role).filter(
-            models.Role.nombre.ilike("%Supervisor%"),
-            models.Usuario.estado == True
-        ).first()
-
-    if not supervisor:
-        raise HTTPException(status_code=404, detail="No se encontró supervisor registrado.")
+        raise HTTPException(status_code=404, detail="No se encontró el supervisor técnico especificado.")
 
     # Determinar fecha objetivo
     if fecha and isinstance(fecha, str):
@@ -608,43 +675,27 @@ def obtener_rutas_supervisor(
     fecha_formateada = f"{dia_nombre}, {fecha_target.day} de {mes_nombre}"
     fecha_badge = f"Día: {dia_nombre} {fecha_target.day} {mes_nombre[:3]}"
 
-    # Buscar todas las inspecciones programadas para esa fecha
-    query_dia = db.query(models.Inspeccion).join(models.Tramite).filter(
+    # Buscar todas las inspecciones programadas para esa fecha pertenecientes a este supervisor
+    inspecciones_dia = db.query(models.Inspeccion).join(models.Tramite).filter(
         cast(models.Inspeccion.fecha_programada, Date) == fecha_target,
         models.Inspeccion.estado == True,
-        models.Inspeccion.estado_inspeccion.in_(["Programada", "Reprogramada", "Completada"])
-    )
-
-    inspecciones_propias = query_dia.filter(
+        models.Inspeccion.estado_inspeccion.in_(["Programada", "Reprogramada", "Completada"]),
         or_(
             models.Inspeccion.supervisor_id == supervisor.id,
             models.Tramite.supervisor_asignado_id == supervisor.id
         )
     ).order_by(models.Inspeccion.fecha_programada.asc()).all()
 
-    if len(inspecciones_propias) > 0:
-        inspecciones_dia = inspecciones_propias
-    else:
-        # Si el supervisor actual no tiene inspecciones asignadas exclusivamente, mostrar las activas del día
-        inspecciones_dia = query_dia.order_by(models.Inspeccion.fecha_programada.asc()).all()
-
-    # También obtener lista de todas las fechas que tienen inspecciones programadas para el selector
-    query_todas = db.query(models.Inspeccion).join(models.Tramite).filter(
+    # Obtener lista de todas las fechas con inspecciones programadas para este supervisor
+    todas_inspecciones = db.query(models.Inspeccion).join(models.Tramite).filter(
         models.Inspeccion.estado == True,
         models.Inspeccion.fecha_programada.isnot(None),
-        models.Inspeccion.estado_inspeccion.in_(["Programada", "Reprogramada", "Completada"])
-    )
-    todas_propias = query_todas.filter(
+        models.Inspeccion.estado_inspeccion.in_(["Programada", "Reprogramada", "Completada"]),
         or_(
             models.Inspeccion.supervisor_id == supervisor.id,
             models.Tramite.supervisor_asignado_id == supervisor.id
         )
     ).order_by(models.Inspeccion.fecha_programada.asc()).all()
-
-    if len(todas_propias) > 0:
-        todas_inspecciones = todas_propias
-    else:
-        todas_inspecciones = query_todas.order_by(models.Inspeccion.fecha_programada.asc()).all()
 
     fechas_disponibles_set = set()
     fechas_disponibles = []
@@ -826,16 +877,17 @@ def obtener_actas_supervisor(
     """
     supervisor = buscar_supervisor_por_id_o_nombre(supervisor_id, db)
     if not supervisor:
-        supervisor = db.query(models.Usuario).join(models.Role).filter(
-            models.Role.nombre.ilike("%Supervisor%"),
-            models.Usuario.estado == True
-        ).first()
+        raise HTTPException(status_code=404, detail="No se encontró el supervisor técnico especificado.")
 
-    sup_nombre = f"{supervisor.nombres} {supervisor.apellidos}" if supervisor else "Supervisor Técnico SEDES"
+    sup_nombre = f"{supervisor.nombres} {supervisor.apellidos}"
 
-    # 1. Obtener todas las inspecciones de la base de datos
+    # 1. Obtener las inspecciones asignadas exclusivamente a este supervisor
     query = db.query(models.Inspeccion).join(models.Tramite).join(models.Establecimiento).filter(
-        models.Inspeccion.estado == True
+        models.Inspeccion.estado == True,
+        or_(
+            models.Inspeccion.supervisor_id == supervisor.id,
+            models.Tramite.supervisor_asignado_id == supervisor.id
+        )
     )
 
     # Ordenar por fecha programada / modificación descendente
@@ -1022,7 +1074,7 @@ def registrar_acta_inspeccion(
     if not sup_usuario:
         sup_usuario = db.query(models.Usuario).join(models.Role).filter(models.Role.nombre.ilike("%Supervisor%")).first()
 
-    sup_nombre = f"{sup_usuario.nombres} {sup_usuario.apellidos}" if sup_usuario else "Lic. Andrea Torrico"
+    sup_nombre = f"{sup_usuario.nombres} {sup_usuario.apellidos}" if sup_usuario else "Supervisor SEDES"
 
     if insp:
         insp.estado_inspeccion = "Completada"

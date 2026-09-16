@@ -154,7 +154,8 @@ export default function SupervisorPage() {
 
   // 2. Cargar datos de la Agenda desde el Backend FastAPI
   const cargarAgendaBackend = useCallback(async () => {
-    const supervisorId = usuario?.id || usuario?.email || 'Lic. Andrea Torrico';
+    const supervisorId = usuario?.id || usuario?.email || (usuario?.nombres ? `${usuario.nombres} ${usuario.apellidos}` : '');
+    if (!supervisorId) return;
     setCargando(true);
     try {
       const url = `http://localhost:8000/api/supervisor/${encodeURIComponent(supervisorId)}/agenda?offset_semanas=${semanaActualOffset}`;
@@ -227,7 +228,7 @@ export default function SupervisorPage() {
 
   const nombreSupervisor = usuario 
     ? `${usuario.nombres} ${usuario.apellidos}` 
-    : 'Lic. Andrea Torrico';
+    : 'Supervisor Técnico';
 
   // Helper para obtener fecha local de hoy en formato YYYY-MM-DD
   const hoyLocalIso = () => {
@@ -365,7 +366,7 @@ export default function SupervisorPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           tramite_id: tramiteSeleccionado.tramite_id || tramiteSeleccionado.id,
-          supervisor_id: usuario?.id || usuario?.email || 'Lic. Andrea Torrico',
+          supervisor_id: usuario?.id || usuario?.email || `${usuario?.nombres || ''} ${usuario?.apellidos || ''}`.trim(),
           fecha: fechaIsoFinal,
           hora_inicio: formHora,
           hora_fin: formHoraFin,

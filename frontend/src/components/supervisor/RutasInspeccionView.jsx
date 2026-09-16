@@ -108,7 +108,11 @@ export default function RutasInspeccionView({ usuario, onCambiarSeccion, mostrar
   const cargarRuta = useCallback(async (fechaTarget, gpsCoords = null, usarGps = false) => {
     setCargando(true);
     try {
-      const supId = usuario?.id || usuario?.email || 'Lic. Andrea Torrico';
+      const supId = usuario?.id || usuario?.email || (usuario?.nombres ? `${usuario.nombres} ${usuario.apellidos}` : '');
+      if (!supId) {
+        setCargando(false);
+        return;
+      }
       let url = `http://localhost:8000/api/supervisor/${encodeURIComponent(supId)}/rutas?fecha=${fechaTarget}`;
       
       if (usarGps && gpsCoords) {

@@ -65,9 +65,10 @@ export default function ActasEmitidasView({ usuario, mostrarToast }) {
 
   // Cargar lista de actas desde el backend
   const cargarActas = useCallback(async (page = 1) => {
+    const supId = usuario?.id || usuario?.email || (usuario?.nombres ? `${usuario.nombres} ${usuario.apellidos}` : '');
+    if (!supId) return;
     setCargando(true);
     try {
-      const supId = usuario?.id || usuario?.email || 'Lic. Andrea Torrico';
       let url = `http://localhost:8000/api/supervisor/${encodeURIComponent(supId)}/actas?page=${page}&limit=6`;
       
       if (busqueda.trim()) {
@@ -102,9 +103,10 @@ export default function ActasEmitidasView({ usuario, mostrarToast }) {
 
   // Cargar inspecciones disponibles para registrar acta
   const cargarInspeccionesParaActa = async () => {
+    const supId = usuario?.id || usuario?.email || (usuario?.nombres ? `${usuario.nombres} ${usuario.apellidos}` : '');
+    if (!supId) return;
     setCargandoPendientes(true);
     try {
-      const supId = usuario?.id || usuario?.email || 'Lic. Andrea Torrico';
       const res = await fetch(`http://localhost:8000/api/supervisor/${encodeURIComponent(supId)}/agenda`);
       if (res.ok) {
         const data = await res.json();
@@ -157,7 +159,7 @@ export default function ActasEmitidasView({ usuario, mostrarToast }) {
 
     setGuardandoActa(true);
     try {
-      const supId = usuario?.id || usuario?.email || 'Lic. Andrea Torrico';
+      const supId = usuario?.id || usuario?.email || `${usuario?.nombres || ''} ${usuario?.apellidos || ''}`.trim();
       const response = await fetch('http://localhost:8000/api/supervisor/registrar-acta', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
