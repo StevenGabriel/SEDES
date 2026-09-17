@@ -2254,7 +2254,53 @@ Permitir que al hacer clic en el botón **`[PDF]`** de una fila de acta registra
 * **Compilación Backend:** `python -m py_compile backend/supervisor.py` sin errores de sintaxis.
 
 ---
+---
+
+## [2026-09-17] Sincronización Integral e Inmutabilidad de Inspecciones con Actas Oficiales Emitidas
+
+### 📌 Objetivo
+Garantizar que una vez que un supervisor técnico emita un acta oficial de inspección para un establecimiento:
+1. La inspección pase a estado inmutable (`Completada`) y no pueda ser registrada nuevamente para ese establecimiento.
+2. En la vista de **Mi Agenda** (`/supervisor`), el evento cambie a color verde esmeralda distintivo con el badge `✓ Completada`, y en el modal de detalle se bloqueen las opciones de *Reprogramar* o *Mover a Pendientes*, desplegando un aviso informativo y un botón para consultar el acta emitida.
+3. En la vista de **Rutas de Inspección** (`/supervisor/rutas-inspeccion`), el hito y marcador en el mapa se actualicen a estado verde esmeralda `✓ Realizada`, mostrando el estado final y el enlace directo hacia el acta emitida.
+4. En el formulario de **Nueva Acta** (`/supervisor/nueva-acta`), se excluyan automáticamente las inspecciones completadas del selector desplegable.
+
+---
+
+### 🛠️ Archivos Modificados
+
+#### 1. `backend/supervisor.py` [MODIFICADO]
+* **Bloqueo en Backend:**
+  * En `POST /api/supervisor/reprogramar-inspeccion` y `POST /api/supervisor/desagendar-inspeccion`: Se valida que la inspección no esté en estado `Completada`. Si ya fue completada, retorna error HTTP 400 impidiendo cualquier alteración.
+  * En `POST /api/supervisor/registrar-acta`: Se valida que no se intente emitir un acta duplicada para una inspección previamente completada.
+  * En `GET /api/supervisor/{id}/actas`: Filtro estricto para retornar únicamente las inspecciones completadas con actas formales.
+
+#### 2. `frontend/src/pages/SupervisorPage.jsx` [MODIFICADO]
+* **Reconocimiento Visual en la Agenda Semanal:**
+  * Los eventos con estado `Completada` se renderizan con estilo verde esmeralda institucional (`bg-emerald-100/95 border-l-4 border-l-emerald-600 border-emerald-300 text-emerald-950`) y el icono `CheckCircle2` con badge `✓ Completada`.
+* **Bloqueo en Modal de Detalle de Inspección:**
+  * Si la inspección está completada, se ocultan y bloquean los botones de acción ("Reprogramar", "Mover a Pendientes").
+  * Se despliega un banner informativo destacado: `✓ Inspección Realizada (Acta Oficial Emitida)` con el veredicto y un botón de navegación directa `[Ver en Actas Emitidas]`.
+
+#### 3. `frontend/src/components/supervisor/RutasInspeccionView.jsx` [MODIFICADO]
+* **Marcadores y Tarjetas de Parada en la Ruta:**
+  * En el mapa Leaflet, los marcadores de paradas completadas se muestran con un badge circular verde esmeralda `#059669` y el icono `✓ (Realizada)`.
+  * En la tarjeta de parada de la ruta, las completadas adoptan tonalidad verde esmeralda con el badge `✓ Realizada`, indicando `Acta Oficial de Inspección Emitida` y un botón de acceso directo `[Ver Acta →]`.
+
+#### 4. `frontend/src/components/supervisor/NuevaActaFormView.jsx` [MODIFICADO]
+* **Filtrado Dinámico de Inspecciones:**
+  * El dropdown de selección de inspección ahora solo lista inspecciones pendientes (`item.estado_inspeccion !== 'Completada'`), evitando selecciones erróneas o duplicaciones de actas.
+
+---
+
+### 📊 Verificación y Pruebas Realizadas
+* **Compilación Frontend:** `npm run build` ejecutado exitosamente con 0 errores (2046 módulos transformados en 706ms).
+* **Compilación Backend:** `python -m py_compile backend/supervisor.py` ejecutado sin errores.
+* **Navegación Fluida al Detalle:** El botón "Ver en Actas Emitidas" en el modal de inspección redirige inmediatamente a la sección `/supervisor/actas-emitidas` mediante `navigate('/supervisor/actas-emitidas')`.
+
+---
 *Bitácora actualizada por: Steven*
+
 
 
 

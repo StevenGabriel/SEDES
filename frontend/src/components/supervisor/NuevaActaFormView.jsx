@@ -821,7 +821,9 @@ export default function NuevaActaFormView({ usuario, onVolver, onActaGuardada, m
         const res = await fetch(`http://localhost:8000/api/supervisor/${encodeURIComponent(supId)}/agenda`);
         if (res.ok) {
           const data = await res.json();
-          const lista = [...(data.eventos || []), ...(data.pendientes || [])];
+          const rawLista = [...(data.eventos || []), ...(data.pendientes || [])];
+          // Filtrar exclusivamente inspecciones pendientes que NO hayan sido completadas
+          const lista = rawLista.filter(item => item.estado_inspeccion !== 'Completada');
           setInspeccionesDisponibles(lista);
           if (lista.length > 0) {
             const first = lista[0];
@@ -832,6 +834,11 @@ export default function NuevaActaFormView({ usuario, onVolver, onActaGuardada, m
             setDireccionTexto(first.direccion || 'Cochabamba');
             setMunicipioTexto(first.municipio || 'CERCADO');
             setCodigoTramite(first.codigo_tramite || first.codigo || 'TRM-001');
+          } else {
+            setInspeccionSeleccionadaId('');
+            setEstablecimientoNombre('');
+            setPropietarioNombre('');
+            setCodigoTramite('');
           }
         }
       } catch (err) {

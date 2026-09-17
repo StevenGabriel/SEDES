@@ -261,14 +261,16 @@ export default function RutasInspeccionView({ usuario, onCambiarSeccion, mostrar
     paradas.forEach((p) => {
       puntosRuta.push([p.lat, p.lng]);
 
+      const isDone = p.estado_inspeccion === 'Completada';
+
       const stopIconHtml = `
         <div style="display:flex;align-items:center;cursor:pointer;width:max-content;">
-          <div style="width:32px;height:32px;min-width:32px;min-height:32px;flex-shrink:0;aspect-ratio:1/1;border-radius:50%;background:#1b2533;color:#ffffff;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:13px;box-shadow:0 4px 12px rgba(0,0,0,0.35);border:2.5px solid #ffffff;">
-            ${p.numero}
+          <div style="width:32px;height:32px;min-width:32px;min-height:32px;flex-shrink:0;aspect-ratio:1/1;border-radius:50%;background:${isDone ? '#059669' : '#1b2533'};color:#ffffff;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:12px;box-shadow:0 4px 12px rgba(0,0,0,0.35);border:2.5px solid #ffffff;">
+            ${isDone ? '✓' : p.numero}
           </div>
-          <div style="margin-left:6px;background:#ffffff;color:#0f172a;border:1px solid #cbd5e1;font-weight:800;font-size:11px;padding:3px 8px;border-radius:8px;box-shadow:0 2px 6px rgba(0,0,0,0.12);white-space:nowrap;display:flex;align-items:center;gap:4px;">
+          <div style="margin-left:6px;background:#ffffff;color:#0f172a;border:1px solid ${isDone ? '#10b981' : '#cbd5e1'};font-weight:800;font-size:11px;padding:3px 8px;border-radius:8px;box-shadow:0 2px 6px rgba(0,0,0,0.12);white-space:nowrap;display:flex;align-items:center;gap:4px;">
             <span>${p.nombre}</span>
-            <span style="font-size:9px;color:#94a3b8;font-weight:600;">(${p.hora_inicio})</span>
+            ${isDone ? '<span style="color:#059669;font-weight:800;font-size:10px;">(Realizada)</span>' : `<span style="font-size:9px;color:#94a3b8;font-weight:600;">(${p.hora_inicio})</span>`}
           </div>
         </div>
       `;
@@ -287,9 +289,9 @@ export default function RutasInspeccionView({ usuario, onCambiarSeccion, mostrar
       stopMarker.bindPopup(`
         <div style="padding:6px;max-width:260px;font-family:inherit;color:#1e293b;">
           <div style="display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #e2e8f0;padding-bottom:4px;margin-bottom:6px;">
-            <span style="font-weight:800;font-size:12px;color:#005596;">Parada #${p.numero}</span>
-            <span style="font-size:10px;font-weight:800;padding:2px 6px;border-radius:4px;background:${p.tagColor === 'orange' ? '#fef3c7;color:#92400e;' : '#dbeafe;color:#1e40af;'}">
-              ${p.tipo}
+            <span style="font-weight:800;font-size:12px;color:${isDone ? '#059669' : '#005596'};">Parada #${p.numero} ${isDone ? '✓' : ''}</span>
+            <span style="font-size:10px;font-weight:800;padding:2px 6px;border-radius:4px;background:${isDone ? '#d1fae5;color:#065f46;' : p.tagColor === 'orange' ? '#fef3c7;color:#92400e;' : '#dbeafe;color:#1e40af;'}">
+              ${isDone ? '✓ Realizada' : p.tipo}
             </span>
           </div>
           <h4 style="font-weight:800;font-size:13px;margin:0 0 4px 0;color:#0f172a;">${p.nombre}</h4>
@@ -298,6 +300,7 @@ export default function RutasInspeccionView({ usuario, onCambiarSeccion, mostrar
             <p style="margin:2px 0;"><strong>📍 Dirección:</strong> ${p.direccion}</p>
             <p style="margin:2px 0;"><strong>🌐 Coordenadas:</strong> ${p.lat.toFixed(5)}, ${p.lng.toFixed(5)}</p>
             <p style="margin:2px 0;"><strong>👤 Titular:</strong> ${p.propietario}</p>
+            ${isDone ? '<p style="margin:4px 0 0 0;font-weight:800;color:#059669;">✓ Acta Oficial de Inspección Emitida</p>' : ''}
           </div>
           <div style="margin-top:8px;">
             <a 
@@ -691,83 +694,115 @@ export default function RutasInspeccionView({ usuario, onCambiarSeccion, mostrar
                 const origLng = origenActivo?.lng || SEDES_ORIGEN.lng;
                 const navUrl = `https://www.google.com/maps/dir/?api=1&origin=${origLat},${origLng}&destination=${parada.lat},${parada.lng}&travelmode=driving`;
 
-                return (
-                  <div
-                    key={parada.inspeccion_id || parada.numero}
-                    className={`
-                      p-4 rounded-2xl bg-white border transition-all space-y-3 relative group
-                      ${isSelected 
-                        ? 'border-[#0060a8] ring-2 ring-blue-100 shadow-md' 
-                        : 'border-slate-200 hover:border-slate-300 hover:shadow-xs'
-                      }
-                    `}
-                  >
-                    {/* Fila Superior: Número, Nombre y Tag */}
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex items-start space-x-3">
-                        
-                        {/* Número de Parada */}
-                        <div className="w-7 h-7 rounded-full bg-[#1b2533] text-white flex items-center justify-center font-black text-xs shrink-0 mt-0.5 shadow-sm">
-                          {parada.numero}
-                        </div>
+                  const isDone = parada.estado_inspeccion === 'Completada';
 
-                        {/* Nombre y Horario */}
-                        <div>
-                          <h4 
-                            onClick={() => handleCentrarEnParada(parada)}
-                            className="text-xs sm:text-sm font-extrabold text-slate-900 group-hover:text-[#0060a8] transition cursor-pointer leading-snug"
-                          >
-                            {parada.nombre}
-                          </h4>
-                          <div className="flex items-center space-x-1 text-slate-400 text-[11px] font-medium mt-0.5">
-                            <Clock className="w-3 h-3" />
-                            <span>{parada.horario}</span>
-                          </div>
-                        </div>
-
-                      </div>
-
-                      {/* Tag de Trámite */}
-                      <span className={`
-                        text-[10px] font-extrabold px-2.5 py-0.5 rounded-md uppercase tracking-wider shrink-0
-                        ${parada.tagColor === 'orange' 
-                          ? 'bg-amber-50 text-amber-700 border border-amber-200' 
-                          : 'bg-blue-50 text-blue-700 border border-blue-200'
+                  return (
+                    <div
+                      key={parada.inspeccion_id || parada.numero}
+                      className={`
+                        p-4 rounded-2xl bg-white border transition-all space-y-3 relative group
+                        ${isDone 
+                          ? 'border-emerald-200 bg-emerald-50/20 shadow-2xs' 
+                          : isSelected 
+                            ? 'border-[#0060a8] ring-2 ring-blue-100 shadow-md' 
+                            : 'border-slate-200 hover:border-slate-300 hover:shadow-xs'
                         }
-                      `}>
-                        {parada.tipoTag}
-                      </span>
-                    </div>
+                      `}
+                    >
+                      {/* Fila Superior: Número, Nombre y Tag */}
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-start space-x-3">
+                          
+                          {/* Número de Parada */}
+                          <div className={`w-7 h-7 rounded-full text-white flex items-center justify-center font-black text-xs shrink-0 mt-0.5 shadow-sm ${
+                            isDone ? 'bg-emerald-600' : 'bg-[#1b2533]'
+                          }`}>
+                            {isDone ? '✓' : parada.numero}
+                          </div>
 
-                    {/* Dirección y Coordenadas GPS del Laboratorio */}
-                    <div className="space-y-1 text-xs text-slate-600 pl-10">
-                      <div className="flex items-start space-x-1.5">
-                        <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0 mt-0.5" />
-                        <span className="font-semibold text-slate-800">{parada.direccion}</span>
+                          {/* Nombre y Horario */}
+                          <div>
+                            <h4 
+                              onClick={() => handleCentrarEnParada(parada)}
+                              className={`text-xs sm:text-sm font-extrabold transition cursor-pointer leading-snug ${
+                                isDone ? 'text-emerald-950 hover:text-emerald-700' : 'text-slate-900 group-hover:text-[#0060a8]'
+                              }`}
+                            >
+                              {parada.nombre}
+                            </h4>
+                            <div className="flex items-center space-x-1 text-slate-400 text-[11px] font-medium mt-0.5">
+                              <Clock className="w-3 h-3" />
+                              <span>{parada.horario}</span>
+                            </div>
+                          </div>
+
+                        </div>
+
+                        {/* Tag de Trámite o Estado */}
+                        <div className="flex items-center space-x-1.5 shrink-0">
+                          {isDone ? (
+                            <span className="text-[10px] font-extrabold px-2.5 py-0.5 rounded-md uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200">
+                              ✓ Realizada
+                            </span>
+                          ) : (
+                            <span className={`
+                              text-[10px] font-extrabold px-2.5 py-0.5 rounded-md uppercase tracking-wider
+                              ${parada.tagColor === 'orange' 
+                                ? 'bg-amber-50 text-amber-700 border border-amber-200' 
+                                : 'bg-blue-50 text-blue-700 border border-blue-200'
+                              }
+                            `}>
+                              {parada.tipoTag}
+                            </span>
+                          )}
+                        </div>
                       </div>
 
-                      <div className="flex items-center space-x-2 text-[10px] text-slate-400 font-mono pl-5">
-                        <span>GPS: {parada.lat.toFixed(5)}, {parada.lng.toFixed(5)}</span>
+                      {/* Dirección y Coordenadas GPS del Laboratorio */}
+                      <div className="space-y-1 text-xs text-slate-600 pl-10">
+                        <div className="flex items-start space-x-1.5">
+                          <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0 mt-0.5" />
+                          <span className="font-semibold text-slate-800">{parada.direccion}</span>
+                        </div>
+
+                        <div className="flex items-center space-x-2 text-[10px] text-slate-400 font-mono pl-5">
+                          <span>GPS: {parada.lat.toFixed(5)}, {parada.lng.toFixed(5)}</span>
+                        </div>
                       </div>
-                    </div>
 
-                    {/* Botón Iniciar Navegación Turn-by-Turn */}
-                    <div className="pl-10 pt-1">
-                      <a
-                        href={navUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="w-full flex items-center justify-center space-x-2 py-2 px-3 rounded-xl border border-slate-200 hover:border-slate-300 bg-white hover:bg-slate-50 text-slate-800 hover:text-slate-900 text-xs font-bold transition shadow-2xs group/btn cursor-pointer"
-                      >
-                        <Navigation className="w-3.5 h-3.5 text-slate-700 group-hover/btn:text-[#0060a8] transition" />
-                        <span>Iniciar Navegación GPS</span>
-                        <ExternalLink className="w-3 h-3 text-slate-400" />
-                      </a>
-                    </div>
+                      {/* Botón de Acción según Estado */}
+                      <div className="pl-10 pt-1">
+                        {isDone ? (
+                          <div className="flex items-center justify-between gap-2 p-2.5 bg-emerald-50/80 border border-emerald-200 rounded-xl text-emerald-900 text-xs font-bold">
+                            <div className="flex items-center space-x-1.5">
+                              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                              <span>Acta Oficial Emitida</span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => onCambiarSeccion?.('actas-emitidas')}
+                              className="text-[11px] font-black text-[#0060a8] hover:underline cursor-pointer"
+                            >
+                              Ver Acta →
+                            </button>
+                          </div>
+                        ) : (
+                          <a
+                            href={navUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="w-full flex items-center justify-center space-x-2 py-2 px-3 rounded-xl border border-slate-200 hover:border-slate-300 bg-white hover:bg-slate-50 text-slate-800 hover:text-slate-900 text-xs font-bold transition shadow-2xs group/btn cursor-pointer"
+                          >
+                            <Navigation className="w-3.5 h-3.5 text-slate-700 group-hover/btn:text-[#0060a8] transition" />
+                            <span>Iniciar Navegación GPS</span>
+                            <ExternalLink className="w-3 h-3 text-slate-400" />
+                          </a>
+                        )}
+                      </div>
 
-                  </div>
-                );
-              })
+                    </div>
+                  );
+                })
 
             )}
           </div>

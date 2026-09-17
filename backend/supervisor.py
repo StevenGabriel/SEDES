@@ -492,6 +492,12 @@ def reprogramar_inspeccion(
     if not insp:
         raise HTTPException(status_code=404, detail="Inspección no encontrada.")
 
+    if insp.estado_inspeccion == "Completada":
+        raise HTTPException(
+            status_code=400,
+            detail="No es posible reprogramar una inspección que ya ha sido completada con acta oficial emitida."
+        )
+
     try:
         nueva_fecha_dt = parsear_fecha_hora(payload.fecha, payload.hora_inicio)
     except Exception as e:
@@ -563,6 +569,12 @@ def desagendar_inspeccion(
 
     if not insp:
         raise HTTPException(status_code=404, detail="Inspección no encontrada.")
+
+    if insp.estado_inspeccion == "Completada":
+        raise HTTPException(
+            status_code=400,
+            detail="No es posible desagendar una inspección que ya ha sido completada con acta oficial emitida."
+        )
 
     insp.estado_inspeccion = "Pendiente"
     db.commit()
@@ -996,6 +1008,12 @@ def registrar_acta_inspeccion(
             insp = db.query(models.Inspeccion).filter(models.Inspeccion.tramite_id == t_uuid).first()
         except ValueError:
             pass
+
+    if insp and insp.estado_inspeccion == "Completada" and insp.acta_pdf_url:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Esta inspección ya fue completada y cuenta con un acta oficial emitida. No es posible registrarla nuevamente."
+        )
 
     # Normalizar resultado
     res_input = payload.resultado.strip()

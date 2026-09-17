@@ -814,6 +814,7 @@ export default function SupervisorPage() {
                           const heightPx = Math.max(36, (durM / 60) * 48);
                           const leftPct = (evt.diaIndex + 1) * 16.666;
 
+                          const isCompletada = evt.estado_inspeccion === 'Completada';
                           const isBlue = evt.color === 'blue';
 
                           return (
@@ -829,18 +830,25 @@ export default function SupervisorPage() {
                               }}
                               className={`
                                 rounded-xl p-2 cursor-pointer hover:shadow-md transition shadow-2xs flex flex-col justify-between text-left overflow-hidden z-10
-                                ${isBlue 
-                                  ? 'bg-blue-100/90 border-l-4 border-l-blue-600 border border-blue-200' 
-                                  : 'bg-amber-100/90 border-l-4 border-l-amber-500 border border-amber-200'
+                                ${isCompletada
+                                  ? 'bg-emerald-100/95 border-l-4 border-l-emerald-600 border border-emerald-300'
+                                  : isBlue 
+                                    ? 'bg-blue-100/90 border-l-4 border-l-blue-600 border border-blue-200' 
+                                    : 'bg-amber-100/90 border-l-4 border-l-amber-500 border border-amber-200'
                                 }
                               `}
-                              title={`${evt.establecimiento} (${evt.subtitulo})`}
+                              title={`${evt.establecimiento} (${isCompletada ? 'Completada con Acta Emitida' : evt.subtitulo})`}
                             >
-                              <span className="font-bold text-slate-900 text-[11px] truncate">
-                                {evt.titulo || evt.establecimiento}
-                              </span>
-                              <span className={`text-[10px] font-medium ${isBlue ? 'text-blue-900' : 'text-amber-900'}`}>
-                                {evt.subtitulo || `${evt.horaInicio} - ${evt.horaFin}`}
+                              <div className="flex items-center space-x-1">
+                                {isCompletada && <CheckCircle2 className="w-3 h-3 text-emerald-700 shrink-0" />}
+                                <span className={`font-bold text-[11px] truncate ${isCompletada ? 'text-emerald-950' : 'text-slate-900'}`}>
+                                  {evt.titulo || evt.establecimiento}
+                                </span>
+                              </div>
+                              <span className={`text-[10px] font-bold ${
+                                isCompletada ? 'text-emerald-800' : isBlue ? 'text-blue-900' : 'text-amber-900'
+                              }`}>
+                                {isCompletada ? `✓ Completada (${evt.horaInicio})` : (evt.subtitulo || `${evt.horaInicio} - ${evt.horaFin}`)}
                               </span>
                             </div>
                           );
@@ -913,10 +921,19 @@ export default function SupervisorPage() {
           <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl border border-slate-100 space-y-5">
             <div className="flex items-start justify-between border-b border-slate-100 pb-4">
               <div>
-                <span className="text-[10px] font-extrabold text-[#005596] uppercase tracking-wider">
-                  Detalle de Inspección Técnica
-                </span>
-                <h3 className="text-lg font-black text-slate-900 tracking-tight mt-0.5">
+                <div className="flex items-center space-x-2">
+                  <span className={`text-[10px] font-extrabold uppercase tracking-wider px-2.5 py-0.5 rounded-full border ${
+                    inspeccionSeleccionada.estado_inspeccion === 'Completada'
+                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                      : 'bg-blue-50 text-[#005596] border-blue-200'
+                  }`}>
+                    {inspeccionSeleccionada.estado_inspeccion === 'Completada'
+                      ? '✓ Inspección Realizada'
+                      : 'Detalle de Inspección Técnica'
+                    }
+                  </span>
+                </div>
+                <h3 className="text-lg font-black text-slate-900 tracking-tight mt-1">
                   {inspeccionSeleccionada.establecimiento || inspeccionSeleccionada.titulo}
                 </h3>
               </div>
@@ -958,27 +975,47 @@ export default function SupervisorPage() {
                       <span className="font-bold text-slate-800">{inspeccionSeleccionada.telefono}</span>
                     </div>
                   )}
+                  {inspeccionSeleccionada.estado_inspeccion === 'Completada' && inspeccionSeleccionada.veredicto_final && (
+                    <div className="flex justify-between pt-1 border-t border-slate-200/60">
+                      <span className="text-slate-400 font-medium">Veredicto Emitido:</span>
+                      <span className="font-extrabold text-emerald-700">{inspeccionSeleccionada.veredicto_final}</span>
+                    </div>
+                  )}
                 </div>
 
-                <div className="flex items-center justify-between text-xs text-slate-500 pt-1">
-                  <span>Estado: <strong className="text-emerald-700">{inspeccionSeleccionada.estado_inspeccion || 'Programada'}</strong></span>
-                  <button
-                    type="button"
-                    onClick={() => setModoReprogramar(true)}
-                    className="text-[#0060a8] hover:underline font-bold cursor-pointer"
-                  >
-                    Reprogramar fecha/hora
-                  </button>
-                </div>
+                {inspeccionSeleccionada.estado_inspeccion === 'Completada' ? (
+                  <div className="flex items-center space-x-2 p-3 bg-emerald-50/80 rounded-2xl border border-emerald-200 text-emerald-900 text-[11px] font-semibold">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>Esta inspección ya fue realizada y cuenta con acta oficial emitida. No puede ser modificada ni reprogramada.</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-between text-xs text-slate-500 pt-1">
+                    <span>Estado: <strong className="text-blue-700">{inspeccionSeleccionada.estado_inspeccion || 'Programada'}</strong></span>
+                    <button
+                      type="button"
+                      onClick={() => setModoReprogramar(true)}
+                      className="text-[#0060a8] hover:underline font-bold cursor-pointer"
+                    >
+                      Reprogramar fecha/hora
+                    </button>
+                  </div>
+                )}
 
                 <div className="flex items-center justify-between pt-4 border-t border-slate-100">
-                  <button
-                    type="button"
-                    onClick={handleDesagendar}
-                    className="text-rose-600 hover:text-rose-800 text-xs font-bold hover:underline cursor-pointer"
-                  >
-                    Mover a Pendientes
-                  </button>
+                  {inspeccionSeleccionada.estado_inspeccion === 'Completada' ? (
+                    <span className="text-[11px] font-bold text-emerald-700 flex items-center space-x-1">
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      <span>Acta Registrada</span>
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={handleDesagendar}
+                      className="text-rose-600 hover:text-rose-800 text-xs font-bold hover:underline cursor-pointer"
+                    >
+                      Mover a Pendientes
+                    </button>
+                  )}
 
                   <div className="flex items-center space-x-2">
                     <button
@@ -988,17 +1025,31 @@ export default function SupervisorPage() {
                     >
                       Cerrar
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        mostrarToast('Iniciando acta técnica de inspección en campo...', 'success');
-                        setModalInspeccionOpen(false);
-                      }}
-                      className="bg-[#005596] hover:bg-[#003e6d] text-white text-xs font-bold px-4 py-2.5 rounded-xl transition shadow-md cursor-pointer flex items-center space-x-1.5"
-                    >
-                      <FileCheck2 className="w-4 h-4" />
-                      <span>Iniciar Acta</span>
-                    </button>
+                    {inspeccionSeleccionada.estado_inspeccion === 'Completada' ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setModalInspeccionOpen(false);
+                          navigate('/supervisor/actas-emitidas');
+                        }}
+                        className="bg-[#1b2533] hover:bg-[#111827] text-white text-xs font-bold px-4 py-2.5 rounded-xl transition shadow-md cursor-pointer flex items-center space-x-1.5"
+                      >
+                        <FileText className="w-4 h-4 text-emerald-400" />
+                        <span>Ver en Actas Emitidas</span>
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setModalInspeccionOpen(false);
+                          navigate('/supervisor/actas-emitidas');
+                        }}
+                        className="bg-[#005596] hover:bg-[#003e6d] text-white text-xs font-bold px-4 py-2.5 rounded-xl transition shadow-md cursor-pointer flex items-center space-x-1.5"
+                      >
+                        <FileCheck2 className="w-4 h-4" />
+                        <span>Iniciar Acta</span>
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>

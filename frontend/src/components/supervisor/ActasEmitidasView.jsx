@@ -35,7 +35,7 @@ export default function ActasEmitidasView({ usuario, mostrarToast }) {
   const [modoCrearActa, setModoCrearActa] = useState(false);
   const [cargando, setCargando] = useState(true);
   const [datosActas, setDatosActas] = useState(null);
-  
+
   // Filtros
   const [busqueda, setBusqueda] = useState('');
   const [filtroResultado, setFiltroResultado] = useState('Todos');
@@ -71,7 +71,7 @@ export default function ActasEmitidasView({ usuario, mostrarToast }) {
     setCargando(true);
     try {
       let url = `http://localhost:8000/api/supervisor/${encodeURIComponent(supId)}/actas?page=${page}&limit=6`;
-      
+
       if (busqueda.trim()) {
         url += `&search=${encodeURIComponent(busqueda.trim())}`;
       }
@@ -219,7 +219,7 @@ export default function ActasEmitidasView({ usuario, mostrarToast }) {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.setAttribute('href', url);
-    link.setAttribute('download', `Reporte_Actas_SEDES_${new Date().toISOString().slice(0,10)}.csv`);
+    link.setAttribute('download', `Reporte_Actas_SEDES_${new Date().toISOString().slice(0, 10)}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -271,7 +271,7 @@ export default function ActasEmitidasView({ usuario, mostrarToast }) {
 
   return (
     <div className="space-y-6">
-      
+
       {/* ===================================================================== */}
       {/* 1. CABECERA CON ACCIONES DE EXPORTAR Y REGISTRAR                      */}
       {/* ===================================================================== */}
@@ -287,16 +287,6 @@ export default function ActasEmitidasView({ usuario, mostrarToast }) {
 
         {/* Botones Superiores de Acción */}
         <div className="flex items-center space-x-3 self-start sm:self-auto">
-          
-          {/* Botón Exportar Reporte */}
-          <button
-            type="button"
-            onClick={handleExportarReporte}
-            className="inline-flex items-center space-x-2 px-4 py-2.5 rounded-2xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 font-bold text-xs sm:text-sm transition shadow-2xs cursor-pointer"
-          >
-            <Download className="w-4 h-4 text-slate-500" />
-            <span>Exportar Reporte</span>
-          </button>
 
           {/* Botón Primario Registrar Acta */}
           <button
@@ -315,7 +305,7 @@ export default function ActasEmitidasView({ usuario, mostrarToast }) {
       {/* 2. TARJETAS DE MÉTRICAS / KPIS (3 TARJETAS FIGMA)                     */}
       {/* ===================================================================== */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-        
+
         {/* KPI 1: Aprobados */}
         <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-2xs space-y-3 relative overflow-hidden">
           <div className="flex items-center justify-between">
@@ -385,14 +375,14 @@ export default function ActasEmitidasView({ usuario, mostrarToast }) {
       {/* 3. BARRA DE BÚSQUEDA Y FILTROS                                        */}
       {/* ===================================================================== */}
       <div className="bg-white rounded-3xl p-4 border border-slate-200 shadow-2xs">
-        <form 
+        <form
           onSubmit={(e) => {
             e.preventDefault();
             cargarActas(1);
           }}
           className="flex flex-col lg:flex-row items-stretch lg:items-center gap-3"
         >
-          
+
           {/* Campo Búsqueda */}
           <div className="relative flex-1">
             <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
@@ -453,7 +443,7 @@ export default function ActasEmitidasView({ usuario, mostrarToast }) {
       {/* 4. TABLA: HISTORIAL DE ACTAS                                          */}
       {/* ===================================================================== */}
       <div className="bg-white rounded-3xl border border-slate-200 shadow-2xs overflow-hidden">
-        
+
         {/* Cabecera de la Tabla */}
         <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
           <div className="flex items-center space-x-3">
@@ -478,7 +468,7 @@ export default function ActasEmitidasView({ usuario, mostrarToast }) {
         {/* Tabla Responsiva */}
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
-            
+
             {/* Encabezado */}
             <thead className="bg-slate-50/75 text-[11px] font-extrabold text-slate-400 uppercase tracking-wider border-b border-slate-100">
               <tr>
@@ -514,7 +504,7 @@ export default function ActasEmitidasView({ usuario, mostrarToast }) {
               ) : (
                 actas.map((acta) => {
                   return (
-                    <tr 
+                    <tr
                       key={acta.id || acta.codigo_acta}
                       className="hover:bg-slate-50/80 transition-colors"
                     >
@@ -542,11 +532,11 @@ export default function ActasEmitidasView({ usuario, mostrarToast }) {
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className={`
                           text-[10px] font-extrabold px-3 py-1 rounded-md inline-block uppercase tracking-wider
-                          ${acta.resultado === 'Aprobado' 
-                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' 
+                          ${acta.resultado === 'Aprobado'
+                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                             : acta.resultado === 'Con Observaciones'
-                            ? 'bg-amber-50 text-amber-800 border border-amber-200'
-                            : 'bg-rose-50 text-rose-700 border border-rose-200'
+                              ? 'bg-amber-50 text-amber-800 border border-amber-200'
+                              : 'bg-rose-50 text-rose-700 border border-rose-200'
                           }
                         `}>
                           {acta.resultado}
@@ -556,7 +546,7 @@ export default function ActasEmitidasView({ usuario, mostrarToast }) {
                       {/* Botones de Acción: Ver & PDF */}
                       <td className="px-6 py-4 text-right whitespace-nowrap">
                         <div className="flex items-center justify-end space-x-2">
-                          
+
                           {/* Botón Ver */}
                           <button
                             type="button"
@@ -612,8 +602,8 @@ export default function ActasEmitidasView({ usuario, mostrarToast }) {
                   onClick={() => cargarActas(num)}
                   className={`
                     w-8 h-8 rounded-lg font-bold text-xs transition cursor-pointer
-                    ${isActive 
-                      ? 'bg-[#1b2533] text-white shadow-2xs' 
+                    ${isActive
+                      ? 'bg-[#1b2533] text-white shadow-2xs'
                       : 'bg-white hover:bg-slate-100 border border-slate-200 text-slate-700'
                     }
                   `}
@@ -642,7 +632,7 @@ export default function ActasEmitidasView({ usuario, mostrarToast }) {
       {modalDetalleOpen && actaSeleccionada && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-2xs animate-fadeIn">
           <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl border border-slate-100 space-y-5 max-h-[90vh] overflow-y-auto">
-            
+
             {/* Cabecera Modal */}
             <div className="flex items-start justify-between border-b border-slate-100 pb-4">
               <div>
@@ -664,15 +654,15 @@ export default function ActasEmitidasView({ usuario, mostrarToast }) {
 
             {/* Contenido del Detalle */}
             <div className="space-y-4 text-xs">
-              
+
               {/* Resultado Banner */}
               <div className={`
                 p-4 rounded-2xl border flex items-center justify-between
-                ${actaSeleccionada.resultado === 'Aprobado' 
-                  ? 'bg-emerald-50/80 border-emerald-200 text-emerald-900' 
+                ${actaSeleccionada.resultado === 'Aprobado'
+                  ? 'bg-emerald-50/80 border-emerald-200 text-emerald-900'
                   : actaSeleccionada.resultado === 'Con Observaciones'
-                  ? 'bg-amber-50/80 border-amber-200 text-amber-900'
-                  : 'bg-rose-50/80 border-rose-200 text-rose-900'
+                    ? 'bg-amber-50/80 border-amber-200 text-amber-900'
+                    : 'bg-rose-50/80 border-rose-200 text-rose-900'
                 }
               `}>
                 <div>
@@ -752,7 +742,7 @@ export default function ActasEmitidasView({ usuario, mostrarToast }) {
       {modalPdfOpen && actaSeleccionada && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-900/70 backdrop-blur-2xs animate-fadeIn">
           <div className="bg-white rounded-3xl max-w-4xl w-full p-5 sm:p-7 shadow-2xl border border-slate-100 space-y-4 max-h-[95vh] flex flex-col">
-            
+
             {/* Cabecera del Visor */}
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div className="flex items-center space-x-3">
@@ -803,8 +793,8 @@ export default function ActasEmitidasView({ usuario, mostrarToast }) {
             <div className="flex-1 min-h-[480px] max-h-[70vh] bg-slate-100 rounded-2xl border border-slate-200 overflow-hidden flex items-center justify-center">
               {actaSeleccionada.archivo_pdf_url ? (
                 actaSeleccionada.archivo_pdf_url.toLowerCase().endsWith('.png') ||
-                actaSeleccionada.archivo_pdf_url.toLowerCase().endsWith('.jpg') ||
-                actaSeleccionada.archivo_pdf_url.toLowerCase().endsWith('.jpeg') ? (
+                  actaSeleccionada.archivo_pdf_url.toLowerCase().endsWith('.jpg') ||
+                  actaSeleccionada.archivo_pdf_url.toLowerCase().endsWith('.jpeg') ? (
                   <div className="w-full h-full overflow-auto flex items-center justify-center p-4">
                     <img
                       src={actaSeleccionada.archivo_pdf_url}
@@ -874,7 +864,7 @@ export default function ActasEmitidasView({ usuario, mostrarToast }) {
       {modalRegistrarOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-2xs animate-fadeIn">
           <div className="bg-white rounded-3xl max-w-xl w-full p-6 sm:p-8 shadow-2xl border border-slate-100 space-y-5 max-h-[92vh] overflow-y-auto">
-            
+
             {/* Cabecera */}
             <div className="flex items-start justify-between border-b border-slate-100 pb-4">
               <div>
@@ -896,7 +886,7 @@ export default function ActasEmitidasView({ usuario, mostrarToast }) {
 
             {/* Formulario */}
             <form onSubmit={handleGuardarActa} className="space-y-4 text-xs">
-              
+
               {/* Selección de Inspección / Establecimiento */}
               <div className="space-y-1.5">
                 <label className="text-[11px] font-extrabold text-slate-700 block uppercase tracking-wider">
@@ -937,7 +927,7 @@ export default function ActasEmitidasView({ usuario, mostrarToast }) {
                   Dictamen / Resultado de Inspección:
                 </label>
                 <div className="grid grid-cols-3 gap-2.5">
-                  
+
                   <button
                     type="button"
                     onClick={() => setFormResultado('Aprobado')}
