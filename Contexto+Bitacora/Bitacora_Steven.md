@@ -2299,7 +2299,40 @@ Garantizar que una vez que un supervisor técnico emita un acta oficial de inspe
 * **Navegación Fluida al Detalle:** El botón "Ver en Actas Emitidas" en el modal de inspección redirige inmediatamente a la sección `/supervisor/actas-emitidas` mediante `navigate('/supervisor/actas-emitidas')`.
 
 ---
+---
+
+## [2026-09-17] Navegador Inteligente de Fechas y Popover de Calendario en Mi Agenda
+
+### 📌 Objetivo
+Optimizar la navegación de semanas y fechas en la vista de **Mi Agenda** del Supervisor (`/supervisor/mi-agenda`), eliminando la necesidad de hacer saltos individuales semana a semana y permitiendo saltar a cualquier fecha, mes o año directamente.
+
+---
+
+### 🛠️ Archivos Modificados
+
+#### 1. `backend/supervisor.py` [MODIFICADO]
+* **Soporte de Consulta por Fecha Específica:**
+  * En `GET /api/supervisor/{id}/agenda`, se agregó el parámetro opcional `fecha: Optional[str] = None`.
+  * Si se proporciona `fecha` (ej. `YYYY-MM-DD`), el backend calcula el lunes correspondiente, el offset de semanas exacto con respecto a hoy y devuelve los eventos y metadatos de esa semana (`anio`, `mes_numero`, `mes_nombre`, `offset`).
+
+#### 2. `frontend/src/pages/SupervisorPage.jsx` [MODIFICADO]
+* **Barra de Navegación Interactiva con Popover:**
+  * **Botón Central Desplegable:** Al hacer clic en el botón de la semana (`Semana del 14 - 18 de Septiembre 2026`), se abre un popover elegante y ergonómico.
+  * **Atajos Rápidos:** Botones inmediatos de `🌟 Hoy`, `-1 Mes` y `+1 Mes`.
+  * **Selector de Mes y Año:** Desplegables de Mes (Enero a Diciembre) y Año (2024 a 2029) con botón de salto directo `[Ir al Mes Seleccionado]`.
+  * **Selector de Fecha Exacta (`<input type="date">`):** Selector de día que calcula y salta instantáneamente a la semana deseada en un solo paso.
+  * **Cierre Inteligente:** Detección de clics fuera del popover (`handleClickOutside`) y botón de retorno rápido a `Hoy`.
+
+---
+
+### 📊 Verificación y Pruebas Realizadas
+* **Compilación Frontend:** `npm run build` ejecutado exitosamente con 0 errores (2046 módulos transformados en 673ms).
+* **Compilación Backend:** `python -m py_compile backend/supervisor.py` ejecutado sin errores.
+* **Integración:** La selección de fecha, mes y atajos rápidos sincroniza la cuadrícula horaria y las inspecciones de la semana seleccionada de manera reactiva e instantánea.
+
+---
 *Bitácora actualizada por: Steven*
+
 
 
 

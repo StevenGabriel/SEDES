@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { 
   Calendar as CalendarIcon, 
@@ -30,13 +30,21 @@ import {
   CalendarPlus,
   AlertTriangle,
   Layers,
-  ChevronDown
+  ChevronDown,
+  CalendarDays,
+  Sparkles,
+  ArrowRight
 } from 'lucide-react';
 
 import logoL1 from '../assets/L1.png';
 import logoL2 from '../assets/L2.png';
 import RutasInspeccionView from '../components/supervisor/RutasInspeccionView';
 import ActasEmitidasView from '../components/supervisor/ActasEmitidasView';
+
+const MESES_NOMBRES = [
+  'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+  'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+];
 
 // Obtener iniciales de 2 a 4 letras a partir de nombres y apellidos
 const getInitials = (u) => {
@@ -126,6 +134,70 @@ export default function SupervisorPage() {
   const [formHoraFin, setFormHoraFin] = useState('11:00');
   const [formObservaciones, setFormObservaciones] = useState('');
   const [guardandoAgendamiento, setGuardandoAgendamiento] = useState(false);
+
+  // Control del Popover y Selector Avanzado de Fechas
+  const [selectorFechaOpen, setSelectorFechaOpen] = useState(false);
+  const [fechaBuscarInput, setFechaBuscarInput] = useState('');
+  const [mesSeleccionado, setMesSeleccionado] = useState(new Date().getMonth() + 1);
+  const [anioSeleccionado, setAnioSeleccionado] = useState(new Date().getFullYear());
+  const popoverFechaRef = useRef(null);
+
+  // Cerrar popover al hacer clic afuera
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (popoverFechaRef.current && !popoverFechaRef.current.contains(event.target)) {
+        setSelectorFechaOpen(false);
+      }
+    }
+    if (selectorFechaOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [selectorFechaOpen]);
+
+  // Sincronizar mes y año seleccionados con la semana cargada
+  useEffect(() => {
+    if (semanaInfo?.anio) setAnioSeleccionado(semanaInfo.anio);
+    if (semanaInfo?.mes_numero) setMesSeleccionado(semanaInfo.mes_numero);
+  }, [semanaInfo]);
+
+  // Función para saltar a una fecha específica usando el backend
+  const saltarAFecha = async (fechaIso) => {
+    if (!fechaIso) return;
+    const supervisorId = usuario?.id || usuario?.email || (usuario?.nombres ? `${usuario.nombres} ${usuario.apellidos}` : '');
+    if (!supervisorId) return;
+    setCargando(true);
+    setSelectorFechaOpen(false);
+    try {
+      const url = `http://localhost:8000/api/supervisor/${encodeURIComponent(supervisorId)}/agenda?fecha=${encodeURIComponent(fechaIso)}`;
+      const res = await fetch(url);
+      if (res.ok) {
+        const data = await res.json();
+        setInspeccionesPendientes(data.pendientes || []);
+        setEventosSemana(data.eventos || []);
+        if (data.semana) {
+          setSemanaInfo(data.semana);
+          setSemanaActualOffset(data.semana.offset ?? 0);
+          if (data.semana.dias && data.semana.dias.length > 0) {
+            setFormFecha(data.semana.dias[0].fecha_iso);
+            setReprogramarFecha(data.semana.dias[0].fecha_iso);
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('Error al saltar a fecha:', err);
+    } finally {
+      setCargando(false);
+    }
+  };
+
+  const saltarAMesAnio = (mes, anio) => {
+    const mesStr = String(mes).padStart(2, '0');
+    const fecha = `${anio}-${mesStr}-01`;
+    saltarAFecha(fecha);
+  };
 
   // Mostrar mensaje emergente Toast
   const mostrarToast = (mensaje, tipo = 'success') => {
@@ -654,35 +726,201 @@ export default function SupervisorPage() {
                   </p>
                 </div>
 
-                {/* Navegador Semanal Dinámico */}
-                <div className="flex items-center bg-white px-3 py-1.5 rounded-xl border border-slate-200 shadow-2xs space-x-2 text-xs font-bold text-slate-700 self-start md:self-auto">
-                  <button
-                    type="button"
-                    onClick={() => setSemanaActualOffset(prev => prev - 1)}
-                    className="p-1 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition cursor-pointer"
-                    title="Semana anterior"
-                  >
-                    <ChevronLeft className="w-4 h-4" />
-                  </button>
-                  <span className="px-1 text-slate-800 font-extrabold min-w-[200px] text-center">
-                    {semanaInfo.rango_texto}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setSemanaActualOffset(prev => prev + 1)}
-                    className="p-1 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition cursor-pointer"
-                    title="Semana siguiente"
-                  >
-                    <ChevronRight className="w-4 h-4" />
-                  </button>
-                  {semanaActualOffset !== 0 && (
+                {/* Navegador Semanal Dinámico con Popover de Fecha y Atajos Rápidos */}
+                <div className="relative" ref={popoverFechaRef}>
+                  <div className="flex items-center bg-white p-1 rounded-2xl border border-slate-200 shadow-2xs space-x-1 text-xs font-bold text-slate-700 self-start md:self-auto">
+                    
+                    {/* Botón Semana Anterior */}
                     <button
                       type="button"
-                      onClick={() => setSemanaActualOffset(0)}
-                      className="text-[10px] text-[#0060a8] hover:underline font-bold pl-1"
+                      onClick={() => setSemanaActualOffset(prev => prev - 1)}
+                      className="p-1.5 text-slate-400 hover:text-slate-800 hover:bg-slate-100 rounded-xl transition cursor-pointer"
+                      title="Semana anterior"
                     >
-                      Hoy
+                      <ChevronLeft className="w-4 h-4" />
                     </button>
+
+                    {/* Botón Central Interactivo para abrir Popover */}
+                    <button
+                      type="button"
+                      onClick={() => setSelectorFechaOpen(prev => !prev)}
+                      className={`flex items-center space-x-2 px-3 py-1.5 rounded-xl transition cursor-pointer border ${
+                        selectorFechaOpen 
+                          ? 'bg-blue-50 border-blue-200 text-[#005596]' 
+                          : 'bg-slate-50/70 hover:bg-slate-100 border-transparent text-slate-800'
+                      }`}
+                      title="Haz clic para seleccionar fecha o mes directamente"
+                    >
+                      <CalendarIcon className={`w-4 h-4 ${selectorFechaOpen ? 'text-[#005596]' : 'text-slate-500'}`} />
+                      <span className="font-extrabold tracking-tight">
+                        {semanaInfo.rango_texto}
+                      </span>
+                      <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${selectorFechaOpen ? 'rotate-180 text-[#005596]' : ''}`} />
+                    </button>
+
+                    {/* Botón Semana Siguiente */}
+                    <button
+                      type="button"
+                      onClick={() => setSemanaActualOffset(prev => prev + 1)}
+                      className="p-1.5 text-slate-400 hover:text-slate-800 hover:bg-slate-100 rounded-xl transition cursor-pointer"
+                      title="Semana siguiente"
+                    >
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
+
+                    {/* Botón Hoy Rápido */}
+                    {semanaActualOffset !== 0 && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSemanaActualOffset(0);
+                          setSelectorFechaOpen(false);
+                        }}
+                        className="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-[#005596] rounded-xl text-[11px] font-extrabold transition cursor-pointer flex items-center space-x-1 border border-blue-100"
+                        title="Volver a la semana actual"
+                      >
+                        <Sparkles className="w-3 h-3 text-amber-500" />
+                        <span>Hoy</span>
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Popover Desplegable Elegante de Selección de Fecha */}
+                  {selectorFechaOpen && (
+                    <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-white rounded-3xl border border-slate-200 shadow-2xl z-50 p-5 space-y-4 animate-in fade-in zoom-in-95 duration-150">
+                      
+                      {/* Cabecera del Popover */}
+                      <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                        <div className="flex items-center space-x-2">
+                          <div className="w-7 h-7 rounded-lg bg-blue-50 text-[#005596] flex items-center justify-center">
+                            <CalendarDays className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <h4 className="text-xs font-black text-slate-800">Navegador de Agenda</h4>
+                            <p className="text-[10px] text-slate-400 font-medium">Salta directamente a cualquier fecha o mes</p>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setSelectorFechaOpen(false)}
+                          className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition cursor-pointer"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+
+                      {/* 1. Atajos Rápidos */}
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">
+                          Atajos Rápidos
+                        </label>
+                        <div className="grid grid-cols-3 gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSemanaActualOffset(0);
+                              setSelectorFechaOpen(false);
+                            }}
+                            className={`px-2 py-2 rounded-xl text-xs font-bold transition flex items-center justify-center space-x-1 border cursor-pointer ${
+                              semanaActualOffset === 0
+                                ? 'bg-[#005596] text-white border-[#005596] shadow-xs'
+                                : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200/80'
+                            }`}
+                          >
+                            <span>🌟 Hoy</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setSemanaActualOffset(prev => prev - 4)}
+                            className="px-2 py-2 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200/80 rounded-xl text-xs font-bold transition flex items-center justify-center cursor-pointer"
+                            title="Retroceder 4 semanas"
+                          >
+                            <span>-1 Mes</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setSemanaActualOffset(prev => prev + 4)}
+                            className="px-2 py-2 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200/80 rounded-xl text-xs font-bold transition flex items-center justify-center cursor-pointer"
+                            title="Avanzar 4 semanas"
+                          >
+                            <span>+1 Mes</span>
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* 2. Saltar a Mes y Año Específico */}
+                      <div className="space-y-2 bg-slate-50/70 p-3.5 rounded-2xl border border-slate-100">
+                        <label className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block">
+                          Saltar por Mes y Año
+                        </label>
+                        <div className="grid grid-cols-12 gap-2 items-center">
+                          <div className="col-span-7">
+                            <select
+                              value={mesSeleccionado}
+                              onChange={(e) => setMesSeleccionado(Number(e.target.value))}
+                              className="w-full bg-white border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs font-bold text-slate-700 outline-none focus:border-[#005596] cursor-pointer"
+                            >
+                              {MESES_NOMBRES.map((mes, idx) => (
+                                <option key={idx + 1} value={idx + 1}>
+                                  {mes}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          <div className="col-span-5">
+                            <select
+                              value={anioSeleccionado}
+                              onChange={(e) => setAnioSeleccionado(Number(e.target.value))}
+                              className="w-full bg-white border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs font-bold text-slate-700 outline-none focus:border-[#005596] cursor-pointer"
+                            >
+                              {[2024, 2025, 2026, 2027, 2028, 2029].map(anio => (
+                                <option key={anio} value={anio}>
+                                  {anio}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => saltarAMesAnio(mesSeleccionado, anioSeleccionado)}
+                          className="w-full bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold py-2 rounded-xl transition cursor-pointer flex items-center justify-center space-x-1.5 shadow-xs"
+                        >
+                          <span>Ir al Mes Seleccionado</span>
+                          <ArrowRight className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+
+                      {/* 3. Selector de Día Exacto (Date Picker) */}
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">
+                          Seleccionar Día Específico
+                        </label>
+                        <div className="flex items-center space-x-2">
+                          <input
+                            type="date"
+                            value={fechaBuscarInput}
+                            onChange={(e) => {
+                              setFechaBuscarInput(e.target.value);
+                              if (e.target.value) {
+                                saltarAFecha(e.target.value);
+                              }
+                            }}
+                            className="flex-1 bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-700 outline-none focus:border-[#005596] cursor-pointer"
+                          />
+                          {fechaBuscarInput && (
+                            <button
+                              type="button"
+                              onClick={() => saltarAFecha(fechaBuscarInput)}
+                              className="bg-[#005596] hover:bg-[#003e6d] text-white text-xs font-bold px-3 py-2 rounded-xl transition cursor-pointer"
+                            >
+                              Ir
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                    </div>
                   )}
                 </div>
               </div>

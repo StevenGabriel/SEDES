@@ -174,6 +174,7 @@ def buscar_supervisor_por_id_o_nombre(identificador: str, db: Session) -> Option
 def obtener_agenda_supervisor(
     supervisor_id: str,
     offset_semanas: int = 0,
+    fecha: Optional[str] = None,
     db: Session = Depends(get_db)
 ):
     """
@@ -186,13 +187,28 @@ def obtener_agenda_supervisor(
     if not supervisor:
         raise HTTPException(status_code=404, detail="No se encontró el supervisor técnico especificado.")
 
-    try:
-        offset_int = int(offset_semanas) if (isinstance(offset_semanas, int) or (isinstance(offset_semanas, str) and offset_semanas.lstrip("-").isdigit())) else 0
-    except Exception:
-        offset_int = 0
-
     hoy = ahora_bolivia().date()
-    lunes_semana = obtener_lunes_de_semana(hoy, offset_int)
+    lunes_hoy = obtener_lunes_de_semana(hoy, 0)
+
+    if fecha and str(fecha).strip():
+        try:
+            dt_ref = parsear_fecha_hora(str(fecha).strip(), "00:00").date()
+            lunes_semana = obtener_lunes_de_semana(dt_ref, 0)
+            delta_dias = (lunes_semana - lunes_hoy).days
+            offset_int = round(delta_dias / 7)
+        except Exception:
+            try:
+                offset_int = int(offset_semanas) if (isinstance(offset_semanas, int) or (isinstance(offset_semanas, str) and offset_semanas.lstrip("-").isdigit())) else 0
+            except Exception:
+                offset_int = 0
+            lunes_semana = obtener_lunes_de_semana(hoy, offset_int)
+    else:
+        try:
+            offset_int = int(offset_semanas) if (isinstance(offset_semanas, int) or (isinstance(offset_semanas, str) and offset_semanas.lstrip("-").isdigit())) else 0
+        except Exception:
+            offset_int = 0
+        lunes_semana = obtener_lunes_de_semana(hoy, offset_int)
+
     viernes_semana = lunes_semana + timedelta(days=4)
     domingo_semana = lunes_semana + timedelta(days=6)
 
@@ -343,7 +359,10 @@ def obtener_agenda_supervisor(
             "rango_texto": rango_texto,
             "lunes": lunes_semana.isoformat(),
             "viernes": viernes_semana.isoformat(),
-            "dias": dias_semana_info
+            "dias": dias_semana_info,
+            "anio": lunes_semana.year,
+            "mes_numero": lunes_semana.month,
+            "mes_nombre": MESES_ESPANOL[lunes_semana.month - 1]
         },
         "pendientes": pendientes,
         "eventos": eventos_semana
