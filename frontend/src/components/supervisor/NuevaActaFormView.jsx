@@ -30,6 +30,32 @@ import autoTable from 'jspdf-autotable';
 
 import logoL1 from '../../assets/L1.png';
 import logoL2 from '../../assets/L2.png';
+import escudoBolivia from '../../assets/Escudo_de_Bolivia.svg.webp';
+import escudoCochabamba from '../../assets/Escudo_del_Cochabamba.svg.webp';
+
+// Helper para convertir imágenes a DataURL para jsPDF
+const cargarImagenComoPngDataUrl = (url) => {
+  return new Promise((resolve) => {
+    if (!url) return resolve(null);
+    const img = new Image();
+    img.crossOrigin = 'Anonymous';
+    img.onload = () => {
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.naturalWidth || img.width || 140;
+        canvas.height = img.naturalHeight || img.height || 140;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0);
+        resolve(canvas.toDataURL('image/png'));
+      } catch (err) {
+        console.warn('Error al convertir imagen a data URL:', err);
+        resolve(null);
+      }
+    };
+    img.onerror = () => resolve(null);
+    img.src = url;
+  });
+};
 
 // ==============================================================================
 // CATÁLOGO OFICIAL DE LA LISTA DE VERIFICACIÓN (R.M. 0202 - SEDES COCHABAMBA)
@@ -910,7 +936,7 @@ export default function NuevaActaFormView({ usuario, onVolver, onActaGuardada, m
   };
 
   // Generador de PDF oficial de la lista de verificación (R.M. 0202)
-  const handleDescargarFormularioPDF = () => {
+  const handleDescargarFormularioPDF = async () => {
     try {
       const doc = new jsPDF({
         orientation: 'portrait',
@@ -920,73 +946,85 @@ export default function NuevaActaFormView({ usuario, onVolver, onActaGuardada, m
 
       const pageWidth = doc.internal.pageSize.getWidth();
 
-      // Cabecera Institucional
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(8);
-      doc.setTextColor(30, 41, 59);
-      doc.text('ESTADO PLURINACIONAL DE BOLIVIA', pageWidth / 2, 12, { align: 'center' });
-      doc.setFontSize(7);
-      doc.setFont('helvetica', 'normal');
-      doc.setTextColor(71, 85, 105);
-      doc.text('GOBIERNO AUTÓNOMO DEPARTAMENTAL DE COCHABAMBA', pageWidth / 2, 15.5, { align: 'center' });
-      doc.text('SECRETARÍA DEPARTAMENTAL DE DESARROLLO HUMANO INTEGRAL', pageWidth / 2, 19, { align: 'center' });
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(0, 85, 150);
-      doc.text('SERVICIO DEPARTAMENTAL DE SALUD - SEDES COCHABAMBA', pageWidth / 2, 22.5, { align: 'center' });
-      doc.text('COORDINACIÓN DEPARTAMENTAL DE LABORATORIOS', pageWidth / 2, 26, { align: 'center' });
+      // Cargar imágenes de los escudos oficiales
+      const [imgBolivia, imgCbba] = await Promise.all([
+        cargarImagenComoPngDataUrl(escudoBolivia),
+        cargarImagenComoPngDataUrl(escudoCochabamba)
+      ]);
 
-      // Título Oficial
-      doc.setFillColor(241, 245, 249);
-      doc.rect(14, 28.5, pageWidth - 28, 7.5, 'F');
-      doc.setFontSize(8);
+      // Función modular para dibujar la cabecera oficial en cualquier página
+      const dibujarEncabezadoInstitucional = (d, boliviaImg, cbbaImg, w) => {
+        // 1. Escudo de Bolivia (Izquierda)
+        if (boliviaImg) {
+          d.addImage(boliviaImg, 'PNG', 14, 6, 21, 21);
+        }
+
+        // 2. Escudo de Cochabamba (Derecha)
+        if (cbbaImg) {
+          d.addImage(cbbaImg, 'PNG', w - 14 - 21, 6, 21, 21);
+        }
+
+        // 3. Textos Institucionales Centrales
+        d.setFont('times', 'italic');
+        d.setFontSize(9.5);
+        d.setTextColor(20, 20, 20);
+        d.text('ESTADO PLURINACIONAL DE BOLIVIA', w / 2, 11, { align: 'center' });
+        d.text('GOBIERNO AUTÓNOMO DEPARTAMENTAL', w / 2, 15, { align: 'center' });
+
+        d.setFont('helvetica', 'bold');
+        d.setFontSize(7.5);
+        d.setTextColor(30, 30, 30);
+        d.text('SECRETARIA DEPARTAMENTAL DE DESARROLLO HUMANO INTEGRAL', w / 2, 19, { align: 'center' });
+        d.text('SERVICIO DEPARTAMENTAL DE SALUD COCHABAMBA', w / 2, 22.5, { align: 'center' });
+        d.text('COORDINACION DEPARTAMENTAL DE LABORATORIOS', w / 2, 26, { align: 'center' });
+
+        // Línea divisoria horizontal superior
+        d.setDrawColor(0, 0, 0);
+        d.setLineWidth(0.6);
+        d.line(14, 28.5, w - 14, 28.5);
+      };
+
+      // Dibujar cabecera en Página 1
+      dibujarEncabezadoInstitucional(doc, imgBolivia, imgCbba, pageWidth);
+
+      // Título del Formulario (solo Página 1)
       doc.setFont('helvetica', 'bold');
-      doc.setTextColor(15, 23, 42);
+      doc.setFontSize(9.5);
+      doc.setTextColor(0, 0, 0);
       doc.text(
-        'LISTA DE VERIFICACIÓN PARA LA APLICACIÓN DEL REGLAMENTO DE HABILITACIÓN (R.M. 0202)',
+        'LISTA DE VERIFICACION PARA LA APLICACIÓN DEL REGLAMENTO DE HABILITACION',
         pageWidth / 2,
         33.5,
         { align: 'center' }
       );
 
-      // Cuadro de Datos Generales
-      doc.setFontSize(7);
-      doc.setFont('helvetica', 'normal');
-      doc.setTextColor(15, 23, 42);
+      // Párrafo normativo oficial
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(7.5);
+      doc.setTextColor(20, 20, 20);
+      const subtexto = 'La renovación de habilitación es extendida a los laboratorios que demuestran mejora continua y/o sostenibilidad de su sistema de gestión de calidad, marco Normativo aprobado por R.M. 0202';
+      const splitSubtexto = doc.splitTextToSize(subtexto, pageWidth - 28);
+      doc.text(splitSubtexto, 14, 38);
 
-      const startY = 38;
-      doc.setDrawColor(203, 213, 225);
-      doc.setFillColor(248, 250, 252);
-      doc.roundedRect(14, startY, pageWidth - 28, 19, 1.5, 1.5, 'FD');
+      // Línea de Resultados INSITU y Gestión
+      const anioActual = fechaInspeccion ? fechaInspeccion.slice(0, 4) : new Date().getFullYear();
+      const labNombre = (establecimientoNombre || 'Laboratorio Clínico').toUpperCase();
+      const yLineInfo = 45.5;
+
+      const prefix = 'Resultados de la evaluación INSITU a Laboratorio: ';
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8);
+      doc.setTextColor(0, 0, 0);
+      doc.text(prefix, 14, yLineInfo);
+
+      const prefixWidth = doc.getTextWidth(prefix);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(0, 50, 120);
+      doc.text(labNombre, 14 + prefixWidth, yLineInfo);
 
       doc.setFont('helvetica', 'bold');
-      doc.text('Establecimiento:', 16, startY + 4.5);
-      doc.setFont('helvetica', 'normal');
-      doc.text(`${establecimientoNombre || 'Laboratorio Clínico'}`, 42, startY + 4.5);
-
-      doc.setFont('helvetica', 'bold');
-      doc.text('Trámite / Cód:', 130, startY + 4.5);
-      doc.setFont('helvetica', 'normal');
-      doc.text(`${codigoTramite || 'TRM-SEDES'} (${tipoTramite || 'Apertura'})`, 152, startY + 4.5);
-
-      doc.setFont('helvetica', 'bold');
-      doc.text('Responsable Técnico:', 16, startY + 9);
-      doc.setFont('helvetica', 'normal');
-      doc.text(`${propietarioNombre || 'Responsable Registrado'}`, 48, startY + 9);
-
-      doc.setFont('helvetica', 'bold');
-      doc.text('Fecha Inspección:', 130, startY + 9);
-      doc.setFont('helvetica', 'normal');
-      doc.text(`${fechaInspeccion || new Date().toISOString().split('T')[0]}`, 156, startY + 9);
-
-      doc.setFont('helvetica', 'bold');
-      doc.text('Dirección:', 16, startY + 13.5);
-      doc.setFont('helvetica', 'normal');
-      doc.text(`${direccionTexto || 'Cochabamba'} - ${municipioTexto || 'CERCADO'}`, 32, startY + 13.5);
-
-      doc.setFont('helvetica', 'bold');
-      doc.text('Supervisor SEDES:', 130, startY + 13.5);
-      doc.setFont('helvetica', 'normal');
-      doc.text(`${supervisorNombre}`, 158, startY + 13.5);
+      doc.setTextColor(0, 0, 0);
+      doc.text(`Gestión: ${anioActual}`, pageWidth - 14, yLineInfo, { align: 'right' });
 
       // Construcción de filas de la tabla
       const tableRows = [];
@@ -1023,7 +1061,7 @@ export default function NuevaActaFormView({ usuario, onVolver, onActaGuardada, m
       });
 
       autoTable(doc, {
-        startY: startY + 21,
+        startY: 49.5,
         head: [
           [
             'ART.',
@@ -1061,8 +1099,11 @@ export default function NuevaActaFormView({ usuario, onVolver, onActaGuardada, m
         alternateRowStyles: {
           fillColor: [248, 250, 252]
         },
-        margin: { top: 10, bottom: 22, left: 14, right: 14 },
-        didParseCell: function(data) {
+        margin: { top: 32, bottom: 15, left: 14, right: 14 },
+        didDrawPage: function () {
+          dibujarEncabezadoInstitucional(doc, imgBolivia, imgCbba, pageWidth);
+        },
+        didParseCell: function (data) {
           if (data.column.index === 3 && data.section === 'body') {
             if (data.cell.raw === 'SI') {
               data.cell.styles.textColor = [16, 185, 129];
@@ -1077,26 +1118,12 @@ export default function NuevaActaFormView({ usuario, onVolver, onActaGuardada, m
         }
       });
 
-      // Pie de página oficial
-      const totalPages = doc.internal.getNumberOfPages();
-      for (let i = 1; i <= totalPages; i++) {
-        doc.setPage(i);
-        doc.setFontSize(6);
-        doc.setFont('helvetica', 'normal');
-        doc.setTextColor(148, 163, 184);
-        doc.text(
-          `Página ${i} de ${totalPages}   |   SEDES Cochabamba - R.M. 0202 Formulario Oficial de Inspección In-Situ`,
-          pageWidth / 2,
-          doc.internal.pageSize.getHeight() - 6,
-          { align: 'center' }
-        );
-      }
-
-      // Espacio para Dictamen y Firmas en la última página o nueva página
+      // Espacio para Dictamen en la última página o nueva página
       let finalY = doc.lastAutoTable ? doc.lastAutoTable.finalY + 6 : 200;
-      if (finalY > doc.internal.pageSize.getHeight() - 60) {
+      if (finalY > doc.internal.pageSize.getHeight() - 50) {
         doc.addPage();
-        finalY = 16;
+        dibujarEncabezadoInstitucional(doc, imgBolivia, imgCbba, pageWidth);
+        finalY = 34;
       }
 
       // Cuadro de Dictamen Final
@@ -1117,36 +1144,20 @@ export default function NuevaActaFormView({ usuario, onVolver, onActaGuardada, m
       doc.setFont('helvetica', 'bold');
       doc.text(`Cumplimiento: ${porcentaje}% (${puntajeTotal}/${maxPuntaje} pts)   |   Veredicto Oficial: ${resultadoFinal.toUpperCase()}`, 18, finalY + 16.5);
 
-      // Espacios de Firmas y Sellos
-      const firmasy = finalY + 24;
-      if (firmasy > doc.internal.pageSize.getHeight() - 36) {
-        doc.addPage();
+      // Pie de página oficial en todas las páginas generadas
+      const totalPages = doc.internal.getNumberOfPages();
+      for (let i = 1; i <= totalPages; i++) {
+        doc.setPage(i);
+        doc.setFontSize(6);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(148, 163, 184);
+        doc.text(
+          `Página ${i} de ${totalPages}   |   SEDES Cochabamba - R.M. 0202 Formulario Oficial de Inspección In-Situ`,
+          pageWidth / 2,
+          doc.internal.pageSize.getHeight() - 6,
+          { align: 'center' }
+        );
       }
-
-      // Firma Supervisor SEDES
-      doc.setDrawColor(100, 116, 139);
-      doc.line(25, firmasy + 15, 85, firmasy + 15);
-      doc.setFontSize(6.5);
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(15, 23, 42);
-      doc.text(`${supervisorNombre}`, 55, firmasy + 19, { align: 'center' });
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(6);
-      doc.setTextColor(71, 85, 105);
-      doc.text('Supervisor Técnico SEDES Cochabamba', 55, firmasy + 22.5, { align: 'center' });
-      doc.text('(Firma y Sello Oficial)', 55, firmasy + 25.5, { align: 'center' });
-
-      // Firma Director Técnico / Responsable
-      doc.line(pageWidth - 85, firmasy + 15, pageWidth - 25, firmasy + 15);
-      doc.setFontSize(6.5);
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(15, 23, 42);
-      doc.text(`${propietarioNombre || 'Director Técnico'}`, pageWidth - 55, firmasy + 19, { align: 'center' });
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(6);
-      doc.setTextColor(71, 85, 105);
-      doc.text('Director Técnico / Responsable del Laboratorio', pageWidth - 55, firmasy + 22.5, { align: 'center' });
-      doc.text('(Firma y Sello)', pageWidth - 55, firmasy + 25.5, { align: 'center' });
 
       // Guardar PDF
       const nombreArchivo = `Formulario_Inspeccion_RM0202_${(establecimientoNombre || 'Establecimiento').replace(/[^a-zA-Z0-9]/g, '_')}_${fechaInspeccion || '2026'}.pdf`;
@@ -1316,18 +1327,18 @@ export default function NuevaActaFormView({ usuario, onVolver, onActaGuardada, m
     }
   };
 
-  const supervisorNombre = usuario 
-    ? `${usuario.nombres} ${usuario.apellidos}` 
+  const supervisorNombre = usuario
+    ? `${usuario.nombres} ${usuario.apellidos}`
     : 'Supervisor Técnico SEDES';
 
   return (
     <div className="space-y-6 animate-fadeIn pb-12">
-      
+
       {/* ===================================================================== */}
       {/* 1. CABECERA CON BOTÓN VOLVER Y ACCIÓN DE EMISIÓN                      */}
       {/* ===================================================================== */}
       <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-4 sticky top-16 z-20">
-        
+
         <div className="flex items-center space-x-3">
           <button
             type="button"
@@ -1355,15 +1366,14 @@ export default function NuevaActaFormView({ usuario, onVolver, onActaGuardada, m
 
         {/* Medidor de Puntaje y Botón de Emisión */}
         <div className="flex items-center space-x-4 self-end md:self-auto">
-          
+
           {/* Indicador de Porcentaje */}
           <div className="text-right">
             <div className="text-xs text-slate-400 font-bold uppercase tracking-wider">
               Cumplimiento
             </div>
-            <div className={`text-xl font-black ${
-              porcentaje >= 85 ? 'text-emerald-600' : porcentaje >= 70 ? 'text-amber-600' : 'text-rose-600'
-            }`}>
+            <div className={`text-xl font-black ${porcentaje >= 85 ? 'text-emerald-600' : porcentaje >= 70 ? 'text-amber-600' : 'text-rose-600'
+              }`}>
               {porcentaje}% <span className="text-xs font-bold text-slate-400">({puntajeTotal}/{maxPuntaje} pts)</span>
             </div>
           </div>
@@ -1396,7 +1406,7 @@ export default function NuevaActaFormView({ usuario, onVolver, onActaGuardada, m
       {/* 2. SECCIÓN: DATOS GENERALES DEL ESTABLECIMIENTO                       */}
       {/* ===================================================================== */}
       <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-2xs space-y-5">
-        
+
         <div className="flex items-center justify-between border-b border-slate-100 pb-3">
           <h3 className="text-sm sm:text-base font-black text-slate-900 tracking-tight flex items-center space-x-2">
             <Building2 className="w-4 h-4 text-[#0060a8]" />
@@ -1408,7 +1418,7 @@ export default function NuevaActaFormView({ usuario, onVolver, onActaGuardada, m
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
-          
+
           {/* Selector Establecimiento */}
           <div className="space-y-1 md:col-span-2">
             <label className="text-[11px] font-extrabold text-slate-600 block uppercase tracking-wider">
@@ -1509,7 +1519,7 @@ export default function NuevaActaFormView({ usuario, onVolver, onActaGuardada, m
       {/* ===================================================================== */}
       <div className="space-y-6">
         {SECCIONES_FORMULARIO.map((sec) => (
-          <div 
+          <div
             key={sec.id}
             className="bg-white rounded-3xl border border-slate-200 shadow-2xs overflow-hidden"
           >
@@ -1535,7 +1545,7 @@ export default function NuevaActaFormView({ usuario, onVolver, onActaGuardada, m
             {/* Tabla de Criterios Oficiales */}
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
-                
+
                 <thead className="bg-white text-[10px] sm:text-[11px] font-extrabold text-slate-400 uppercase tracking-wider border-b border-slate-100">
                   <tr>
                     <th className="px-3 py-3 w-20 text-center">ARTÍCULO</th>
@@ -1554,7 +1564,7 @@ export default function NuevaActaFormView({ usuario, onVolver, onActaGuardada, m
                     const segActual = segundaEvaluacionItems[crit.id] || '';
 
                     return (
-                      <tr 
+                      <tr
                         key={crit.id}
                         className={`
                           transition-colors
@@ -1586,15 +1596,15 @@ export default function NuevaActaFormView({ usuario, onVolver, onActaGuardada, m
                         {/* Botones de Evaluación: SÍ / NO / NA */}
                         <td className="px-4 py-3.5 text-center">
                           <div className="inline-flex items-center p-1 bg-slate-100 rounded-xl space-x-1 border border-slate-200 shadow-2xs">
-                            
+
                             {/* SÍ */}
                             <button
                               type="button"
                               onClick={() => handleCambiarEvaluacion(crit.id, 'SI')}
                               className={`
                                 px-2.5 py-1 rounded-lg text-[11px] font-black transition cursor-pointer
-                                ${evalActual === 'SI' 
-                                  ? 'bg-emerald-600 text-white shadow-2xs' 
+                                ${evalActual === 'SI'
+                                  ? 'bg-emerald-600 text-white shadow-2xs'
                                   : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200'
                                 }
                               `}
@@ -1609,8 +1619,8 @@ export default function NuevaActaFormView({ usuario, onVolver, onActaGuardada, m
                               onClick={() => handleCambiarEvaluacion(crit.id, 'NO')}
                               className={`
                                 px-2.5 py-1 rounded-lg text-[11px] font-black transition cursor-pointer
-                                ${evalActual === 'NO' 
-                                  ? 'bg-rose-600 text-white shadow-2xs' 
+                                ${evalActual === 'NO'
+                                  ? 'bg-rose-600 text-white shadow-2xs'
                                   : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200'
                                 }
                               `}
@@ -1625,8 +1635,8 @@ export default function NuevaActaFormView({ usuario, onVolver, onActaGuardada, m
                               onClick={() => handleCambiarEvaluacion(crit.id, 'NA')}
                               className={`
                                 px-2 py-1 rounded-lg text-[11px] font-black transition cursor-pointer
-                                ${evalActual === 'NA' 
-                                  ? 'bg-slate-700 text-white shadow-2xs' 
+                                ${evalActual === 'NA'
+                                  ? 'bg-slate-700 text-white shadow-2xs'
                                   : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200'
                                 }
                               `}
@@ -1647,8 +1657,8 @@ export default function NuevaActaFormView({ usuario, onVolver, onActaGuardada, m
                             onChange={(e) => handleCambiarObservacion(crit.id, e.target.value)}
                             className={`
                               w-full px-3 py-1.5 rounded-xl text-xs font-medium outline-none transition border
-                              ${evalActual === 'NO' 
-                                ? 'bg-white border-rose-300 text-rose-900 focus:ring-2 focus:ring-rose-400 placeholder-rose-300 font-semibold' 
+                              ${evalActual === 'NO'
+                                ? 'bg-white border-rose-300 text-rose-900 focus:ring-2 focus:ring-rose-400 placeholder-rose-300 font-semibold'
                                 : 'bg-slate-50 border-slate-200 text-slate-700 focus:bg-white focus:ring-2 focus:ring-[#0060a8]'
                               }
                             `}
@@ -1707,7 +1717,7 @@ export default function NuevaActaFormView({ usuario, onVolver, onActaGuardada, m
       {/* SECCIÓN 3: SUBIR DOCUMENTO CON FIRMAS AUTORIZADAS                     */}
       {/* ===================================================================== */}
       <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-2xs space-y-6">
-        
+
         <div>
           <h3 className="text-base sm:text-lg font-black text-[#1e293b] tracking-tight">
             Sección 3: Subir Documento con Firmas Autorizadas
@@ -1816,7 +1826,7 @@ export default function NuevaActaFormView({ usuario, onVolver, onActaGuardada, m
         <h3 className="text-sm sm:text-base font-black text-slate-900 tracking-tight">
           Notas del Supervisor
         </h3>
-        
+
         <div className="bg-[#f8fafc] border border-slate-200/80 rounded-2xl p-5 text-xs text-slate-700 leading-relaxed font-medium space-y-2">
           {notasSupervisor.map((nota, idx) => (
             <p key={idx} className="text-slate-800 font-semibold">
@@ -1830,26 +1840,25 @@ export default function NuevaActaFormView({ usuario, onVolver, onActaGuardada, m
       {/* 4. SECCIÓN FINAL: DICTAMEN, CONCLUSIONES Y FIRMAS                     */}
       {/* ===================================================================== */}
       <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-2xs space-y-6">
-        
+
         <div className="border-b border-slate-100 pb-3 flex items-center justify-between">
           <h3 className="text-sm sm:text-base font-black text-slate-900 tracking-tight flex items-center space-x-2">
             <Award className="w-4 h-4 text-[#0060a8]" />
             <span>DICTAMEN TÉCNICO Y CONCLUSIONES DEL INSPECTOR</span>
           </h3>
-          <span className={`text-xs font-black px-3 py-1 rounded-full border ${
-            resultadoFinal === 'Aprobado'
+          <span className={`text-xs font-black px-3 py-1 rounded-full border ${resultadoFinal === 'Aprobado'
               ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
               : resultadoFinal === 'Con Observaciones'
-              ? 'bg-amber-50 text-amber-800 border-amber-200'
-              : 'bg-rose-50 text-rose-800 border-rose-200'
-          }`}>
+                ? 'bg-amber-50 text-amber-800 border-amber-200'
+                : 'bg-rose-50 text-rose-800 border-rose-200'
+            }`}>
             Veredicto: {resultadoFinal}
           </span>
         </div>
 
         {/* Resumen de Cumplimiento */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs font-bold">
-          
+
           <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center space-x-3 text-emerald-900">
             <CheckCircle2 className="w-6 h-6 text-emerald-600 shrink-0" />
             <div>
@@ -1882,7 +1891,7 @@ export default function NuevaActaFormView({ usuario, onVolver, onActaGuardada, m
             Dictamen Oficial Definitivo:
           </label>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            
+
             {/* Aprobado */}
             <button
               type="button"

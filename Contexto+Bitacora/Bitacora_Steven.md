@@ -2093,7 +2093,11 @@ Completar el flujo técnico de emisión de actas de inspección in-situ para los
 * **Esquema `RegistrarActaRequest`:** Se añadió el campo opcional `archivo_pdf_firmado_url` para vincular automáticamente el archivo digitalizado al emitir el acta.
 
 #### 2. `frontend/src/components/supervisor/NuevaActaFormView.jsx` [MODIFICADO]
-* **Descarga de Formulario en PDF:** Integración de `jsPDF` y `jspdf-autotable` para exportar el formulario oficial idéntico al formato de SEDES Cochabamba (encabezados institucionales, datos del establecimiento y responsable, tabla completa de 8 secciones, dictamen y recuadros de firma y sello).
+* **Descarga de Formulario en PDF:** Integración de `jsPDF` y `jspdf-autotable` para exportar el formulario oficial idéntico al formato de SEDES Cochabamba:
+  * Encabezado oficial en **todas las páginas del documento PDF** (Página 1, 2, 3, etc.) con **Escudo de Bolivia** (izquierda), **Escudo de Cochabamba** (derecha), textos institucionales centrados (*ESTADO PLURINACIONAL DE BOLIVIA / GOBIERNO AUTÓNOMO DEPARTAMENTAL / SECRETARÍA DEPARTAMENTAL DE DESARROLLO HUMANO INTEGRAL / SERVICIO DEPARTAMENTAL DE SALUD COCHABAMBA / COORDINACIÓN DEPARTAMENTAL DE LABORATORIOS*) y línea divisoria negra.
+  * Título oficial, párrafo normativo (R.M. 0202) y línea limpia y autoajustada: **"Resultados de la evaluación INSITU a Laboratorio: [NOMBRE] Gestión: [AÑO]"** sin sobreposición de texto.
+  * Márgenes calibrados (`top: 32mm`) para permitir que la tabla fluya de manera ordenada y elegante debajo del membrete en cada hoja.
+  * Espacio inferior libre y abierto para firmas y sellos manuales de los distintos supervisores y directores técnicos.
 * **Botón `Limpiar Formulario`:** Función con confirmación para restablecer evaluaciones a "SÍ", borrar observaciones y limpiar archivos cargados.
 * **Sección 3: Subir Documento con Firmas Autorizadas:**
   * Botón `[Subir archivo]` conectado a un input file oculto (`.pdf`, `.png`, `.jpg`, `.jpeg`).
@@ -2105,9 +2109,8 @@ Completar el flujo técnico de emisión de actas de inspección in-situ para los
 ---
 
 ### 📊 Verificación y Pruebas Realizadas
-* **Generación de PDF:** Verificación de maquetación en PDF tamaño carta con tablas completas y formato oficial.
-* **Subida y Previsualización:** Prueba de carga de documentos en PDF e imágenes escaneadas con firmas, verificando visualización en el visor y envío al backend.
-* **Compilación Frontend:** `npm run build` ejecutado exitosamente con 0 errores (2044 módulos transformados).
+* **Encabezado Multi-Página Automático:** Integración del gancho `didDrawPage` en `autoTable` para asegurar que el membrete y escudos oficiales se impriman en el tope de todas las hojas del formulario.
+* **Compilación Frontend:** `npm run build` ejecutado exitosamente con 0 errores.
 * **Compilación Backend:** `python -m py_compile backend/supervisor.py` sin errores de sintaxis.
 
 ---
