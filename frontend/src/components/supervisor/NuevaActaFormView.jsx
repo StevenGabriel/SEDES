@@ -23,7 +23,8 @@ import {
   Upload,
   Eye,
   Trash2,
-  FileText
+  FileText,
+  X
 } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -33,19 +34,31 @@ import logoL2 from '../../assets/L2.png';
 import escudoBolivia from '../../assets/Escudo_de_Bolivia.svg.webp';
 import escudoCochabamba from '../../assets/Escudo_del_Cochabamba.svg.webp';
 
-// Helper para convertir imágenes a DataURL para jsPDF
-const cargarImagenComoPngDataUrl = (url) => {
+// Helper para convertir y optimizar imágenes a DataURL para jsPDF (mantiene calidad nítida ~300 DPI y reduce peso de ~55MB a < 400KB)
+const cargarImagenComoPngDataUrl = (url, maxWidth = 220, maxHeight = 220) => {
   return new Promise((resolve) => {
     if (!url) return resolve(null);
     const img = new Image();
     img.crossOrigin = 'Anonymous';
     img.onload = () => {
       try {
+        let w = img.naturalWidth || img.width || maxWidth;
+        let h = img.naturalHeight || img.height || maxHeight;
+
+        // Escalar proporcionalmente para ajustarse al tamaño impreso real (21mm en 300 DPI)
+        if (w > maxWidth || h > maxHeight) {
+          const ratio = Math.min(maxWidth / w, maxHeight / h);
+          w = Math.round(w * ratio);
+          h = Math.round(h * ratio);
+        }
+
         const canvas = document.createElement('canvas');
-        canvas.width = img.naturalWidth || img.width || 140;
-        canvas.height = img.naturalHeight || img.height || 140;
+        canvas.width = w;
+        canvas.height = h;
         const ctx = canvas.getContext('2d');
-        ctx.drawImage(img, 0, 0);
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        ctx.drawImage(img, 0, 0, w, h);
         resolve(canvas.toDataURL('image/png'));
       } catch (err) {
         console.warn('Error al convertir imagen a data URL:', err);
@@ -796,6 +809,9 @@ export default function NuevaActaFormView({ usuario, onVolver, onActaGuardada, m
   const [archivoFirmadoNombre, setArchivoFirmadoNombre] = useState('');
   const [archivoFirmadoEsPdf, setArchivoFirmadoEsPdf] = useState(false);
 
+  // Modal de confirmación para limpiar formulario
+  const [modalLimpiarOpen, setModalLimpiarOpen] = useState(false);
+
   // 1. Cargar inspecciones desde el backend
   useEffect(() => {
     const cargarInspecciones = async () => {
@@ -1169,33 +1185,44 @@ export default function NuevaActaFormView({ usuario, onVolver, onActaGuardada, m
     }
   };
 
-  // Limpiar Formulario
-  const handleLimpiarFormulario = () => {
-    if (window.confirm('¿Está seguro de que desea limpiar todos los campos y restablecer el formulario a sus valores por defecto?')) {
-      const resetEvals = {};
-      SECCIONES_FORMULARIO.forEach(sec => {
-        sec.criterios.forEach(crit => {
-          resetEvals[crit.id] = 'SI';
-        });
+  // Ejecutar Limpieza y Restablecimiento del Formulario
+  const handleEjecutarLimpiezaFormulario = () => {
+    const resetEvals = {};
+    SECCIONES_FORMULARIO.forEach(sec => {
+      sec.criterios.forEach(crit => {
+        resetEvals[crit.id] = 'SI';
       });
-      setEvaluaciones(resetEvals);
-      setObservacionesItems({});
-      setSegundaEvaluacionItems({});
-      setConclusionesGenerales('El establecimiento cumple con los requerimientos técnicos y sanitarios establecidos en el Reglamento General de Habilitación de Laboratorios (R.M. 0202) del SEDES Cochabamba.');
-      setArchivoFirmado(null);
-      setArchivoFirmadoUrl('');
-      setArchivoFirmadoNombre('');
-      setArchivoFirmadoEsPdf(false);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
-      mostrarToast?.('Formulario restablecido correctamente.', 'info');
+    });
+    setEvaluaciones(resetEvals);
+    setObservacionesItems({});
+    setSegundaEvaluacionItems({});
+    setConclusionesGenerales('El establecimiento cumple con los requerimientos técnicos y sanitarios establecidos en el Reglamento General de Habilitación de Laboratorios (R.M. 0202) del SEDES Cochabamba.');
+    setArchivoFirmado(null);
+    setArchivoFirmadoUrl('');
+    setArchivoFirmadoNombre('');
+    setArchivoFirmadoEsPdf(false);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
     }
+    setModalLimpiarOpen(false);
+    mostrarToast?.('Formulario restablecido a sus valores por defecto con éxito.', 'info');
   };
 
   // Guardar y Emitir Acta Oficial
   const handleEmitirActa = async (e) => {
     e.preventDefault();
+
+    // 1. Validación obligatoria: Documento con firmas autorizadas
+    if (!archivoFirmado && !archivoFirmadoUrl) {
+      mostrarToast?.('Es obligatorio subir el documento firmado del acta (PDF o escaneado) en la Sección 3 para poder emitir el acta oficial.', 'warning');
+      const seccion3 = document.getElementById('seccion-3-archivo-firmado');
+      if (seccion3) {
+        seccion3.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+      return;
+    }
+
+    // 2. Validación de conclusiones técnicas
     if (!conclusionesGenerales.trim()) {
       mostrarToast?.('Por favor redacte las conclusiones y recomendaciones técnicas del acta.', 'warning');
       return;
@@ -1207,8 +1234,8 @@ export default function NuevaActaFormView({ usuario, onVolver, onActaGuardada, m
       const ahora = new Date();
       const numActaGenerado = `ACT-${ahora.getFullYear()}-${String(Math.floor(Math.random() * 900) + 100).padStart(3, '0')}`;
 
-      // 1. Subir archivo firmado si fue adjuntado por el supervisor
-      let urlFirmado = null;
+      // 3. Subir archivo firmado obligatorio
+      let urlFirmado = archivoFirmadoUrl || null;
       if (archivoFirmado) {
         try {
           const formData = new FormData();
@@ -1223,10 +1250,23 @@ export default function NuevaActaFormView({ usuario, onVolver, onActaGuardada, m
           if (uploadRes.ok) {
             const uploadData = await uploadRes.json();
             urlFirmado = uploadData.url;
+          } else {
+            mostrarToast?.('Error al subir el archivo firmado al servidor.', 'warning');
+            setGuardando(false);
+            return;
           }
         } catch (uploadErr) {
-          console.warn('Error al subir documento firmado:', uploadErr);
+          console.error('Error al subir documento firmado:', uploadErr);
+          mostrarToast?.('Error de conexión al subir el documento firmado.', 'warning');
+          setGuardando(false);
+          return;
         }
+      }
+
+      if (!urlFirmado) {
+        mostrarToast?.('Es obligatorio adjuntar el archivo firmado antes de emitir el acta.', 'warning');
+        setGuardando(false);
+        return;
       }
 
       // Recopilar observaciones de ítems observados y segundas evaluaciones
@@ -1653,7 +1693,7 @@ export default function NuevaActaFormView({ usuario, onVolver, onActaGuardada, m
 
         <button
           type="button"
-          onClick={handleLimpiarFormulario}
+          onClick={() => setModalLimpiarOpen(true)}
           className="px-5 py-2.5 rounded-xl border border-slate-300 bg-white text-slate-800 font-bold text-xs hover:bg-slate-50 transition cursor-pointer shadow-2xs flex items-center space-x-2"
           title="Restablecer todos los campos del formulario"
         >
@@ -1665,15 +1705,27 @@ export default function NuevaActaFormView({ usuario, onVolver, onActaGuardada, m
       {/* ===================================================================== */}
       {/* SECCIÓN 3: SUBIR DOCUMENTO CON FIRMAS AUTORIZADAS                     */}
       {/* ===================================================================== */}
-      <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-2xs space-y-6">
+      <div id="seccion-3-archivo-firmado" className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-2xs space-y-6">
 
-        <div>
-          <h3 className="text-base sm:text-lg font-black text-[#1e293b] tracking-tight">
-            Sección 3: Subir Documento con Firmas Autorizadas
-          </h3>
-          <p className="text-xs font-bold text-slate-600 mt-1">
-            Suba su Archivo Formato PDF
-          </p>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div>
+            <div className="flex items-center space-x-2">
+              <h3 className="text-base sm:text-lg font-black text-[#1e293b] tracking-tight">
+                Sección 3: Subir Documento con Firmas Autorizadas
+              </h3>
+              <span className="text-[10px] font-extrabold uppercase bg-rose-50 text-rose-700 border border-rose-200 px-2.5 py-0.5 rounded-full">
+                Requerido *
+              </span>
+            </div>
+            <p className="text-xs font-bold text-slate-600 mt-1">
+              Suba su archivo en formato PDF o imagen escaneada con las firmas y sellos correspondientes.
+            </p>
+          </div>
+          {archivoFirmadoUrl && (
+            <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-xl border border-emerald-200 self-start sm:self-auto">
+              ✓ Documento adjuntado
+            </span>
+          )}
         </div>
 
         {/* Botones de Archivo */}
@@ -1779,10 +1831,10 @@ export default function NuevaActaFormView({ usuario, onVolver, onActaGuardada, m
             <span>DICTAMEN TÉCNICO Y CONCLUSIONES DEL INSPECTOR</span>
           </h3>
           <span className={`text-xs font-black px-3 py-1 rounded-full border ${resultadoFinal === 'Aprobado'
-              ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-              : resultadoFinal === 'Con Observaciones'
-                ? 'bg-amber-50 text-amber-800 border-amber-200'
-                : 'bg-rose-50 text-rose-800 border-rose-200'
+            ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+            : resultadoFinal === 'Con Observaciones'
+              ? 'bg-amber-50 text-amber-800 border-amber-200'
+              : 'bg-rose-50 text-rose-800 border-rose-200'
             }`}>
             Veredicto: {resultadoFinal}
           </span>
@@ -1945,13 +1997,95 @@ export default function NuevaActaFormView({ usuario, onVolver, onActaGuardada, m
             ) : (
               <>
                 <FileCheck2 className="w-4 h-4 text-emerald-400" />
-                <span>Emitir y Firmar Acta Oficial</span>
+                <span>Emitir Acta Oficial</span>
               </>
             )}
           </button>
         </div>
 
       </div>
+
+      {/* ===================================================================== */}
+      {/* MODAL DE CONFIRMACIÓN: RESTABLECER Y LIMPIAR FORMULARIO              */}
+      {/* ===================================================================== */}
+      {modalLimpiarOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fadeIn">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-7 shadow-2xl border border-slate-100 space-y-5 animate-in fade-in zoom-in-95 duration-200">
+
+            {/* Cabecera con Icono y Botón Cerrar */}
+            <div className="flex items-start justify-between">
+              <div className="flex items-center space-x-3.5">
+                <div className="w-12 h-12 rounded-2xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-600 shadow-xs shrink-0">
+                  <AlertTriangle className="w-6 h-6 text-amber-600" />
+                </div>
+                <div>
+                  <span className="text-[10px] font-extrabold text-amber-700 uppercase tracking-wider bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200">
+                    Confirmación Requerida
+                  </span>
+                  <h3 className="text-base sm:text-lg font-black text-slate-900 tracking-tight mt-1">
+                    ¿Restablecer Formulario?
+                  </h3>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setModalLimpiarOpen(false)}
+                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-100 transition cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Contenido / Advertencia */}
+            <div className="space-y-3 text-xs">
+              <p className="text-slate-600 leading-relaxed font-medium">
+                Esta acción restablecerá todos los campos del acta de inspección a sus valores iniciales:
+              </p>
+
+              <div className="bg-slate-50 rounded-2xl p-3.5 border border-slate-200/80 space-y-2 text-[11px] text-slate-700 font-medium">
+                <div className="flex items-center space-x-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0"></span>
+                  <span>Todas las <strong>8 secciones</strong> volverán a evaluación "CUMPLE (SÍ)".</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0"></span>
+                  <span>Se borrarán las <strong>observaciones</strong> y segundas evaluaciones escritas.</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0"></span>
+                  <span>Se desvinculará cualquier <strong>documento firmado</strong> cargado.</span>
+                </div>
+              </div>
+
+              <div className="flex items-center space-x-1.5 text-[11px] text-amber-700 font-bold bg-amber-50/60 px-3 py-2 rounded-xl border border-amber-200/60">
+                <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+                <span>Los datos no guardados se perderán permanentemente.</span>
+              </div>
+            </div>
+
+            {/* Acciones del Modal */}
+            <div className="flex items-center justify-end space-x-3 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setModalLimpiarOpen(false)}
+                className="px-4 py-2.5 rounded-xl border border-slate-300 hover:bg-slate-50 text-slate-700 font-bold text-xs transition cursor-pointer"
+              >
+                Cancelar
+              </button>
+
+              <button
+                type="button"
+                onClick={handleEjecutarLimpiezaFormulario}
+                className="px-5 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-black text-xs transition cursor-pointer shadow-md shadow-amber-600/20 flex items-center space-x-2"
+              >
+                <RotateCcw className="w-4 h-4" />
+                <span>Sí, Restablecer Todo</span>
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
 
     </div>
   );

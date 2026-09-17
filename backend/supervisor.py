@@ -810,9 +810,10 @@ def obtener_actas_supervisor(
 
     sup_nombre = f"{supervisor.nombres} {supervisor.apellidos}"
 
-    # 1. Obtener las inspecciones asignadas exclusivamente a este supervisor
+    # 1. Obtener exclusivamente las inspecciones completadas con acta emitida por este supervisor
     query = db.query(models.Inspeccion).join(models.Tramite).join(models.Establecimiento).filter(
         models.Inspeccion.estado == True,
+        models.Inspeccion.estado_inspeccion == "Completada",
         or_(
             models.Inspeccion.supervisor_id == supervisor.id,
             models.Tramite.supervisor_asignado_id == supervisor.id
@@ -830,7 +831,7 @@ def obtener_actas_supervisor(
     ahora_dt = ahora_bolivia()
     mes_actual_key = f"{ahora_dt.year}-{ahora_dt.month:02d}"
 
-    # Transformar inspecciones de BD a formato de Actas
+    # Transformar inspecciones completadas de BD a formato de Actas
     for idx, insp in enumerate(inspecciones_db, start=1):
         trm = insp.tramite
         estab = trm.establecimiento if trm else None
@@ -847,10 +848,8 @@ def obtener_actas_supervisor(
         if mes_key not in meses_dict:
             meses_dict[mes_key] = f"{mes_nombre} {f_dt.year}"
 
-        # Mapear resultado estándar
-        veredicto = insp.veredicto_final or (
-            "Aprobado" if insp.estado_inspeccion == "Completada" else "Con Observaciones"
-        )
+        # Mapear resultado estándar a partir del veredicto real
+        veredicto = insp.veredicto_final or "Favorable"
         v_low = veredicto.lower()
         if "favorable" in v_low or "aprob" in v_low:
             res_std = "Aprobado"
@@ -859,7 +858,18 @@ def obtener_actas_supervisor(
         else:
             res_std = "Con Observaciones"
 
-        cod_acta = insp.acta_pdf_url if (insp.acta_pdf_url and insp.acta_pdf_url.startswith("ACT-")) else f"ACT-{f_dt.year}-{str(insp.id)[:3].upper()}{idx:02d}"
+        # Archivo PDF firmado o escaneado subido
+        archivo_url = None
+        if insp.acta_pdf_url and ("/" in insp.acta_pdf_url or "." in insp.acta_pdf_url):
+            if insp.acta_pdf_url.startswith("http"):
+                archivo_url = insp.acta_pdf_url
+            else:
+                archivo_url = f"http://localhost:8000{insp.acta_pdf_url}" if insp.acta_pdf_url.startswith("/") else f"http://localhost:8000/{insp.acta_pdf_url}"
+
+        cod_acta = f"ACT-{f_dt.year}-{str(insp.id)[:8].upper()}"
+        if insp.acta_pdf_url and insp.acta_pdf_url.startswith("ACT-"):
+            cod_acta = insp.acta_pdf_url
+
         estab_nombre = estab.nombre_comercial if estab else f"Laboratorio #{idx}"
         tipo_insp = trm.tipo_tramite if trm and trm.tipo_tramite else "Inspección Técnica"
 
@@ -877,6 +887,7 @@ def obtener_actas_supervisor(
             "tramite_id": str(trm.id) if trm else None,
             "numero_acta": cod_acta,
             "codigo_acta": cod_acta,
+            "archivo_pdf_url": archivo_url,
             "fecha_iso": f_dt.date().isoformat(),
             "fecha_formateada": f_formateada,
             "mes_año_key": mes_key,
@@ -964,6 +975,13 @@ def registrar_acta_inspeccion(
     Registra formalmente el acta y resultado técnico emitido por el supervisor para un establecimiento.
     Actualiza la inspección, el estado del trámite y genera notificación al propietario.
     """
+    # Validación obligatoria del documento firmado
+    if not payload.archivo_pdf_firmado_url or not str(payload.archivo_pdf_firmado_url).strip():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Es obligatorio adjuntar el archivo PDF o escaneado con firmas y sellos autorizados para registrar y emitir el acta oficial."
+        )
+
     insp = None
     if payload.inspeccion_id:
         try:
@@ -1012,10 +1030,14 @@ def registrar_acta_inspeccion(
         insp.veredicto_final = veredicto_db
         insp.acta_pdf_url = pdf_o_codigo
         insp.fecha_modificacion = ahora_dt
+        if sup_usuario:
+            insp.supervisor_id = sup_usuario.id
         trm = insp.tramite
         if trm:
             trm.estado_tramite = estado_trm
             trm.fecha_modificacion = ahora_dt
+            if sup_usuario and not trm.supervisor_asignado_id:
+                trm.supervisor_asignado_id = sup_usuario.id
             estab_nombre = trm.establecimiento.nombre_comercial if trm.establecimiento else "Establecimiento"
             cod_trm = f"TRM-{str(trm.id)[:8].upper()}"
         else:

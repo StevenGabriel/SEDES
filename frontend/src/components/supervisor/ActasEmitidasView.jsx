@@ -23,7 +23,8 @@ import {
   Award,
   RefreshCw,
   X,
-  FileSpreadsheet
+  FileSpreadsheet,
+  ExternalLink
 } from 'lucide-react';
 
 import logoL1 from '../../assets/L1.png';
@@ -746,133 +747,121 @@ export default function ActasEmitidasView({ usuario, mostrarToast }) {
       )}
 
       {/* ===================================================================== */}
-      {/* 6. MODAL: VISTA PREVIA / IMPRESIÓN DEL ACTA PDF OFICIAL SEDES        */}
+      {/* 6. MODAL: VISOR DEL DOCUMENTO PDF FIRMADO                             */}
       {/* ===================================================================== */}
       {modalPdfOpen && actaSeleccionada && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-2xs animate-fadeIn">
-          <div className="bg-white rounded-3xl max-w-2xl w-full p-6 sm:p-10 shadow-2xl border border-slate-100 space-y-6 max-h-[95vh] overflow-y-auto print:p-0 print:m-0 print:shadow-none">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-900/70 backdrop-blur-2xs animate-fadeIn">
+          <div className="bg-white rounded-3xl max-w-4xl w-full p-5 sm:p-7 shadow-2xl border border-slate-100 space-y-4 max-h-[95vh] flex flex-col">
             
-            {/* Cabecera Oficial Institucional con Escudos */}
-            <div className="border-b-2 border-slate-900 pb-4 flex items-center justify-between">
+            {/* Cabecera del Visor */}
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div className="flex items-center space-x-3">
-                <img src={logoL1} alt="Bolivia" className="h-12 object-contain" />
-                <div className="h-8 w-px bg-slate-300" />
-                <img src={logoL2} alt="Gobernación" className="h-12 object-contain" />
-              </div>
-              <div className="text-right">
-                <h4 className="text-xs font-black tracking-wider text-slate-900 uppercase">
-                  SEDES COCHABAMBA
-                </h4>
-                <p className="text-[10px] text-slate-500 font-bold">Unidad de Calidad y Servicios de Salud</p>
-                <span className="inline-block mt-1 bg-slate-900 text-white text-[10px] font-mono font-bold px-2 py-0.5 rounded">
-                  {actaSeleccionada.codigo_acta}
-                </span>
-              </div>
-            </div>
-
-            {/* Título Principal del Documento */}
-            <div className="text-center space-y-1">
-              <h3 className="text-base font-black text-slate-900 tracking-tight uppercase">
-                ACTA TÉCNICA DE INSPECCIÓN SANITARIA IN-SITU
-              </h3>
-              <p className="text-xs text-slate-500">
-                Emitida en la ciudad de Cochabamba el día <strong>{actaSeleccionada.fecha_formateada}</strong>
-              </p>
-            </div>
-
-            {/* Datos Técnicos Estructurados */}
-            <div className="border border-slate-200 rounded-2xl p-4 text-xs space-y-2 bg-slate-50/50">
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <span className="text-slate-400 font-bold">Establecimiento:</span>
-                  <p className="font-extrabold text-slate-900 text-sm">{actaSeleccionada.establecimiento}</p>
+                <div className="w-10 h-10 rounded-2xl bg-red-50 border border-red-200 flex items-center justify-center text-red-600 shadow-xs shrink-0">
+                  <FileText className="w-5 h-5 text-red-600" />
                 </div>
                 <div>
-                  <span className="text-slate-400 font-bold">Tipo de Inspección:</span>
-                  <p className="font-bold text-slate-800">{actaSeleccionada.tipo_inspeccion}</p>
+                  <div className="flex items-center space-x-2">
+                    <span className="text-[10px] font-extrabold uppercase bg-blue-50 text-[#0060a8] border border-blue-200 px-2.5 py-0.5 rounded-full">
+                      Documento Oficial Firmado
+                    </span>
+                    <span className="text-xs font-mono font-bold text-slate-500">
+                      {actaSeleccionada.codigo_acta}
+                    </span>
+                  </div>
+                  <h3 className="text-base font-black text-slate-900 tracking-tight mt-0.5">
+                    {actaSeleccionada.establecimiento}
+                  </h3>
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-200/60">
-                <div>
-                  <span className="text-slate-400 font-bold">Dirección:</span>
-                  <p className="font-bold text-slate-800">{actaSeleccionada.direccion}</p>
-                </div>
-                <div>
-                  <span className="text-slate-400 font-bold">Municipio:</span>
-                  <p className="font-bold text-slate-800">{actaSeleccionada.municipio || 'Cercado'}</p>
-                </div>
-              </div>
-            </div>
+              {/* Botones de Cabecera */}
+              <div className="flex items-center space-x-2">
+                {actaSeleccionada.archivo_pdf_url && (
+                  <a
+                    href={actaSeleccionada.archivo_pdf_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition cursor-pointer border border-slate-200 flex items-center space-x-1.5 text-xs font-bold"
+                    title="Abrir en pestaña completa"
+                  >
+                    <ExternalLink className="w-4 h-4" />
+                    <span className="hidden sm:inline">Pestaña nueva</span>
+                  </a>
+                )}
 
-            {/* Veredicto y Checklist de Evaluación */}
-            <div className="space-y-3">
-              <h5 className="text-xs font-black text-slate-900 uppercase tracking-wider">
-                1. Dictamen y Cumplimiento de Normativa Sanitaria
-              </h5>
-              
-              <div className="grid grid-cols-2 gap-2 text-xs">
-                <div className="flex items-center space-x-2 bg-white p-2.5 rounded-xl border border-slate-200">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                  <span className="font-medium text-slate-700">Infraestructura y Áreas Técnicas</span>
-                </div>
-                <div className="flex items-center space-x-2 bg-white p-2.5 rounded-xl border border-slate-200">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                  <span className="font-medium text-slate-700">Equipamiento y Calibración</span>
-                </div>
-                <div className="flex items-center space-x-2 bg-white p-2.5 rounded-xl border border-slate-200">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                  <span className="font-medium text-slate-700">Personal Profesional Acreditado</span>
-                </div>
-                <div className="flex items-center space-x-2 bg-white p-2.5 rounded-xl border border-slate-200">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                  <span className="font-medium text-slate-700">Protocolos de Bioseguridad</span>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => setModalPdfOpen(false)}
+                  className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
               </div>
             </div>
 
-            {/* Observaciones Técnicas */}
-            <div className="space-y-1.5">
-              <h5 className="text-xs font-black text-slate-900 uppercase tracking-wider">
-                2. Observaciones y Conclusiones del Inspector
-              </h5>
-              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 text-xs text-slate-800 leading-relaxed">
-                {actaSeleccionada.observaciones}
-              </div>
+            {/* Contenedor del Archivo Subido */}
+            <div className="flex-1 min-h-[480px] max-h-[70vh] bg-slate-100 rounded-2xl border border-slate-200 overflow-hidden flex items-center justify-center">
+              {actaSeleccionada.archivo_pdf_url ? (
+                actaSeleccionada.archivo_pdf_url.toLowerCase().endsWith('.png') ||
+                actaSeleccionada.archivo_pdf_url.toLowerCase().endsWith('.jpg') ||
+                actaSeleccionada.archivo_pdf_url.toLowerCase().endsWith('.jpeg') ? (
+                  <div className="w-full h-full overflow-auto flex items-center justify-center p-4">
+                    <img
+                      src={actaSeleccionada.archivo_pdf_url}
+                      alt="Acta Oficial Escaneada"
+                      className="max-h-[66vh] w-auto max-w-full object-contain rounded-xl shadow-md bg-white"
+                    />
+                  </div>
+                ) : (
+                  <iframe
+                    src={actaSeleccionada.archivo_pdf_url}
+                    title={`Acta Oficial ${actaSeleccionada.codigo_acta}`}
+                    className="w-full h-[68vh] border-0 rounded-2xl bg-white shadow-inner"
+                  />
+                )
+              ) : (
+                <div className="text-center p-8 space-y-3 max-w-md">
+                  <div className="w-14 h-14 mx-auto rounded-2xl bg-white border border-slate-200 flex items-center justify-center text-slate-400 shadow-xs">
+                    <FileText className="w-7 h-7 text-slate-400" />
+                  </div>
+                  <h4 className="text-sm font-black text-slate-800">
+                    No se encontró el archivo digitalizado
+                  </h4>
+                  <p className="text-xs text-slate-500 font-medium">
+                    Esta acta fue registrada sin adjuntar un archivo digital.
+                  </p>
+                </div>
+              )}
             </div>
 
-            {/* Firmas y Sellos */}
-            <div className="pt-6 grid grid-cols-2 gap-8 text-center text-xs">
-              <div className="border-t border-slate-400 pt-2 space-y-0.5">
-                <p className="font-black text-slate-900">{actaSeleccionada.supervisor}</p>
-                <p className="text-[10px] text-slate-500 font-bold">Supervisor Técnico Acreditado</p>
-                <p className="text-[9px] text-slate-400">SEDES Cochabamba</p>
+            {/* Pie de Acciones */}
+            <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-xs">
+              <div className="text-slate-500 font-medium">
+                Fecha de inspección: <strong className="text-slate-700">{actaSeleccionada.fecha_formateada}</strong>
               </div>
 
-              <div className="border-t border-slate-400 pt-2 space-y-0.5">
-                <p className="font-black text-slate-900">{actaSeleccionada.propietario || 'Representante Legal'}</p>
-                <p className="text-[10px] text-slate-500 font-bold">Director Técnico / Responsable</p>
-                <p className="text-[9px] text-slate-400">{actaSeleccionada.establecimiento}</p>
-              </div>
-            </div>
+              <div className="flex items-center space-x-2">
+                <button
+                  type="button"
+                  onClick={() => setModalPdfOpen(false)}
+                  className="px-4 py-2 rounded-xl border border-slate-200 text-slate-700 font-bold hover:bg-slate-50 transition cursor-pointer"
+                >
+                  Cerrar
+                </button>
 
-            {/* Botones de Acción */}
-            <div className="flex items-center justify-between pt-4 border-t border-slate-100 print:hidden">
-              <button
-                type="button"
-                onClick={() => setModalPdfOpen(false)}
-                className="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-700 font-bold text-xs hover:bg-slate-50 transition cursor-pointer"
-              >
-                Volver
-              </button>
-              <button
-                type="button"
-                onClick={() => window.print()}
-                className="px-6 py-2.5 rounded-xl bg-[#1b2533] hover:bg-[#111827] text-white font-bold text-xs transition shadow-md inline-flex items-center space-x-2 cursor-pointer"
-              >
-                <Printer className="w-4 h-4" />
-                <span>Imprimir Documento Oficial</span>
-              </button>
+                {actaSeleccionada.archivo_pdf_url && (
+                  <a
+                    href={actaSeleccionada.archivo_pdf_url}
+                    download={`Acta_${actaSeleccionada.codigo_acta}.pdf`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-5 py-2 rounded-xl bg-[#1b2533] hover:bg-[#111827] text-white font-bold transition shadow-md inline-flex items-center space-x-1.5 cursor-pointer"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    <span>Descargar Documento</span>
+                  </a>
+                )}
+              </div>
             </div>
 
           </div>
