@@ -2098,18 +2098,21 @@ Completar el flujo técnico de emisión de actas de inspección in-situ para los
   * Título oficial, párrafo normativo (R.M. 0202) y línea limpia y autoajustada: **"Resultados de la evaluación INSITU a Laboratorio: [NOMBRE] Gestión: [AÑO]"** sin sobreposición de texto.
   * Márgenes calibrados (`top: 32mm`) para permitir que la tabla fluya de manera ordenada y elegante debajo del membrete en cada hoja.
   * Espacio inferior libre y abierto para firmas y sellos manuales de los distintos supervisores y directores técnicos.
+* **Depuración Visual de la Interfaz Web (`/supervisor/actas-emitidas` - Nueva Acta):**
+  * Se eliminó el botón duplicado superior `"Emitir y Firmar Acta"` de la barra sticky de cabecera.
+  * Se retiró el recuadro `"Notas del Supervisor"` ubicado debajo de la Sección 3 (subida de PDF).
+  * Se eliminaron los bloques de firma con nombres fijos del final de la vista web, manteniendo únicamente las conclusiones y el botón principal inferior de emisión oficial.
 * **Botón `Limpiar Formulario`:** Función con confirmación para restablecer evaluaciones a "SÍ", borrar observaciones y limpiar archivos cargados.
 * **Sección 3: Subir Documento con Firmas Autorizadas:**
   * Botón `[Subir archivo]` conectado a un input file oculto (`.pdf`, `.png`, `.jpg`, `.jpeg`).
   * Botón `[Ver PDF]` para previsualizar en nueva pestaña o ventana el documento cargado.
   * Botón `[Quitar documento]` para resetear el archivo adjunto.
   * Contenedor de visualización en vivo con soporte para iframe PDF e imágenes de alta definición.
-* **Panel de Notas del Supervisor:** Resumen dinámico de las observaciones y aspectos a subsanar detectados en la inspección.
 
 ---
 
 ### 📊 Verificación y Pruebas Realizadas
-* **Encabezado Multi-Página Automático:** Integración del gancho `didDrawPage` en `autoTable` para asegurar que el membrete y escudos oficiales se impriman en el tope de todas las hojas del formulario.
+* **Verificación de Interfaz Web Limpia:** Comprobación del formulario sin elementos redundantes ni bloques de firmas rígidos.
 * **Compilación Frontend:** `npm run build` ejecutado exitosamente con 0 errores.
 * **Compilación Backend:** `python -m py_compile backend/supervisor.py` sin errores de sintaxis.
 

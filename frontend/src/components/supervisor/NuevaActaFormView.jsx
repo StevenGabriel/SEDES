@@ -1193,33 +1193,6 @@ export default function NuevaActaFormView({ usuario, onVolver, onActaGuardada, m
     }
   };
 
-  // Notas del supervisor generadas dinámicamente según observaciones
-  const notasSupervisor = useMemo(() => {
-    const items = [];
-    SECCIONES_FORMULARIO.forEach(sec => {
-      sec.criterios.forEach(crit => {
-        const evalVal = evaluaciones[crit.id];
-        const obsVal = observacionesItems[crit.id]?.trim();
-        const segVal = segundaEvaluacionItems[crit.id]?.trim();
-
-        if (evalVal === 'NO') {
-          items.push(`• [${crit.articulo} Inc. ${crit.inciso}] ${crit.criterio}${obsVal ? ` — Obs: ${obsVal}` : ''}${segVal ? ` (Segunda evaluación: ${segVal})` : ''}`);
-        } else if (obsVal) {
-          items.push(`• [${crit.articulo} Inc. ${crit.inciso}] ${obsVal}`);
-        }
-      });
-    });
-
-    if (items.length === 0) {
-      return [
-        '• Se verificó el cumplimiento de las condiciones edilicias y de bioseguridad conforme a la R.M. 0202.',
-        '• Toda la documentación y manuales de procedimientos técnicos se encuentran disponibles para auditoría.',
-        '• No se detectaron no-conformidades críticas en la presente evaluación in-situ.'
-      ];
-    }
-    return items;
-  }, [evaluaciones, observacionesItems, segundaEvaluacionItems]);
-
   // Guardar y Emitir Acta Oficial
   const handleEmitirActa = async (e) => {
     e.preventDefault();
@@ -1364,40 +1337,16 @@ export default function NuevaActaFormView({ usuario, onVolver, onActaGuardada, m
           </div>
         </div>
 
-        {/* Medidor de Puntaje y Botón de Emisión */}
+        {/* Medidor de Puntaje */}
         <div className="flex items-center space-x-4 self-end md:self-auto">
-
-          {/* Indicador de Porcentaje */}
           <div className="text-right">
             <div className="text-xs text-slate-400 font-bold uppercase tracking-wider">
               Cumplimiento
             </div>
-            <div className={`text-xl font-black ${porcentaje >= 85 ? 'text-emerald-600' : porcentaje >= 70 ? 'text-amber-600' : 'text-rose-600'
-              }`}>
+            <div className={`text-xl font-black ${porcentaje >= 85 ? 'text-emerald-600' : porcentaje >= 70 ? 'text-amber-600' : 'text-rose-600'}`}>
               {porcentaje}% <span className="text-xs font-bold text-slate-400">({puntajeTotal}/{maxPuntaje} pts)</span>
             </div>
           </div>
-
-          {/* Botón Primario Emitir */}
-          <button
-            type="button"
-            onClick={handleEmitirActa}
-            disabled={guardando}
-            className="px-6 py-3 rounded-2xl bg-[#1b2533] hover:bg-[#111827] text-white font-black text-xs sm:text-sm transition shadow-md hover:shadow-xl inline-flex items-center space-x-2 cursor-pointer disabled:opacity-50"
-          >
-            {guardando ? (
-              <>
-                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                <span>Firmando Acta...</span>
-              </>
-            ) : (
-              <>
-                <FileCheck2 className="w-4 h-4 text-emerald-400" />
-                <span>Emitir y Firmar Acta</span>
-              </>
-            )}
-          </button>
-
         </div>
 
       </div>
@@ -1820,24 +1769,7 @@ export default function NuevaActaFormView({ usuario, onVolver, onActaGuardada, m
       </div>
 
       {/* ===================================================================== */}
-      {/* NOTAS DEL SUPERVISOR                                                  */}
-      {/* ===================================================================== */}
-      <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-2xs space-y-4">
-        <h3 className="text-sm sm:text-base font-black text-slate-900 tracking-tight">
-          Notas del Supervisor
-        </h3>
-
-        <div className="bg-[#f8fafc] border border-slate-200/80 rounded-2xl p-5 text-xs text-slate-700 leading-relaxed font-medium space-y-2">
-          {notasSupervisor.map((nota, idx) => (
-            <p key={idx} className="text-slate-800 font-semibold">
-              {nota}
-            </p>
-          ))}
-        </div>
-      </div>
-
-      {/* ===================================================================== */}
-      {/* 4. SECCIÓN FINAL: DICTAMEN, CONCLUSIONES Y FIRMAS                     */}
+      {/* 4. SECCIÓN FINAL: DICTAMEN, CONCLUSIONES Y EMISIÓN                     */}
       {/* ===================================================================== */}
       <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-2xs space-y-6">
 
@@ -1987,21 +1919,6 @@ export default function NuevaActaFormView({ usuario, onVolver, onActaGuardada, m
             placeholder="Redacte las conclusiones técnicas del acta..."
             required
           />
-        </div>
-
-        {/* Firmas Institucionales */}
-        <div className="pt-4 border-t border-slate-100 grid grid-cols-1 sm:grid-cols-2 gap-8 text-center text-xs">
-          <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-1">
-            <p className="font-black text-slate-900">{supervisorNombre}</p>
-            <p className="text-[10px] text-slate-500 font-bold">Supervisor Técnico Acreditado</p>
-            <p className="text-[9px] text-[#0060a8] font-bold">SEDES Cochabamba</p>
-          </div>
-
-          <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-1">
-            <p className="font-black text-slate-900">{propietarioNombre}</p>
-            <p className="text-[10px] text-slate-500 font-bold">Director Técnico / Responsable</p>
-            <p className="text-[9px] text-slate-400">{establecimientoNombre}</p>
-          </div>
         </div>
 
         {/* Barra Inferior de Guardado */}
