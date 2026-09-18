@@ -51,6 +51,8 @@ export default function LoginPage() {
         const rol = (data.usuario.rol_nombre || '').toLowerCase();
         if (rol.includes('admin')) {
           navigate('/admin');
+        } else if (rol.includes('director')) {
+          navigate('/director');
         } else if (rol.includes('supervisor')) {
           navigate('/supervisor');
         } else if (rol.includes('coordinador')) {

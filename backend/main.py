@@ -15,6 +15,7 @@ import coordinador
 import tramites
 import notificaciones
 import supervisor
+import director
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -57,6 +58,7 @@ app.include_router(coordinador.router)
 app.include_router(tramites.router)
 app.include_router(notificaciones.router)
 app.include_router(supervisor.router)
+app.include_router(director.router)
 
 @app.get("/", tags=["Diagnóstico"])
 def leer_raiz():
