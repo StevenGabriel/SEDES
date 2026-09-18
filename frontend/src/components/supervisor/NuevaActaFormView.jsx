@@ -796,7 +796,7 @@ export default function NuevaActaFormView({ usuario, onVolver, onActaGuardada, m
 
   // Dictamen y Conclusiones Finales
   const [resultadoFinal, setResultadoFinal] = useState('Aprobado');
-  const [plazoSubsanacionDias, setPlazoSubsanacionDias] = useState(10);
+  const [plazoSubsanacion, setPlazoSubsanacion] = useState('1 año');
   const [conclusionesGenerales, setConclusionesGenerales] = useState(
     'El establecimiento cumple con los requerimientos técnicos y sanitarios establecidos en el Reglamento General de Habilitación de Laboratorios (R.M. 0202) del SEDES Cochabamba.'
   );
@@ -1309,8 +1309,8 @@ export default function NuevaActaFormView({ usuario, onVolver, onActaGuardada, m
       if (noCumplidos.length > 0) {
         obsCompuesta += `\n\nAspectos observados a subsanar:\n${noCumplidos.join('\n')}`;
       }
-      if (resultadoFinal === 'Con Observaciones') {
-        obsCompuesta += `\n\nPlazo de subsanación fijado: ${plazoSubsanacionDias} días hábiles.`;
+      if (plazoSubsanacion && plazoSubsanacion.trim()) {
+        obsCompuesta += `\n\nPlazo para Subsanación: ${plazoSubsanacion.trim()} (Fecha de vencimiento del acta: 1 año).`;
       }
 
       const response = await fetch('http://localhost:8000/api/supervisor/registrar-acta', {
@@ -1322,6 +1322,7 @@ export default function NuevaActaFormView({ usuario, onVolver, onActaGuardada, m
           resultado: resultadoFinal,
           tipo_inspeccion: tipoTramite,
           observaciones: obsCompuesta,
+          plazo_subsanacion: plazoSubsanacion || '1 año',
           numero_acta: numActaGenerado,
           archivo_pdf_firmado_url: urlFirmado,
           cumple_infraestructura: porcentaje >= 70,
@@ -1943,27 +1944,31 @@ export default function NuevaActaFormView({ usuario, onVolver, onActaGuardada, m
           </div>
         </div>
 
-        {/* Plazo de Subsanación (si es con observaciones) */}
-        {resultadoFinal === 'Con Observaciones' && (
-          <div className="p-4 bg-amber-50 rounded-2xl border border-amber-200 space-y-2 animate-fadeIn text-xs">
-            <label className="font-black text-amber-900 block">
-              Plazo de Subsanación Otorgado al Laboratorio (Días Hábiles):
+        {/* Campo Oficial: Plazo para Subsanación (Vencimiento del Acta) */}
+        <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-2 text-xs">
+          <div className="flex items-center justify-between">
+            <label className="text-[11px] font-extrabold text-slate-800 uppercase tracking-wider flex items-center space-x-2">
+              <Clock className="w-4 h-4 text-[#0060a8]" />
+              <span>Plazo para Subsanacion:</span>
             </label>
-            <div className="flex items-center space-x-3">
-              <input
-                type="number"
-                min="5"
-                max="30"
-                value={plazoSubsanacionDias}
-                onChange={(e) => setPlazoSubsanacionDias(Number(e.target.value))}
-                className="w-28 px-3 py-2 bg-white border border-amber-300 rounded-xl font-black text-slate-800 focus:ring-2 focus:ring-amber-500 outline-none"
-              />
-              <span className="text-amber-800 font-bold">
-                días hábiles para presentar descargos técnicos ante SEDES.
-              </span>
-            </div>
+            <span className="text-[10px] font-bold text-[#0060a8] bg-white px-2.5 py-0.5 rounded-full border border-slate-200 shadow-2xs">
+              Vencimiento del Acta: 1 año
+            </span>
           </div>
-        )}
+
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+            <input
+              type="text"
+              value={plazoSubsanacion}
+              onChange={(e) => setPlazoSubsanacion(e.target.value)}
+              placeholder="1 año"
+              className="w-full sm:w-64 px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-800 focus:ring-2 focus:ring-[#0060a8] focus:border-[#0060a8] outline-none shadow-2xs"
+            />
+            <p className="text-[11px] text-slate-500 font-medium leading-snug">
+              Plazo normativo y periodo de vigencia otorgado al establecimiento (cada acta cuenta con <b>1 año</b> como fecha de vencimiento).
+            </p>
+          </div>
+        </div>
 
         {/* Conclusiones Técnicas */}
         <div className="space-y-1.5">

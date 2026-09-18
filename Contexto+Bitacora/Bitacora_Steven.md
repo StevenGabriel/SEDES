@@ -2331,18 +2331,165 @@ Optimizar la navegación de semanas y fechas en la vista de **Mi Agenda** del Su
 * **Integración:** La selección de fecha, mes y atajos rápidos sincroniza la cuadrícula horaria y las inspecciones de la semana seleccionada de manera reactiva e instantánea.
 
 ---
+---
+
+## [2026-09-18] Implementación del Portal y Vista de Dirección General SEDES
+
+### 📌 Objetivo
+Desarrollar la interfaz y portal oficial del rol **Director General** (`/director`), manteniendo la coherencia visual institucional en el menú superior (cabecera con breadcrumbs, notificaciones, perfil ejecutivo de iniciales y cierre de sesión) y en el menú lateral estructurado con las opciones requeridas: **"Consola de Administración"** y **"Métricas e Indicadores"**.
+
+---
+
+### 🛠️ Archivos Creados y Modificados
+
+#### 1. `frontend/src/pages/DirectorPage.jsx` [NUEVO]
+* **Diseño y Estructura Institucional:**
+  * **Sidebar Lateral Azul Institucional (`#0060a8`):** Logo `SI_Lab`, navegación interactiva por pestañas y pie de página institucional con los escudos de Bolivia y Cochabamba (manteniendo el diseño depurado y consistente con los demás portales).
+  * **Menú de Navegación Lateral:**
+    * **`Consola de Administración`** (`/director/consola-administracion`): Panel ejecutivo de supervisión centralizada y control gerencial.
+    * **`Métricas e Indicadores`** (`/director/metricas-indicadores`): Tablero estratégico de métricas de rendimiento y cobertura.
+  * **Header Superior Blanco:** Breadcrumb interactivo, botón de refresco de datos, centro de notificaciones conectadas al backend y perfil ejecutivo de iniciales ("Dr. Fernando Castillo - Director General SEDES") con botón de cierre de sesión.
+  * **Contenedores de Contenido:** Estructura modular limpia preparada para la integración de herramientas y gráficos gerenciales.
+
+#### 2. `frontend/src/App.jsx` [MODIFICADO]
+* **Rutas del Director:**
+  * `/director` ➡️ Redirección a `/director/consola-administracion`.
+  * `/director/:seccion` ➡️ Renderiza `<DirectorPage />`.
+  * `/directorpage` ➡️ Alias hacia `/director/consola-administracion`.
+
+#### 3. `frontend/src/pages/loginPage.jsx` [MODIFICADO]
+* **Redirección por Rol:** Al iniciar sesión con credenciales de Director (`director@sedes.gob.bo`), el sistema redirige automáticamente al nuevo panel `/director`.
+
+---
+
+### 📊 Verificación y Pruebas Realizadas
+* **Compilación Frontend:** `npm run build` ejecutado exitosamente con 0 errores (2047 módulos transformados).
+* **Navegación Fluida:** Verificación de cambios de pestaña entre *Consola de Administración* y *Métricas e Indicadores* mediante React Router y URLs limpias.
+
+---
+---
+
+## [2026-09-18] Implementación del Dashboard Ejecutivo en la Consola de Administración del Director
+
+### 📌 Objetivo
+Desarrollar el contenido completo del panel gerencial de la **Consola de Administración** (`/director/consola-administracion`) con datos reales y calculados desde la base de datos PostgreSQL, implementando la estructura visual del diseño solicitado:
+1. **Tarjetas KPI Superiores (3 tarjetas con bordes de acento):** Trámites en Curso, Tiempo Promedio de Cierre y Alertas Críticas.
+2. **Gráfico de Barras:** Rendimiento y actas/inspecciones realizadas por supervisor técnico.
+3. **Gráfico Donut:** Estado y distribución porcentual de trámites (Aperturas vs. Renovaciones) con conteo central interactivo.
+4. **Tabla de Trazabilidad Reciente:** Bitácora en tiempo real con funcionarios, acciones, marcas de tiempo e identificadores de expedientes.
+
+---
+
+### 🛠️ Archivos Creados y Modificados
+
+#### 1. `backend/director.py` [NUEVO]
+* **Endpoint `GET /api/director/consola`:**
+  * **Cálculo de KPIs:** Consulta en tiempo real de trámites activos, promedio de resolución y conteo de alertas críticas/documentos observados.
+  * **Rendimiento de Supervisores:** Conteo de actas emitidas e inspecciones realizadas por supervisor.
+  * **Distribución de Tipos:** Proporción porcentual y total entre Aperturas y Renovaciones.
+  * **Trazabilidad:** Extracción de los últimos eventos y logs de auditoría desde `models.HistorialActividad`.
+
+#### 2. `backend/main.py` [MODIFICADO]
+* **Registro de Router:** Incorporación de `director.router` con prefijo `/api/director`.
+
+#### 3. `frontend/src/pages/DirectorPage.jsx` [MODIFICADO]
+* **Renderizado del Dashboard:**
+  * Integración de llamada asíncrona `cargarDatosConsolaBackend` hacia `/api/director/consola`.
+  * Maquetación de tarjetas KPI con bordes de acento azul (`#2563eb`), verde (`#10b981`) y rojo (`#ef4444`).
+  * **Ranking Escalable de Supervisores (Opción 1):** Sustitución del gráfico de barras verticales por un *leaderboard* de barras horizontales ordenado de mayor a menor según el número estricto de actas oficiales emitidas (`models.Inspeccion.estado_inspeccion == 'Completada'`), con posición (`#1, #2, #3`), avatar con iniciales, nombres completos legibles y selector dinámico `[Top 5 Activos]` vs. `[Todos]`.
 *Bitácora actualizada por: Steven*
 
+---
 
+## [2026-09-18] Depuración y Enlace Estricto de Métricas Reales 100% de Base de Datos (Director General)
 
+### 📌 Objetivo
+Eliminar cualquier dato simulado, arreglo de muestra (*mock/fallbacks*) o estimación artificial en la Consola de Administración del Director General (`/director/consola-administracion`), garantizando que cada indicador, gráfica y lista refleje de manera estricta y transparente los registros reales existentes en PostgreSQL.
 
+---
 
+### 🛠️ Archivos Modificados
 
+#### 1. `backend/director.py` [MODIFICADO]
+* **Métricas 100% Reales de PostgreSQL:**
+  * **Trámites en Curso y Esta Semana:** Conteo directo de `models.Tramite` activos y filtrados por fecha real de creación.
+  * **Tiempo Promedio de Cierre:** Cálculo matemático exacto de la diferencia en días entre la fecha de creación y finalización de los trámites con estado `"Aprobado"`, `"Finalizado"` o `"Inspección Aprobada"`. Si no existen trámites concluidos, retorna `0 días`.
+  * **Alertas Críticas:** Suma exacta de documentos observados/rechazados (`models.TramiteDocumento`) más trámites observados.
+  * **Distribución de Trámites (Donut):** Cálculo estricto de Aperturas vs. Renovaciones según el catálogo en base de datos.
+  * **Rendimiento de Supervisores:** Consulta directa de usuarios con rol `Supervisor` en `models.Usuario`. El conteo de actas emitidas se basa **exclusivamente** en el número real de inspecciones en estado `"Completada"`, `"Aprobada"` o `"Finalizada"` en `models.Inspeccion`. Se eliminaron los supervisores simulados por defecto.
+  * **Bitácora de Trazabilidad:** Consulta directa de los últimos 10 registros de auditoría en `models.HistorialActividad`.
 
+#### 2. `frontend/src/pages/DirectorPage.jsx` [MODIFICADO]
+* **Soporte de Estados Vacíos y Valores Cero:**
+  * Se configuró el estado inicial limpio en 0 y arreglos vacíos `[]` para evitar parpadeos con datos demo.
+  * Se añadieron alertas visuales elegantes para casos en los que no haya supervisores registrados, trámites cargados o eventos de trazabilidad.
+  * Gráfico de dona adaptativo que muestra un anillo neutral cuando el total es 0 sin provocar divisiones por cero ni errores de renderizado.
 
+---
 
+*Bitácora actualizada por: Steven*
 
+---
 
+## [2026-09-18] Implementación del Módulo "Métricas e Indicadores" con Filtros Dinámicos Reactivos y Datos 100% Reales
 
+### 📌 Objetivo
+Desarrollar la vista completa de **Métricas e Indicadores** (`/director/metricas-indicadores`) para la Dirección General, asegurando que todos los indicadores macro, gráficas de evolución temporal, desgloses por niveles/sectores y rankings se calculen dinámicamente desde PostgreSQL y reaccionen en tiempo real según los 9 filtros multidimensionales y selector de periodo.
 
+---
+
+### 🛠️ Archivos Modificados
+
+#### 1. `backend/director.py` [MODIFICADO]
+* **Endpoint `GET /api/director/filtros-opciones`:**
+  * Consulta en tiempo real las opciones únicas disponibles en PostgreSQL para poblar los 9 selectores: municipios, tipos de establecimiento, estados operativos, nombres comerciales, niveles, propietarios, responsables técnicos, áreas y direcciones.
+* **Endpoint `GET /api/director/metricas-indicadores`:**
+  * Recibe parámetros de filtrado dinámico (`periodo_anio`, `periodo_mes`, `municipio`, `tipo_laboratorio`, `estado`, `nombre_laboratorio`, `nivel`, `propietario`, `responsable_laboratorio`, `responsables_areas`, `direccion`).
+  * **KPIs Filtrados:** Total de trámites, tasa porcentual de aprobación y tiempo promedio de resolución.
+  * **Tendencia Mensual:** Desglose mes a mes (Ene a Dic) de Aperturas vs. Renovaciones.
+  * **Distribución por Tipos de Establecimiento:** Agrupación y porcentaje real.
+  * **Cuellos de Botella:** Detección en tiempo real de trámites demorados (>30 días), documentos observados e inspecciones pendientes.
+  * **Ranking de Supervisores:** Conteo de actas oficiales con insignias de desempeño (*Excelente*, *Muy Bueno*, *Bueno*, *Regular*, *En Proceso*).
+  * **Cantidad por Municipio:** Gráfico de barras agrupadas comparando laboratorios privados vs. públicos.
+  * **Nivel y Tipo de Laboratorio:** Conteo por nivel de complejidad (1er Nivel a Referencia) y sector (Público, Seguro Social, Privado, ONG, etc.).
+  * **Situación Operativa:** Gráfico de dona multi-segmento (Funcionando, No Funcionando, Cerrado, En Refacción, Renovación).
+
+#### 2. `frontend/src/pages/DirectorPage.jsx` [MODIFICADO]
+* **Barra de 9 Filtros Reactivos:**
+  * Selectores desplegables integrados con el estado `filtros` y función `handleLimpiarFiltros`.
+  * Selector de periodo anual/mensual y botón de descarga/impresión de informe institucional (`handleDescargarInforme`).
+* **Gráficas Analíticas e Interactivas:**
+  * Curvas de líneas SVG responsivas para *Trámites por Mes* con tooltips flotantes en hover.
+  * **Barras Agrupadas con Tooltips Interactivos:** En la gráfica de *Cantidad por Municipio*, al pasar el mouse por encima de cualquier barra (Privados o Públicos), se despliega un *tooltip* flotante con la cantidad exacta y el indicador dinámico en la cabecera.
+  * Gráfico Donut SVG multi-segmento con cálculo dinámico de arcos y circunferencia para *Estado / Situación del Laboratorio*.
+  * Barras horizontales de progreso con colores institucionales y conteos reales.
+
+---
+
+*Bitácora actualizada por: Steven*
+
+---
+
+## [2026-09-18] Incorporación del Campo "Plazo para Subsanación" (1 Año por Defecto) en Emisión de Actas del Supervisor
+
+### 📌 Objetivo
+Agregar el campo normativo **"Plazo para Subsanacion"** en la sección final del formulario de emisión de actas de inspección técnica del supervisor (`NuevaActaFormView.jsx`), estableciendo como valor predeterminado **"1 año"**, correspondiente a la fecha de vencimiento legal y vigencia oficial de cada acta emitida.
+
+---
+
+### 🛠️ Archivos Modificados
+
+#### 1. `frontend/src/components/supervisor/NuevaActaFormView.jsx` [MODIFICADO]
+* **Campo "Plazo para Subsanacion":**
+  * Se configuró el estado `plazoSubsanacion` con valor inicial `"1 año"`.
+  * Se integró en la sección de dictamen y conclusiones técnicas con etiqueta institucional, icono de reloj y nota aclaratoria sobre la vigencia del acta.
+  * Inclusión automática del plazo en el cuerpo de observaciones finales y payload de emisión del acta.
+
+#### 2. `backend/supervisor.py` [MODIFICADO]
+* **Esquema `RegistrarActaRequest`:**
+  * Se incorporó el campo `plazo_subsanacion: Optional[str] = "1 año"` para registrar y almacenar formalmente el plazo de vigencia en la base de datos y auditoría.
+
+---
+
+*Bitácora actualizada por: Steven*
 

@@ -62,6 +62,7 @@ class RegistrarActaRequest(BaseModel):
     cumple_bioseguridad: Optional[bool] = True
     numero_acta: Optional[str] = None
     archivo_pdf_firmado_url: Optional[str] = None
+    plazo_subsanacion: Optional[str] = Field("1 año", description="Plazo para subsanación o vigencia de vencimiento del acta")
 
 class RegistrarCitacionRequest(BaseModel):
     establecimiento_id: Optional[str] = None
