@@ -2493,3 +2493,72 @@ Agregar el campo normativo **"Plazo para Subsanacion"** en la sección final del
 
 *Bitácora actualizada por: Steven*
 
+---
+
+## [2026-09-18] Flujo de Aprobación Condicionada del Coordinador y Gestión de Veredictos de Inspección
+
+### 📌 Objetivo
+Condicionar la disponibilidad y activación del botón **"Aprobar Trámite y Emitir Resolución"** en la bandeja del Coordinador (`/coordinador/bandeja`) para que únicamente esté habilitado cuando:
+1. El coordinador haya revisado y aprobado el 100% de los requisitos y documentos legales.
+2. Se haya asignado un supervisor técnico de campo.
+3. El supervisor haya realizado la inspección in-situ y emitido el acta oficial con veredicto **Favorable (Aprobado)**.
+
+En caso de que el supervisor emita un veredicto **Desfavorable (Rechazado)**, mostrar prominentemente el rechazo en la pestaña de *Fiscalización e Inspección*, bloquear la emisión de resolución y habilitar la notificación en tiempo real al propietario para que vuelva a cargar todos los requisitos y reiniciar el trámite.
+
+---
+
+### 🛠️ Archivos Modificados
+
+#### 1. `backend/coordinador.py` [MODIFICADO]
+* **Serialización de Trámites (`serializar_tramite_coordinador`):**
+  * Se calcularon y expusieron los indicadores de control de flujo: `docs_aprobados_count`, `todos_docs_aprobados`, `inspeccion_aprobada`, `inspeccion_rechazada`, `inspeccion_con_observaciones` y `puede_aprobar`.
+  * Se añadió la URL del acta PDF (`acta_pdf_url`) y el estado de la inspección.
+* **Validación en Endpoint `POST /api/coordinador/tramites/{tramite_id}/aprobar`:**
+  * Bloqueo estricto a nivel de backend: valida que todos los documentos legales estén en estado `'Aprobado'`, que exista un supervisor asignado y que la inspección técnica cuente con veredicto `'Favorable'`. De lo contrario, retorna un error HTTP 400 con el motivo exacto del impedimento.
+* **Nuevo Endpoint `POST /api/coordinador/tramites/{tramite_id}/notificar-reingreso`:**
+  * Permite notificar al propietario cuando una inspección es rechazada, marcando el trámite en estado `"Rechazado - Requiere Reingreso"`, actualizando los requisitos para su subsanación/recarga, registrando la auditoría en `HistorialActividad` y enviando una alerta formal al usuario.
+
+#### 2. `frontend/src/pages/CoordinadorPage.jsx` [MODIFICADO]
+* **Reglas de Habilitación y Bloqueo Reactivo:**
+  * Cálculo de `puedeAprobarTramite = todosDocsAprobados && tieneSupervisorAsignado && esActaFavorable`.
+  * Si no se cumplen las condiciones, el botón *"Aprobar Trámite y Emitir Resolución"* se renderiza deshabilitado (`cursor-not-allowed`) con una insignia de advertencia contextual que detalla el paso pendiente (documentos por aprobar, asignación de supervisor o emisión de acta favorable).
+* **Pestaña "Fiscalización e Inspección" Multiestado:**
+  * **Veredicto Aprobado (Favorable):** Banner esmeralda institucional con insignia de acta oficial aprobada y enlace para descargar el acta firmada (PDF).
+  * **Veredicto Rechazado (Desfavorable):** Banner rojo de alerta con detalles de incumplimiento normativo y botón de acción *"Notificar al Propietario para Reingreso de Requisitos"*.
+  * **Veredicto Con Observaciones:** Banner ámbar indicando necesidad de subsanación o re-inspección.
+  * **Pendiente de Asignación / Inspección:** Banner azul indicando el estado del supervisor asignado o botón directo para agendar la fiscalización técnica.
+
+---
+
+*Bitácora actualizada por: Steven*
+
+---
+
+## [2026-09-18] Simplificación del Dictamen del Supervisor (Aprobado / Rechazado Sin Textos de Porcentaje)
+
+### 📌 Objetivo
+Ajustar la sección final del formulario de emisión de actas del supervisor (`NuevaActaFormView.jsx` y modal rápido en `ActasEmitidasView.jsx`) para:
+1. Eliminar la opción intermedia de *"Con Observaciones"*, dejando únicamente las dos alternativas oficiales definitivas: **Aprobado (Favorable)** y **Rechazado (Desfavorable)**.
+2. Eliminar los textos descriptivos que mencionaban porcentajes en los botones (ej: *"Cumplimiento ≥ 85%"* o *"puntaje inferior al 70%"*), reemplazándolos por leyendas normativas claras y limpias.
+
+---
+
+### 🛠️ Archivos Modificados
+
+#### 1. `frontend/src/components/supervisor/NuevaActaFormView.jsx` [MODIFICADO]
+* **Eliminación de la Opción "Con Observaciones":**
+  * Se simplificó la cuadrícula de veredictos definitivos a 2 columnas (`grid-cols-2`): *Aprobado (Favorable)* y *Rechazado (Desfavorable)*.
+  * Se depuró el `useEffect` de dictamen automático para clasificar directamente en Aprobado o Rechazado según el cumplimiento del checklist.
+* **Limpieza de Textos de Porcentajes en Botones:**
+  * Se sustituyeron las menciones de porcentajes numéricos por descripciones normativas profesionales (*"Cumple con las normas y requisitos técnicos sanitarios"* / *"No cumple con las condiciones técnicas o sanitarias requeridas"*).
+
+#### 2. `frontend/src/components/supervisor/ActasEmitidasView.jsx` [MODIFICADO]
+* **Modal de Registro Rápido:**
+  * Se adaptó el selector de resultado a 2 botones (*Aprobado (Favorable)* y *Rechazado (Desfavorable)*) para total consistencia en todo el módulo del supervisor.
+
+---
+
+*Bitácora actualizada por: Steven*
+
+
+

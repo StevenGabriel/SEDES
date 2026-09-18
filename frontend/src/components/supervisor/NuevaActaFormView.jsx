@@ -894,10 +894,8 @@ export default function NuevaActaFormView({ usuario, onVolver, onActaGuardada, m
 
   // Actualizar dictamen sugerido automáticamente según porcentaje
   useEffect(() => {
-    if (porcentaje >= 85) {
+    if (porcentaje >= 80) {
       setResultadoFinal('Aprobado');
-    } else if (porcentaje >= 70) {
-      setResultadoFinal('Con Observaciones');
     } else {
       setResultadoFinal('Rechazado');
     }
@@ -1840,9 +1838,7 @@ export default function NuevaActaFormView({ usuario, onVolver, onActaGuardada, m
           </h3>
           <span className={`text-xs font-black px-3 py-1 rounded-full border ${resultadoFinal === 'Aprobado'
             ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-            : resultadoFinal === 'Con Observaciones'
-              ? 'bg-amber-50 text-amber-800 border-amber-200'
-              : 'bg-rose-50 text-rose-800 border-rose-200'
+            : 'bg-rose-50 text-rose-800 border-rose-200'
             }`}>
             Veredicto: {resultadoFinal}
           </span>
@@ -1882,7 +1878,7 @@ export default function NuevaActaFormView({ usuario, onVolver, onActaGuardada, m
           <label className="text-[11px] font-extrabold text-slate-700 block uppercase tracking-wider">
             Dictamen Oficial Definitivo:
           </label>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
 
             {/* Aprobado */}
             <button
@@ -1899,26 +1895,7 @@ export default function NuevaActaFormView({ usuario, onVolver, onActaGuardada, m
               <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
               <div>
                 <p className="font-black text-slate-900 text-xs">APROBADO (Favorable)</p>
-                <p className="text-[11px] text-slate-500 mt-0.5">Cumplimiento &ge; 85% sin observaciones críticas.</p>
-              </div>
-            </button>
-
-            {/* Con Observaciones */}
-            <button
-              type="button"
-              onClick={() => setResultadoFinal('Con Observaciones')}
-              className={`
-                p-4 rounded-2xl border text-left transition cursor-pointer flex items-start space-x-3
-                ${resultadoFinal === 'Con Observaciones'
-                  ? 'bg-amber-50/90 border-amber-500 ring-2 ring-amber-200'
-                  : 'bg-white border-slate-200 hover:bg-slate-50'
-                }
-              `}
-            >
-              <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
-              <div>
-                <p className="font-black text-slate-900 text-xs">CON OBSERVACIONES</p>
-                <p className="text-[11px] text-slate-500 mt-0.5">Requiere subsanación con plazo perentorio.</p>
+                <p className="text-[11px] text-slate-500 mt-0.5">Cumple con las normas y requisitos técnicos sanitarios.</p>
               </div>
             </button>
 
@@ -1937,7 +1914,7 @@ export default function NuevaActaFormView({ usuario, onVolver, onActaGuardada, m
               <XCircle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
               <div>
                 <p className="font-black text-slate-900 text-xs">RECHAZADO (Desfavorable)</p>
-                <p className="text-[11px] text-slate-500 mt-0.5">Incumplimiento crítico o puntaje inferior al 70%.</p>
+                <p className="text-[11px] text-slate-500 mt-0.5">No cumple con las condiciones técnicas o sanitarias requeridas.</p>
               </div>
             </button>
 

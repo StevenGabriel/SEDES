@@ -324,6 +324,78 @@ export default function CoordinadorPage() {
   // Trámite seleccionado actualmente
   const tramiteActual = tramites.find(t => t.id === tramiteSeleccionadoId) || (tramites.length > 0 ? tramites[0] : null);
 
+  // Lógica y reglas de habilitación para Aprobación del Trámite
+  const docsList = tramiteActual?.documentos || [];
+  const totalDocs = docsList.length;
+  const docsAprobadosCount = docsList.filter(d => (d.estado || '').toLowerCase() === 'aprobado').length;
+  const todosDocsAprobados = totalDocs > 0 && docsAprobadosCount === totalDocs;
+
+  const tieneSupervisorAsignado = Boolean(
+    tramiteActual?.supervisor_id ||
+    (tramiteActual?.supervisorAsignado &&
+     tramiteActual.supervisorAsignado !== 'Sin Asignar' &&
+     tramiteActual.supervisorAsignado !== 'PENDIENTE DE ASIGNACIÓN')
+  );
+
+  const veredictoNorm = (tramiteActual?.veredicto_supervisor_raw || tramiteActual?.veredictoSupervisor || '').toLowerCase();
+  const esActaFavorable = veredictoNorm.includes('favorable') || veredictoNorm.includes('aprobado');
+  const esActaRechazada = veredictoNorm.includes('desfavorable') || veredictoNorm.includes('rechazado');
+  const esActaConObservaciones = veredictoNorm.includes('observaci');
+  const esActaCompletada = Boolean(
+    (tramiteActual?.estadoInspeccion === 'Completada' || tramiteActual?.acta_pdf_url) &&
+    (esActaFavorable || esActaRechazada || esActaConObservaciones)
+  );
+
+  const puedeAprobarTramite = Boolean(
+    tramiteActual?.puede_aprobar !== undefined
+      ? tramiteActual.puede_aprobar
+      : (todosDocsAprobados && tieneSupervisorAsignado && esActaFavorable)
+  );
+
+  // Motivo descriptivo del bloqueo si no se puede aprobar
+  let motivoBloqueoAprobacion = '';
+  if (!todosDocsAprobados) {
+    motivoBloqueoAprobacion = `Faltan validar documentos (${docsAprobadosCount}/${totalDocs} aprobados). Debe aprobar todos los requisitos previamente.`;
+  } else if (!tieneSupervisorAsignado) {
+    motivoBloqueoAprobacion = 'Debe asignar un supervisor para la fiscalización técnica en campo.';
+  } else if (esActaRechazada) {
+    motivoBloqueoAprobacion = 'Inspección técnica rechazada (Desfavorable). El trámite no puede aprobarse.';
+  } else if (esActaConObservaciones) {
+    motivoBloqueoAprobacion = 'Inspección con observaciones. Requiere subsanación o re-inspección.';
+  } else if (!esActaFavorable) {
+    motivoBloqueoAprobacion = 'Pendiente: El supervisor aún no ha emitido el acta oficial con veredicto Favorable.';
+  }
+
+  // Notificar al propietario para reingreso de requisitos en caso de inspección rechazada
+  const [notificandoReingreso, setNotificandoReingreso] = useState(false);
+  const handleNotificarReingreso = async () => {
+    if (!tramiteActual) return;
+    setNotificandoReingreso(true);
+    try {
+      const response = await fetch(`http://localhost:8000/api/coordinador/tramites/${tramiteActual.tramite_uuid || tramiteActual.id}/notificar-reingreso`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          motivo: `La inspección técnica in-situ emitió veredicto Desfavorable/Rechazado. Observaciones: ${tramiteActual.observacionesSupervisor?.[0] || 'Incumplimiento de requisitos técnicos y normativos.'}`,
+          responsable: nombreCoordinador
+        })
+      });
+      if (response.ok) {
+        mostrarToast('Notificación enviada al propietario. El trámite ha sido reiniciado para la recarga de requisitos.', 'success');
+        cargarDatosBackend();
+        recargarHistorial();
+      } else {
+        const err = await response.json();
+        mostrarToast(err.detail || 'Error al notificar reingreso.', 'warning');
+      }
+    } catch (e) {
+      console.warn('Error al enviar notificación:', e);
+      mostrarToast('Error de conexión al notificar reingreso.', 'warning');
+    } finally {
+      setNotificandoReingreso(false);
+    }
+  };
+
   // Documento legal seleccionado actualmente
   const docsDisponibles = tramiteActual?.documentos || [];
   const docActual = docsDisponibles.find(d => d.id === docSeleccionadoId) || (docsDisponibles.length > 0 ? docsDisponibles[0] : null);
@@ -1281,22 +1353,39 @@ export default function CoordinadorPage() {
                       )}
 
                       {/* Botones Globales de Acción del Trámite */}
-                      <div className="flex flex-col sm:flex-row items-center gap-3 pt-2">
+                      <div className="flex flex-col sm:flex-row items-stretch gap-3 pt-2">
                         <button
                           onClick={() => navigate('/coordinador/asignar-supervisores')}
                           className="w-full sm:flex-1 py-3 px-5 rounded-xl font-extrabold text-sm text-white bg-[#0077c8] hover:bg-[#0064a7] shadow-md transition-all flex items-center justify-center space-x-2 cursor-pointer"
                         >
                           <Calendar className="w-4 h-4" />
-                          <span>Agendar Inspección de Campo</span>
+                          <span>{tieneSupervisorAsignado ? 'Gestionar Inspección' : 'Agendar / Asignar Supervisor'}</span>
                         </button>
 
-                        <button
-                          onClick={() => setModalAprobacionOpen(true)}
-                          className="w-full sm:flex-1 py-3 px-5 rounded-xl font-extrabold text-sm text-emerald-900 bg-[#c7f9cc] hover:bg-[#a7f3d0] border border-emerald-300 shadow-sm transition-all flex items-center justify-center space-x-2 cursor-pointer"
-                        >
-                          <Award className="w-4 h-4 text-emerald-700" />
-                          <span>Aprobar Trámite y Emitir Resolución</span>
-                        </button>
+                        {puedeAprobarTramite ? (
+                          <button
+                            onClick={() => setModalAprobacionOpen(true)}
+                            className="w-full sm:flex-1 py-3 px-5 rounded-xl font-extrabold text-sm text-emerald-950 bg-[#c7f9cc] hover:bg-[#a7f3d0] border border-emerald-400 shadow-sm transition-all flex items-center justify-center space-x-2 cursor-pointer active:scale-98"
+                            title="Todos los requisitos y el acta técnica están aprobados. Haga clic para emitir la resolución."
+                          >
+                            <Award className="w-4 h-4 text-emerald-700" />
+                            <span>Aprobar Trámite y Emitir Resolución</span>
+                          </button>
+                        ) : (
+                          <div className="w-full sm:flex-1 flex flex-col justify-center">
+                            <button
+                              disabled
+                              className="w-full py-3 px-5 rounded-xl font-extrabold text-sm text-slate-400 bg-slate-100 border border-slate-200 cursor-not-allowed transition-all flex items-center justify-center space-x-2 opacity-80"
+                            >
+                              <Award className="w-4 h-4 text-slate-400" />
+                              <span>Aprobar Trámite y Emitir Resolución</span>
+                            </button>
+                            <div className="text-[11px] text-amber-800 bg-amber-50 border border-amber-200 px-3 py-1.5 rounded-lg mt-1.5 flex items-center space-x-1.5 font-medium">
+                              <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                              <span>{motivoBloqueoAprobacion}</span>
+                            </div>
+                          </div>
+                        )}
                       </div>
 
                     </div>
@@ -1308,20 +1397,135 @@ export default function CoordinadorPage() {
                   {tabActiva === 'campo' && (
                     <div className="space-y-6 max-w-4xl mx-auto">
 
-                      {/* Banner de Veredicto del Supervisor */}
-                      <div className="bg-sky-50 border-l-4 border-[#0077c8] p-4 rounded-r-xl shadow-xs">
-                        <div className="flex items-start justify-between">
-                          <div>
-                            <h3 className="font-extrabold text-sm sm:text-base text-slate-900 uppercase tracking-tight flex items-center space-x-2">
-                              <ShieldCheck className="w-5 h-5 text-[#0077c8]" />
-                              <span>Veredicto Técnico: {tramiteActual.veredictoSupervisor}</span>
-                            </h3>
-                            <p className="text-xs text-slate-600 mt-1 font-medium">
-                              Supervisor Asignado: <span className="font-bold text-slate-800">{tramiteActual.supervisorAsignado}</span> &bull; Inspección: <span className="font-bold">{tramiteActual.fechaInspeccion}</span>
-                            </p>
+                      {/* Banner de Veredicto del Supervisor Condicional */}
+                      {esActaRechazada ? (
+                        /* ESTADO RECHAZADO / DESFAVORABLE */
+                        <div className="bg-rose-50 border-l-4 border-rose-600 p-5 rounded-r-2xl shadow-xs space-y-3">
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                            <div>
+                              <h3 className="font-black text-sm sm:text-base text-rose-950 uppercase tracking-tight flex items-center space-x-2">
+                                <XCircle className="w-5 h-5 text-rose-600 shrink-0" />
+                                <span>Veredicto Técnico: RECHAZADO (DESFAVORABLE)</span>
+                              </h3>
+                              <p className="text-xs text-rose-700 mt-1 font-medium">
+                                Supervisor Asignado: <span className="font-bold text-rose-950">{tramiteActual.supervisorAsignado}</span> &bull; Inspección: <span className="font-bold text-rose-950">{tramiteActual.fechaInspeccion}</span>
+                              </p>
+                            </div>
+                            <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-extrabold bg-rose-200 text-rose-900 border border-rose-300 self-start sm:self-auto">
+                              Inspección No Favorable
+                            </span>
+                          </div>
+
+                          <p className="text-xs text-rose-900 leading-relaxed font-medium bg-rose-100/70 p-3 rounded-xl border border-rose-200">
+                            La fiscalización técnica in-situ determinó que el establecimiento no cumple con los estándares sanitarios, equipamiento o infraestructura requeridos. Conforme al reglamento, el propietario debe volver a subir todos sus requisitos para reiniciar el proceso de habilitación.
+                          </p>
+
+                          <div className="pt-1 flex flex-wrap items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={handleNotificarReingreso}
+                              disabled={notificandoReingreso}
+                              className="px-4 py-2.5 bg-rose-600 hover:bg-rose-700 active:scale-95 text-white rounded-xl text-xs font-bold shadow-xs transition flex items-center space-x-2 cursor-pointer disabled:opacity-50"
+                            >
+                              <Send className="w-3.5 h-3.5" />
+                              <span>{notificandoReingreso ? 'Enviando Notificación...' : 'Notificar al Propietario para Reingreso de Requisitos'}</span>
+                            </button>
+
+                            {tramiteActual.acta_pdf_url && (
+                              <a
+                                href={tramiteActual.acta_pdf_url.startsWith('http') ? tramiteActual.acta_pdf_url : `http://localhost:8000/${tramiteActual.acta_pdf_url.replace(/^\/+/, '')}`}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="px-4 py-2.5 bg-white hover:bg-rose-50 text-rose-800 border border-rose-300 rounded-xl text-xs font-bold transition flex items-center space-x-2 cursor-pointer shadow-xs"
+                              >
+                                <Download className="w-3.5 h-3.5" />
+                                <span>Ver Acta PDF Emitida</span>
+                              </a>
+                            )}
                           </div>
                         </div>
-                      </div>
+                      ) : esActaFavorable ? (
+                        /* ESTADO APROBADO / FAVORABLE */
+                        <div className="bg-emerald-50 border-l-4 border-emerald-600 p-5 rounded-r-2xl shadow-xs space-y-3">
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                            <div>
+                              <h3 className="font-black text-sm sm:text-base text-emerald-950 uppercase tracking-tight flex items-center space-x-2">
+                                <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+                                <span>Veredicto Técnico: APROBADO (FAVORABLE)</span>
+                              </h3>
+                              <p className="text-xs text-emerald-800 mt-1 font-medium">
+                                Supervisor Asignado: <span className="font-bold text-emerald-950">{tramiteActual.supervisorAsignado}</span> &bull; Inspección: <span className="font-bold text-emerald-950">{tramiteActual.fechaInspeccion}</span>
+                              </p>
+                            </div>
+                            <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-extrabold bg-emerald-200 text-emerald-950 border border-emerald-300 self-start sm:self-auto">
+                              Acta Oficial Aprobada
+                            </span>
+                          </div>
+
+                          <p className="text-xs text-emerald-900 leading-relaxed font-medium bg-emerald-100/70 p-3 rounded-xl border border-emerald-200">
+                            La fiscalización técnica in situ ha concluido satisfactoriamente certificando el cumplimiento pleno de infraestructura, bioseguridad, equipamiento y personal profesional.
+                          </p>
+
+                          {tramiteActual.acta_pdf_url && (
+                            <div className="pt-1">
+                              <a
+                                href={tramiteActual.acta_pdf_url.startsWith('http') ? tramiteActual.acta_pdf_url : `http://localhost:8000/${tramiteActual.acta_pdf_url.replace(/^\/+/, '')}`}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="inline-flex items-center space-x-2 px-4 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold shadow-xs transition cursor-pointer"
+                              >
+                                <FileCheck className="w-4 h-4" />
+                                <span>Ver / Descargar Acta Firmada Oficial (PDF)</span>
+                              </a>
+                            </div>
+                          )}
+                        </div>
+                      ) : esActaConObservaciones ? (
+                        /* ESTADO CON OBSERVACIONES */
+                        <div className="bg-amber-50 border-l-4 border-amber-500 p-5 rounded-r-2xl shadow-xs space-y-2">
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                            <div>
+                              <h3 className="font-black text-sm sm:text-base text-amber-950 uppercase tracking-tight flex items-center space-x-2">
+                                <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0" />
+                                <span>Veredicto Técnico: CON OBSERVACIONES</span>
+                              </h3>
+                              <p className="text-xs text-amber-800 mt-1 font-medium">
+                                Supervisor Asignado: <span className="font-bold text-amber-950">{tramiteActual.supervisorAsignado}</span> &bull; Inspección: <span className="font-bold text-amber-950">{tramiteActual.fechaInspeccion}</span>
+                              </p>
+                            </div>
+                            <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-extrabold bg-amber-200 text-amber-950 border border-amber-300 self-start sm:self-auto">
+                              Requiere Subsanación
+                            </span>
+                          </div>
+                          <p className="text-xs text-amber-900 leading-relaxed font-medium">
+                            El establecimiento presenta observaciones técnicas que deben ser subsanadas antes de poder emitir la resolución final.
+                          </p>
+                        </div>
+                      ) : (
+                        /* ESTADO PENDIENTE DE ASIGNACIÓN O INSPECCIÓN */
+                        <div className="bg-sky-50 border-l-4 border-[#0077c8] p-5 rounded-r-2xl shadow-xs space-y-2">
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                            <div>
+                              <h3 className="font-black text-sm sm:text-base text-slate-900 uppercase tracking-tight flex items-center space-x-2">
+                                <ShieldCheck className="w-5 h-5 text-[#0077c8] shrink-0" />
+                                <span>Veredicto Técnico: {tramiteActual.veredictoSupervisor}</span>
+                              </h3>
+                              <p className="text-xs text-slate-600 mt-1 font-medium">
+                                Supervisor Asignado: <span className="font-bold text-slate-800">{tramiteActual.supervisorAsignado}</span> &bull; Inspección: <span className="font-bold">{tramiteActual.fechaInspeccion}</span>
+                              </p>
+                            </div>
+                            <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-extrabold bg-sky-100 text-[#0077c8] border border-sky-300 self-start sm:self-auto">
+                              {tieneSupervisorAsignado ? 'Pendiente de Inspección' : 'Pendiente de Asignación'}
+                            </span>
+                          </div>
+                          <p className="text-xs text-slate-600 leading-relaxed font-medium">
+                            {tieneSupervisorAsignado
+                              ? 'El supervisor asignado debe realizar la inspección técnica in-situ y registrar el acta con el veredicto correspondiente.'
+                              : 'Para iniciar la fiscalización en campo, debe asignar un supervisor técnico en la sección correspondiente.'
+                            }
+                          </p>
+                        </div>
+                      )}
 
                       {/* Datos del Establecimiento a Fiscalizar */}
                       <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-4">
@@ -1330,15 +1534,15 @@ export default function CoordinadorPage() {
                         </h3>
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-                          <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
+                          <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200">
                             <span className="text-[10px] text-slate-400 font-bold uppercase block">Establecimiento</span>
-                            <span className="font-bold text-slate-800 text-sm">{tramiteActual.establecimiento}</span>
+                            <span className="font-bold text-slate-800 text-sm block mt-0.5">{tramiteActual.establecimiento}</span>
                             <span className="text-slate-500 block mt-0.5">{tramiteActual.categoria}</span>
                           </div>
 
-                          <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
+                          <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200">
                             <span className="text-[10px] text-slate-400 font-bold uppercase block">Ubicación y Jurisdicción</span>
-                            <span className="font-bold text-slate-800">{tramiteActual.municipio}</span>
+                            <span className="font-bold text-slate-800 block mt-0.5">{tramiteActual.municipio}</span>
                             <span className="text-slate-500 block mt-0.5">{tramiteActual.direccion}</span>
                           </div>
                         </div>
@@ -1362,22 +1566,39 @@ export default function CoordinadorPage() {
                       </div>
 
                       {/* Botones de acción desde la bitácora de campo */}
-                      <div className="flex flex-col sm:flex-row items-center gap-3 pt-2">
+                      <div className="flex flex-col sm:flex-row items-stretch gap-3 pt-2">
                         <button
                           onClick={() => navigate('/coordinador/asignar-supervisores')}
                           className="w-full sm:flex-1 py-3 px-5 rounded-xl font-extrabold text-sm text-white bg-[#0077c8] hover:bg-[#0064a7] shadow-md transition-all flex items-center justify-center space-x-2 cursor-pointer"
                         >
                           <Calendar className="w-4 h-4" />
-                          <span>Agendar Inspección de Campo</span>
+                          <span>{tieneSupervisorAsignado ? 'Gestionar Inspección' : 'Agendar / Asignar Supervisor'}</span>
                         </button>
 
-                        <button
-                          onClick={() => setModalAprobacionOpen(true)}
-                          className="w-full sm:flex-1 py-3 px-5 rounded-xl font-extrabold text-sm text-emerald-900 bg-[#c7f9cc] hover:bg-[#a7f3d0] border border-emerald-300 shadow-sm transition-all flex items-center justify-center space-x-2 cursor-pointer"
-                        >
-                          <Award className="w-4 h-4 text-emerald-700" />
-                          <span>Aprobar Trámite</span>
-                        </button>
+                        {puedeAprobarTramite ? (
+                          <button
+                            onClick={() => setModalAprobacionOpen(true)}
+                            className="w-full sm:flex-1 py-3 px-5 rounded-xl font-extrabold text-sm text-emerald-950 bg-[#c7f9cc] hover:bg-[#a7f3d0] border border-emerald-400 shadow-sm transition-all flex items-center justify-center space-x-2 cursor-pointer active:scale-98"
+                            title="Todos los requisitos y el acta técnica están aprobados. Haga clic para emitir la resolución."
+                          >
+                            <Award className="w-4 h-4 text-emerald-700" />
+                            <span>Aprobar Trámite y Emitir Resolución</span>
+                          </button>
+                        ) : (
+                          <div className="w-full sm:flex-1 flex flex-col justify-center">
+                            <button
+                              disabled
+                              className="w-full py-3 px-5 rounded-xl font-extrabold text-sm text-slate-400 bg-slate-100 border border-slate-200 cursor-not-allowed transition-all flex items-center justify-center space-x-2 opacity-80"
+                            >
+                              <Award className="w-4 h-4 text-slate-400" />
+                              <span>Aprobar Trámite y Emitir Resolución</span>
+                            </button>
+                            <div className="text-[11px] text-amber-800 bg-amber-50 border border-amber-200 px-3 py-1.5 rounded-lg mt-1.5 flex items-center space-x-1.5 font-medium">
+                              <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                              <span>{motivoBloqueoAprobacion}</span>
+                            </div>
+                          </div>
+                        )}
                       </div>
 
                     </div>

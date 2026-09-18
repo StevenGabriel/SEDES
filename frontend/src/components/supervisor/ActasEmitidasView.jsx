@@ -926,7 +926,7 @@ export default function ActasEmitidasView({ usuario, mostrarToast }) {
                 <label className="text-[11px] font-extrabold text-slate-700 block uppercase tracking-wider">
                   Dictamen / Resultado de Inspección:
                 </label>
-                <div className="grid grid-cols-3 gap-2.5">
+                <div className="grid grid-cols-2 gap-2.5">
 
                   <button
                     type="button"
@@ -940,22 +940,7 @@ export default function ActasEmitidasView({ usuario, mostrarToast }) {
                     `}
                   >
                     <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                    <span>Aprobado</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setFormResultado('Con Observaciones')}
-                    className={`
-                      py-2.5 px-3 rounded-xl border text-xs font-black transition flex flex-col items-center justify-center space-y-1 cursor-pointer
-                      ${formResultado === 'Con Observaciones'
-                        ? 'bg-amber-50 border-amber-500 text-amber-800 ring-2 ring-amber-200'
-                        : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
-                      }
-                    `}
-                  >
-                    <AlertTriangle className="w-4 h-4 text-amber-600" />
-                    <span>Con Obs.</span>
+                    <span>Aprobado (Favorable)</span>
                   </button>
 
                   <button
@@ -970,7 +955,7 @@ export default function ActasEmitidasView({ usuario, mostrarToast }) {
                     `}
                   >
                     <XCircle className="w-4 h-4 text-rose-600" />
-                    <span>Rechazado</span>
+                    <span>Rechazado (Desfavorable)</span>
                   </button>
 
                 </div>

@@ -42,6 +42,10 @@ class AsignarSupervisorRequest(BaseModel):
     supervisor_nombre: str
     responsable: Optional[str] = "Dra. Claudia Morales V."
 
+class NotificarReingresoRequest(BaseModel):
+    motivo: Optional[str] = "La inspección de campo no fue favorable. Debe subsanar las observaciones y cargar nuevamente todos los requisitos requeridos."
+    responsable: Optional[str] = "Dra. Claudia Morales V."
+
 # ==============================================================================
 # HELPERS DE SERIALIZACIÓN REAL DESDE BASE DE DATOS
 # ==============================================================================
@@ -115,7 +119,7 @@ def serializar_tramite_coordinador(tramite: models.Tramite, db: Session) -> dict
     # Observaciones del supervisor
     observaciones = []
     if ultima_inspeccion and ultima_inspeccion.veredicto_final:
-        observaciones.append(f"Veredicto emitido: {ultima_inspeccion.veredicto_final}.")
+        observaciones.append(f"Veredicto técnico emitido en acta: {ultima_inspeccion.veredicto_final}.")
     
     # Recoger observaciones de documentos observados
     for d in docs_db:
@@ -125,9 +129,9 @@ def serializar_tramite_coordinador(tramite: models.Tramite, db: Session) -> dict
     if not observaciones:
         if supervisor:
             observaciones.append(f"Trámite bajo fiscalización técnica de {supervisor.nombres} {supervisor.apellidos}.")
-            observaciones.append("Documentación cargada en plataforma lista para revisión técnica.")
+            observaciones.append("Documentación cargada en plataforma en espera de inspección in-situ.")
         else:
-            observaciones.append("Documentación digital ingresada por el propietario en espera de revisión y asignación.")
+            observaciones.append("Documentación digital ingresada por el propietario en espera de revisión y asignación de supervisor.")
 
     fecha_formateada = tramite.fecha_ingreso.strftime("%d %b %Y") if tramite.fecha_ingreso else (
         tramite.fecha_creacion.strftime("%d %b %Y") if tramite.fecha_creacion else datetime.now().strftime("%d %b %Y")
@@ -146,6 +150,32 @@ def serializar_tramite_coordinador(tramite: models.Tramite, db: Session) -> dict
         veredicto_sup = ultima_inspeccion.veredicto_final.upper()
 
     f_insp = ultima_inspeccion.fecha_programada.strftime("%d/%m/%Y") if (ultima_inspeccion and ultima_inspeccion.fecha_programada) else "Pendiente"
+    estado_insp = ultima_inspeccion.estado_inspeccion if ultima_inspeccion else "Pendiente"
+    acta_pdf = ultima_inspeccion.acta_pdf_url if ultima_inspeccion else None
+
+    # Validaciones de flujo:
+    total_docs_count = len(docs_db)
+    docs_aprobados_count = sum(1 for d in docs_db if (d.estado_validacion or "").lower() == "aprobado")
+    todos_docs_aprobados = (total_docs_count > 0 and docs_aprobados_count == total_docs_count)
+
+    veredicto_raw = ultima_inspeccion.veredicto_final if ultima_inspeccion else None
+    es_acta_aprobada = bool(
+        ultima_inspeccion and
+        veredicto_raw and
+        veredicto_raw.lower() in ["favorable", "aprobado"]
+    )
+    es_acta_rechazada = bool(
+        ultima_inspeccion and
+        veredicto_raw and
+        veredicto_raw.lower() in ["desfavorable", "rechazado"]
+    )
+    es_acta_con_observaciones = bool(
+        ultima_inspeccion and
+        veredicto_raw and
+        "observa" in veredicto_raw.lower()
+    )
+
+    puede_aprobar = (todos_docs_aprobados and (supervisor is not None) and es_acta_aprobada)
 
     return {
         "id": codigo_visual,
@@ -168,9 +198,19 @@ def serializar_tramite_coordinador(tramite: models.Tramite, db: Session) -> dict
         "supervisorAsignado": sup_nombre,
         "supervisor_id": str(supervisor.id) if supervisor else None,
         "fechaInspeccion": f_insp,
+        "estadoInspeccion": estado_insp,
+        "estado_inspeccion": estado_insp,
         "veredictoSupervisor": veredicto_sup,
+        "veredicto_supervisor_raw": veredicto_raw,
+        "acta_pdf_url": acta_pdf,
         "documentos": docs_serializados,
         "total_documentos": len(docs_serializados),
+        "docs_aprobados_count": docs_aprobados_count,
+        "todos_docs_aprobados": todos_docs_aprobados,
+        "inspeccion_aprobada": es_acta_aprobada,
+        "inspeccion_rechazada": es_acta_rechazada,
+        "inspeccion_con_observaciones": es_acta_con_observaciones,
+        "puede_aprobar": puede_aprobar,
         "observacionesSupervisor": observaciones
     }
 
@@ -423,6 +463,50 @@ def aprobar_tramite(
     if not tramite:
         raise HTTPException(status_code=404, detail="Trámite no encontrado.")
 
+    # 1. Validar que todos los documentos del trámite estén en estado 'Aprobado'
+    docs_db = db.query(models.TramiteDocumento).filter(
+        models.TramiteDocumento.tramite_id == tramite.id,
+        models.TramiteDocumento.estado == True
+    ).all()
+    if not docs_db:
+        raise HTTPException(
+            status_code=400,
+            detail="No se puede aprobar el trámite: El expediente no contiene documentos registrados."
+        )
+    
+    docs_no_aprobados = [d for d in docs_db if (d.estado_validacion or "").lower() != "aprobado"]
+    if docs_no_aprobados:
+        raise HTTPException(
+            status_code=400,
+            detail=f"No se puede aprobar el trámite: Existen {len(docs_no_aprobados)} documento(s) pendientes de aprobación o con observaciones."
+        )
+
+    # 2. Validar que un supervisor haya sido asignado
+    if not tramite.supervisor_asignado_id:
+        raise HTTPException(
+            status_code=400,
+            detail="No se puede aprobar el trámite: Debe asignar previamente un supervisor técnico para la inspección in-situ."
+        )
+
+    # 3. Validar que la inspección esté completada con acta oficial y veredicto Favorable (Aprobado)
+    ultima_inspeccion = db.query(models.Inspeccion).filter(
+        models.Inspeccion.tramite_id == tramite.id,
+        models.Inspeccion.estado == True
+    ).order_by(models.Inspeccion.fecha_creacion.desc()).first()
+
+    if not ultima_inspeccion or not ultima_inspeccion.veredicto_final:
+        raise HTTPException(
+            status_code=400,
+            detail="No se puede aprobar el trámite: El supervisor aún no ha emitido el acta oficial de inspección técnica."
+        )
+
+    veredicto_lower = (ultima_inspeccion.veredicto_final or "").lower()
+    if veredicto_lower not in ["favorable", "aprobado"]:
+        raise HTTPException(
+            status_code=400,
+            detail=f"No se puede aprobar el trámite: El veredicto técnico del acta es '{ultima_inspeccion.veredicto_final}'. Solo se permite aprobación con dictamen Favorable."
+        )
+
     tramite.estado_tramite = "Aprobado"
     if tramite.establecimiento:
         tramite.establecimiento.estado_operativo = "Habilitado"
@@ -463,6 +547,85 @@ def aprobar_tramite(
 
     return {
         "mensaje": f"¡Trámite {cod_trm} aprobado exitosamente! Resolución: {payload.codigo_resolucion}.",
+        "tramite": serializar_tramite_coordinador(tramite, db)
+    }
+
+@router.post("/tramites/{tramite_id}/notificar-reingreso", summary="Notificar al propietario tras inspección rechazada para reiniciar requisitos")
+def notificar_reingreso_requisitos(
+    tramite_id: str,
+    payload: Optional[NotificarReingresoRequest] = None,
+    db: Session = Depends(get_db)
+):
+    """Notifica al propietario que la inspección fue desfavorable y que debe subsanar y volver a subir sus requisitos."""
+    tramite = None
+    try:
+        t_uuid = uuid.UUID(tramite_id)
+        tramite = db.query(models.Tramite).filter(models.Tramite.id == t_uuid).first()
+    except ValueError:
+        pass
+
+    if not tramite:
+        clean_code = tramite_id.replace("TRM-", "").replace("REQ-", "").strip().lower()
+        tramites = db.query(models.Tramite).filter(models.Tramite.estado == True).all()
+        for t in tramites:
+            if str(t.id).lower().startswith(clean_code):
+                tramite = t
+                break
+
+    if not tramite:
+        raise HTTPException(status_code=404, detail="Trámite no encontrado.")
+
+    motivo = payload.motivo if (payload and payload.motivo) else "La fiscalización técnica in situ resultó Desfavorable. Se requiere subsanación y reingreso de requisitos."
+    responsable = payload.responsable if (payload and payload.responsable) else "Dra. Claudia Morales V."
+
+    tramite.estado_tramite = "Rechazado - Requiere Reingreso"
+
+    # Marcar los documentos como observados para habilitar su recarga por parte del usuario
+    docs_db = db.query(models.TramiteDocumento).filter(
+        models.TramiteDocumento.tramite_id == tramite.id,
+        models.TramiteDocumento.estado == True
+    ).all()
+    for d in docs_db:
+        d.estado_validacion = "Observado"
+        d.observaciones_supervisor = f"Reingreso requerido por acta de inspección rechazada: {motivo}"
+
+    db.commit()
+    db.refresh(tramite)
+
+    estab_nombre = tramite.establecimiento.nombre_comercial if tramite.establecimiento else "Establecimiento"
+    cod_trm = f"TRM-{str(tramite.id)[:8].upper()}"
+    ahora_formato = datetime.now().strftime("%d %b %Y - %H:%M")
+
+    # Auditoría
+    nuevo_log = models.HistorialActividad(
+        id=uuid.uuid4(),
+        codigo_tramite=cod_trm,
+        establecimiento=estab_nombre,
+        accion=f"Notificación de inspección rechazada enviada al propietario. Trámite reiniciado para reingreso de requisitos. Motivo: {motivo}",
+        responsable=responsable,
+        estado_resultado="Rechazado",
+        estado_badge="bg-rose-50 text-rose-700 border-rose-200",
+        fecha_hora_formato=ahora_formato
+    )
+    db.add(nuevo_log)
+
+    # Notificación al propietario
+    try:
+        from notificaciones import crear_notificacion_db
+        if tramite.establecimiento and tramite.establecimiento.propietario_id:
+            crear_notificacion_db(
+                db,
+                usuario_id=tramite.establecimiento.propietario_id,
+                titulo="❌ Inspección de Campo Rechazada - Reingreso de Requisitos Requerido",
+                mensaje=f"La fiscalización técnica in-situ para '{estab_nombre}' ha sido RECHAZADA. Motivo: {motivo}. Debe ingresar a la plataforma y volver a subir todos sus requisitos actualizados para reiniciar la evaluación de su trámite."
+            )
+    except Exception as e:
+        print(f"Error al notificar reingreso de requisitos: {e}")
+
+    db.commit()
+
+    return {
+        "mensaje": f"Notificación enviada al propietario de '{estab_nombre}'. El trámite ha sido reiniciado para la recarga de requisitos.",
         "tramite": serializar_tramite_coordinador(tramite, db)
     }
 
