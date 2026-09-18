@@ -207,11 +207,17 @@ class CitacionInfraccion(Base):
     __tablename__ = "citaciones_infracciones"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
+    numero_citacion = Column(String(50), nullable=True)
+    tipo_inspeccion = Column(String(100), default="Inspección de Infracción", nullable=True)
     establecimiento_id = Column(UUID(as_uuid=True), ForeignKey("establecimientos.id"), nullable=False)
     supervisor_id = Column(UUID(as_uuid=True), ForeignKey("usuarios.id"), nullable=False)
+    inspeccion_id = Column(UUID(as_uuid=True), ForeignKey("inspecciones.id"), nullable=True)
     motivo_citacion = Column(Text, nullable=False)
     evidencia_foto_url = Column(String(500), nullable=True)
     fecha_emision = Column(Date, default=func.current_date(), nullable=False)
+    alerta_5_dias = Column(Boolean, default=True, nullable=False)
+    alerta_10_dias = Column(Boolean, default=False, nullable=False)
+    alerta_15_dias = Column(Boolean, default=False, nullable=False)
     alerta_enviada = Column(Boolean, default=False, nullable=False)
 
     # Columnas de Auditoría
@@ -222,6 +228,7 @@ class CitacionInfraccion(Base):
     # Relaciones
     establecimiento = relationship("Establecimiento", back_populates="citaciones")
     supervisor = relationship("Usuario", back_populates="citaciones_emitidas")
+    inspeccion = relationship("Inspeccion")
 
 
 # ==============================================================================

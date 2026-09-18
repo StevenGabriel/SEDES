@@ -2,7 +2,105 @@
 
 ---
 
-## [2026-09-11] Optimización del Flujo de Observaciones / Subsanaciones, Redirección de Inspección y Rediseño Integral de Notificaciones
+## [2026-09-18] Homologación del Visor de Documentos/PDF en Citaciones Emitidas (Estilo Actas Oficiales) y Sincronización de Dependencias Docker
+
+### 📌 Objetivos
+1. **Resolución y Estabilización de Dependencias en Contenedores Docker:** Subsanar el error de resolución de módulos en Vite (`Failed to resolve import "jspdf-autotable"`), garantizando la correcta instalación y sincronización de las librerías `jspdf` y `jspdf-autotable` dentro del volumen de dependencias del contenedor de desarrollo (`sedes-frontend-1`).
+2. **Verificación y Trazabilidad de Registros Reales en PostgreSQL (Neon Cloud):** Auditar el origen de los datos presentados en el historial de citaciones emitidas (registro `CT-2026-001` de *Laboratorio Clínico Boliviano*), constatando la persistencia directa de la base de datos relacional y el descarte absoluto de mocks o datos estáticos en el frontend.
+3. **Rediseño Integral del Visor de Adjuntos y Documentos (Homologación con Actas):** Transformar la sección de **Adjuntos** en el formulario de registro de citaciones (`CitacionesEmitidasView.jsx`) para replicar con exactitud el estándar visual y funcional del módulo de **Actas de Inspección** (`NuevaActaFormView.jsx`), incorporando previsualización interactiva en tiempo real para documentos escaneados en formato PDF (ej. CamScanner) e imágenes fotográficas de alta resolución.
+4. **Experiencia de Usuario y Acciones de Archivo:** Implementar la barra de herramientas de documentos: botón interactivo *Subir archivo*, botón *Ver PDF / Documento* (apertura en nueva pestaña), botón *Quitar documento* con advertencia/limpieza inmediata, y etiqueta verde con el nombre del archivo cargado.
+
+---
+
+### 🛠️ Archivos Modificados y Desarrollados
+
+#### 1. `frontend/src/components/supervisor/CitacionesEmitidasView.jsx` [MODIFICADO]
+* **Visor Interactivo de Documentos Integrado (Iframe embebido de 650px):**
+  * Se sustituyó la tarjeta estática de archivo por un visor central responsivo (`min-h-[480px]`) con `iframe` de 650px de altura para documentos PDF y renderizador con escala optimizada para fotografías/imágenes.
+  * Permite al supervisor técnico revisar, hojear páginas y hacer zoom sobre el acta escaneada o evidencia directamente en el formulario antes de guardar.
+* **Barra de Acciones de Documento (Estilo Actas):**
+  * Integración de botones con diseño idéntico a `NuevaActaFormView`:
+    * Botón **"Subir archivo"** con selector universal de imágenes y documentos PDF (`.pdf,image/png,image/jpeg,image/webp`).
+    * Botón **"Ver PDF / Ver Documento"** con icono `Eye` para consulta en pantalla completa.
+    * Botón **"Quitar documento"** (`#e53e3e` / `Trash2`) con deshabilitación inteligente y limpieza de referencias.
+    * Indicador con badge verde de confirmación (`✓ [nombre_archivo]`).
+* **Manejo de Blob URLs y Carga Asíncrona:**
+  * Generación inmediata de `URL.createObjectURL` para renderizado instantáneo en el visor del cliente en paralelo con la subida al servidor FastAPI (`/api/supervisor/subir-evidencia-citacion`).
+* **Visor en Modal de Detalle de Citación:**
+  * Actualización del modal de consulta (`modalDetalleOpen`) para renderizar el documento PDF embebido o imagen fotográfica con enlace directo para apertura completa.
+
+#### 2. `frontend/package.json` & Entorno Docker [SINCRONIZADO]
+* Ejecución de instalación interna de `jspdf-autotable` y `jspdf` en el contenedor `sedes-frontend-1` (`docker compose exec frontend npm install jspdf-autotable jspdf`).
+* Re-optimización de dependencias en Vite y confirmación de build limpio sin advertencias de importación.
+
+---
+
+### 📊 Verificación y Pruebas Realizadas
+* **Prueba de Carga y Previsualización de PDF:** Se cargó un archivo escaneado de CamScanner en formato PDF comprobando su renderizado nítido en el visor interactivo de 650px.
+* **Prueba de Botones de Acción:** Se verificaron las funciones *Subir archivo*, *Ver PDF* (apertura en nueva pestaña) y *Quitar documento* (retorno al placeholder inicial con iconografía institucional).
+* **Persistencia en Neon PostgreSQL:** Se confirmó que la URL pública de la evidencia se asocia correctamente al registro en la tabla `citaciones_infracciones`.
+* **Hot Module Replacement (HMR):** Vite procesó las actualizaciones en `/src/components/supervisor/CitacionesEmitidasView.jsx` con 0 errores en consola.
+
+---
+
+## [2026-09-17] Implementación Integral del Módulo de Citaciones Emitidas por Infracción (Panel del Supervisor + Registro con Alertas + Base de Datos Real)
+
+### 📌 Objetivos
+1. **Implementación de la Vista de Citaciones Emitidas (`/supervisor/citaciones-emitidas`):** Desarrollar la interfaz visual completa del historial de citaciones sanitarias para el Supervisor Técnico, replicando fielmente el diseño institucional de Figma: cabecera con acciones ("Exportar Reporte", "Registrar Acta"), barra de filtros interactiva (búsqueda por código/establecimiento, selector de resultado, selector mensual y botón "Filtrar"), tabla de historial con badge contador, columnas oficiales y paginación ergonómica.
+2. **Historial Estricto de Citaciones Rechazadas:** Garantizar que en el historial de citaciones se listen únicamente los registros dictaminados con veredicto o resultado **"Rechazado"** por infracciones sanitarias o incumplimiento normativo, utilizando exclusivamente datos reales registrados en la base de datos PostgreSQL (`citaciones_infracciones` e `inspecciones`), sin datos falsos ni mocks.
+3. **Formulario de Emisión "Registrar Citación":** Crear el formulario interactivo de registro de citaciones dividido en 4 secciones funcionales:
+   * **Sección 1 (Establecimiento):** Selector desplegable con establecimientos reales de la BD y autocompletado de nombre, dirección y municipio.
+   * **Sección 2 (Citación):** Correlativo sugerido automático (ej. `CT-2026-001`), selector de fecha de emisión y campo de motivo/infracción observada.
+   * **Sección 3 (Adjuntos):** Carga y almacenamiento en servidor de evidencia fotográfica o informe en PDF con área de vista previa y botón para remover.
+   * **Sección 4 (Alertas automáticas):** Switches interactivos para configurar alertas de 5 días antes (notificación al supervisor y establecimiento), 10 días antes (recordatorio de subsanación) y 15 días antes (sanciones administrativas).
+4. **Backend y Persistencia en PostgreSQL (FastAPI + SQLAlchemy):** Implementar y exponer los endpoints RESTful para consulta paginada con filtros, listado de establecimientos, subida de evidencias a disco (`/uploads/citaciones/`) y registro con trazabilidad en auditoría (`historial_actividades`) y mensajería (`notificaciones`).
+5. **Visor de Detalle y Exportación de Reportes:** Integrar modal de consulta detallada con visualizador de evidencias fotográficas/documentales y exportador de reportes en formato CSV/Excel compatible con hojas de cálculo.
+
+---
+
+### 🛠️ Archivos Creados y Modificados
+
+#### 1. `backend/models.py` [MODIFICADO]
+* **Ampliación del Modelo `CitacionInfraccion`:**
+  * Se añadieron las columnas `numero_citacion` (VARCHAR 50), `tipo_inspeccion` (VARCHAR 100), `inspeccion_id` (UUID ForeignKey a `inspecciones.id`), `alerta_5_dias` (Boolean default True), `alerta_10_dias` (Boolean default False) y `alerta_15_dias` (Boolean default False).
+  * Se definió la relación ORM con el modelo `Inspeccion`.
+
+#### 2. `backend/supervisor.py` [MODIFICADO]
+* **Schema de Entrada Pydantic:**
+  * Se creó `RegistrarCitacionRequest` con validaciones de campos requeridos (establecimiento, motivo de citación, fecha de emisión, tipo de inspección, evidencia y switches de alerta).
+* **Endpoints API REST:**
+  * `GET /api/supervisor/{supervisor_id}/citaciones`: Consulta paginada y filtrada (búsqueda por texto, resultado y mes/año) que recupera únicamente registros con resultado `"Rechazado"`.
+  * `GET /api/supervisor/{supervisor_id}/establecimientos-citacion`: Retorna los establecimientos registrados en la base de datos con sus respectivos propietarios y direcciones.
+  * `POST /api/supervisor/registrar-citacion`: Inserta el registro en `citaciones_infracciones`, genera el registro de trazabilidad en `historial_actividades` y dispara la notificación correspondiente en `notificaciones`.
+  * `POST /api/supervisor/subir-evidencia-citacion`: Almacena el archivo fotográfico o documento PDF de la evidencia en `uploads/citaciones/` y retorna la URL pública de acceso.
+
+#### 3. `frontend/src/components/supervisor/CitacionesEmitidasView.jsx` [NUEVO / CREADO]
+* **Vista de Historial de Citaciones:**
+  * Encabezado con título "Citaciones Emitidas", subtítulo institucional y botones "Exportar Reporte" y "Registrar Acta".
+  * Barra de filtros con buscador dinámico, dropdown de estado, selector de mes y botón "Filtrar".
+  * Tabla con insignia de conteo de actas/citaciones emitidas, filas con badge rojo `Rechazado` y botón `Ver`.
+  * Paginación dinámica que calcula el rango mostrado sobre el total de registros reales.
+  * Modal detallado con datos de la citación, motivo técnico, visualizador de imagen/PDF de evidencia y estado de alertas.
+  * Modal de exportación de reporte en formato CSV descargable.
+* **Vista de Formulario de Registro:**
+  * Formulario estructurado en 4 secciones exactas a la maqueta de Figma (Establecimiento, Citación, Adjuntos y Alertas automáticas con switches interactivos).
+  * Conexión asíncrona a los endpoints de subida de archivos y guardado en base de datos con feedback visual mediante notificaciones toast.
+
+#### 4. `frontend/src/pages/SupervisorPage.jsx` [MODIFICADO]
+* **Integración en el Enrutador del Supervisor:**
+  * Importación de `CitacionesEmitidasView`.
+  * Renderizado condicional en el contenedor principal cuando `seccionActiva === 'citaciones-emitidas'`.
+  * Sincronización con el ítem de navegación lateral activo.
+
+---
+
+### 📊 Verificación y Pruebas Realizadas
+* **Base de Datos PostgreSQL (Neon):** Se verificó la ejecución de las migraciones de columnas y la persistencia de citaciones vinculadas a los establecimientos registrados en el sistema.
+* **Prueba de Endpoints Backend:** Se validó la ejecución de `GET /citaciones`, `GET /establecimientos-citacion` y `POST /registrar-citacion` retornando status HTTP 200 con formato JSON íntegro.
+* **Compilación Frontend:** Ejecución exitosa de `npm run build` con 0 errores y 2047 módulos transformados correctamente por Vite.
+* **Navegación Fluida:** Verificación del flujo de apertura del formulario, subida de evidencias, selección de establecimientos, guardado y retorno automático al historial actualizado.
+
+---
 
 ### 📌 Objetivos
 1. **Flujo y Limpieza Automática de Observaciones Técnicas:** Garantizar que cuando un documento es observado o rechazado por Coordinación, al momento en que el Propietario vuelve a subir el PDF corregido (subsanación), las observaciones previas se limpien automáticamente en PostgreSQL (`observaciones_supervisor = None`) y el documento pase a estado *"En Revisión"*. Asimismo, asegurar que tanto en la vista del Propietario como en la del Coordinador desaparezcan las notas de observación roja y avisos residuales al subsanar o aprobar el documento.

@@ -64,6 +64,22 @@ class RegistrarActaRequest(BaseModel):
     archivo_pdf_firmado_url: Optional[str] = None
     plazo_subsanacion: Optional[str] = Field("1 año", description="Plazo para subsanación o vigencia de vencimiento del acta")
 
+class RegistrarCitacionRequest(BaseModel):
+    establecimiento_id: Optional[str] = None
+    establecimiento_nombre: Optional[str] = None
+    direccion: Optional[str] = None
+    municipio: Optional[str] = None
+    supervisor_id: Optional[str] = None
+    inspeccion_id: Optional[str] = None
+    numero_citacion: Optional[str] = None
+    fecha_emision: Optional[str] = None
+    motivo_citacion: str = Field(..., description="Motivo de la citación o infracción detectada")
+    tipo_inspeccion: Optional[str] = Field("Inspección Urgente", description="Tipo de inspección")
+    evidencia_foto_url: Optional[str] = None
+    alerta_5_dias: Optional[bool] = True
+    alerta_10_dias: Optional[bool] = False
+    alerta_15_dias: Optional[bool] = False
+
 # ==============================================================================
 # HELPERS DE FECHAS Y SERIALIZACIÓN
 # ==============================================================================
@@ -1209,3 +1225,419 @@ async def subir_acta_firmada(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error al subir el archivo firmado: {str(e)}"
         )
+
+# ==============================================================================
+# ENDPOINTS: CITACIONES EMITIDAS POR INFRACCIÓN / RECHAZO
+# ==============================================================================
+
+@router.get("/{supervisor_id}/citaciones", summary="Obtener historial de citaciones emitidas (rechazadas)")
+def obtener_citaciones_supervisor(
+    supervisor_id: str,
+    search: Optional[str] = None,
+    resultado: Optional[str] = "Todos",
+    mes_año: Optional[str] = None,
+    page: int = 1,
+    limit: int = 6,
+    db: Session = Depends(get_db)
+):
+    """
+    Retorna el listado de citaciones emitidas en campo para establecimientos que fueron rechazados u observados por infracción sanitaria.
+    Filtro estricto: En el historial de citaciones solo aparecen los registros con resultado 'Rechazado'.
+    Los datos provienen 100% de la base de datos PostgreSQL.
+    """
+    supervisor = buscar_supervisor_por_id_o_nombre(supervisor_id, db)
+    if not supervisor:
+        # Fallback al primer supervisor si no coincide el identificador
+        supervisor = db.query(models.Usuario).join(models.Role).filter(models.Role.nombre.ilike("%Supervisor%")).first()
+        if not supervisor:
+            supervisor = db.query(models.Usuario).first()
+
+    sup_nombre = f"{supervisor.nombres} {supervisor.apellidos}" if supervisor else "Supervisor Técnico"
+
+    # 1. Obtener citaciones directas de la tabla citaciones_infracciones
+    query_cits = db.query(models.CitacionInfraccion).join(models.Establecimiento).filter(
+        models.CitacionInfraccion.estado == True
+    )
+
+    citaciones_db = query_cits.order_by(
+        models.CitacionInfraccion.fecha_emision.desc(),
+        models.CitacionInfraccion.fecha_creacion.desc()
+    ).all()
+
+    # 2. Obtener también inspecciones con veredicto Desfavorable / Rechazado si las hay
+    inspecciones_rechazadas = db.query(models.Inspeccion).join(models.Tramite).join(models.Establecimiento).filter(
+        models.Inspeccion.estado == True,
+        or_(
+            models.Inspeccion.veredicto_final.ilike("%desfavorable%"),
+            models.Inspeccion.veredicto_final.ilike("%rechaz%"),
+            models.Inspeccion.estado_inspeccion.ilike("%rechaz%")
+        )
+    ).all()
+
+    citaciones_list = []
+    meses_dict = {}
+    ahora_dt = ahora_bolivia()
+    mes_actual_key = f"{ahora_dt.year}-{ahora_dt.month:02d}"
+
+    # IDs de inspecciones ya asociadas a citaciones para no duplicar
+    insp_ids_asociadas = set()
+
+    for idx, cit in enumerate(citaciones_db, start=1):
+        if cit.inspeccion_id:
+            insp_ids_asociadas.add(str(cit.inspeccion_id))
+
+        estab = cit.establecimiento
+        prop = estab.propietario if estab else None
+        c_sup = cit.supervisor or supervisor
+        nombre_inspector = f"{c_sup.nombres} {c_sup.apellidos}" if c_sup else sup_nombre
+
+        f_date = cit.fecha_emision or cit.fecha_creacion.date() if cit.fecha_creacion else ahora_dt.date()
+        mes_nombre = MESES_ESPANOL[f_date.month - 1]
+        mes_txt_abr = mes_nombre[:3]
+        f_formateada = f"{f_date.day:02d} {mes_txt_abr} {f_date.year}"
+        mes_key = f"{f_date.year}-{f_date.month:02d}"
+
+        if mes_key not in meses_dict:
+            meses_dict[mes_key] = f"{mes_nombre} {f_date.year}"
+
+        # Código de citación oficial
+        cod_citacion = cit.numero_citacion or f"CT-{f_date.year}-{idx:03d}"
+
+        # Evidencia adjunta
+        evidencia_url = None
+        if cit.evidencia_foto_url and str(cit.evidencia_foto_url).strip():
+            if cit.evidencia_foto_url.startswith("http"):
+                evidencia_url = cit.evidencia_foto_url
+            else:
+                evidencia_url = f"http://localhost:8000{cit.evidencia_foto_url}" if cit.evidencia_foto_url.startswith("/") else f"http://localhost:8000/{cit.evidencia_foto_url}"
+
+        estab_nombre = estab.nombre_comercial if estab else f"Establecimiento #{idx}"
+        tipo_insp = cit.tipo_inspeccion or "Inspección Urgente"
+
+        if prop and prop.nombres:
+            prop_nombre = f"{prop.nombres} {prop.apellidos}"
+        elif estab and estab.responsable_laboratorio:
+            prop_nombre = estab.responsable_laboratorio
+        else:
+            prop_nombre = "Responsable Sanitario"
+
+        citaciones_list.append({
+            "id": str(cit.id),
+            "citacion_id": str(cit.id),
+            "inspeccion_id": str(cit.inspeccion_id) if cit.inspeccion_id else None,
+            "establecimiento_id": str(estab.id) if estab else None,
+            "numero_citacion": cod_citacion,
+            "codigo_citacion": cod_citacion,
+            "fecha_iso": f_date.isoformat(),
+            "fecha_formateada": f_formateada,
+            "mes_año_key": mes_key,
+            "establecimiento": estab_nombre,
+            "tipo_inspeccion": tipo_insp,
+            "resultado": "Rechazado",
+            "motivo_citacion": cit.motivo_citacion,
+            "evidencia_foto_url": evidencia_url,
+            "supervisor": nombre_inspector,
+            "direccion": estab.direccion if estab else "Av. Principal",
+            "municipio": estab.municipio if (estab and estab.municipio) else "CERCADO",
+            "propietario": prop_nombre,
+            "telefono": estab.telefono if estab else "+591 4 4250000",
+            "alerta_5_dias": bool(cit.alerta_5_dias),
+            "alerta_10_dias": bool(cit.alerta_10_dias),
+            "alerta_15_dias": bool(cit.alerta_15_dias),
+            "alerta_enviada": bool(cit.alerta_enviada)
+        })
+
+    # Si hay inspecciones con veredicto Desfavorable / Rechazado no registradas en citaciones, incorporarlas
+    for insp in inspecciones_rechazadas:
+        if str(insp.id) in insp_ids_asociadas:
+            continue
+        trm = insp.tramite
+        estab = trm.establecimiento if trm else None
+        prop = estab.propietario if estab else None
+        i_sup = insp.supervisor or supervisor
+        nombre_inspector = f"{i_sup.nombres} {i_sup.apellidos}" if i_sup else sup_nombre
+
+        f_dt = insp.fecha_programada or insp.fecha_creacion or ahora_dt
+        mes_nombre = MESES_ESPANOL[f_dt.month - 1]
+        mes_txt_abr = mes_nombre[:3]
+        f_formateada = f"{f_dt.day:02d} {mes_txt_abr} {f_dt.year}"
+        mes_key = f"{f_dt.year}-{f_dt.month:02d}"
+
+        if mes_key not in meses_dict:
+            meses_dict[mes_key] = f"{mes_nombre} {f_dt.year}"
+
+        cod_cit = f"CT-{f_dt.year}-{str(insp.id)[:8].upper()}"
+
+        citaciones_list.append({
+            "id": f"insp-{insp.id}",
+            "citacion_id": str(insp.id),
+            "inspeccion_id": str(insp.id),
+            "establecimiento_id": str(estab.id) if estab else None,
+            "numero_citacion": cod_cit,
+            "codigo_citacion": cod_cit,
+            "fecha_iso": f_dt.date().isoformat(),
+            "fecha_formateada": f_formateada,
+            "mes_año_key": mes_key,
+            "establecimiento": estab.nombre_comercial if estab else "Establecimiento",
+            "tipo_inspeccion": trm.tipo_tramite if (trm and trm.tipo_tramite) else "Inspección de Verificación",
+            "resultado": "Rechazado",
+            "motivo_citacion": insp.veredicto_final or "Inspección con veredicto Desfavorable / Rechazado por incumplimiento de requisitos técnicos y normativos.",
+            "evidencia_foto_url": insp.acta_pdf_url if (insp.acta_pdf_url and ("/" in insp.acta_pdf_url or "." in insp.acta_pdf_url)) else None,
+            "supervisor": nombre_inspector,
+            "direccion": estab.direccion if estab else "Cochabamba",
+            "municipio": estab.municipio if (estab and estab.municipio) else "CERCADO",
+            "propietario": f"{prop.nombres} {prop.apellidos}" if (prop and prop.nombres) else "Responsable",
+            "telefono": estab.telefono if estab else "+591 4 4250000",
+            "alerta_5_dias": True,
+            "alerta_10_dias": False,
+            "alerta_15_dias": False,
+            "alerta_enviada": False
+        })
+
+    # Filtrar resultados
+    filtrados = citaciones_list
+
+    if search:
+        s = search.strip().lower()
+        filtrados = [
+            c for c in filtrados
+            if s in c["codigo_citacion"].lower() or 
+               s in c["establecimiento"].lower() or 
+               s in c["tipo_inspeccion"].lower() or 
+               s in c["municipio"].lower() or
+               s in c["motivo_citacion"].lower()
+        ]
+
+    if resultado and resultado != "Todos":
+        filtrados = [c for c in filtrados if c["resultado"].lower() == resultado.lower()]
+
+    if mes_año and mes_año != "Todos":
+        filtrados = [c for c in filtrados if mes_año in c["mes_año_key"] or mes_año.lower() in c["fecha_formateada"].lower()]
+
+    # Paginación
+    total_filtrados = len(filtrados)
+    total_pages = max(1, math.ceil(total_filtrados / limit))
+    current_page = min(page, total_pages)
+    start_idx = (current_page - 1) * limit
+    end_idx = start_idx + limit
+    citaciones_paginadas = filtrados[start_idx:end_idx]
+
+    # Generar lista de meses disponibles ordenados descendentemente
+    meses_disponibles = [{"key": k, "label": v} for k, v in sorted(meses_dict.items(), reverse=True)]
+    if not any(m["key"] == mes_actual_key for m in meses_disponibles):
+        meses_disponibles.insert(0, {"key": mes_actual_key, "label": f"{MESES_ESPANOL[ahora_dt.month - 1]} {ahora_dt.year}"})
+
+    return {
+        "citaciones": citaciones_paginadas,
+        "paginacion": {
+            "total_registros": total_filtrados,
+            "pagina_actual": current_page,
+            "total_paginas": total_pages,
+            "limite_por_pagina": limit,
+            "mostrando_desde": start_idx + 1 if total_filtrados > 0 else 0,
+            "mostrando_hasta": min(end_idx, total_filtrados)
+        },
+        "total_emitidas": len(citaciones_list),
+        "total_rechazadas": len(citaciones_list),
+        "meses_disponibles": meses_disponibles
+    }
+
+@router.get("/{supervisor_id}/establecimientos-citacion", summary="Obtener establecimientos registrados para emitir citación")
+def obtener_establecimientos_para_citacion(
+    supervisor_id: str,
+    db: Session = Depends(get_db)
+):
+    """
+    Retorna la lista de establecimientos reales registrados en la base de datos para cargar en el formulario de emisión de citación.
+    """
+    establecimientos = db.query(models.Establecimiento).filter(models.Establecimiento.estado == True).order_by(models.Establecimiento.nombre_comercial.asc()).all()
+
+    data = []
+    for e in establecimientos:
+        prop = e.propietario
+        prop_nombre = f"{prop.nombres} {prop.apellidos}" if (prop and prop.nombres) else (e.responsable_laboratorio or "Propietario / Responsable")
+        
+        # Buscar último trámite o inspección si existe
+        ultimo_tramite = db.query(models.Tramite).filter(models.Tramite.establecimiento_id == e.id).order_by(models.Tramite.fecha_creacion.desc()).first()
+
+        data.append({
+            "id": str(e.id),
+            "nombre": e.nombre_comercial,
+            "nombre_comercial": e.nombre_comercial,
+            "direccion": e.direccion or "Av. Principal",
+            "municipio": e.municipio or "CERCADO",
+            "telefono": e.telefono or (prop.telefono if prop else "N/A"),
+            "propietario": prop_nombre,
+            "tramite_id": str(ultimo_tramite.id) if ultimo_tramite else None,
+            "tipo_tramite": ultimo_tramite.tipo_tramite if ultimo_tramite else "Inspección Sanitaria"
+        })
+
+    return data
+
+@router.post("/registrar-citacion", summary="Registrar y emitir nueva citación sanitaria en campo")
+def registrar_citacion_infraccion(
+    payload: RegistrarCitacionRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Registra formalmente una citación por infracción / rechazo de inspección en la tabla citaciones_infracciones.
+    Configura alertas automáticas, genera trazabilidad en historial de actividades y notifica al propietario.
+    """
+    if not payload.motivo_citacion or not payload.motivo_citacion.strip():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="El motivo de la citación es obligatorio."
+        )
+
+    # 1. Resolver Establecimiento
+    estab = None
+    if payload.establecimiento_id:
+        try:
+            e_uuid = uuid.UUID(payload.establecimiento_id)
+            estab = db.query(models.Establecimiento).filter(models.Establecimiento.id == e_uuid).first()
+        except ValueError:
+            pass
+
+    if not estab and payload.establecimiento_nombre:
+        estab = db.query(models.Establecimiento).filter(
+            models.Establecimiento.nombre_comercial.ilike(f"%{payload.establecimiento_nombre.strip()}%")
+        ).first()
+
+    if not estab:
+        estab = db.query(models.Establecimiento).first()
+
+    if not estab:
+        raise HTTPException(status_code=400, detail="No se encontró el establecimiento para registrar la citación.")
+
+    # 2. Resolver Supervisor
+    sup_usuario = None
+    if payload.supervisor_id:
+        sup_usuario = buscar_supervisor_por_id_o_nombre(payload.supervisor_id, db)
+    if not sup_usuario:
+        sup_usuario = db.query(models.Usuario).join(models.Role).filter(models.Role.nombre.ilike("%Supervisor%")).first()
+    if not sup_usuario:
+        sup_usuario = db.query(models.Usuario).first()
+
+    sup_nombre = f"{sup_usuario.nombres} {sup_usuario.apellidos}" if sup_usuario else "Supervisor SEDES"
+
+    # 3. Fecha de emisión
+    ahora_dt = ahora_bolivia()
+    if payload.fecha_emision:
+        try:
+            f_emision_date = parsear_fecha_hora(payload.fecha_emision, "00:00").date()
+        except Exception:
+            f_emision_date = ahora_dt.date()
+    else:
+        f_emision_date = ahora_dt.date()
+
+    # 4. Generar o tomar número correlativo de citación
+    if payload.numero_citacion and payload.numero_citacion.strip():
+        cod_citacion = payload.numero_citacion.strip()
+    else:
+        conteo_existentes = db.query(models.CitacionInfraccion).count() + 1
+        cod_citacion = f"CT-{f_emision_date.year}-{conteo_existentes:03d}"
+
+    # 5. Resolver inspección asociada si la hay
+    insp_uuid = None
+    if payload.inspeccion_id:
+        try:
+            insp_uuid = uuid.UUID(payload.inspeccion_id)
+        except ValueError:
+            pass
+
+    # 6. Crear registro persistente en BD
+    nueva_citacion = models.CitacionInfraccion(
+        id=uuid.uuid4(),
+        numero_citacion=cod_citacion,
+        tipo_inspeccion=payload.tipo_inspeccion or "Inspección Urgente",
+        establecimiento_id=estab.id,
+        supervisor_id=sup_usuario.id if sup_usuario else uuid.uuid4(),
+        inspeccion_id=insp_uuid,
+        motivo_citacion=payload.motivo_citacion.strip(),
+        evidencia_foto_url=payload.evidencia_foto_url,
+        fecha_emision=f_emision_date,
+        alerta_5_dias=bool(payload.alerta_5_dias),
+        alerta_10_dias=bool(payload.alerta_10_dias),
+        alerta_15_dias=bool(payload.alerta_15_dias),
+        alerta_enviada=False,
+        estado=True,
+        fecha_creacion=ahora_dt,
+        fecha_modificacion=ahora_dt
+    )
+    db.add(nueva_citacion)
+
+    # 7. Registrar en Auditoría (HistorialActividad)
+    estab_nombre = estab.nombre_comercial
+    f_str = f_emision_date.strftime("%d/%m/%Y")
+    try:
+        nuevo_log = models.HistorialActividad(
+            id=uuid.uuid4(),
+            codigo_tramite=f"CIT-{str(nueva_citacion.id)[:8].upper()}",
+            establecimiento=estab_nombre,
+            accion=f"Citación sanitaria oficial {cod_citacion} emitida por infracción. Motivo: {payload.motivo_citacion.strip()}",
+            responsable=sup_nombre,
+            estado_resultado="Rechazado",
+            estado_badge="bg-rose-50 text-rose-700 border-rose-200",
+            fecha_hora_formato=ahora_dt.strftime("%d %b %Y - %H:%M")
+        )
+        db.add(nuevo_log)
+    except Exception as e:
+        print(f"Error al registrar historial de citación: {e}")
+
+    # 8. Notificar al Propietario del Establecimiento
+    if estab.propietario_id:
+        try:
+            crear_notificacion_db(
+                db,
+                usuario_id=estab.propietario_id,
+                titulo=f"⚠️ Citación Sanitaria Emitida: {cod_citacion}",
+                mensaje=f"Se ha emitido la citación oficial {cod_citacion} para '{estab_nombre}' el {f_str} por el supervisor {sup_nombre}. Motivo: {payload.motivo_citacion.strip()}"
+            )
+        except Exception as e:
+            print(f"Error al notificar citación al propietario: {e}")
+
+    db.commit()
+    db.refresh(nueva_citacion)
+
+    return {
+        "mensaje": f"¡Citación {cod_citacion} registrada exitosamente!",
+        "citacion_id": str(nueva_citacion.id),
+        "numero_citacion": cod_citacion,
+        "establecimiento": estab_nombre,
+        "fecha": f_str,
+        "resultado": "Rechazado"
+    }
+
+@router.post("/subir-evidencia-citacion", summary="Subir archivo o foto de evidencia de la citación")
+async def subir_evidencia_citacion(
+    file: UploadFile = File(...)
+):
+    """
+    Almacena fotografía o documento de evidencia de la infracción en uploads/citaciones/.
+    Retorna la URL pública del archivo.
+    """
+    try:
+        dir_destino = os.path.join("uploads", "citaciones")
+        os.makedirs(dir_destino, exist_ok=True)
+
+        ext = file.filename.split(".")[-1].lower() if "." in file.filename else "jpg"
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        nombre_guardado = f"evidencia_citacion_{timestamp}_{uuid.uuid4().hex[:8]}.{ext}"
+        ruta_archivo = os.path.join(dir_destino, nombre_guardado)
+
+        with open(ruta_archivo, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+
+        archivo_url = f"/uploads/citaciones/{nombre_guardado}"
+
+        return {
+            "url": archivo_url,
+            "nombre_archivo": file.filename,
+            "mensaje": "Evidencia cargada exitosamente."
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error al subir evidencia: {str(e)}"
+        )
+

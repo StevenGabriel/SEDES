@@ -40,6 +40,7 @@ import logoL1 from '../assets/L1.png';
 import logoL2 from '../assets/L2.png';
 import RutasInspeccionView from '../components/supervisor/RutasInspeccionView';
 import ActasEmitidasView from '../components/supervisor/ActasEmitidasView';
+import CitacionesEmitidasView from '../components/supervisor/CitacionesEmitidasView';
 
 const MESES_NOMBRES = [
   'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
@@ -1132,8 +1133,16 @@ export default function SupervisorPage() {
             />
           )}
 
-          {/* OTRAS VISTAS DEL MENÚ LATERAL (Citaciones) */}
-          {seccionActiva !== 'mi-agenda' && seccionActiva !== 'rutas-inspeccion' && seccionActiva !== 'actas-emitidas' && (
+          {/* VISTA 4: CITACIONES EMITIDAS */}
+          {seccionActiva === 'citaciones-emitidas' && (
+            <CitacionesEmitidasView
+              usuario={usuario}
+              mostrarToast={mostrarToast}
+            />
+          )}
+
+          {/* OTRAS VISTAS DEL MENÚ LATERAL (Fallback) */}
+          {seccionActiva !== 'mi-agenda' && seccionActiva !== 'rutas-inspeccion' && seccionActiva !== 'actas-emitidas' && seccionActiva !== 'citaciones-emitidas' && (
             <div className="bg-white rounded-3xl p-8 sm:p-12 border border-slate-200 shadow-2xs min-h-[420px] flex flex-col items-center justify-center text-center space-y-3">
               <div className="w-16 h-16 rounded-2xl bg-blue-50 text-[#005596] flex items-center justify-center">
                 <itemActivo.icon className="w-8 h-8" />
@@ -1142,7 +1151,7 @@ export default function SupervisorPage() {
                 Sección: {itemActivo.label}
               </h3>
               <p className="text-xs text-slate-400 max-w-md">
-                Estructura del supervisor lista para implementar el módulo de citaciones sanitarias en campo.
+                Contenido de la sección seleccionada.
               </p>
             </div>
           )}
