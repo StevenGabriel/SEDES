@@ -80,6 +80,22 @@ class RegistrarCitacionRequest(BaseModel):
     alerta_10_dias: Optional[bool] = False
     alerta_15_dias: Optional[bool] = False
 
+class RegistrarCitacionRequest(BaseModel):
+    establecimiento_id: Optional[str] = None
+    establecimiento_nombre: Optional[str] = None
+    direccion: Optional[str] = None
+    municipio: Optional[str] = None
+    supervisor_id: Optional[str] = None
+    inspeccion_id: Optional[str] = None
+    numero_citacion: Optional[str] = None
+    fecha_emision: Optional[str] = None
+    motivo_citacion: str = Field(..., description="Motivo de la citación o infracción detectada")
+    tipo_inspeccion: Optional[str] = Field("Inspección Urgente", description="Tipo de inspección")
+    evidencia_foto_url: Optional[str] = None
+    alerta_5_dias: Optional[bool] = True
+    alerta_10_dias: Optional[bool] = False
+    alerta_15_dias: Optional[bool] = False
+
 # ==============================================================================
 # HELPERS DE FECHAS Y SERIALIZACIÓN
 # ==============================================================================
