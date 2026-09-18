@@ -12,6 +12,7 @@ import SupervisorPage from './pages/SupervisorPage';
 import CoordinadorPage from './pages/CoordinadorPage';
 import AdminPage from './pages/AdminPage';
 import DirectorPage from './pages/DirectorPage';
+import AbogadoPage from './pages/AbogadoPage';
 
 function App() {
   return (
@@ -45,6 +46,10 @@ function App() {
       <Route path="/director" element={<Navigate to="/director/consola-administracion" replace />} />
       <Route path="/director/:seccion" element={<DirectorPage />} />
       <Route path="/directorpage" element={<Navigate to="/director/consola-administracion" replace />} />
+      <Route path="/abogado" element={<Navigate to="/abogado/resolucion-administrativa" replace />} />
+      <Route path="/abogado/:seccion" element={<AbogadoPage />} />
+      <Route path="/abogadopage" element={<Navigate to="/abogado/resolucion-administrativa" replace />} />
+      <Route path="/asesor-legal" element={<Navigate to="/abogado/resolucion-administrativa" replace />} />
       <Route path="/admin" element={<Navigate to="/admin/usuarios" replace />} />
       <Route path="/admin/:seccion" element={<AdminPage />} />
       <Route path="/adminpage" element={<Navigate to="/admin/usuarios" replace />} />

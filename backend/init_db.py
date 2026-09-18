@@ -47,6 +47,7 @@ def init_database(reset_tables: bool = False, poblar_laboratorios_demo: bool = F
             "Coordinador",
             "Supervisor",
             "Director",
+            "Abogado",
             "Propietario"
         ]
 
@@ -55,7 +56,7 @@ def init_database(reset_tables: bool = False, poblar_laboratorios_demo: bool = F
             if not existe:
                 db.add(Role(nombre=nombre_rol))
         db.commit()
-        logger.info("✅ Roles del sistema actualizados (5 roles oficiales).")
+        logger.info("✅ Roles del sistema actualizados (6 roles oficiales incluyendo Abogado).")
 
         rol_propietario = db.query(Role).filter(Role.nombre == "Propietario").first()
         rol_supervisor = db.query(Role).filter(Role.nombre == "Supervisor").first()
@@ -80,10 +81,19 @@ def init_database(reset_tables: bool = False, poblar_laboratorios_demo: bool = F
             db.commit()
             logger.info("✅ Catálogo oficial de requisitos por secciones (2.1 a 2.5) registrado.")
 
-        # 5. Poblar Cuentas Administrativas Oficiales del SEDES (Coordinador, Administrador, Supervisores, Director)
+        # 5. Poblar Cuentas Administrativas Oficiales del SEDES (Coordinador, Administrador, Supervisores, Director, Abogado)
         password_default_hash = hash_password("Sedes2026!")
 
         personal_sedes = [
+            {
+                "email": "abogado@sedes.gob.bo",
+                "rol": "Abogado",
+                "nombres": "Dr. Marco",
+                "apellidos": "Villanueva",
+                "ci_nit": "4532876 CB",
+                "telefono": "71458920",
+                "estado": True
+            },
             {
                 "email": "director@sedes.gob.bo",
                 "rol": "Director",
