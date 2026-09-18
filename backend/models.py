@@ -271,3 +271,52 @@ class HistorialActividad(Base):
     estado = Column(Boolean, default=True, nullable=False)
     fecha_creacion = Column(DateTime, default=func.now(), nullable=False)
     fecha_modificacion = Column(DateTime, default=func.now(), onupdate=func.now(), nullable=False)
+
+
+# ==============================================================================
+# 11. TABLA: RESOLUCIONES_ADMINISTRATIVAS (Módulo Legal / Asesor Legal)
+# ==============================================================================
+class ResolucionAdministrativa(Base):
+    __tablename__ = "resoluciones_administrativas"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
+    numero_resolucion = Column(String(100), unique=True, nullable=False, index=True) # Ej: RA-2026-0042
+    tramite_id = Column(UUID(as_uuid=True), ForeignKey("tramites.id"), nullable=False)
+    establecimiento_id = Column(UUID(as_uuid=True), ForeignKey("establecimientos.id"), nullable=False)
+    abogado_id = Column(UUID(as_uuid=True), ForeignKey("usuarios.id"), nullable=True)
+    
+    # Datos del establecimiento en resolución
+    establecimiento_nombre = Column(String(200), nullable=True)
+    razon_social_propietario = Column(String(200), nullable=True)
+    ci_nit_solicitante = Column(String(50), nullable=True)
+    tipo_establecimiento = Column(String(150), nullable=True)
+    direccion_registrada = Column(Text, nullable=True)
+    
+    # Contenido jurídico de la resolución
+    antecedentes = Column(Text, nullable=True)
+    fundamento_legal = Column(Text, nullable=True)
+    articulo_primero = Column(Text, nullable=True)
+    articulo_segundo = Column(Text, nullable=True)
+    articulo_tercero = Column(Text, nullable=True)
+    observaciones_legales = Column(Text, nullable=True)
+    
+    # Fechas y vigencia
+    fecha_emision = Column(Date, default=func.current_date(), nullable=False)
+    vigencia_anios = Column(Integer, default=5, nullable=False)
+    vigencia_desde = Column(Date, nullable=True)
+    vigencia_hasta = Column(Date, nullable=True)
+    
+    # Estados: 'Borrador', 'En edición final', 'Enviado a Coordinador', 'Aprobado', 'Emitido'
+    estado_resolucion = Column(String(50), default="Borrador", nullable=False)
+    pdf_url = Column(String(500), nullable=True)
+
+    # Columnas de Auditoría
+    estado = Column(Boolean, default=True, nullable=False)
+    fecha_creacion = Column(DateTime, default=func.now(), nullable=False)
+    fecha_modificacion = Column(DateTime, default=func.now(), onupdate=func.now(), nullable=False)
+
+    # Relaciones
+    tramite = relationship("Tramite")
+    establecimiento = relationship("Establecimiento")
+    abogado = relationship("Usuario", foreign_keys=[abogado_id])
+
