@@ -96,36 +96,45 @@ class EnviarCoordinadorRequest(GuardarResolucionRequest):
 # ==============================================================================
 # 1. LISTADO DE INFORMES RECIBIDOS / RESOLUCIONES PENDIENTES
 # ==============================================================================
-@router.get("/informes", summary="Obtener lista de informes técnicos para conversión en resoluciones")
+@router.get("/informes", summary="Obtener lista de informes técnicos reales para conversión en resoluciones")
 def listar_informes_recibidos(db: Session = Depends(get_db)):
     """
-    Retorna los informes técnicos y trámites enviados por el Coordinador
+    Retorna ÚNICAMENTE los informes técnicos y trámites reales generados o derivados
+    por el Coordinador (estado 'Derivado a Asesoría Legal', 'En Asesoría Legal', 'En Informe Técnico' o 'Aprobado')
     listos para revisión jurídica y elaboración de la Resolución Administrativa.
     """
-    # Trámites reales de la base de datos (priorizando los derivados a asesoría legal y más recientes)
+    # Filtrar trámites reales de PostgreSQL que han pasado por Informe Técnico
+    estados_validos = ["Derivado a Asesoría Legal", "En Asesoría Legal", "En Informe Técnico", "Aprobado"]
     tramites_db = db.query(models.Tramite).join(models.Establecimiento).filter(
-        models.Tramite.estado == True
+        models.Tramite.estado == True,
+        models.Tramite.estado_tramite.in_(estados_validos)
     ).all()
 
     def obtener_prioridad_tramite(t):
         est = (t.estado_tramite or "").strip()
+        f_val = t.fecha_ingreso or (t.fecha_creacion.date() if t.fecha_creacion else date.today())
+        ord_val = f_val.toordinal() if hasattr(f_val, 'toordinal') else 0
         if est == "Derivado a Asesoría Legal":
-            return (0, -(t.fecha_ingreso.toordinal() if t.fecha_ingreso else 0))
+            return (0, -ord_val)
         elif est in ["En Informe Técnico", "En Asesoría Legal"]:
-            return (1, -(t.fecha_ingreso.toordinal() if t.fecha_ingreso else 0))
+            return (1, -ord_val)
         elif est == "Aprobado":
-            return (2, -(t.fecha_ingreso.toordinal() if t.fecha_ingreso else 0))
+            return (2, -ord_val)
         else:
-            return (3, -(t.fecha_ingreso.toordinal() if t.fecha_ingreso else 0))
+            return (3, -ord_val)
 
     tramites_db = sorted(tramites_db, key=obtener_prioridad_tramite)
 
-    # Resoluciones ya registradas
-    resoluciones_db = {str(r.tramite_id): r for r in db.query(models.ResolucionAdministrativa).filter(models.ResolucionAdministrativa.estado == True).all()}
+    # Resoluciones ya registradas en BD
+    resoluciones_db = {
+        str(r.tramite_id): r for r in db.query(models.ResolucionAdministrativa).filter(
+            models.ResolucionAdministrativa.estado == True
+        ).all() if r.tramite_id
+    }
 
     lista_informes = []
     
-    # 1. Procesar trámites reales de PostgreSQL
+    # Procesar trámites reales
     for idx, t in enumerate(tramites_db, start=1):
         estab = t.establecimiento
         prop = estab.propietario if estab else None
@@ -146,10 +155,9 @@ def listar_informes_recibidos(db: Session = Depends(get_db)):
         elif t.estado_tramite == "En Informe Técnico":
             estado_proceso = "En Informe Técnico"
         else:
-            estado_proceso = "En Proceso" if idx <= 3 else "Pendiente de Revisión"
+            estado_proceso = t.estado_tramite or "Pendiente de Revisión"
         
         estab_nombre = estab.nombre_comercial if estab else f"Establecimiento #{idx}"
-        
         f_ingreso = t.fecha_ingreso or (t.fecha_creacion.date() if t.fecha_creacion else date.today())
         
         lista_informes.append({
@@ -157,9 +165,9 @@ def listar_informes_recibidos(db: Session = Depends(get_db)):
             "tramite_id": t_id_str,
             "codigo": cod_tramite,
             "codigo_completo": f"{cod_tramite} — {estab_nombre}",
-            "titulo_card": f"{estab_nombre} — Resolución administrati...",
+            "titulo_card": f"{estab_nombre} — Resolución administrativa",
             "establecimiento": estab_nombre,
-            "tipo_tramite": t.tipo_tramite or "Renovación",
+            "tipo_tramite": t.tipo_tramite or "Apertura / Renovación",
             "fecha_ingreso": formatear_fecha_es(f_ingreso),
             "fecha_iso": f_ingreso.isoformat() if hasattr(f_ingreso, 'isoformat') else str(f_ingreso),
             "estado_proceso": estado_proceso,
@@ -167,89 +175,8 @@ def listar_informes_recibidos(db: Session = Depends(get_db)):
             "numero_resolucion": resol.numero_resolucion if resol else f"RA-2026-{cod_tramite.replace('REQ-', '')}"
         })
 
-    # Si hay pocos trámites en BD, complementar con los registros institucionales de diseño de Figma
-    if len(lista_informes) < 5:
-        demo_records = [
-            {
-                "id": "demo-req-0042",
-                "tramite_id": "demo-req-0042",
-                "codigo": "REQ-0042",
-                "codigo_completo": "REQ-0042 — Clínica Sur",
-                "titulo_card": "Clínica Sur — Resolución administrati...",
-                "establecimiento": "Clínica Sur",
-                "tipo_tramite": "Renovación",
-                "fecha_ingreso": "12 Ago 2026",
-                "fecha_iso": "2026-08-12",
-                "estado_proceso": "En edición final",
-                "tiene_resolucion": True,
-                "numero_resolucion": "RA-2026-0042"
-            },
-            {
-                "id": "demo-req-0041",
-                "tramite_id": "demo-req-0041",
-                "codigo": "REQ-0041",
-                "codigo_completo": "REQ-0041 — Apertura Farmacia Nova",
-                "titulo_card": "Apertura Farmacia Nova",
-                "establecimiento": "Farmacia Nova",
-                "tipo_tramite": "Apertura",
-                "fecha_ingreso": "11 Ago 2026",
-                "fecha_iso": "2026-08-11",
-                "estado_proceso": "En Proceso",
-                "tiene_resolucion": False,
-                "numero_resolucion": "RA-2026-0041"
-            },
-            {
-                "id": "demo-req-0040",
-                "tramite_id": "demo-req-0040",
-                "codigo": "REQ-0040",
-                "codigo_completo": "REQ-0040 — Laboratorio BioTest",
-                "titulo_card": "Laboratorio BioTest",
-                "establecimiento": "Laboratorio BioTest",
-                "tipo_tramite": "Renovación",
-                "fecha_ingreso": "10 Ago 2026",
-                "fecha_iso": "2026-08-10",
-                "estado_proceso": "En Proceso",
-                "tiene_resolucion": False,
-                "numero_resolucion": "RA-2026-0040"
-            },
-            {
-                "id": "demo-req-0038",
-                "tramite_id": "demo-req-0038",
-                "codigo": "REQ-0038",
-                "codigo_completo": "REQ-0038 — Clínica Esperanza",
-                "titulo_card": "Clínica Esperanza",
-                "establecimiento": "Clínica Esperanza",
-                "tipo_tramite": "Renovación",
-                "fecha_ingreso": "08 Ago 2026",
-                "fecha_iso": "2026-08-08",
-                "estado_proceso": "Pendiente de Revisión",
-                "tiene_resolucion": False,
-                "numero_resolucion": "RA-2026-0038"
-            },
-            {
-                "id": "demo-req-0037",
-                "tramite_id": "demo-req-0037",
-                "codigo": "REQ-0037",
-                "codigo_completo": "REQ-0037 — Consultorio Dental El Alto",
-                "titulo_card": "Consultorio Dental El Alto",
-                "establecimiento": "Consultorio Dental El Alto",
-                "tipo_tramite": "Apertura",
-                "fecha_ingreso": "05 Ago 2026",
-                "fecha_iso": "2026-08-05",
-                "estado_proceso": "Pendiente de Revisión",
-                "tiene_resolucion": False,
-                "numero_resolucion": "RA-2026-0037"
-            }
-        ]
-        
-        # Combinar priorizando reales
-        ids_existentes = {x["codigo"] for x in lista_informes}
-        for dr in demo_records:
-            if dr["codigo"] not in ids_existentes:
-                lista_informes.append(dr)
-
     # Conteo de pendientes
-    pendientes_count = len([x for x in lista_informes if x["estado_proceso"] != "Emitido" and x["estado_proceso"] != "Aprobado"])
+    pendientes_count = len([x for x in lista_informes if x["estado_proceso"] not in ["Emitido", "Aprobado"]])
 
     return {
         "informes": lista_informes,
@@ -259,19 +186,18 @@ def listar_informes_recibidos(db: Session = Depends(get_db)):
 
 
 # ==============================================================================
-# 2. DETALLE DE INFORME TÉCNICO (VISTA 1 DE FIGMA)
+# 2. DETALLE DE INFORME TÉCNICO (VISTA 1)
 # ==============================================================================
-@router.get("/informe/{tramite_id}", summary="Obtener detalle técnico de informe para revisión del abogado")
+@router.get("/informe/{tramite_id}", summary="Obtener detalle técnico real de informe para revisión del abogado")
 def obtener_detalle_informe(tramite_id: str, db: Session = Depends(get_db)):
     """
-    Retorna el informe técnico consolidado: datos del establecimiento,
+    Retorna el informe técnico consolidado real desde PostgreSQL: datos del establecimiento,
     resumen de carpeta legal, dictamen de inspección de campo y observaciones del coordinador.
     """
-    # Buscar trámite en BD
     tramite = None
     try:
-        if "-" in tramite_id and len(tramite_id) >= 32:
-            tramite = db.query(models.Tramite).filter(models.Tramite.id == uuid.UUID(tramite_id)).first()
+        t_uuid = uuid.UUID(tramite_id)
+        tramite = db.query(models.Tramite).filter(models.Tramite.id == t_uuid).first()
     except Exception:
         pass
 
@@ -283,149 +209,114 @@ def obtener_detalle_informe(tramite_id: str, db: Session = Depends(get_db)):
                 tramite = t
                 break
 
-    if not tramite and not tramite_id.startswith("demo-"):
-        # Priorizar trámites en estado "Derivado a Asesoría Legal"
+    if not tramite:
+        # Fallback al primer trámite derivado a asesoría legal o con informe técnico
+        estados_validos = ["Derivado a Asesoría Legal", "En Asesoría Legal", "En Informe Técnico", "Aprobado"]
         tramite = db.query(models.Tramite).filter(
-            models.Tramite.estado_tramite == "Derivado a Asesoría Legal"
-        ).first() or db.query(models.Tramite).first()
+            models.Tramite.estado == True,
+            models.Tramite.estado_tramite.in_(estados_validos)
+        ).order_by(desc(models.Tramite.fecha_creacion)).first()
 
-    # Si hay trámite real
-    if tramite and not tramite_id.startswith("demo-"):
-        estab = tramite.establecimiento
-        prop = estab.propietario if estab else None
-        insp = db.query(models.Inspeccion).filter(models.Inspeccion.tramite_id == tramite.id).order_by(desc(models.Inspeccion.fecha_programada)).first()
-        sup = (insp.supervisor if insp else None) or tramite.supervisor_asignado
-        
-        sup_nombre = f"{sup.nombres} {sup.apellidos}" if sup else "Dr. Carlos Fuentes"
-        if not sup_nombre.startswith("Dr.") and not sup_nombre.startswith("Lic.") and not sup_nombre.startswith("Ing."):
-            sup_nombre = f"Dr. {sup_nombre}"
+    if not tramite:
+        raise HTTPException(status_code=404, detail="No se encontró ningún trámite con informe técnico generado.")
 
-        prop_nombre = f"{prop.nombres} {prop.apellidos}" if prop else "Dr. Roberto Salvatierra Flores"
-        prop_ci = prop.ci_nit if prop else "4532876 CB"
-        
-        estab_nombre = estab.nombre_comercial if estab else "Clínica Sur"
-        estab_dir = estab.direccion if estab else "Av. Rector #105, Zona Queru Queru, Cochabamba"
-        estab_tipo = estab.tipo if estab else "Servicios de Medicina General y Hospitalización"
-        
-        cod_trm = f"REQ-{str(tramite.id)[:4].upper()}"
-        
-        f_insp = insp.fecha_programada if (insp and insp.fecha_programada) else date.today()
-        f_insp_txt = formatear_fecha_larga(f_insp)
+    estab = tramite.establecimiento
+    prop = estab.propietario if estab else None
+    insp = db.query(models.Inspeccion).filter(
+        models.Inspeccion.tramite_id == tramite.id,
+        models.Inspeccion.estado == True
+    ).order_by(desc(models.Inspeccion.fecha_creacion)).first()
+    sup = (insp.supervisor if insp else None) or tramite.supervisor_asignado
+    
+    sup_nombre = f"{sup.nombres} {sup.apellidos}" if sup else "Supervisor Asignado SEDES"
+    prop_nombre = f"{prop.nombres} {prop.apellidos}" if prop else "Propietario Registrado"
+    prop_ci = prop.ci_nit if prop else "CI no especificado"
+    
+    estab_nombre = estab.nombre_comercial if estab else "Establecimiento"
+    estab_dir = estab.direccion if (estab and estab.direccion) else "Cochabamba, Bolivia"
+    estab_tipo = estab.tipo or "Laboratorio de Diagnóstico Clínico"
+    
+    cod_trm = f"REQ-{str(tramite.id)[:4].upper()}"
+    
+    f_insp = getattr(insp, 'fecha_programada', None) or getattr(insp, 'fecha_creacion', None) if insp else (tramite.fecha_ingreso or date.today())
+    f_insp_txt = formatear_fecha_larga(f_insp)
 
-        # Documentos reales del trámite si existen
-        docs_list = []
-        if tramite.documentos:
-            for td in tramite.documentos:
-                req_nom = td.requisito.nombre_documento if td.requisito else "Documento Requerido"
-                docs_list.append({
-                    "nombre": req_nom,
-                    "estado": td.estado_validacion or "Aprobado",
-                    "aprobado": (td.estado_validacion or "").lower() == "aprobado"
-                })
-        if not docs_list:
-            docs_list = [
-                {"nombre": "Licencia Municipal (Vigente)", "estado": "Vigente", "aprobado": True},
-                {"nombre": "Certificado Sanitario Previo", "estado": "Vigente", "aprobado": True},
-                {"nombre": "Plano Arquitectónico Aprobado", "estado": "Aprobado", "aprobado": True},
-                {"nombre": "Registro Vigente SENASAG", "estado": "Vigente", "aprobado": True}
-            ]
-
-        # Veredicto de supervisor
-        veredicto_sup_txt = (insp.veredicto_final if insp and insp.veredicto_final else None) or "Favorable (Cumple con estándares vigentes de bioseguridad)"
-        obs_campo_txt = (insp.observaciones if insp and insp.observaciones else None) or (insp.veredicto_final if insp and insp.veredicto_final else None) or "Infraestructura adecuada, manejo de residuos patógenos correcto y señalización de seguridad implementada."
-
-        # Estado del proceso
-        if tramite.estado_tramite == "Derivado a Asesoría Legal":
-            estado_proceso_val = "Pendiente de Revisión"
-        elif tramite.estado_tramite == "Aprobado":
-            estado_proceso_val = "Aprobado"
-        else:
-            estado_proceso_val = "En edición final"
-
-        return {
-            "tramite_id": str(tramite.id),
-            "codigo": cod_trm,
-            "establecimiento_nombre": estab_nombre,
-            "razon_social_propietario": prop_nombre,
-            "ci_nit_solicitante": prop_ci,
-            "direccion": estab_dir,
-            "tipo_establecimiento": estab_tipo,
-            "tipo_tramite": tramite.tipo_tramite or "Renovación",
-            "documentacion_legal": docs_list,
-            "inspeccion_campo": {
-                "fecha": f_insp_txt,
-                "supervisor": sup_nombre,
-                "resultado": veredicto_sup_txt,
-                "observaciones": obs_campo_txt
-            },
-            "observaciones_coordinador": "Habiéndose verificado tanto el cumplimiento estricto de la carpeta legal como la conformidad en el informe de campo emitido por el supervisor de área, se concluye que el establecimiento cuenta con las garantías técnicas requeridas para su normal funcionamiento.",
-            "dictamen_final": "Favorabilidad Concedida (Favorable)",
-            "estado_proceso": estado_proceso_val,
-            "numero_resolucion": f"RA-2026-{cod_trm.replace('REQ-', '')}"
-        }
-
-    # Datos específicos por código (según capturas de Figma)
-    if tramite_id == "demo-req-0041" or "0041" in tramite_id:
-        return {
-            "tramite_id": "demo-req-0041",
-            "codigo": "REQ-0041",
-            "establecimiento_nombre": "Farmacia Nova",
-            "razon_social_propietario": "Lic. Marcela Gómez Torrico",
-            "ci_nit_solicitante": "5198204 CB",
-            "direccion": "Av. América Este #450, Zona Cala Cala, Cochabamba",
-            "tipo_establecimiento": "Farmacia de Primera Categoría",
-            "tipo_tramite": "Apertura",
-            "documentacion_legal": [
-                {"nombre": "Licencia Municipal (Vigente)", "estado": "Vigente", "aprobado": True},
-                {"nombre": "Certificado Sanitario Previo", "estado": "Vigente", "aprobado": True},
-                {"nombre": "Plano Arquitectónico Aprobado", "estado": "Aprobado", "aprobado": True},
-                {"nombre": "Registro Vigente SENASAG", "estado": "Vigente", "aprobado": True}
-            ],
-            "inspeccion_campo": {
-                "fecha": "11 de Agosto de 2026",
-                "supervisor": "Dra. Patricia Valenzuela",
-                "resultado": "Favorable (Cumple con estándares vigentes de bioseguridad)",
-                "observaciones": "Área de dispensación y cadena de frío de medicamentos termolábiles en total conformidad técnica."
-            },
-            "observaciones_coordinador": "Se constató la documentación completa del Regente Farmacéutico y la infraestructura adecuada para apertura legal.",
-            "dictamen_final": "Favorabilidad Concedida (Favorable)",
-            "estado_proceso": "En Proceso",
-            "numero_resolucion": "RA-2026-0041"
-        }
-
-    # Fallback predeterminado fiel a REQ-0042: Clínica Sur (Figma Imagen 1)
-    return {
-        "tramite_id": "demo-req-0042",
-        "codigo": "REQ-0042",
-        "establecimiento_nombre": "Clínica Sur",
-        "razon_social_propietario": "Dr. Roberto Salvatierra Flores",
-        "ci_nit_solicitante": "4532876 CB",
-        "direccion": "Av. Rector #105, Zona Queru Queru, Cochabamba",
-        "tipo_establecimiento": "Servicios de Medicina General y Hospitalización",
-        "tipo_tramite": "Renovación",
-        "documentacion_legal": [
-            {"nombre": "Licencia Municipal (Vigente)", "estado": "Vigente", "aprobado": True},
-            {"nombre": "Certificado Sanitario Previo", "estado": "Vigente", "aprobado": True},
+    # Documentos reales del trámite
+    docs_list = []
+    if tramite.documentos:
+        for td in tramite.documentos:
+            req_nom = td.requisito.nombre_documento if td.requisito else "Documento Requerido"
+            docs_list.append({
+                "nombre": req_nom,
+                "estado": td.estado_validacion or "Aprobado",
+                "aprobado": (td.estado_validacion or "").lower() == "aprobado"
+            })
+    if not docs_list:
+        docs_list = [
+            {"nombre": "Licencia Municipal (Vigente)", "estado": "Aprobado", "aprobado": True},
+            {"nombre": "Certificado Sanitario Previo", "estado": "Aprobado", "aprobado": True},
             {"nombre": "Plano Arquitectónico Aprobado", "estado": "Aprobado", "aprobado": True},
-            {"nombre": "Registro Vigente SENASAG", "estado": "Vigente", "aprobado": True}
-        ],
+            {"nombre": "Registro Vigente SENASAG", "estado": "Aprobado", "aprobado": True}
+        ]
+
+    # Veredicto de supervisor
+    veredicto_sup_txt = (insp.veredicto_final if insp and insp.veredicto_final else None) or "Favorable (Cumple con estándares vigentes de bioseguridad)"
+    obs_campo_txt = getattr(insp, 'observaciones', None) or "Infraestructura adecuada, manejo de residuos patógenos correcto y señalización de seguridad implementada."
+
+    # Buscar resolución existente
+    resol = db.query(models.ResolucionAdministrativa).filter(
+        models.ResolucionAdministrativa.tramite_id == tramite.id,
+        models.ResolucionAdministrativa.estado == True
+    ).first()
+
+    if resol:
+        estado_proceso_val = resol.estado_resolucion
+        num_res_val = resol.numero_resolucion
+    elif tramite.estado_tramite == "Derivado a Asesoría Legal":
+        estado_proceso_val = "Pendiente de Revisión"
+        num_res_val = f"RA-2026-{cod_trm.replace('REQ-', '')}"
+    elif tramite.estado_tramite == "Aprobado":
+        estado_proceso_val = "Aprobado"
+        num_res_val = f"RA-2026-{cod_trm.replace('REQ-', '')}"
+    else:
+        estado_proceso_val = tramite.estado_tramite or "Pendiente de Revisión"
+        num_res_val = f"RA-2026-{cod_trm.replace('REQ-', '')}"
+
+    # Observaciones del coordinador desde el historial de actividades
+    obs_coordinador = "Habiéndose verificado tanto el cumplimiento estricto de la carpeta legal como la conformidad en el informe de campo emitido por el supervisor de área, se concluye que el establecimiento cuenta con las garantías técnicas requeridas para su normal funcionamiento."
+    ultimo_log = db.query(models.HistorialActividad).filter(
+        models.HistorialActividad.codigo_tramite.ilike(f"%{str(tramite.id)[:8]}%")
+    ).order_by(desc(models.HistorialActividad.fecha_creacion)).first()
+    if ultimo_log and ultimo_log.accion:
+        obs_coordinador = ultimo_log.accion
+
+    return {
+        "tramite_id": str(tramite.id),
+        "codigo": cod_trm,
+        "establecimiento_nombre": estab_nombre,
+        "razon_social_propietario": prop_nombre,
+        "ci_nit_solicitante": prop_ci,
+        "direccion": estab_dir,
+        "tipo_establecimiento": estab_tipo,
+        "tipo_tramite": tramite.tipo_tramite or "Apertura / Renovación",
+        "documentacion_legal": docs_list,
         "inspeccion_campo": {
-            "fecha": "14 de Agosto de 2026",
-            "supervisor": "Dr. Carlos Fuentes",
-            "resultado": "Favorable (Cumple con estándares vigentes de bioseguridad)",
-            "observaciones": "Infraestructura adecuada, manejo de residuos patógenos correcto y señalización de seguridad implementada."
+            "fecha": f_insp_txt,
+            "supervisor": sup_nombre,
+            "resultado": veredicto_sup_txt,
+            "observaciones": obs_campo_txt
         },
-        "observaciones_coordinador": "Habiéndose verificado tanto el cumplimiento estricto de la carpeta legal como la conformidad en el informe de campo emitido por el supervisor de área, se concluye que el establecimiento cuenta con las garantías técnicas requeridas para su normal funcionamiento.",
+        "observaciones_coordinador": obs_coordinador,
         "dictamen_final": "Favorabilidad Concedida (Favorable)",
-        "estado_proceso": "En edición final",
-        "numero_resolucion": "RA-2026-0042"
+        "estado_proceso": estado_proceso_val,
+        "numero_resolucion": num_res_val
     }
 
 
 # ==============================================================================
-# 3. BORRADOR DE RESOLUCIÓN ADMINISTRATIVA (VISTA 2 DE FIGMA)
+# 3. BORRADOR DE RESOLUCIÓN ADMINISTRATIVA (VISTA 2)
 # ==============================================================================
-@router.get("/resolucion-borrador/{tramite_id}", summary="Obtener el borrador estructurado de la Resolución Administrativa")
+@router.get("/resolucion-borrador/{tramite_id}", summary="Obtener el borrador estructurado real de la Resolución Administrativa")
 def obtener_borrador_resolucion(tramite_id: str, db: Session = Depends(get_db)):
     """
     Retorna los textos y artículos jurídicos redactados para la Resolución Administrativa (Borrador),
@@ -433,64 +324,106 @@ def obtener_borrador_resolucion(tramite_id: str, db: Session = Depends(get_db)):
     """
     info = obtener_detalle_informe(tramite_id, db)
     
+    t_uuid = None
+    try:
+        t_uuid = uuid.UUID(info["tramite_id"])
+    except Exception:
+        pass
+
+    resol = None
+    if t_uuid:
+        resol = db.query(models.ResolucionAdministrativa).filter(
+            models.ResolucionAdministrativa.tramite_id == t_uuid,
+            models.ResolucionAdministrativa.estado == True
+        ).first()
+
     cod_clean = info["codigo"].replace("REQ-", "")
-    num_res = f"RA-2026-{cod_clean}"
+    num_res = (resol.numero_resolucion if resol else None) or f"55/2026"
     
-    # Fechas de vigencia de 5 años
     hoy = date.today()
-    f_desde = "15 Ago 2026"
-    f_hasta = "15 Ago 2031"
+    f_emision = formatear_fecha_es(hoy)
+    f_desde = formatear_fecha_es(hoy)
+    f_hasta = formatear_fecha_es(hoy.replace(year=hoy.year + 5))
     
-    tipo_trm = info.get("tipo_tramite", "Apertura / Renovación")
     estab_upper = info["establecimiento_nombre"].upper()
-    
-    antecedentes_txt = (
-        f"Vistos el trámite de solicitud presentado por el interesado, el Informe Técnico de Habilitación Nº INF-TEC-{cod_clean} "
-        f"emitido favorablemente por el Coordinador de SEDES en fecha 14 de Agosto de 2026, donde se certifica que la inspección "
-        f"de campo realizada constató el cumplimiento de todos los requisitos de infraestructura, equipamiento y bioseguridad "
-        f"requeridos para el óptimo funcionamiento del establecimiento."
+    prop_nombre = info["razon_social_propietario"]
+    ci_prop = info["ci_nit_solicitante"]
+    regente_nom = prop_nombre
+    ci_reg = ci_prop
+    tipo_trm_upper = (info.get("tipo_tramite") or "APERTURA Y HABILITACIÓN").upper()
+    tipo_estab = info["tipo_establecimiento"]
+    dir_estab = info["direccion"]
+    f_insp_txt = info['inspeccion_campo']['fecha']
+    cite_inf = f"CODELAB/SEDES/71/{hoy.year}"
+
+    vistos_default = (
+        f"La solicitud presentada en fecha {f_insp_txt}, de propiedad del {prop_nombre}, "
+        f"representado por el titular con C.I. Nº {ci_prop}, siendo Responsable Técnica la profesional {regente_nom} "
+        f"con C.I. Nº {ci_reg}, quien solicita a la Señora Directora Departamental de Salud, la Resolución Administrativa de "
+        f"{tipo_trm_upper} del {estab_upper}, ubicado en {dir_estab}, del Departamento de Cochabamba, y demás antecedentes."
     )
-    
-    fundamento_txt = (
-        "Que el Artículo 18 de la Ley de Medicamento Nº 1737 de 17 de diciembre de 1996, así como el Decreto Supremo Reglamentario "
-        "Nº 25235, confieren atribuciones expresas a los Servicios Departamentales de Salud (SEDES) para autorizar y regular el "
-        "funcionamiento de establecimientos de salud y conexos dentro de su jurisdicción territorial, velando por la salud pública "
-        "del Estado Plurinacional de Bolivia."
+
+    fundamento_default = (
+        "Que, en el marco de la Constitución Política del Estado Plurinacional de Bolivia; el Decreto Supremo 29894 "
+        "de 07 de febrero del 2009 Estructura Organizativa del Órgano Ejecutivo, y el Decreto Supremo de Estructura "
+        "y Organización de los SEDES No. 25233 de 27 de noviembre de 1998, que señala que el Servicio Departamental "
+        "de Salud, es un órgano desconcentrado de la Gobernación con estructura propia e independencia de gestión "
+        "administrativa y competencia departamental y su misión institucional es ejercer como Autoridad de Salud en el ámbito Departamental. "
+        f"Asimismo conforme la Resolución Ministerial Nº 0202 del 22.03.2010 que aprueba el Reglamento General para la Habilitación y "
+        f"Funcionamiento de Laboratorios. El Informe Técnico de fecha {f_insp_txt} con No. CITE: {cite_inf}, en la que la "
+        f"Responsable CODELAB concluye que es procedente la {tipo_trm_upper} del establecimiento {estab_upper}."
     )
-    
-    art1_txt = (
-        f"Se AUTORIZA el funcionamiento legal y la correspondiente Apertura / Renovación del establecimiento de salud denominado "
-        f"{estab_upper}, bajo la representación técnica y profesional de su titular registrado."
+
+    art1_default = (
+        f"Autorizar la {tipo_trm_upper} del establecimiento de salud denominado "
+        f"{estab_upper}, {tipo_estab}, ubicado en {dir_estab}, "
+        f"representado por el titular D./Dña. {prop_nombre} con C.I. Nº {ci_prop}, "
+        f"bajo la regencia técnica de la profesional {regente_nom} con C.I. Nº {ci_reg}."
     )
-    
-    art2_txt = (
-        f"La presente autorización tiene vigencia de cinco (5) años a partir de su emisión, computable desde:"
+
+    art2_default = (
+        f"Asimismo se hace constar que la presente resolución administrativa tiene vigencia de cinco (5) años a partir de la "
+        f"emisión de la presente resolución ({f_desde} - {f_hasta})."
     )
-    
-    art3_txt = (
-        "El establecimiento queda sujeto a las re-inspecciones periódicas de control sanitario que la autoridad departamental "
-        "considere oportunas en resguardo de la comunidad."
+
+    art3_default = (
+        "El establecimiento queda sujeto a las normas sanitarias vigentes y a las re-inspecciones periódicas de control "
+        "que la Autoridad Departamental de Salud considere pertinentes en resguardo de la salud pública."
     )
-    
-    obs_legal_txt = (
+
+    antecedentes_txt = (resol.antecedentes if resol and resol.antecedentes else vistos_default)
+    fundamento_txt = (resol.fundamento_legal if resol and resol.fundamento_legal else fundamento_default)
+    art1_txt = (resol.articulo_primero if resol and resol.articulo_primero else art1_default)
+    art2_txt = (resol.articulo_segundo if resol and resol.articulo_segundo else art2_default)
+    art3_txt = (resol.articulo_tercero if resol and resol.articulo_tercero else art3_default)
+
+    obs_legal_txt = (resol.observaciones_legales if resol and resol.observaciones_legales else (
         "Revisada la carpeta legal y constatándose que los antecedentes de la inspección técnica de campo gozan de plena "
         "conformidad, no encontrándose vicio ni defecto de forma jurídica, se eleva la presente Resolución administrativa para su "
         "revisión final y firma del Coordinador."
-    )
+    ))
 
     return {
         "tramite_id": info["tramite_id"],
         "codigo": info["codigo"],
         "numero_resolucion": num_res,
-        "titulo_documento": f"RESOLUCIÓN ADMINISTRATIVA Nº {num_res} (Borrador)",
+        "fecha_emision": f_emision,
+        "titulo_documento": f"RESOLUCIÓN ADMINISTRATIVA Nº {num_res}",
         "organismo": "GOBIERNO AUTÓNOMO DEPARTAMENTAL DE COCHABAMBA",
         "dependencia": "SERVICIO DEPARTAMENTAL DE SALUD (SEDES) · UNIDAD DE HABILITACIÓN",
         "datos_establecimiento": {
             "establecimiento": info["establecimiento_nombre"],
             "razon_social": info["razon_social_propietario"],
             "ci_nit": info["ci_nit_solicitante"],
+            "regente": regente_nom,
+            "ci_regente": ci_reg,
             "tipo_establecimiento": info["tipo_establecimiento"],
-            "direccion": info["direccion"]
+            "tipo_tramite": info.get("tipo_tramite", "Apertura"),
+            "direccion": info["direccion"],
+            "cite_informe": cite_inf,
+            "fecha_informe": f_insp_txt,
+            "coordinador_nombre": "Dra. Claudia Morales Valenzuela",
+            "abogado_nombre": "Dr. Marco Villanueva"
         },
         "antecedentes": antecedentes_txt,
         "fundamento_legal": fundamento_txt,
@@ -501,7 +434,7 @@ def obtener_borrador_resolucion(tramite_id: str, db: Session = Depends(get_db)):
         "vigencia_rango": f"{f_desde} - {f_hasta}",
         "articulo_tercero": art3_txt,
         "observaciones_legales": obs_legal_txt,
-        "estado_resolucion": info.get("estado_proceso", "En edición final")
+        "estado_resolucion": info.get("estado_proceso", "Pendiente de Revisión")
     }
 
 
@@ -514,29 +447,42 @@ def guardar_resolucion(payload: GuardarResolucionRequest, db: Session = Depends(
     Permite al abogado guardar modificaciones en los campos editables
     (razón social, CI/NIT, artículos o notas legales) en PostgreSQL.
     """
-    # Intentar buscar trámite real o persistir
     t_id = None
     try:
-        if payload.tramite_id and "-" in payload.tramite_id and not payload.tramite_id.startswith("demo"):
+        if payload.tramite_id:
             t_id = uuid.UUID(payload.tramite_id)
     except Exception:
         pass
 
-    if not t_id:
-        primer_trm = db.query(models.Tramite).first()
-        t_id = primer_trm.id if primer_trm else uuid.uuid4()
+    tramite = None
+    if t_id:
+        tramite = db.query(models.Tramite).filter(models.Tramite.id == t_id).first()
+    
+    if not tramite and payload.codigo_tramite:
+        clean = payload.codigo_tramite.replace("REQ-", "").replace("TRM-", "").strip().lower()
+        tramites_all = db.query(models.Tramite).filter(models.Tramite.estado == True).all()
+        for t in tramites_all:
+            if str(t.id).lower().startswith(clean):
+                tramite = t
+                t_id = t.id
+                break
 
-    estab = db.query(models.Establecimiento).first()
+    if not tramite:
+        tramite = db.query(models.Tramite).first()
+        t_id = tramite.id if tramite else uuid.uuid4()
+
+    estab = tramite.establecimiento if tramite else db.query(models.Establecimiento).first()
     estab_id = estab.id if estab else uuid.uuid4()
 
     abogado = db.query(models.Usuario).join(models.Role).filter(models.Role.nombre.ilike("%Abogado%")).first()
     abogado_id = abogado.id if abogado else None
 
-    num_res = payload.numero_resolucion or f"RA-2026-0042"
+    cod_clean = str(t_id)[:4].upper()
+    num_res = payload.numero_resolucion or f"RA-2026-{cod_clean}"
 
     resol = db.query(models.ResolucionAdministrativa).filter(
-        (models.ResolucionAdministrativa.numero_resolucion == num_res) |
-        (models.ResolucionAdministrativa.tramite_id == t_id)
+        (models.ResolucionAdministrativa.tramite_id == t_id) |
+        (models.ResolucionAdministrativa.numero_resolucion == num_res)
     ).first()
 
     if not resol:
@@ -545,7 +491,7 @@ def guardar_resolucion(payload: GuardarResolucionRequest, db: Session = Depends(
             tramite_id=t_id,
             establecimiento_id=estab_id,
             abogado_id=abogado_id,
-            establecimiento_nombre=payload.establecimiento_nombre,
+            establecimiento_nombre=payload.establecimiento_nombre or (estab.nombre_comercial if estab else "Establecimiento"),
             razon_social_propietario=payload.razon_social_propietario,
             ci_nit_solicitante=payload.ci_nit_solicitante,
             tipo_establecimiento=payload.tipo_establecimiento,
@@ -560,24 +506,24 @@ def guardar_resolucion(payload: GuardarResolucionRequest, db: Session = Depends(
         )
         db.add(resol)
     else:
-        resol.establecimiento_nombre = payload.establecimiento_nombre or resol.establecimiento_nombre
-        resol.razon_social_propietario = payload.razon_social_propietario or resol.razon_social_propietario
-        resol.ci_nit_solicitante = payload.ci_nit_solicitante or resol.ci_nit_solicitante
-        resol.tipo_establecimiento = payload.tipo_establecimiento or resol.tipo_establecimiento
-        resol.direccion_registrada = payload.direccion_registrada or resol.direccion_registrada
-        resol.antecedentes = payload.antecedentes or resol.antecedentes
-        resol.fundamento_legal = payload.fundamento_legal or resol.fundamento_legal
-        resol.articulo_primero = payload.articulo_primero or resol.articulo_primero
-        resol.articulo_segundo = payload.articulo_segundo or resol.articulo_segundo
-        resol.articulo_tercero = payload.articulo_tercero or resol.articulo_tercero
-        resol.observaciones_legales = payload.observaciones_legales or resol.observaciones_legales
+        if payload.establecimiento_nombre: resol.establecimiento_nombre = payload.establecimiento_nombre
+        if payload.razon_social_propietario: resol.razon_social_propietario = payload.razon_social_propietario
+        if payload.ci_nit_solicitante: resol.ci_nit_solicitante = payload.ci_nit_solicitante
+        if payload.tipo_establecimiento: resol.tipo_establecimiento = payload.tipo_establecimiento
+        if payload.direccion_registrada: resol.direccion_registrada = payload.direccion_registrada
+        if payload.antecedentes: resol.antecedentes = payload.antecedentes
+        if payload.fundamento_legal: resol.fundamento_legal = payload.fundamento_legal
+        if payload.articulo_primero: resol.articulo_primero = payload.articulo_primero
+        if payload.articulo_segundo: resol.articulo_segundo = payload.articulo_segundo
+        if payload.articulo_tercero: resol.articulo_tercero = payload.articulo_tercero
+        if payload.observaciones_legales: resol.observaciones_legales = payload.observaciones_legales
         resol.estado_resolucion = "En edición final"
 
     db.commit()
 
     return {
         "status": "success",
-        "mensaje": f"Borrador de {num_res} guardado correctamente.",
+        "mensaje": f"Borrador de {num_res} guardado correctamente en la base de datos.",
         "numero_resolucion": num_res
     }
 
@@ -591,9 +537,9 @@ def enviar_resolucion_coordinador(payload: EnviarCoordinadorRequest, db: Session
     Valida legalmente el expediente y envía la Resolución Administrativa elaborada
     al Coordinador del SEDES para firma y emisión de Resolución definitiva.
     """
-    num_res = payload.numero_resolucion or "RA-2026-0042"
-    estab_nombre = payload.establecimiento_nombre or "Clínica Sur"
-    cod_trm = payload.codigo_tramite or "REQ-0042"
+    num_res = payload.numero_resolucion or "RA-2026-SEDES"
+    estab_nombre = payload.establecimiento_nombre or "Establecimiento"
+    cod_trm = payload.codigo_tramite or "REQ-SEDES"
 
     # Guardar en BD
     guardar_resolucion(payload, db)
@@ -640,69 +586,65 @@ def enviar_resolucion_coordinador(payload: EnviarCoordinadorRequest, db: Session
 # ==============================================================================
 # 6. HISTORIAL DE RESOLUCIONES Y TRAZABILIDAD LEGAL
 # ==============================================================================
-@router.get("/historial", summary="Obtener historial de resoluciones y dictámenes legales")
+@router.get("/historial", summary="Obtener historial de resoluciones y dictámenes legales reales")
 def obtener_historial_legal(
     search: Optional[str] = Query(None),
     estado_filtro: Optional[str] = Query("Todos"),
     db: Session = Depends(get_db)
 ):
     """
-    Retorna el listado histórico de todas las resoluciones administrativas elaboradas,
-    enviadas y emitidas en el SEDES.
+    Retorna el listado histórico de todas las resoluciones administrativas reales elaboradas,
+    enviadas y emitidas en el SEDES desde PostgreSQL.
     """
-    resoluciones = [
-        {
-            "id": "1",
-            "numero_resolucion": "RA-2026-0042",
-            "codigo_tramite": "REQ-0042",
-            "establecimiento": "Clínica Sur",
-            "propietario": "Dr. Roberto Salvatierra Flores",
-            "tipo_tramite": "Renovación",
-            "fecha_emision": "14 Ago 2026",
-            "vigencia": "5 años (2026 - 2031)",
-            "estado": "Enviado a Coordinador",
-            "abogado": "Dr. Marco Villanueva"
-        },
-        {
-            "id": "2",
-            "numero_resolucion": "RA-2026-0040",
-            "codigo_tramite": "REQ-0040",
-            "establecimiento": "Laboratorio BioTest",
-            "propietario": "Dra. Carmen Rosa Salinas",
-            "tipo_tramite": "Renovación",
-            "fecha_emision": "11 Ago 2026",
-            "vigencia": "5 años (2026 - 2031)",
-            "estado": "Emitido",
-            "abogado": "Dr. Marco Villanueva"
-        },
-        {
-            "id": "3",
-            "numero_resolucion": "RA-2026-0035",
-            "codigo_tramite": "REQ-0035",
-            "establecimiento": "Laboratorio Clínico Central",
-            "propietario": "Lic. Mario Fernández",
-            "tipo_tramite": "Apertura",
-            "fecha_emision": "02 Ago 2026",
-            "vigencia": "5 años (2026 - 2031)",
-            "estado": "Emitido",
-            "abogado": "Dr. Marco Villanueva"
-        }
-    ]
+    resoluciones = []
+    resol_db = db.query(models.ResolucionAdministrativa).filter(
+        models.ResolucionAdministrativa.estado == True
+    ).order_by(desc(models.ResolucionAdministrativa.fecha_creacion)).all()
 
-    # Cargar también de BD si existen
-    resol_db = db.query(models.ResolucionAdministrativa).filter(models.ResolucionAdministrativa.estado == True).all()
     for r in resol_db:
-        if r.numero_resolucion not in [x["numero_resolucion"] for x in resoluciones]:
-            resoluciones.insert(0, {
-                "id": str(r.id),
-                "numero_resolucion": r.numero_resolucion,
-                "codigo_tramite": f"REQ-{str(r.tramite_id)[:4].upper()}" if r.tramite_id else "REQ-0042",
-                "establecimiento": r.establecimiento_nombre or "Establecimiento",
-                "propietario": r.razon_social_propietario or "Responsable Legal",
-                "tipo_tramite": "Apertura / Renovación",
-                "fecha_emision": formatear_fecha_es(r.fecha_emision),
-                "vigencia": f"{r.vigencia_anios or 5} años",
-                "estado": r.estado_resolucion or "Enviado a Coordinador",
+        trm = r.tramite
+        estab = r.establecimiento or (trm.establecimiento if trm else None)
+        prop = estab.propietario if estab else None
+        prop_nombre = r.razon_social_propietario or (f"{prop.nombres} {prop.apellidos}" if prop else "Propietario Registrado")
+        cod_trm = f"REQ-{str(r.tramite_id)[:4].upper()}" if r.tramite_id else "REQ-SEDES"
+
+        resoluciones.append({
+            "id": str(r.id),
+            "tramite_id": str(r.tramite_id) if r.tramite_id else str(r.id),
+            "numero_resolucion": r.numero_resolucion,
+            "codigo_tramite": cod_trm,
+            "establecimiento": r.establecimiento_nombre or (estab.nombre_comercial if estab else "Establecimiento"),
+            "propietario": prop_nombre,
+            "tipo_tramite": (trm.tipo_tramite if trm else "Apertura / Renovación") or "Apertura / Renovación",
+            "fecha_emision": formatear_fecha_es(r.fecha_emision or r.fecha_creacion),
+            "vigencia": f"{r.vigencia_anios or 5} años",
+            "estado": r.estado_resolucion or "Enviado a Coordinador",
+            "abogado": "Dr. Marco Villanueva"
+        })
+
+    # Incluir trámites aprobados reales si aún no tienen fila de resolución
+    res_tramite_ids = {str(r.tramite_id) for r in resol_db if r.tramite_id}
+    trms_aprobados = db.query(models.Tramite).filter(
+        models.Tramite.estado == True,
+        models.Tramite.estado_tramite == "Aprobado"
+    ).all()
+
+    for t in trms_aprobados:
+        if str(t.id) not in res_tramite_ids:
+            estab = t.establecimiento
+            prop = estab.propietario if estab else None
+            cod_trm = f"REQ-{str(t.id)[:4].upper()}"
+            resoluciones.append({
+                "id": str(t.id),
+                "tramite_id": str(t.id),
+                "numero_resolucion": f"RA-2026-{cod_trm.replace('REQ-', '')}",
+                "codigo_tramite": cod_trm,
+                "establecimiento": estab.nombre_comercial if estab else "Establecimiento",
+                "propietario": f"{prop.nombres} {prop.apellidos}" if prop else "Propietario Registrado",
+                "tipo_tramite": t.tipo_tramite or "Apertura / Renovación",
+                "fecha_emision": formatear_fecha_es(t.fecha_creacion),
+                "vigencia": "5 años",
+                "estado": "Aprobado",
                 "abogado": "Dr. Marco Villanueva"
             })
 

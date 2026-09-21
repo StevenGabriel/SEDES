@@ -2,7 +2,14 @@ import uuid
 import re
 from datetime import datetime
 from typing import Optional
-from pydantic import BaseModel, Field, field_validator
+try:
+    from pydantic import BaseModel, Field, field_validator
+    def email_validator(func):
+        return field_validator("email")(classmethod(func))
+except ImportError:
+    from pydantic import BaseModel, Field, validator
+    def email_validator(func):
+        return validator("email", allow_reuse=True)(classmethod(func))
 
 # ==============================================================================
 # SCHEMAS DE AUTENTICACIÓN Y RECUPERACIÓN DE CONTRASEÑAS
@@ -18,8 +25,7 @@ class UsuarioRegistro(BaseModel):
     telefono: Optional[str] = Field(None, max_length=30, description="Teléfono o celular de contacto")
     password: str = Field(..., min_length=6, description="Contraseña segura (mínimo 6 caracteres)")
 
-    @field_validator("email")
-    @classmethod
+    @email_validator
     def validar_email(cls, v: str) -> str:
         v = v.strip().lower()
         if not re.match(EMAIL_REGEX, v):
@@ -35,8 +41,7 @@ class UsuarioLogin(BaseModel):
 class SolicitarResetPasswordRequest(BaseModel):
     email: str = Field(..., max_length=150, description="Correo electrónico registrado")
 
-    @field_validator("email")
-    @classmethod
+    @email_validator
     def validar_email(cls, v: str) -> str:
         v = v.strip().lower()
         if not re.match(EMAIL_REGEX, v):
@@ -122,8 +127,7 @@ class UsuarioAdminCreate(BaseModel):
     rol: str = Field(..., description="Nombre del rol (ej: Supervisor Técnico, Coordinador SEDES)")
     password: Optional[str] = Field("Sedes2026!", min_length=6)
 
-    @field_validator("email")
-    @classmethod
+    @email_validator
     def validar_email(cls, v: str) -> str:
         v = v.strip().lower()
         if not re.match(EMAIL_REGEX, v):

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import {
   FileText,
@@ -15,6 +15,7 @@ import {
   ShieldCheck,
   Send,
   Download,
+  Printer,
   Edit3,
   Edit2,
   Check,
@@ -30,19 +31,60 @@ import {
   Menu,
   FileCheck,
   ExternalLink,
-  Lock
+  Lock,
+  FlaskConical
 } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
 import logoL1 from '../assets/L1.png';
 import logoL2 from '../assets/L2.png';
-import escudoBolivia from '../assets/Escudo_de_Bolivia.svg.webp';
-import escudoCochabamba from '../assets/Escudo_del_Cochabamba.svg.webp';
+import { generarComunicacionInternaPDF } from '../components/coordinador/ComunicacionInternaPDF';
+import { generarResolucionAdministrativaPDF } from '../components/abogado/ResolucionAdministrativaPDF';
 
-// Paleta de colores para el avatar
+// Obtener iniciales de 2 a 4 letras a partir de nombres y apellidos
+const getInitials = (u) => {
+  if (!u) return 'U';
+  let text = '';
+  if (u.nombres && u.apellidos) {
+    text = `${u.nombres} ${u.apellidos}`;
+  } else if (u.nombreCompleto) {
+    text = u.nombreCompleto;
+  } else if (u.nombres) {
+    text = u.nombres;
+  } else if (u.nombre) {
+    text = u.nombre;
+  } else if (u.email) {
+    return u.email.slice(0, 2).toUpperCase();
+  }
+
+  const clean = text.replace(/^(Dr\.|Dra\.|Ing\.|Lic\.|MSc\.|Ph\.D\.|Abg\.)\s+/i, '').trim();
+  const words = clean.split(/\s+/).filter(Boolean);
+
+  if (words.length === 0) return 'U';
+  if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
+  if (words.length === 2) return (words[0][0] + words[1][0]).toUpperCase();
+  return words.slice(0, 4).map(w => w[0]).join('').toUpperCase();
+};
+
+// Generar paleta de colores para el avatar
 const getAvatarColor = (nombre) => {
-  return 'bg-gradient-to-tr from-slate-700 to-slate-900 text-white';
+  const colors = [
+    'bg-gradient-to-tr from-[#0060a8] to-[#008fe6] text-white',
+    'bg-gradient-to-tr from-indigo-600 to-indigo-800 text-white',
+    'bg-gradient-to-tr from-sky-600 to-cyan-700 text-white',
+    'bg-gradient-to-tr from-teal-600 to-emerald-700 text-white',
+    'bg-gradient-to-tr from-slate-700 to-slate-900 text-white',
+    'bg-gradient-to-tr from-blue-700 to-indigo-900 text-white',
+    'bg-gradient-to-tr from-emerald-600 to-teal-800 text-white'
+  ];
+  if (!nombre) return colors[0];
+  let hash = 0;
+  for (let i = 0; i < nombre.length; i++) {
+    hash = nombre.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const index = Math.abs(hash) % colors.length;
+  return colors[index];
 };
 
 export default function AbogadoPage() {
@@ -52,6 +94,27 @@ export default function AbogadoPage() {
   const SECCIONES_VALIDAS = ['informes-recibidos', 'resolucion-administrativa', 'historial'];
   const seccionActiva = SECCIONES_VALIDAS.includes(seccion) ? seccion : 'resolucion-administrativa';
 
+  const menuItems = [
+    {
+      id: 'informes-recibidos',
+      path: '/abogado/informes-recibidos',
+      label: 'Informes Recibidos',
+      icon: FileText
+    },
+    {
+      id: 'resolucion-administrativa',
+      path: '/abogado/resolucion-administrativa',
+      label: 'Resolución Administrativa',
+      icon: Award
+    },
+    {
+      id: 'historial',
+      path: '/abogado/historial',
+      label: 'Historial',
+      icon: History
+    }
+  ];
+
   // Estado del usuario y menú
   const [usuario, setUsuario] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -60,13 +123,16 @@ export default function AbogadoPage() {
   // Lista de informes/trámites
   const [informes, setInformes] = useState([]);
   const [cargandoInformes, setCargandoInformes] = useState(true);
-  const [tramiteSeleccionadoId, setTramiteSeleccionadoId] = useState('demo-req-0042');
+  const [tramiteSeleccionadoId, setTramiteSeleccionadoId] = useState(null);
 
   // Detalle del Informe Técnico (Vista 1)
   const [detalleInforme, setDetalleInforme] = useState(null);
   const [cargandoDetalle, setCargandoDetalle] = useState(false);
   const [observacionesCoordinadorEdicion, setObservacionesCoordinadorEdicion] = useState('');
   const [dictamenSeleccionado, setDictamenSeleccionado] = useState('Favorabilidad Concedida (Favorable)');
+  const [pdfInformeBlobUrl, setPdfInformeBlobUrl] = useState(null);
+  const [generandoPdfInforme, setGenerandoPdfInforme] = useState(false);
+  const [tabInformeActiva, setTabInformeActiva] = useState('pdf'); // 'pdf' | 'ficha'
 
   // Borrador de Resolución Administrativa (Vista 2)
   const [borradorResolucion, setBorradorResolucion] = useState(null);
@@ -74,10 +140,14 @@ export default function AbogadoPage() {
   const [guardandoResolucion, setGuardandoResolucion] = useState(false);
   const [enviandoCoordinador, setEnviandoCoordinador] = useState(false);
 
-  // Campos Editables de la Resolución
+  // Campos Editables de la Resolución (Vista 2)
+  const [editNumeroResolucion, setEditNumeroResolucion] = useState('55/2026');
+  const [editFechaEmision, setEditFechaEmision] = useState('18 de septiembre del 2026');
   const [editEstablecimiento, setEditEstablecimiento] = useState('');
   const [editRazonSocial, setEditRazonSocial] = useState('');
   const [editCiNit, setEditCiNit] = useState('');
+  const [editRegente, setEditRegente] = useState('');
+  const [editCiRegente, setEditCiRegente] = useState('');
   const [editTipoEstablecimiento, setEditTipoEstablecimiento] = useState('');
   const [editDireccion, setEditDireccion] = useState('');
   const [editAntecedentes, setEditAntecedentes] = useState('');
@@ -86,7 +156,26 @@ export default function AbogadoPage() {
   const [editArticuloSegundo, setEditArticuloSegundo] = useState('');
   const [editArticuloTercero, setEditArticuloTercero] = useState('');
   const [editObservacionesLegales, setEditObservacionesLegales] = useState('');
-  const [editVigenciaRango, setEditVigenciaRango] = useState('15 Ago 2026 - 15 Ago 2031');
+  const [editVigenciaRango, setEditVigenciaRango] = useState('18 de Septiembre de 2026 - 18 de Septiembre de 2031');
+
+  // PDF Preview y Pestaña Activa en la Resolución Administrativa (Vista 2)
+  const [pdfResolucionBlobUrl, setPdfResolucionBlobUrl] = useState(null);
+  const [generandoPdfResolucion, setGenerandoPdfResolucion] = useState(false);
+  const [tabResolucionActiva, setTabResolucionActiva] = useState('pdf'); // 'pdf' | 'editor'
+  const pdfResolucionUrlRef = useRef(null);
+  const pdfInformeUrlRef = useRef(null);
+
+  // Limpieza de URLs blob al desmontar componente
+  useEffect(() => {
+    return () => {
+      if (pdfResolucionUrlRef.current) {
+        URL.revokeObjectURL(pdfResolucionUrlRef.current);
+      }
+      if (pdfInformeUrlRef.current) {
+        URL.revokeObjectURL(pdfInformeUrlRef.current);
+      }
+    };
+  }, []);
 
   // Historial de Resoluciones (Vista 3)
   const [historialList, setHistorialList] = useState([]);
@@ -124,20 +213,24 @@ export default function AbogadoPage() {
     }
   }, []);
 
-  // 1. Cargar lista de informes
+  // 1. Cargar lista de informes reales desde el backend
   const cargarInformes = useCallback(async () => {
     setCargandoInformes(true);
     try {
       const res = await fetch('http://localhost:8000/api/abogado/informes');
       if (res.ok) {
         const data = await res.json();
-        setInformes(data.informes || []);
-        if (data.informes && data.informes.length > 0) {
-          // Mantener o seleccionar el primero
-          const existe = data.informes.find(x => x.id === tramiteSeleccionadoId);
-          if (!existe) {
-            setTramiteSeleccionadoId(data.informes[0].id);
-          }
+        const lista = data.informes || [];
+        setInformes(lista);
+        if (lista.length > 0) {
+          setTramiteSeleccionadoId(prev => {
+            const existe = lista.find(x => x.id === prev);
+            return existe ? prev : lista[0].id;
+          });
+        } else {
+          setTramiteSeleccionadoId(null);
+          setDetalleInforme(null);
+          setBorradorResolucion(null);
         }
       }
     } catch (err) {
@@ -145,7 +238,7 @@ export default function AbogadoPage() {
     } finally {
       setCargandoInformes(false);
     }
-  }, [tramiteSeleccionadoId]);
+  }, []);
 
   useEffect(() => {
     cargarInformes();
@@ -153,7 +246,10 @@ export default function AbogadoPage() {
 
   // 2. Cargar detalle del informe seleccionado (para Vista 1 e inicializar Vista 2)
   const cargarDetalleInforme = useCallback(async (tId) => {
-    if (!tId) return;
+    if (!tId) {
+      setDetalleInforme(null);
+      return;
+    }
     setCargandoDetalle(true);
     try {
       const res = await fetch(`http://localhost:8000/api/abogado/informe/${encodeURIComponent(tId)}`);
@@ -162,43 +258,144 @@ export default function AbogadoPage() {
         setDetalleInforme(data);
         setObservacionesCoordinadorEdicion(data.observaciones_coordinador || '');
         setDictamenSeleccionado(data.dictamen_final || 'Favorabilidad Concedida (Favorable)');
+      } else {
+        setDetalleInforme(null);
       }
     } catch (err) {
       console.warn('Error al cargar detalle de informe:', err);
+      setDetalleInforme(null);
     } finally {
       setCargandoDetalle(false);
     }
   }, []);
 
+  // Helper builders para generar textos jurídicos estandarizados y en sincronía
+  const construirVistos = (propietario, ci, regente, ciReg, estab, dir, tramite, fecha) => {
+    return `La solicitud presentada en fecha ${fecha || '18 de septiembre del 2026'}, de propiedad del ${(propietario || 'SR. PROPIETARIO REGISTRADO').toUpperCase()}, representado por el titular con C.I. Nº ${ci || ''}, siendo Responsable Técnica la profesional ${(regente || propietario || 'PROFESIONAL').toUpperCase()} con C.I. Nº ${ciReg || ci || ''}, quien solicita a la Señora Directora Departamental de Salud, la Resolución Administrativa de ${(tramite || 'APERTURA Y HABILITACIÓN').toUpperCase()} del ${(estab || 'LABORATORIO CLÍNICO').toUpperCase()}, ubicado en ${dir || 'Cochabamba'}, del Departamento de Cochabamba, y demás antecedentes.`;
+  };
+
+  const construirFundamentoLegal = (estab, tipoEst, regente, ciReg, tramite, cite, fechaInforme, coord) => {
+    return `Que, asimismo el Servicio Departamental de Salud Cochabamba regido por el D.S. 25233 establece la Estructura de los SEDES, ejerciendo como Autoridad Sanitaria y velando por la calidad de los servicios de salud a cargo de prestadores públicos y privados. Asimismo conforme la Resolución Ministerial Nº 0202 del 22.03.2010 que aprueba el Reglamento General para la Habilitación y Funcionamiento de Laboratorios. El Informe Técnico de fecha ${fechaInforme || '18 de septiembre del 2026'} con No. CITE: ${cite || 'CODELAB/SEDES/71/2026'}, en la que la Responsable CODELAB, ${coord || 'Dra. Claudia Morales Valenzuela'}, concluye que es procedente la ${(tramite || 'APERTURA Y HABILITACIÓN').toUpperCase()} del establecimiento ${(estab || 'LABORATORIO CLÍNICO').toUpperCase()}, ${tipoEst || 'LABORATORIO CLÍNICO PÚBLICO'}, quedando como regente técnica la profesional ${(regente || 'PROFESIONAL').toUpperCase()} con C.I. Nº ${ciReg || ''}.`;
+  };
+
+  const construirArticuloPrimero = (tramite, estab, tipoEst, dir, propietario, ci, regente, ciReg) => {
+    return `Autorizar la ${(tramite || 'APERTURA Y HABILITACIÓN').toUpperCase()} del establecimiento de salud denominado ${(estab || 'LABORATORIO CLÍNICO').toUpperCase()}, ${tipoEst || 'LABORATORIO CLÍNICO PÚBLICO'}, ubicado en ${dir || 'Cochabamba'}, representado por el titular D./Dña. ${(propietario || 'TITULAR').toUpperCase()} con C.I. Nº ${ci || ''}, bajo la regencia técnica de la profesional ${(regente || propietario || 'PROFESIONAL').toUpperCase()} con C.I. Nº ${ciReg || ci || ''}.`;
+  };
+
+  const construirArticuloSegundo = (anios, vigencia) => {
+    return `Asimismo se hace constar que la presente resolución administrativa tiene vigencia de ${anios || 5} años a partir de la emisión de la presente resolución (${vigencia || '18 de Septiembre de 2026 - 18 de Septiembre de 2031'}).`;
+  };
+
   // 3. Cargar borrador de resolución administrativa (para Vista 2)
   const cargarBorradorResolucion = useCallback(async (tId) => {
-    if (!tId) return;
+    if (!tId) {
+      setBorradorResolucion(null);
+      return;
+    }
     setCargandoBorrador(true);
     try {
       const res = await fetch(`http://localhost:8000/api/abogado/resolucion-borrador/${encodeURIComponent(tId)}`);
       if (res.ok) {
         const data = await res.json();
         setBorradorResolucion(data);
+        const numRA = data.numero_resolucion || '55/2026';
+        const fechaEm = data.fecha_emision || '21 Sep 2026';
         const de = data.datos_establecimiento || {};
-        setEditEstablecimiento(de.establecimiento || '');
-        setEditRazonSocial(de.razon_social || '');
-        setEditCiNit(de.ci_nit || '');
-        setEditTipoEstablecimiento(de.tipo_establecimiento || '');
-        setEditDireccion(de.direccion || '');
-        setEditAntecedentes(data.antecedentes || '');
-        setEditFundamentoLegal(data.fundamento_legal || '');
-        setEditArticuloPrimero(data.articulo_primero || '');
-        setEditArticuloSegundo(data.articulo_segundo || '');
-        setEditArticuloTercero(data.articulo_tercero || '');
+        const est = de.establecimiento || '';
+        const prop = de.razon_social || '';
+        const ciProp = de.ci_nit || '';
+        const reg = de.regente || de.razon_social || '';
+        const ciReg = de.ci_regente || de.ci_nit || '';
+        const tipoEst = de.tipo_establecimiento || 'LABORATORIO CLÍNICO PÚBLICO';
+        const dir = de.direccion || '';
+        const tram = data.tipo_tramite || 'APERTURA Y HABILITACIÓN';
+        const citeInf = de.cite_informe || 'CODELAB/SEDES/71/2026';
+        const fechaInf = de.fecha_informe || fechaEm;
+        const vigRango = data.vigencia_rango || '18 de Septiembre de 2026 - 18 de Septiembre de 2031';
+
+        setEditNumeroResolucion(numRA);
+        setEditFechaEmision(fechaEm);
+        setEditEstablecimiento(est);
+        setEditRazonSocial(prop);
+        setEditCiNit(ciProp);
+        setEditRegente(reg);
+        setEditCiRegente(ciReg);
+        setEditTipoEstablecimiento(tipoEst);
+        setEditDireccion(dir);
+        setEditVigenciaRango(vigRango);
+
+        setEditAntecedentes(data.antecedentes || construirVistos(prop, ciProp, reg, ciReg, est, dir, tram, fechaInf));
+        setEditFundamentoLegal(data.fundamento_legal || construirFundamentoLegal(est, tipoEst, reg, ciReg, tram, citeInf, fechaInf, 'Dra. Claudia Morales Valenzuela'));
+        setEditArticuloPrimero(data.articulo_primero || construirArticuloPrimero(tram, est, tipoEst, dir, prop, ciProp, reg, ciReg));
+        setEditArticuloSegundo(data.articulo_segundo || construirArticuloSegundo(5, vigRango));
+        setEditArticuloTercero(data.articulo_tercero || 'El establecimiento queda sujeto a las normas sanitarias vigentes y a las inspecciones periódicas de control que la Autoridad Departamental de Salud considere pertinentes.');
         setEditObservacionesLegales(data.observaciones_legales || '');
-        setEditVigenciaRango(data.vigencia_rango || '15 Ago 2026 - 15 Ago 2031');
+      } else {
+        setBorradorResolucion(null);
       }
     } catch (err) {
       console.warn('Error al cargar borrador de resolución:', err);
+      setBorradorResolucion(null);
     } finally {
       setCargandoBorrador(false);
     }
   }, []);
+
+  // Handlers para edición en vivo de campos con sincronización de textos y PDF
+  const handleCambioEstablecimiento = (val) => {
+    setEditEstablecimiento(val);
+    setEditAntecedentes(construirVistos(editRazonSocial, editCiNit, editRegente, editCiRegente, val, editDireccion, detalleInforme?.tipo_tramite, editFechaEmision));
+    setEditFundamentoLegal(construirFundamentoLegal(val, editTipoEstablecimiento, editRegente, editCiRegente, detalleInforme?.tipo_tramite, borradorResolucion?.datos_establecimiento?.cite_informe, editFechaEmision, 'Dra. Claudia Morales Valenzuela'));
+    setEditArticuloPrimero(construirArticuloPrimero(detalleInforme?.tipo_tramite, val, editTipoEstablecimiento, editDireccion, editRazonSocial, editCiNit, editRegente, editCiRegente));
+  };
+
+  const handleCambioPropietario = (val) => {
+    setEditRazonSocial(val);
+    setEditAntecedentes(construirVistos(val, editCiNit, editRegente, editCiRegente, editEstablecimiento, editDireccion, detalleInforme?.tipo_tramite, editFechaEmision));
+    setEditArticuloPrimero(construirArticuloPrimero(detalleInforme?.tipo_tramite, editEstablecimiento, editTipoEstablecimiento, editDireccion, val, editCiNit, editRegente, editCiRegente));
+  };
+
+  const handleCambioCiNit = (val) => {
+    setEditCiNit(val);
+    setEditAntecedentes(construirVistos(editRazonSocial, val, editRegente, editCiRegente, editEstablecimiento, editDireccion, detalleInforme?.tipo_tramite, editFechaEmision));
+    setEditArticuloPrimero(construirArticuloPrimero(detalleInforme?.tipo_tramite, editEstablecimiento, editTipoEstablecimiento, editDireccion, editRazonSocial, val, editRegente, editCiRegente));
+  };
+
+  const handleCambioRegente = (val) => {
+    setEditRegente(val);
+    setEditAntecedentes(construirVistos(editRazonSocial, editCiNit, val, editCiRegente, editEstablecimiento, editDireccion, detalleInforme?.tipo_tramite, editFechaEmision));
+    setEditFundamentoLegal(construirFundamentoLegal(editEstablecimiento, editTipoEstablecimiento, val, editCiRegente, detalleInforme?.tipo_tramite, borradorResolucion?.datos_establecimiento?.cite_informe, editFechaEmision, 'Dra. Claudia Morales Valenzuela'));
+    setEditArticuloPrimero(construirArticuloPrimero(detalleInforme?.tipo_tramite, editEstablecimiento, editTipoEstablecimiento, editDireccion, editRazonSocial, editCiNit, val, editCiRegente));
+  };
+
+  const handleCambioCiRegente = (val) => {
+    setEditCiRegente(val);
+    setEditAntecedentes(construirVistos(editRazonSocial, editCiNit, editRegente, val, editEstablecimiento, editDireccion, detalleInforme?.tipo_tramite, editFechaEmision));
+    setEditFundamentoLegal(construirFundamentoLegal(editEstablecimiento, editTipoEstablecimiento, editRegente, val, detalleInforme?.tipo_tramite, borradorResolucion?.datos_establecimiento?.cite_informe, editFechaEmision, 'Dra. Claudia Morales Valenzuela'));
+    setEditArticuloPrimero(construirArticuloPrimero(detalleInforme?.tipo_tramite, editEstablecimiento, editTipoEstablecimiento, editDireccion, editRazonSocial, editCiNit, editRegente, val));
+  };
+
+  const handleCambioDireccion = (val) => {
+    setEditDireccion(val);
+    setEditAntecedentes(construirVistos(editRazonSocial, editCiNit, editRegente, editCiRegente, editEstablecimiento, val, detalleInforme?.tipo_tramite, editFechaEmision));
+    setEditArticuloPrimero(construirArticuloPrimero(detalleInforme?.tipo_tramite, editEstablecimiento, editTipoEstablecimiento, val, editRazonSocial, editCiNit, editRegente, editCiRegente));
+  };
+
+  const handleCambioTipoEstablecimiento = (val) => {
+    setEditTipoEstablecimiento(val);
+    setEditFundamentoLegal(construirFundamentoLegal(editEstablecimiento, val, editRegente, editCiRegente, detalleInforme?.tipo_tramite, borradorResolucion?.datos_establecimiento?.cite_informe, editFechaEmision, 'Dra. Claudia Morales Valenzuela'));
+    setEditArticuloPrimero(construirArticuloPrimero(detalleInforme?.tipo_tramite, editEstablecimiento, val, editDireccion, editRazonSocial, editCiNit, editRegente, editCiRegente));
+  };
+
+  const handleCambioFechaEmision = (val) => {
+    setEditFechaEmision(val);
+    setEditAntecedentes(construirVistos(editRazonSocial, editCiNit, editRegente, editCiRegente, editEstablecimiento, editDireccion, detalleInforme?.tipo_tramite, val));
+  };
+
+  const handleCambioVigenciaRango = (val) => {
+    setEditVigenciaRango(val);
+    setEditArticuloSegundo(construirArticuloSegundo(5, val));
+  };
 
   // Efecto al cambiar de trámite seleccionado
   useEffect(() => {
@@ -208,58 +405,251 @@ export default function AbogadoPage() {
     }
   }, [tramiteSeleccionadoId, cargarDetalleInforme, cargarBorradorResolucion]);
 
-  // 4. Cargar Historial
-  const cargarHistorial = useCallback(async () => {
-    setCargandoHistorial(true);
-    try {
-      let url = `http://localhost:8000/api/abogado/historial?estado_filtro=${encodeURIComponent(filtroEstadoHistorial)}`;
-      if (busquedaHistorial.trim()) {
-        url += `&search=${encodeURIComponent(busquedaHistorial.trim())}`;
-      }
-      const res = await fetch(url);
-      if (res.ok) {
-        const data = await res.json();
-        setHistorialList(data.resoluciones || []);
-      }
-    } catch (err) {
-      console.warn('Error al cargar historial legal:', err);
-    } finally {
-      setCargandoHistorial(false);
-    }
-  }, [busquedaHistorial, filtroEstadoHistorial]);
-
+  // Generar dinámicamente la vista previa en PDF del Informe Técnico (Comunicación Interna)
   useEffect(() => {
-    if (seccionActiva === 'historial') {
-      cargarHistorial();
-    }
-  }, [seccionActiva, cargarHistorial]);
+    let activo = true;
 
-  // Transición a Generar Resolución (Desde Vista 1 a Vista 2)
-  const handleIrAGenerarResolucion = () => {
-    navigate('/abogado/resolucion-administrativa');
-    mostrarToast('Abriendo borrador oficial de Resolución Administrativa...', 'info');
+    const generarPdf = async () => {
+      if (!detalleInforme) {
+        if (pdfInformeUrlRef.current) {
+          URL.revokeObjectURL(pdfInformeUrlRef.current);
+          pdfInformeUrlRef.current = null;
+        }
+        setPdfInformeBlobUrl(null);
+        return;
+      }
+
+      setGenerandoPdfInforme(true);
+      try {
+        const tramiteParaPdf = {
+          id: detalleInforme.tramite_id,
+          codigo: detalleInforme.codigo,
+          establecimiento: detalleInforme.establecimiento_nombre,
+          nombre_comercial: detalleInforme.establecimiento_nombre,
+          propietario: detalleInforme.razon_social_propietario,
+          representante_legal: detalleInforme.razon_social_propietario,
+          ci_nit: detalleInforme.ci_nit_solicitante,
+          tipo: detalleInforme.tipo_tramite,
+          direccion: detalleInforme.direccion,
+          supervisorAsignado: detalleInforme.inspeccion_campo?.supervisor || 'Supervisor de Área SEDES',
+          fechaInspeccion: detalleInforme.inspeccion_campo?.fecha || '18/09/2026',
+          documentosAprobados: (detalleInforme.documentacion_legal || [])
+            .filter(d => d.aprobado)
+            .map(d => d.nombre),
+          resultadoGeneral: detalleInforme.inspeccion_campo?.resultado || 'Favorable (Cumple con estándares vigentes de bioseguridad)',
+          observacionesCampo: detalleInforme.inspeccion_campo?.observaciones || 'Infraestructura adecuada, manejo de residuos patógenos correcto y señalización de seguridad implementada.',
+          regente: detalleInforme.razon_social_propietario,
+          observaciones_coordinador: observacionesCoordinadorEdicion || detalleInforme.observaciones_coordinador
+        };
+
+        const doc = await generarComunicacionInternaPDF(tramiteParaPdf, {
+          cite: detalleInforme.numero_resolucion ? `CODELAB/SEDES/${(detalleInforme.codigo || '71').replace('REQ-', '')}/2026` : `CODELAB/SEDES/71/2026`,
+          destinatario: usuario?.nombres ? `${usuario.nombres} ${usuario.apellidos || ''}`.trim() : 'Dr. Marco Villanueva',
+          destinatarioCargo: 'ASESOR LEGAL - UNIDAD DE HABILITACIÓN SEDES',
+          via: 'Dra. Karina Soliz Villarroel',
+          viaCargo: 'JEFE DE LA UNIDAD DE CALIDAD Y SERVICIOS a.i.',
+          remitente: 'Dra. Claudia Morales Valenzuela',
+          remitenteCargo: 'RESPONSABLE DEPARTAMENTAL DE LABORATORIOS CODELAB - SEDES',
+          regente: detalleInforme.razon_social_propietario,
+          observaciones: observacionesCoordinadorEdicion || detalleInforme.observaciones_coordinador
+        });
+
+        if (!activo) return;
+        const blob = doc.output('blob');
+        const nuevaUrl = URL.createObjectURL(blob);
+        if (pdfInformeUrlRef.current) {
+          URL.revokeObjectURL(pdfInformeUrlRef.current);
+        }
+        pdfInformeUrlRef.current = nuevaUrl;
+        setPdfInformeBlobUrl(nuevaUrl);
+      } catch (err) {
+        console.error('Error generando PDF de Informe Técnico en Abogado:', err);
+      } finally {
+        if (activo) setGenerandoPdfInforme(false);
+      }
+    };
+
+    generarPdf();
+
+    return () => {
+      activo = false;
+    };
+  }, [detalleInforme, observacionesCoordinadorEdicion, usuario]);
+
+  // Generar dinámicamente la vista previa en PDF de la Resolución Administrativa Oficial con Debounce
+  useEffect(() => {
+    let activo = true;
+
+    const actualizarPdfRA = async () => {
+      if (!borradorResolucion && !editEstablecimiento) {
+        if (pdfResolucionUrlRef.current) {
+          URL.revokeObjectURL(pdfResolucionUrlRef.current);
+          pdfResolucionUrlRef.current = null;
+        }
+        setPdfResolucionBlobUrl(null);
+        return;
+      }
+
+      setGenerandoPdfResolucion(true);
+      try {
+        const datosParaPdf = {
+          numero_resolucion: editNumeroResolucion,
+          fecha_emision: editFechaEmision,
+          establecimiento: editEstablecimiento,
+          establecimiento_nombre: editEstablecimiento,
+          propietario: editRazonSocial,
+          razon_social: editRazonSocial,
+          razon_social_propietario: editRazonSocial,
+          ci_nit: editCiNit,
+          ci_nit_solicitante: editCiNit,
+          regente: editRegente || editRazonSocial,
+          regente_nombre: editRegente || editRazonSocial,
+          ci_regente: editCiRegente || editCiNit,
+          tipo_tramite: detalleInforme?.tipo_tramite || 'APERTURA Y HABILITACIÓN',
+          direccion: editDireccion,
+          direccion_registrada: editDireccion,
+          tipo_establecimiento: editTipoEstablecimiento,
+          cite_informe: borradorResolucion?.datos_establecimiento?.cite_informe || 'CODELAB/SEDES/71/2026',
+          fecha_informe: borradorResolucion?.datos_establecimiento?.fecha_informe || editFechaEmision,
+          coordinador_nombre: 'Dra. Claudia Morales Valenzuela',
+          abogado_nombre: usuario?.nombres ? `${usuario.nombres} ${usuario.apellidos || ''}`.trim() : 'Dr. Marco Villanueva',
+          vigencia_anios: 5,
+          vigencia_rango: editVigenciaRango,
+          antecedentes: editAntecedentes,
+          vistos: editAntecedentes,
+          fundamento_legal: editFundamentoLegal,
+          articulo_primero: editArticuloPrimero,
+          articulo_segundo: editArticuloSegundo,
+          articulo_tercero: editArticuloTercero,
+          observaciones_legales: editObservacionesLegales
+        };
+
+        const doc = await generarResolucionAdministrativaPDF(datosParaPdf);
+
+        if (!activo) return;
+        const blob = doc.output('blob');
+        const nuevaUrl = URL.createObjectURL(blob);
+        if (pdfResolucionUrlRef.current) {
+          URL.revokeObjectURL(pdfResolucionUrlRef.current);
+        }
+        pdfResolucionUrlRef.current = nuevaUrl;
+        setPdfResolucionBlobUrl(nuevaUrl);
+      } catch (err) {
+        console.error('Error generando PDF en vivo de Resolución:', err);
+      } finally {
+        if (activo) setGenerandoPdfResolucion(false);
+      }
+    };
+
+    const timer = setTimeout(actualizarPdfRA, 100);
+
+    return () => {
+      activo = false;
+      clearTimeout(timer);
+    };
+  }, [
+    borradorResolucion,
+    editNumeroResolucion,
+    editFechaEmision,
+    editEstablecimiento,
+    editRazonSocial,
+    editCiNit,
+    editRegente,
+    editCiRegente,
+    editTipoEstablecimiento,
+    editDireccion,
+    editAntecedentes,
+    editFundamentoLegal,
+    editArticuloPrimero,
+    editArticuloSegundo,
+    editArticuloTercero,
+    editObservacionesLegales,
+    editVigenciaRango,
+    detalleInforme,
+    usuario
+  ]);
+
+  // Descargar el PDF oficial del Informe Técnico
+  const handleDescargarInformePDF = async () => {
+    if (!detalleInforme) return;
+    try {
+      const tramiteParaPdf = {
+        id: detalleInforme.tramite_id,
+        codigo: detalleInforme.codigo,
+        establecimiento: detalleInforme.establecimiento_nombre,
+        nombre_comercial: detalleInforme.establecimiento_nombre,
+        propietario: detalleInforme.razon_social_propietario,
+        representante_legal: detalleInforme.razon_social_propietario,
+        ci_nit: detalleInforme.ci_nit_solicitante,
+        tipo: detalleInforme.tipo_tramite,
+        direccion: detalleInforme.direccion,
+        supervisorAsignado: detalleInforme.inspeccion_campo?.supervisor || 'Supervisor de Área SEDES',
+        fechaInspeccion: detalleInforme.inspeccion_campo?.fecha || '18/09/2026',
+        documentosAprobados: (detalleInforme.documentacion_legal || [])
+          .filter(d => d.aprobado)
+          .map(d => d.nombre),
+        resultadoGeneral: detalleInforme.inspeccion_campo?.resultado || 'Favorable (Cumple con estándares vigentes de bioseguridad)',
+        observacionesCampo: detalleInforme.inspeccion_campo?.observaciones || 'Infraestructura adecuada, manejo de residuos patógenos correcto y señalización de seguridad implementada.',
+        regente: detalleInforme.razon_social_propietario,
+        observaciones_coordinador: observacionesCoordinadorEdicion || detalleInforme.observaciones_coordinador
+      };
+
+      const doc = await generarComunicacionInternaPDF(tramiteParaPdf, {
+        cite: detalleInforme.numero_resolucion ? `CODELAB/SEDES/${(detalleInforme.codigo || '71').replace('REQ-', '')}/2026` : `CODELAB/SEDES/71/2026`,
+        destinatario: usuario?.nombres ? `${usuario.nombres} ${usuario.apellidos || ''}`.trim() : 'Dr. Marco Villanueva',
+        destinatarioCargo: 'ASESOR LEGAL - UNIDAD DE HABILITACIÓN SEDES',
+        via: 'Dra. Karina Soliz Villarroel',
+        viaCargo: 'JEFE DE LA UNIDAD DE CALIDAD Y SERVICIOS a.i.',
+        remitente: 'Dra. Claudia Morales Valenzuela',
+        remitenteCargo: 'RESPONSABLE DEPARTAMENTAL DE LABORATORIOS CODELAB - SEDES',
+        regente: detalleInforme.razon_social_propietario,
+        observaciones: observacionesCoordinadorEdicion || detalleInforme.observaciones_coordinador
+      });
+
+      doc.save(`Informe_Tecnico_${detalleInforme.codigo || 'SEDES'}.pdf`);
+      mostrarToast(`Informe Técnico descargado exitosamente.`, 'success');
+    } catch (e) {
+      mostrarToast('Error al descargar el PDF del Informe Técnico.', 'warning');
+    }
   };
 
-  // Guardar cambios en el borrador
+  // Abrir el PDF oficial en pestaña completa
+  const handleAbrirInformePDFNuevaPestana = () => {
+    if (pdfInformeBlobUrl) {
+      window.open(pdfInformeBlobUrl, '_blank');
+    }
+  };
+
+  // Transicionar de Vista 1 a Vista 2 (Generar Resolución Administrativa)
+  const handleIrAGenerarResolucion = () => {
+    navigate('/abogado/resolucion-administrativa');
+    mostrarToast('Listo para editar y generar la Resolución Administrativa.', 'info');
+  };
+
+  // Guardar modificaciones del borrador en el Backend
   const handleGuardarBorrador = async () => {
+    if (!borradorResolucion || !borradorResolucion.tramite_id) {
+      mostrarToast('No hay un trámite seleccionado para guardar.', 'warning');
+      return;
+    }
     setGuardandoResolucion(true);
     try {
       const payload = {
-        tramite_id: tramiteSeleccionadoId,
-        numero_resolucion: borradorResolucion?.numero_resolucion || 'RA-2026-0042',
-        establecimiento_nombre: editEstablecimiento,
-        razon_social_propietario: editRazonSocial,
-        ci_nit_solicitante: editCiNit,
-        tipo_establecimiento: editTipoEstablecimiento,
-        direccion_registrada: editDireccion,
-        antecedentes: editAntecedentes,
+        tramite_id: borradorResolucion.tramite_id,
+        numero_resolucion: editNumeroResolucion,
+        fecha_emision: editFechaEmision,
+        regente: editRegente,
+        ci_regente: editCiRegente,
+        tipo_tramite: detalleInforme?.tipo_tramite || 'APERTURA Y HABILITACIÓN',
+        cite_informe: borradorResolucion?.datos_establecimiento?.cite_informe || 'CODELAB/SEDES/71/2026',
+        fecha_informe: borradorResolucion?.datos_establecimiento?.fecha_informe || editFechaEmision,
+        vistos: editAntecedentes,
         fundamento_legal: editFundamentoLegal,
         articulo_primero: editArticuloPrimero,
         articulo_segundo: editArticuloSegundo,
         articulo_tercero: editArticuloTercero,
-        observaciones_legales: editObservacionesLegales,
-        vigencia_desde: '2026-08-15',
-        vigencia_hasta: '2031-08-15'
+        vigencia_rango: editVigenciaRango,
+        observaciones_legales: editObservacionesLegales
       };
 
       const res = await fetch('http://localhost:8000/api/abogado/guardar-resolucion', {
@@ -269,43 +659,32 @@ export default function AbogadoPage() {
       });
 
       if (res.ok) {
-        mostrarToast('Borrador de resolución guardado con éxito.', 'success');
-        cargarInformes();
+        mostrarToast('Borrador y modificaciones guardadas con éxito.', 'success');
+        cargarBorradorResolucion(borradorResolucion.tramite_id);
       } else {
-        mostrarToast('Error al guardar el borrador.', 'warning');
+        mostrarToast('Error al guardar las modificaciones.', 'warning');
       }
     } catch (err) {
-      console.warn('Error:', err);
-      mostrarToast('Borrador guardado localmente.', 'success');
+      console.error('Error guardando resolución:', err);
+      mostrarToast('Error de conexión al guardar.', 'warning');
     } finally {
       setGuardandoResolucion(false);
     }
   };
 
-  // Enviar Resolución al Coordinador para firma oficial
+  // Enviar resolución final al Coordinador para firma y archivo
   const handleEnviarAlCoordinador = async () => {
+    if (!borradorResolucion || !borradorResolucion.tramite_id) {
+      mostrarToast('No hay un trámite seleccionado para enviar.', 'warning');
+      return;
+    }
     setEnviandoCoordinador(true);
     try {
-      const numRes = borradorResolucion?.numero_resolucion || 'RA-2026-0042';
-      const codTrm = detalleInforme?.codigo || 'REQ-0042';
-      const abgNombre = usuario?.nombres ? `${usuario.nombres} ${usuario.apellidos}` : 'Dr. Marco Villanueva';
-
       const payload = {
-        tramite_id: tramiteSeleccionadoId,
-        codigo_tramite: codTrm,
-        numero_resolucion: numRes,
-        establecimiento_nombre: editEstablecimiento,
-        razon_social_propietario: editRazonSocial,
-        ci_nit_solicitante: editCiNit,
-        tipo_establecimiento: editTipoEstablecimiento,
-        direccion_registrada: editDireccion,
-        antecedentes: editAntecedentes,
-        fundamento_legal: editFundamentoLegal,
-        articulo_primero: editArticuloPrimero,
-        articulo_segundo: editArticuloSegundo,
-        articulo_tercero: editArticuloTercero,
-        observaciones_legales: editObservacionesLegales,
-        abogado_nombre: abgNombre
+        tramite_id: borradorResolucion.tramite_id,
+        numero_resolucion: editNumeroResolucion,
+        fecha_emision: editFechaEmision,
+        observaciones: editObservacionesLegales
       };
 
       const res = await fetch('http://localhost:8000/api/abogado/enviar-coordinador', {
@@ -315,180 +694,68 @@ export default function AbogadoPage() {
       });
 
       if (res.ok) {
-        mostrarToast(`¡Resolución ${numRes} enviada exitosamente al Coordinador para firma oficial!`, 'success');
+        mostrarToast('Resolución Administrativa remitida exitosamente al Coordinador.', 'success');
         cargarInformes();
+        navigate('/abogado/historial');
       } else {
-        mostrarToast(`¡Resolución ${numRes} remitida a Coordinación!`, 'success');
+        mostrarToast('Error al enviar la resolución al Coordinador.', 'warning');
       }
     } catch (err) {
-      console.warn('Error al enviar:', err);
-      mostrarToast('¡Resolución remitida al Coordinador exitosamente!', 'success');
+      console.error('Error enviando al coordinador:', err);
+      mostrarToast('Error de conexión al enviar.', 'warning');
     } finally {
       setEnviandoCoordinador(false);
     }
   };
 
-  // Generador oficial de PDF con jsPDF
-  const handleDescargarResolucionPDF = () => {
+  // Descargar la Resolución Administrativa Oficial en PDF (2 Páginas)
+  const handleDescargarResolucionPDF = async () => {
     try {
-      const doc = new jsPDF({
-        orientation: 'portrait',
-        unit: 'mm',
-        format: 'letter'
-      });
+      const datosParaPdf = {
+        numero_resolucion: editNumeroResolucion,
+        fecha_emision: editFechaEmision,
+        establecimiento: editEstablecimiento,
+        establecimiento_nombre: editEstablecimiento,
+        propietario: editRazonSocial,
+        razon_social: editRazonSocial,
+        razon_social_propietario: editRazonSocial,
+        ci_nit: editCiNit,
+        ci_nit_solicitante: editCiNit,
+        regente: editRegente || editRazonSocial,
+        regente_nombre: editRegente || editRazonSocial,
+        ci_regente: editCiRegente || editCiNit,
+        tipo_tramite: detalleInforme?.tipo_tramite || 'APERTURA Y HABILITACIÓN',
+        direccion: editDireccion,
+        direccion_registrada: editDireccion,
+        tipo_establecimiento: editTipoEstablecimiento,
+        cite_informe: borradorResolucion?.datos_establecimiento?.cite_informe || 'CODELAB/SEDES/71/2026',
+        fecha_informe: borradorResolucion?.datos_establecimiento?.fecha_informe || editFechaEmision,
+        coordinador_nombre: 'Dra. Claudia Morales Valenzuela',
+        abogado_nombre: usuario?.nombres ? `${usuario.nombres} ${usuario.apellidos || ''}`.trim() : 'Dr. Marco Villanueva',
+        vigencia_anios: 5,
+        vigencia_rango: editVigenciaRango,
+        antecedentes: editAntecedentes,
+        vistos: editAntecedentes,
+        fundamento_legal: editFundamentoLegal,
+        articulo_primero: editArticuloPrimero,
+        articulo_segundo: editArticuloSegundo,
+        articulo_tercero: editArticuloTercero,
+        observaciones_legales: editObservacionesLegales
+      };
 
-      const numRes = borradorResolucion?.numero_resolucion || 'RA-2026-0042';
-      const pageWidth = doc.internal.pageSize.getWidth();
-      let cursorY = 22;
-
-      // Encabezado institucional
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(10);
-      doc.setTextColor(30, 41, 59);
-      doc.text('GOBIERNO AUTÓNOMO DEPARTAMENTAL DE COCHABAMBA', pageWidth / 2, cursorY, { align: 'center' });
-      cursorY += 5;
-
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(8.5);
-      doc.setTextColor(71, 85, 105);
-      doc.text('SERVICIO DEPARTAMENTAL DE SALUD (SEDES) · UNIDAD DE HABILITACIÓN', pageWidth / 2, cursorY, { align: 'center' });
-      cursorY += 8;
-
-      // Título de la Resolución en caja azulada
-      doc.setFillColor(240, 249, 255);
-      doc.setDrawColor(186, 230, 253);
-      doc.roundedRect(25, cursorY, pageWidth - 50, 9, 2, 2, 'FD');
-
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(11);
-      doc.setTextColor(3, 105, 161);
-      doc.text(`RESOLUCIÓN ADMINISTRATIVA Nº ${numRes}`, pageWidth / 2, cursorY + 6, { align: 'center' });
-      cursorY += 15;
-
-      // Tabla de Datos del Establecimiento
-      const estabData = [
-        ['ESTABLECIMIENTO:', editEstablecimiento || 'Clínica Sur'],
-        ['RAZÓN SOCIAL / PROPIETARIO:', editRazonSocial || 'Dr. Roberto Salvatierra Flores'],
-        ['CI / NIT DEL SOLICITANTE:', editCiNit || '4532876 CB'],
-        ['TIPO DE ESTABLECIMIENTO:', editTipoEstablecimiento || 'Servicios de Medicina General y Hospitalización'],
-        ['DIRECCIÓN REGISTRADA:', editDireccion || 'Av. Rector #105, Zona Queru Queru, Cochabamba']
-      ];
-
-      autoTable(doc, {
-        startY: cursorY,
-        body: estabData,
-        theme: 'plain',
-        styles: {
-          fontSize: 8.5,
-          cellPadding: 1.5,
-          textColor: [30, 41, 59]
-        },
-        columnStyles: {
-          0: { fontStyle: 'bold', cellWidth: 55, textColor: [71, 85, 105] },
-          1: { cellWidth: 'auto', fontStyle: 'bold' }
-        },
-        margin: { left: 20, right: 20 }
-      });
-
-      cursorY = doc.lastAutoTable.finalY + 6;
-
-      // I. Antecedentes
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(9);
-      doc.setTextColor(15, 23, 42);
-      doc.text('I. ANTECEDENTES ADMINISTRATIVOS', 20, cursorY);
-      cursorY += 4.5;
-
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(8);
-      doc.setTextColor(51, 65, 85);
-      const splitAntecedentes = doc.splitTextToSize(editAntecedentes || '', pageWidth - 40);
-      doc.text(splitAntecedentes, 20, cursorY);
-      cursorY += (splitAntecedentes.length * 4) + 4;
-
-      // II. Fundamento Legal
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(9);
-      doc.setTextColor(15, 23, 42);
-      doc.text('II. FUNDAMENTO LEGAL', 20, cursorY);
-      cursorY += 4.5;
-
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(8);
-      doc.setTextColor(51, 65, 85);
-      const splitFundamento = doc.splitTextToSize(editFundamentoLegal || '', pageWidth - 40);
-      doc.text(splitFundamento, 20, cursorY);
-      cursorY += (splitFundamento.length * 4) + 4;
-
-      // III. Por Tanto y Dictamen Resolutivo
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(9);
-      doc.setTextColor(15, 23, 42);
-      doc.text('III. POR TANTO Y DICTAMEN RESOLUTIVO', 20, cursorY);
-      cursorY += 4.5;
-
-      // Art Primero
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(8);
-      doc.text('ARTÍCULO PRIMERO.- ', 20, cursorY);
-      doc.setFont('helvetica', 'normal');
-      const splitArt1 = doc.splitTextToSize(editArticuloPrimero || '', pageWidth - 40);
-      doc.text(splitArt1, 20, cursorY);
-      cursorY += (splitArt1.length * 4) + 3;
-
-      // Art Segundo
-      doc.setFont('helvetica', 'bold');
-      doc.text('ARTÍCULO SEGUNDO.- ', 20, cursorY);
-      doc.setFont('helvetica', 'normal');
-      doc.text(`${editArticuloSegundo} [Vigencia: ${editVigenciaRango}]`, 20, cursorY);
-      cursorY += 7;
-
-      // Art Tercero
-      doc.setFont('helvetica', 'bold');
-      doc.text('ARTÍCULO TERCERO.- ', 20, cursorY);
-      doc.setFont('helvetica', 'normal');
-      const splitArt3 = doc.splitTextToSize(editArticuloTercero || '', pageWidth - 40);
-      doc.text(splitArt3, 20, cursorY);
-      cursorY += (splitArt3.length * 4) + 4;
-
-      // IV. Notas del Área Legal
-      doc.setFillColor(248, 250, 252);
-      doc.setDrawColor(226, 232, 240);
-      doc.roundedRect(20, cursorY, pageWidth - 40, 16, 2, 2, 'FD');
-
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(7.5);
-      doc.setTextColor(30, 41, 59);
-      doc.text('DICTAMEN Y NOTA DEL ÁREA LEGAL (REVISIÓN JURÍDICA CONFORME):', 23, cursorY + 4);
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(7);
-      doc.setTextColor(71, 85, 105);
-      const splitObs = doc.splitTextToSize(editObservacionesLegales || '', pageWidth - 46);
-      doc.text(splitObs, 23, cursorY + 8);
-      cursorY += 28;
-
-      // Firmas Digitales
-      doc.setDrawColor(203, 213, 225);
-      doc.line(30, cursorY, 85, cursorY);
-      doc.line(pageWidth - 85, cursorY, pageWidth - 30, cursorY);
-
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(8);
-      doc.setTextColor(15, 23, 42);
-      doc.text('Dr. Marco Villanueva', 57.5, cursorY + 4, { align: 'center' });
-      doc.text('Dra. Claudia Morales Valenzuela', pageWidth - 57.5, cursorY + 4, { align: 'center' });
-
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(7);
-      doc.setTextColor(100, 116, 139);
-      doc.text('Asesor Legal SEDES Cochabamba', 57.5, cursorY + 7.5, { align: 'center' });
-      doc.text('Coordinador Departamental SEDES', pageWidth - 57.5, cursorY + 7.5, { align: 'center' });
-
-      doc.save(`Resolucion_Administrativa_${numRes}.pdf`);
-      mostrarToast(`Resolución Administrativa ${numRes} descargada en PDF exitosamente.`, 'success');
+      const doc = await generarResolucionAdministrativaPDF(datosParaPdf);
+      const cleanNum = (editNumeroResolucion || 'RA-2026').replace(/\//g, '_');
+      doc.save(`Resolucion_Administrativa_${cleanNum}.pdf`);
+      mostrarToast('Resolución Administrativa Oficial descargada con éxito.', 'success');
     } catch (err) {
-      console.error('Error al generar PDF:', err);
-      mostrarToast('Error al generar el archivo PDF.', 'warning');
+      mostrarToast('Error al descargar el PDF de la Resolución.', 'warning');
+    }
+  };
+
+  // Abrir la Resolución Administrativa Oficial en pestaña completa
+  const handleAbrirResolucionPDFNuevaPestana = () => {
+    if (pdfResolucionBlobUrl) {
+      window.open(pdfResolucionBlobUrl, '_blank');
     }
   };
 
@@ -498,150 +765,98 @@ export default function AbogadoPage() {
   };
 
   // Conteo de pendientes
-  const totalPendientes = informes.filter(x => x.estado_proceso !== 'Emitido' && x.estado_proceso !== 'Aprobado').length || 5;
+  const totalPendientes = informes.filter(x => x.estado_proceso !== 'Emitido' && x.estado_proceso !== 'Aprobado').length;
 
   return (
-    <div className="min-h-screen bg-[#f0f4f8] flex font-sans antialiased text-slate-800">
+    <div className="min-h-screen bg-[#f3f6f9] flex font-sans text-slate-800 antialiased overflow-hidden">
 
-      {/* ===================================================================== */}
-      {/* 1. BARRA LATERAL INSTITUCIONAL (SIDEBAR)                               */}
-      {/* ===================================================================== */}
-      <aside
-        className={`
-          fixed inset-y-0 left-0 z-50 w-64 sm:w-72 bg-gradient-to-b from-[#0060a8] via-[#005596] to-[#004880] text-white flex flex-col justify-between transition-transform duration-300 ease-in-out shadow-2xl
-          ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
-        `}
-      >
-        <div className="flex flex-col h-full justify-between">
-          
-          {/* Cabecera Sidebar: Logo SI_Lab */}
-          <div>
-            <div className="p-6 border-b border-white/15 flex items-center justify-between">
-              <Link to="/abogado" className="flex items-center space-x-3 group">
-                <div className="bg-white/20 backdrop-blur-md p-2 rounded-2xl border border-white/30 group-hover:bg-white/30 transition shadow-xs">
-                  <FileText className="w-5 h-5 text-white" />
-                </div>
-                <div className="leading-tight">
-                  <span className="font-black text-2xl tracking-tight flex items-center">
-                    SI<span className="text-cyan-200">_Lab</span>
-                  </span>
-                  <span className="text-[10px] font-bold text-cyan-100 uppercase tracking-widest block">
-                    Asesoría Legal
-                  </span>
-                </div>
-              </Link>
-              
-              <button
-                type="button"
-                onClick={() => setSidebarOpen(false)}
-                className="lg:hidden p-1 text-white/70 hover:text-white rounded-lg hover:bg-white/10"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Menú de Navegación */}
-            <nav className="p-4 space-y-1.5">
-              
-              {/* Item 1: Informes Recibidos */}
-              <button
-                type="button"
-                onClick={() => {
-                  navigate('/abogado/informes-recibidos');
-                  setSidebarOpen(false);
-                }}
-                className={`
-                  w-full flex items-center space-x-3 px-4 py-3 rounded-2xl text-xs font-extrabold transition cursor-pointer text-left
-                  ${seccionActiva === 'informes-recibidos'
-                    ? 'bg-[#0073c6] text-white shadow-md shadow-[#004b85]/40 border border-white/20'
-                    : 'text-white/80 hover:bg-white/10 hover:text-white'
-                  }
-                `}
-              >
-                <FileText className="w-4 h-4 shrink-0" />
-                <span className="flex-1">Informes Recibidos</span>
-              </button>
-
-              {/* Item 2: Resolución administrativa */}
-              <button
-                type="button"
-                onClick={() => {
-                  navigate('/abogado/resolucion-administrativa');
-                  setSidebarOpen(false);
-                }}
-                className={`
-                  w-full flex items-center space-x-3 px-4 py-3 rounded-2xl text-xs font-extrabold transition cursor-pointer text-left
-                  ${seccionActiva === 'resolucion-administrativa'
-                    ? 'bg-[#0073c6] text-white shadow-md shadow-[#004b85]/40 border border-white/20'
-                    : 'text-white/80 hover:bg-white/10 hover:text-white'
-                  }
-                `}
-              >
-                <Award className="w-4 h-4 shrink-0" />
-                <span className="flex-1">Resolución administrativa</span>
-              </button>
-
-              {/* Item 3: Historial */}
-              <button
-                type="button"
-                onClick={() => {
-                  navigate('/abogado/historial');
-                  setSidebarOpen(false);
-                }}
-                className={`
-                  w-full flex items-center space-x-3 px-4 py-3 rounded-2xl text-xs font-extrabold transition cursor-pointer text-left
-                  ${seccionActiva === 'historial'
-                    ? 'bg-[#0073c6] text-white shadow-md shadow-[#004b85]/40 border border-white/20'
-                    : 'text-white/80 hover:bg-white/10 hover:text-white'
-                  }
-                `}
-              >
-                <RotateCcw className="w-4 h-4 shrink-0" />
-                <span className="flex-1">Historial</span>
-              </button>
-
-            </nav>
-          </div>
-
-          {/* Pie del Sidebar: Sellos Oficiales */}
-          <div className="p-5 border-t border-white/15 space-y-3">
-            <div className="flex items-center justify-center space-x-4 opacity-90">
-              <img
-                src={escudoBolivia}
-                alt="Escudo de Bolivia"
-                className="h-10 w-auto object-contain filter drop-shadow-sm"
-              />
-              <img
-                src={escudoCochabamba}
-                alt="Escudo de Cochabamba"
-                className="h-10 w-auto object-contain filter drop-shadow-sm"
-              />
-            </div>
-            <div className="text-center">
-              <p className="text-[10px] font-black uppercase tracking-wider text-cyan-100">
-                ESTADO PLURINACIONAL
-              </p>
-              <p className="text-[9px] text-white/70 font-medium">
-                Ministerio de Salud y Deportes · Bolivia
-              </p>
-            </div>
-          </div>
-
-        </div>
-      </aside>
+      {/* ========================================================================= */}
+      {/* 1. SIDEBAR LATERAL (Estilo institucional SEDES SI_Lab)                   */}
+      {/* ========================================================================= */}
 
       {/* Backdrop móvil */}
       {sidebarOpen && (
         <div
+          className="fixed inset-0 bg-slate-900/60 z-40 lg:hidden backdrop-blur-xs transition-opacity"
           onClick={() => setSidebarOpen(false)}
-          className="fixed inset-0 z-40 bg-slate-900/50 backdrop-blur-xs lg:hidden"
         />
       )}
 
-      {/* ===================================================================== */}
-      {/* 2. ÁREA PRINCIPAL DE CONTENIDO                                        */}
-      {/* ===================================================================== */}
-      <div className="flex-1 flex flex-col min-w-0 lg:pl-64 sm:lg:pl-72">
+      <aside className={`
+        fixed lg:static top-0 bottom-0 left-0 z-50
+        w-72 bg-[#0060a8] text-white
+        flex flex-col justify-between shadow-2xl lg:shadow-none
+        transition-transform duration-300 ease-in-out shrink-0
+        ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+      `}>
+        {/* Contenido superior de Sidebar */}
+        <div className="p-6 space-y-8">
+
+          {/* Logo SI_Lab */}
+          <div className="flex items-center justify-between">
+            <Link to="/" className="flex items-center space-x-3 group cursor-pointer" title="Ir a la página principal">
+              <div className="bg-white/20 p-2.5 rounded-2xl backdrop-blur-md border border-white/30 group-hover:bg-white/30 transition shadow-inner">
+                <FlaskConical className="w-6 h-6 text-white" />
+              </div>
+              <span className="font-black text-2xl tracking-tight text-white flex items-center">
+                SI<span className="text-cyan-200 font-extrabold">_Lab</span>
+              </span>
+            </Link>
+
+            <button
+              onClick={() => setSidebarOpen(false)}
+              className="lg:hidden p-1.5 rounded-lg bg-white/15 text-white hover:bg-white/25 cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          {/* Menú de Navegación Lateral */}
+          <nav className="space-y-1.5">
+            {menuItems.map((item) => {
+              const Icon = item.icon;
+              const isActive = seccionActiva === item.id;
+
+              return (
+                <Link
+                  key={item.id}
+                  to={item.path}
+                  onClick={() => setSidebarOpen(false)}
+                  className={`
+                    w-full flex items-center space-x-3 px-4 py-3 rounded-xl font-bold text-xs sm:text-sm tracking-wide transition-all duration-200 cursor-pointer text-left
+                    ${isActive
+                      ? 'bg-[#004b85] text-white shadow-inner font-extrabold border-l-4 border-white'
+                      : 'text-blue-100/90 hover:bg-white/10 hover:text-white'
+                    }
+                  `}
+                >
+                  <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-white' : 'text-blue-200'}`} />
+                  <span className="truncate">{item.label}</span>
+                </Link>
+              );
+            })}
+          </nav>
+        </div>
+
+        {/* Footer del Sidebar con Escudos Institucionales */}
+        <div className="p-6 space-y-4 border-t border-white/10 bg-[#00518f] mt-auto">
+          <div className="flex items-center justify-center space-x-4 opacity-90">
+            <img src={logoL1} alt="Escudo de Bolivia" className="h-9 object-contain" />
+            <div className="h-6 w-px bg-white/20" />
+            <img src={logoL2} alt="Gobernación de Cochabamba" className="h-9 object-contain" />
+          </div>
+
+          <div className="text-center text-[10px] text-blue-200/80 leading-snug">
+            <p className="font-bold text-white tracking-wider">ESTADO PLURINACIONAL</p>
+            <p>Ministerio de Salud y Deportes - Bolivia</p>
+          </div>
+        </div>
+      </aside>
+
+      {/* ========================================================================= */}
+      {/* 2. ÁREA PRINCIPAL DE CONTENIDO                                            */}
+      {/* ========================================================================= */}
+      <div className="flex-1 flex flex-col min-w-0 h-screen overflow-y-auto">
 
         {/* ------------------------------------------------------------------- */}
         {/* HEADER SUPERIOR                                                     */}
@@ -658,38 +873,39 @@ export default function AbogadoPage() {
               <Menu className="w-5 h-5" />
             </button>
 
-            <nav className="text-xs font-bold text-slate-500 flex items-center space-x-1.5 truncate">
-              <span className="text-slate-400">Consola del Abogado</span>
-              <span>/</span>
-              <span className="text-slate-900 font-extrabold">
+            <div className="text-xs sm:text-sm text-slate-500 font-medium flex items-center space-x-1.5 truncate">
+              <span className="hover:text-slate-700 cursor-pointer">Consola del Abogado</span>
+              <span className="text-slate-300">/</span>
+              <span className="font-bold text-slate-800">
                 {seccionActiva === 'informes-recibidos'
                   ? 'Informes Recibidos'
                   : seccionActiva === 'resolucion-administrativa'
                     ? 'Resolución Administrativa'
                     : 'Historial y Trazabilidad'}
               </span>
-            </nav>
+            </div>
           </div>
 
           {/* Perfil del Usuario: Dr. Marco Villanueva */}
           <div className="flex items-center space-x-3 sm:space-x-4">
             <div className="text-right hidden sm:block">
-              <p className="text-xs font-black text-slate-900 leading-tight">
+              <p className="text-xs sm:text-sm font-bold text-slate-900 leading-tight">
                 {usuario?.nombres ? `${usuario.nombres} ${usuario.apellidos}` : 'Dr. Marco Villanueva'}
               </p>
-              <p className="text-[11px] font-semibold text-slate-500">
+              <p className="text-[11px] text-slate-400 font-medium">
                 {usuario?.cargo || 'Asesor Legal SEDES'}
               </p>
             </div>
 
-            <div className={`w-9 h-9 rounded-full flex items-center justify-center font-black text-xs shadow-xs border border-white ${getAvatarColor(usuario?.nombres)}`}>
-              MV
+            {/* Avatar de Iniciales */}
+            <div className={`w-9 h-9 rounded-full ${getAvatarColor(usuario?.nombres || 'Dr. Marco Villanueva')} text-white flex items-center justify-center font-bold text-xs shadow-sm ring-2 ring-slate-100 select-none tracking-tight`}>
+              <span>{getInitials(usuario || { nombreCompleto: 'Dr. Marco Villanueva' })}</span>
             </div>
 
             <button
               type="button"
               onClick={handleCerrarSesion}
-              className="p-2 text-slate-400 hover:text-rose-600 rounded-xl hover:bg-rose-50 transition cursor-pointer"
+              className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition ml-1 cursor-pointer"
               title="Cerrar sesión"
             >
               <LogOut className="w-4 h-4" />
@@ -848,9 +1064,17 @@ export default function AbogadoPage() {
                 {/* Lista de Tarjetas */}
                 <div className="space-y-2.5">
                   {cargandoInformes ? (
-                    <div className="p-8 text-center bg-white rounded-2xl border border-slate-200">
+                    <div className="p-8 text-center bg-white rounded-2xl border border-slate-200 shadow-2xs">
                       <RefreshCw className="w-5 h-5 animate-spin mx-auto text-[#0060a8]" />
                       <p className="text-xs text-slate-500 font-medium mt-2">Cargando expedientes...</p>
+                    </div>
+                  ) : informes.length === 0 ? (
+                    <div className="p-6 text-center bg-white rounded-2xl border border-slate-200/90 shadow-2xs space-y-2">
+                      <FileText className="w-8 h-8 text-slate-300 mx-auto" />
+                      <p className="text-xs font-bold text-slate-700">Sin informes técnicos</p>
+                      <p className="text-[11px] text-slate-400 leading-relaxed">
+                        No hay trámites derivados por el Coordinador pendientes de revisión en este momento.
+                      </p>
                     </div>
                   ) : (
                     informes.map((item) => {
@@ -884,7 +1108,7 @@ export default function AbogadoPage() {
 
                           {/* Fila 2: Título / Nombre */}
                           <p className="text-xs font-bold text-slate-800 truncate mb-2.5">
-                            {item.titulo_card || `${item.establecimiento} — Resolución administrati...`}
+                            {item.titulo_card || `${item.establecimiento} — Resolución administrativa`}
                           </p>
 
                           {/* Fila 3: Badge de Estado + Flecha */}
@@ -922,385 +1146,767 @@ export default function AbogadoPage() {
                   /* =========================================================== */
                   /* VISTA 1: INFORME TÉCNICO (FIGMA IMAGEN 1)                   */
                   /* =========================================================== */
-                  <div className="space-y-4">
-                    
-                    {/* Título de la sección */}
-                    <h2 className="text-base sm:text-lg font-black text-slate-900 tracking-tight">
-                      {detalleInforme?.codigo || 'REQ-0042'} — Informe Técnico: {detalleInforme?.establecimiento_nombre || 'Clínica Sur'}
-                    </h2>
-
-                    {/* Tarjeta Principal de Detalle Técnico */}
-                    <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/90 shadow-2xs space-y-6">
-
-                      {/* 1. Datos del Establecimiento */}
-                      <div className="space-y-3">
-                        <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider">
-                          Datos del Establecimiento
-                        </h4>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-2.5 gap-x-6 text-xs bg-slate-50/70 p-4 rounded-2xl border border-slate-100">
-                          <div>
-                            <span className="text-slate-400 font-medium block">Establecimiento:</span>
-                            <span className="font-bold text-slate-800">{detalleInforme?.establecimiento_nombre || 'Clínica Sur'}</span>
-                          </div>
-                          <div>
-                            <span className="text-slate-400 font-medium block">Razón Social / Propietario:</span>
-                            <span className="font-bold text-slate-800">{detalleInforme?.razon_social_propietario || 'Dr. Roberto Salvatierra Flores'}</span>
-                          </div>
-                          <div>
-                            <span className="text-slate-400 font-medium block">Dirección:</span>
-                            <span className="font-bold text-slate-800">{detalleInforme?.direccion || 'Av. Rector #105, Zona Queru Queru, Cochabamba'}</span>
-                          </div>
-                          <div>
-                            <span className="text-slate-400 font-medium block">Tipo de Establecimiento:</span>
-                            <span className="font-bold text-slate-800">{detalleInforme?.tipo_establecimiento || 'Servicios de Medicina General y Hospitalización'}</span>
-                          </div>
-                        </div>
+                  !detalleInforme ? (
+                    <div className="bg-white rounded-3xl p-12 text-center border border-slate-200/90 shadow-2xs space-y-3">
+                      <div className="w-14 h-14 bg-sky-50 text-[#0060a8] rounded-2xl flex items-center justify-center mx-auto border border-sky-100">
+                        <FileText className="w-7 h-7" />
                       </div>
-
-                      {/* 2. Resumen de Documentación Legal */}
-                      <div className="space-y-3 pt-2 border-t border-slate-100">
-                        <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider">
-                          Resumen de Documentación Legal
-                        </h4>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
-                          <div className="flex items-center space-x-2 text-slate-700 font-semibold">
-                            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                            <span>Licencia Municipal (Vigente)</span>
-                          </div>
-                          <div className="flex items-center space-x-2 text-slate-700 font-semibold">
-                            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                            <span>Certificado Sanitario Previo</span>
-                          </div>
-                          <div className="flex items-center space-x-2 text-slate-700 font-semibold">
-                            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                            <span>Plano Arquitectónico Aprobado</span>
-                          </div>
-                          <div className="flex items-center space-x-2 text-slate-700 font-semibold">
-                            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                            <span>Registro Vigente SENASAG</span>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* 3. Resumen de Inspección de Campo */}
-                      <div className="space-y-3 pt-2 border-t border-slate-100">
-                        <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider">
-                          Resumen de Inspección de Campo
-                        </h4>
-                        <div className="space-y-2 text-xs bg-slate-50/70 p-4 rounded-2xl border border-slate-100">
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                            <div>
-                              <span className="text-slate-400 font-medium block">Fecha de Inspección:</span>
-                              <span className="font-bold text-slate-800">{detalleInforme?.inspeccion_campo?.fecha || '14 de Agosto de 2026'}</span>
+                      <h3 className="text-base font-bold text-slate-800">No hay informes técnicos pendientes</h3>
+                      <p className="text-xs text-slate-500 max-w-md mx-auto leading-relaxed">
+                        En este módulo se listarán únicamente los expedientes que el Coordinador Departamental haya validado y derivado formalmente a Asesoría Legal mediante Informe Técnico.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      
+                      {/* Cabecera y Controles del Informe Técnico */}
+                      <div className="bg-white rounded-3xl p-5 sm:p-6 border border-slate-200/90 shadow-2xs space-y-4">
+                        
+                        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                          <div className="space-y-1">
+                            <div className="flex items-center space-x-2 flex-wrap gap-y-1">
+                              <span className="px-2.5 py-1 bg-sky-100 text-[#0060a8] font-black rounded-lg border border-sky-200 text-xs">
+                                {detalleInforme.numero_resolucion ? `CITE: CODELAB/SEDES/${detalleInforme.codigo.replace('REQ-', '')}/2026` : 'CITE: CODELAB/SEDES/71/2026'}
+                              </span>
+                              <span className="px-2.5 py-1 bg-emerald-100 text-emerald-900 font-bold rounded-lg border border-emerald-200 text-xs">
+                                {detalleInforme.tipo_tramite || 'Apertura'}
+                              </span>
+                              <span className="px-2.5 py-1 bg-slate-100 text-slate-700 font-semibold rounded-lg border border-slate-200 text-xs">
+                                {detalleInforme.estado_proceso || 'En Asesoría Legal'}
+                              </span>
                             </div>
-                            <div>
-                              <span className="text-slate-400 font-medium block">Supervisor Asignado:</span>
-                              <span className="font-bold text-[#0060a8]">{detalleInforme?.inspeccion_campo?.supervisor || 'Dr. Carlos Fuentes'}</span>
-                            </div>
+                            <h2 className="text-base sm:text-lg font-black text-slate-900 tracking-tight">
+                              {detalleInforme.codigo} — Informe Técnico: {detalleInforme.establecimiento_nombre}
+                            </h2>
+                            <p className="text-xs text-slate-500 font-medium">
+                              Comunicación Interna oficial emitida por la Coordinación Departamental de Laboratorios (SEDES)
+                            </p>
                           </div>
-                          <div>
-                            <span className="text-slate-400 font-medium block">Resultado General:</span>
-                            <span className="font-bold text-emerald-700">{detalleInforme?.inspeccion_campo?.resultado || 'Favorable (Cumple con estándares vigentes de bioseguridad)'}</span>
-                          </div>
-                          <div>
-                            <span className="text-slate-400 font-medium block">Observaciones de Campo:</span>
-                            <span className="text-slate-700 font-medium leading-relaxed">{detalleInforme?.inspeccion_campo?.observaciones || 'Infraestructura adecuada, manejo de residuos patógenos correcto y señalización de seguridad implementada.'}</span>
-                          </div>
-                        </div>
-                      </div>
 
-                      {/* 4. Observaciones del Coordinador (Edición) */}
-                      <div className="space-y-2 pt-2 border-t border-slate-100">
-                        <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider">
-                          Observaciones del Coordinador (Edición)
-                        </h4>
-                        <textarea
-                          rows={3}
-                          value={observacionesCoordinadorEdicion}
-                          onChange={(e) => setObservacionesCoordinadorEdicion(e.target.value)}
-                          className="w-full p-4 bg-slate-50 hover:bg-slate-50/90 border border-slate-200 rounded-2xl text-xs text-slate-800 font-medium leading-relaxed focus:outline-none focus:ring-2 focus:ring-[#0073c6]"
-                        />
-                      </div>
-
-                      {/* 5. Conclusión y Dictamen Técnico */}
-                      <div className="space-y-2 pt-2 border-t border-slate-100">
-                        <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider">
-                          Conclusión y Dictamen Técnico
-                        </h4>
-                        <div className="flex items-center space-x-3">
-                          <span className="text-xs text-slate-500 font-semibold">Dictamen Final:</span>
-                          <div className="relative">
-                            <select
-                              value={dictamenSeleccionado}
-                              onChange={(e) => setDictamenSeleccionado(e.target.value)}
-                              className="bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs font-black px-4 py-2 rounded-full focus:outline-none cursor-pointer appearance-none pr-8"
+                          {/* Botones Rápidos de Acción */}
+                          <div className="flex items-center space-x-2 flex-wrap gap-y-2">
+                            <button
+                              type="button"
+                              onClick={handleAbrirInformePDFNuevaPestana}
+                              disabled={!pdfInformeBlobUrl}
+                              className="px-3.5 py-2 bg-slate-50 hover:bg-slate-100 text-slate-700 rounded-xl text-xs font-bold transition border border-slate-200 flex items-center space-x-1.5 shadow-2xs cursor-pointer disabled:opacity-50"
+                              title="Abrir en pestaña nueva"
                             >
-                              <option value="Favorabilidad Concedida (Favorable)">● Favorabilidad Concedida (Favorable)</option>
-                              <option value="Con Observaciones Menores">● Con Observaciones Menores</option>
-                            </select>
-                            <ChevronDown className="w-4 h-4 text-emerald-700 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                              <ExternalLink className="w-3.5 h-3.5 text-slate-500" />
+                              <span className="hidden sm:inline">Abrir PDF</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={handleDescargarInformePDF}
+                              className="px-3.5 py-2 bg-[#0073c6] hover:bg-[#005fa6] text-white rounded-xl text-xs font-bold transition flex items-center space-x-1.5 shadow-2xs cursor-pointer"
+                              title="Descargar documento oficial en PDF"
+                            >
+                              <Download className="w-3.5 h-3.5 text-white" />
+                              <span>Descargar PDF</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={handleIrAGenerarResolucion}
+                              className="px-4 py-2 bg-[#0e533c] hover:bg-[#093d2b] text-white rounded-xl text-xs font-black transition shadow-sm flex items-center space-x-1.5 cursor-pointer"
+                            >
+                              <Award className="w-3.5 h-3.5 text-white" />
+                              <span>Emitir RA</span>
+                            </button>
                           </div>
                         </div>
+
+                        {/* Selector de Pestañas: Documento PDF vs Ficha de Datos */}
+                        <div className="flex items-center space-x-2 pt-2 border-t border-slate-100">
+                          <button
+                            type="button"
+                            onClick={() => setTabInformeActiva('pdf')}
+                            className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center space-x-2 cursor-pointer ${
+                              tabInformeActiva === 'pdf'
+                                ? 'bg-[#0060a8] text-white shadow-xs'
+                                : 'bg-slate-100 text-slate-600 hover:bg-slate-200/70'
+                            }`}
+                          >
+                            <FileText className="w-3.5 h-3.5" />
+                            <span>Documento PDF Oficial (Informe Técnico)</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => setTabInformeActiva('ficha')}
+                            className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center space-x-2 cursor-pointer ${
+                              tabInformeActiva === 'ficha'
+                                ? 'bg-[#0060a8] text-white shadow-xs'
+                                : 'bg-slate-100 text-slate-600 hover:bg-slate-200/70'
+                            }`}
+                          >
+                            <ShieldCheck className="w-3.5 h-3.5" />
+                            <span>Ficha de Datos Resumida</span>
+                          </button>
+                        </div>
+
+                      </div>
+
+                      {/* ======================================================= */}
+                      {/* PESTAÑA 1: VISOR INTERACTIVO DEL PDF OFICIAL (3 PÁGINAS) */}
+                      {/* ======================================================= */}
+                      {tabInformeActiva === 'pdf' && (
+                        <div className="bg-white rounded-3xl p-4 sm:p-6 border border-slate-200/90 shadow-2xs space-y-3">
+                          
+                          {/* Barra de estado del visor */}
+                          <div className="flex items-center justify-between px-2 py-1 text-xs">
+                            <div className="flex items-center space-x-2 text-slate-600 font-bold">
+                              <FileCheck className="w-4 h-4 text-emerald-600" />
+                              <span>Documento oficial de 3 páginas con membretes institucionales, CITE y dictamen</span>
+                            </div>
+
+                            <div className="flex items-center space-x-2">
+                              {generandoPdfInforme && (
+                                <span className="flex items-center space-x-1.5 text-xs text-[#0060a8] font-bold">
+                                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                                  <span>Actualizando documento...</span>
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Contenedor del Iframe con el PDF Renderizado */}
+                          <div className="bg-[#eef2f6] border border-slate-200/80 rounded-2xl p-2 sm:p-4 min-h-[600px] flex items-center justify-center overflow-hidden">
+                            {generandoPdfInforme && !pdfInformeBlobUrl ? (
+                              <div className="text-center p-12 space-y-3">
+                                <RefreshCw className="w-8 h-8 text-[#0060a8] animate-spin mx-auto" />
+                                <p className="text-xs font-bold text-slate-700">Generando documento oficial de Informe Técnico...</p>
+                                <p className="text-[11px] text-slate-400">Compilando datos reales de inspección, carpeta legal y CITE oficial.</p>
+                              </div>
+                            ) : pdfInformeBlobUrl ? (
+                              <iframe
+                                src={pdfInformeBlobUrl}
+                                title={`Informe Técnico Oficial — ${detalleInforme.codigo}`}
+                                className="w-full h-[780px] rounded-xl border border-slate-300 bg-white shadow-md"
+                              />
+                            ) : (
+                              <div className="text-center p-12 space-y-3">
+                                <AlertTriangle className="w-8 h-8 text-amber-500 mx-auto" />
+                                <p className="text-xs font-bold text-slate-700">No se pudo cargar la vista previa del PDF.</p>
+                              </div>
+                            )}
+                          </div>
+
+                        </div>
+                      )}
+
+                      {/* ======================================================= */}
+                      {/* PESTAÑA 2: FICHA DE DATOS RESUMIDA (DATOS TABULARES)     */}
+                      {/* ======================================================= */}
+                      {tabInformeActiva === 'ficha' && (
+                        <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/90 shadow-2xs space-y-6">
+
+                          {/* 1. Datos del Establecimiento */}
+                          <div className="space-y-3">
+                            <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider">
+                              Datos del Establecimiento
+                            </h4>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-2.5 gap-x-6 text-xs bg-slate-50/70 p-4 rounded-2xl border border-slate-100">
+                              <div>
+                                <span className="text-slate-400 font-medium block">Establecimiento:</span>
+                                <span className="font-bold text-slate-800">{detalleInforme.establecimiento_nombre}</span>
+                              </div>
+                              <div>
+                                <span className="text-slate-400 font-medium block">Razón Social / Propietario:</span>
+                                <span className="font-bold text-slate-800">{detalleInforme.razon_social_propietario}</span>
+                              </div>
+                              <div>
+                                <span className="text-slate-400 font-medium block">Dirección:</span>
+                                <span className="font-bold text-slate-800">{detalleInforme.direccion}</span>
+                              </div>
+                              <div>
+                                <span className="text-slate-400 font-medium block">Tipo de Establecimiento:</span>
+                                <span className="font-bold text-slate-800">{detalleInforme.tipo_establecimiento}</span>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* 2. Resumen de Documentación Legal */}
+                          <div className="space-y-3 pt-2 border-t border-slate-100">
+                            <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider">
+                              Resumen de Documentación Legal ({detalleInforme.documentacion_legal?.length || 0} requisitos validados)
+                            </h4>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs max-h-60 overflow-y-auto pr-1">
+                              {(detalleInforme.documentacion_legal && detalleInforme.documentacion_legal.length > 0) ? (
+                                detalleInforme.documentacion_legal.map((doc, dIdx) => (
+                                  <div key={dIdx} className="flex items-center space-x-2 text-slate-700 font-semibold p-1.5 bg-slate-50 rounded-lg">
+                                    <CheckCircle2 className={`w-4 h-4 shrink-0 ${doc.aprobado ? 'text-emerald-600' : 'text-amber-500'}`} />
+                                    <span className="truncate">{doc.nombre}</span>
+                                  </div>
+                                ))
+                              ) : (
+                                <p className="text-xs text-slate-400">Sin documentos registrados</p>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* 3. Resumen de Inspección de Campo */}
+                          <div className="space-y-3 pt-2 border-t border-slate-100">
+                            <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider">
+                              Resumen de Inspección de Campo
+                            </h4>
+                            <div className="space-y-2 text-xs bg-slate-50/70 p-4 rounded-2xl border border-slate-100">
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                <div>
+                                  <span className="text-slate-400 font-medium block">Fecha de Inspección:</span>
+                                  <span className="font-bold text-slate-800">{detalleInforme.inspeccion_campo?.fecha || 'Fecha no registrada'}</span>
+                                </div>
+                                <div>
+                                  <span className="text-slate-400 font-medium block">Supervisor Asignado:</span>
+                                  <span className="font-bold text-[#0060a8]">{detalleInforme.inspeccion_campo?.supervisor || 'Supervisor SEDES'}</span>
+                                </div>
+                              </div>
+                              <div>
+                                <span className="text-slate-400 font-medium block">Resultado General:</span>
+                                <span className="font-bold text-emerald-700">{detalleInforme.inspeccion_campo?.resultado || 'Favorable'}</span>
+                              </div>
+                              <div>
+                                <span className="text-slate-400 font-medium block">Observaciones de Campo:</span>
+                                <span className="text-slate-700 font-medium leading-relaxed">{detalleInforme.inspeccion_campo?.observaciones || 'Inspección técnica conforme.'}</span>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* 4. Observaciones del Coordinador */}
+                          <div className="space-y-2 pt-2 border-t border-slate-100">
+                            <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider">
+                              Observaciones del Coordinador (Edición)
+                            </h4>
+                            <textarea
+                              rows={3}
+                              value={observacionesCoordinadorEdicion}
+                              onChange={(e) => setObservacionesCoordinadorEdicion(e.target.value)}
+                              className="w-full p-4 bg-slate-50 hover:bg-slate-50/90 border border-slate-200 rounded-2xl text-xs text-slate-800 font-medium leading-relaxed focus:outline-none focus:ring-2 focus:ring-[#0073c6]"
+                            />
+                          </div>
+
+                          {/* 5. Conclusión y Dictamen Técnico */}
+                          <div className="space-y-2 pt-2 border-t border-slate-100">
+                            <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider">
+                              Conclusión y Dictamen Técnico
+                            </h4>
+                            <div className="flex items-center space-x-3">
+                              <span className="text-xs text-slate-500 font-semibold">Dictamen Final:</span>
+                              <div className="relative">
+                                <select
+                                  value={dictamenSeleccionado}
+                                  onChange={(e) => setDictamenSeleccionado(e.target.value)}
+                                  className="bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs font-black px-4 py-2 rounded-full focus:outline-none cursor-pointer appearance-none pr-8"
+                                >
+                                  <option value="Favorabilidad Concedida (Favorable)">● Favorabilidad Concedida (Favorable)</option>
+                                  <option value="Con Observaciones Menores">● Con Observaciones Menores</option>
+                                </select>
+                                <ChevronDown className="w-4 h-4 text-emerald-700 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                              </div>
+                            </div>
+                          </div>
+
+                        </div>
+                      )}
+
+                      {/* Botones de Acción Inferiores */}
+                      <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-2xs flex flex-col sm:flex-row items-center justify-between gap-3">
+                        <button
+                          type="button"
+                          onClick={handleDescargarInformePDF}
+                          className="w-full sm:w-auto px-6 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition flex items-center justify-center space-x-2 cursor-pointer"
+                        >
+                          <Download className="w-4 h-4 text-slate-600" />
+                          <span>Descargar Informe Técnico (PDF)</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={handleIrAGenerarResolucion}
+                          className="w-full sm:w-auto px-7 py-3 bg-[#0e533c] hover:bg-[#093d2b] text-white rounded-xl text-xs font-extrabold transition shadow-md flex items-center justify-center space-x-2 cursor-pointer"
+                        >
+                          <span>Genera Resolucion administrativa</span>
+                          <ChevronRight className="w-4 h-4" />
+                        </button>
                       </div>
 
                     </div>
-
-                    {/* Botón de Acción Principal: Genera Resolución administrativa */}
-                    <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-2xs flex justify-end">
-                      <button
-                        type="button"
-                        onClick={handleIrAGenerarResolucion}
-                        className="px-7 py-3 bg-[#0e533c] hover:bg-[#093d2b] text-white rounded-xl text-xs font-extrabold transition shadow-md flex items-center space-x-2 cursor-pointer"
-                      >
-                        <span>Genera Resolucion administrativa</span>
-                        <ChevronRight className="w-4 h-4" />
-                      </button>
-                    </div>
-
-                  </div>
+                  )
                 ) : (
                   /* =========================================================== */
                   /* VISTA 2: RESOLUCIÓN ADMINISTRATIVA OFICIAL (FIGMA IMAGEN 2)  */
                   /* =========================================================== */
-                  <div className="space-y-4">
-                    
-                    {/* Título de la sección */}
-                    <h2 className="text-base sm:text-lg font-black text-slate-900 tracking-tight">
-                      Resolución administrativa — {detalleInforme?.codigo || 'REQ-0042'}: {editEstablecimiento || 'Clínica Sur'}
-                    </h2>
-
-                    {/* Documento Formal de la Resolución */}
-                    <div className="bg-white rounded-3xl p-6 sm:p-10 border border-slate-200/90 shadow-md space-y-7">
+                  !borradorResolucion ? (
+                    <div className="bg-white rounded-3xl p-12 text-center border border-slate-200/90 shadow-2xs space-y-3">
+                      <div className="w-14 h-14 bg-sky-50 text-[#0060a8] rounded-2xl flex items-center justify-center mx-auto border border-sky-100">
+                        <Award className="w-7 h-7" />
+                      </div>
+                      <h3 className="text-base font-bold text-slate-800">Ningún borrador de resolución disponible</h3>
+                      <p className="text-xs text-slate-500 max-w-md mx-auto leading-relaxed">
+                        Seleccione un informe técnico de la lista lateral para redactar, editar y emitir la Resolución Administrativa.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
                       
-                      {/* Cabecera Oficial del Documento */}
-                      <div className="text-center space-y-1 border-b border-slate-100 pb-5">
-                        <p className="text-[11px] font-black uppercase tracking-widest text-slate-700">
-                          GOBIERNO AUTÓNOMO DEPARTAMENTAL DE COCHABAMBA
-                        </p>
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                          SERVICIO DEPARTAMENTAL DE SALUD (SEDES) · UNIDAD DE HABILITACIÓN
-                        </p>
-                        <div className="pt-2">
-                          <span className="inline-block bg-sky-50 text-sky-900 border border-sky-200 px-5 py-2 rounded-xl font-black text-xs sm:text-sm tracking-wide shadow-2xs">
-                            RESOLUCIÓN ADMINISTRATIVA Nº {borradorResolucion?.numero_resolucion || 'RA-2026-0042'} (Borrador)
-                          </span>
+                      {/* Cabecera y Controles de la Resolución Administrativa */}
+                      <div className="bg-white rounded-3xl p-5 sm:p-6 border border-slate-200/90 shadow-2xs space-y-4">
+                        
+                        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                          <div className="space-y-1">
+                            <div className="flex items-center space-x-2 flex-wrap gap-y-1">
+                              <span className="px-2.5 py-1 bg-sky-100 text-[#0060a8] font-black rounded-lg border border-sky-200 text-xs">
+                                RA Nº {editNumeroResolucion || '55/2026'}
+                              </span>
+                              <span className="px-2.5 py-1 bg-emerald-100 text-emerald-900 font-bold rounded-lg border border-emerald-200 text-xs">
+                                {editTipoEstablecimiento || 'Laboratorio Clínico'}
+                              </span>
+                              <span className="px-2.5 py-1 bg-slate-100 text-slate-700 font-semibold rounded-lg border border-slate-200 text-xs">
+                                {borradorResolucion.estado_resolucion || 'En edición final'}
+                              </span>
+                            </div>
+                            <h2 className="text-base sm:text-lg font-black text-slate-900 tracking-tight">
+                              Resolución Administrativa — {borradorResolucion.codigo}: {editEstablecimiento || 'Establecimiento'}
+                            </h2>
+                            <p className="text-xs text-slate-500 font-medium">
+                              Edición de datos preliminares y generación del documento oficial de habilitación sanitaria (SEDES Cochabamba)
+                            </p>
+                          </div>
+
+                          {/* Botones Rápidos de Acción */}
+                          <div className="flex items-center space-x-2 flex-wrap gap-y-2">
+                            <button
+                              type="button"
+                              onClick={handleAbrirResolucionPDFNuevaPestana}
+                              disabled={!pdfResolucionBlobUrl}
+                              className="px-3.5 py-2 bg-slate-50 hover:bg-slate-100 text-slate-700 rounded-xl text-xs font-bold transition border border-slate-200 flex items-center space-x-1.5 shadow-2xs cursor-pointer disabled:opacity-50"
+                              title="Abrir en pestaña nueva"
+                            >
+                              <ExternalLink className="w-3.5 h-3.5 text-slate-500" />
+                              <span className="hidden sm:inline">Abrir PDF</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={handleGuardarBorrador}
+                              disabled={guardandoResolucion}
+                              className="px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 rounded-xl text-xs font-bold transition border border-slate-300 flex items-center space-x-1.5 shadow-2xs cursor-pointer"
+                              title="Guardar cambios en la base de datos"
+                            >
+                              {guardandoResolucion ? (
+                                <RefreshCw className="w-3.5 h-3.5 animate-spin text-[#0060a8]" />
+                              ) : (
+                                <Edit3 className="w-3.5 h-3.5 text-slate-600" />
+                              )}
+                              <span>Guardar</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={handleDescargarResolucionPDF}
+                              className="px-3.5 py-2 bg-[#0073c6] hover:bg-[#005fa6] text-white rounded-xl text-xs font-bold transition flex items-center space-x-1.5 shadow-2xs cursor-pointer"
+                              title="Descargar documento oficial en PDF"
+                            >
+                              <Download className="w-3.5 h-3.5 text-white" />
+                              <span>Descargar RA</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={handleEnviarAlCoordinador}
+                              disabled={enviandoCoordinador}
+                              className="px-4 py-2 bg-[#0e533c] hover:bg-[#093d2b] text-white rounded-xl text-xs font-black transition shadow-sm flex items-center space-x-1.5 cursor-pointer disabled:opacity-50"
+                            >
+                              {enviandoCoordinador ? (
+                                <RefreshCw className="w-3.5 h-3.5 animate-spin text-white" />
+                              ) : (
+                                <CheckCircle2 className="w-3.5 h-3.5 text-white" />
+                              )}
+                              <span>Enviar al Coordinador</span>
+                            </button>
+                          </div>
+                          {/* Selector de Pestañas: Documento PDF vs Formulario de Edición */}
+                          <div className="flex items-center space-x-2 pt-2 border-t border-slate-100">
+                            <button
+                              type="button"
+                              onClick={() => setTabResolucionActiva('pdf')}
+                              className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center space-x-2 cursor-pointer ${
+                                tabResolucionActiva === 'pdf'
+                                  ? 'bg-[#0060a8] text-white shadow-xs'
+                                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200/70'
+                              }`}
+                            >
+                              <FileText className="w-3.5 h-3.5" />
+                              <span>Documento PDF Oficial (Resolución Administrativa)</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => setTabResolucionActiva('editor')}
+                              className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center space-x-2 cursor-pointer ${
+                                tabResolucionActiva === 'editor'
+                                  ? 'bg-[#0060a8] text-white shadow-xs'
+                                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200/70'
+                              }`}
+                            >
+                              <Edit3 className="w-3.5 h-3.5" />
+                              <span>Formulario de Edición de Datos</span>
+                            </button>
+                          </div>
+
                         </div>
+
                       </div>
 
-                      {/* Datos del Establecimiento (Verificación y edición final) */}
-                      <div className="space-y-3">
-                        <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider">
-                          Datos del Establecimiento (Verificación y edición final)
-                        </h4>
-
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {/* ======================================================= */}
+                      {/* PESTAÑA 1: VISOR INTERACTIVO DEL PDF OFICIAL (2 PÁGINAS) */}
+                      {/* ======================================================= */}
+                      {tabResolucionActiva === 'pdf' && (
+                        <div className="bg-white rounded-3xl p-4 sm:p-6 border border-slate-200/90 shadow-2xs space-y-3">
                           
-                          {/* Establecimiento */}
-                          <div className="space-y-1">
-                            <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">
-                              ESTABLECIMIENTO
-                            </label>
-                            <input
-                              type="text"
-                              value={editEstablecimiento}
-                              onChange={(e) => setEditEstablecimiento(e.target.value)}
-                              className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:bg-white focus:ring-2 focus:ring-[#0073c6] transition"
-                            />
-                          </div>
+                          {/* Barra de estado del visor */}
+                          <div className="flex items-center justify-between px-2 py-1 text-xs">
+                            <div className="flex items-center space-x-2 text-slate-700 font-bold">
+                              <FileCheck className="w-4 h-4 text-emerald-600" />
+                              <span>Resolución Oficial (2 Páginas) con membretes oficiales y 4 firmas institucionales</span>
+                            </div>
 
-                          {/* Razón Social / Propietario (Con Icono Lápiz) */}
-                          <div className="space-y-1">
-                            <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">
-                              RAZÓN SOCIAL / PROPIETARIO
-                            </label>
-                            <div className="relative">
-                              <input
-                                type="text"
-                                value={editRazonSocial}
-                                onChange={(e) => setEditRazonSocial(e.target.value)}
-                                className="w-full pl-3.5 pr-9 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:bg-white focus:ring-2 focus:ring-[#0073c6] transition"
-                              />
-                              <Edit2 className="w-3.5 h-3.5 text-[#0060a8] absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                            <div className="flex items-center space-x-2">
+                              {generandoPdfResolucion && (
+                                <span className="flex items-center space-x-1.5 text-xs text-[#0060a8] font-bold">
+                                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                                  <span>Actualizando PDF...</span>
+                                </span>
+                              )}
                             </div>
                           </div>
 
-                          {/* CI / NIT del Solicitante (Con Icono Lápiz) */}
-                          <div className="space-y-1">
-                            <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">
-                              CI / NIT DEL SOLICITANTE
-                            </label>
-                            <div className="relative">
-                              <input
-                                type="text"
-                                value={editCiNit}
-                                onChange={(e) => setEditCiNit(e.target.value)}
-                                className="w-full pl-3.5 pr-9 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:bg-white focus:ring-2 focus:ring-[#0073c6] transition"
+                          {/* Contenedor del Iframe con el PDF de la Resolución */}
+                          <div className="bg-[#eef2f6] border border-slate-200/80 rounded-2xl p-2 sm:p-4 min-h-[680px] flex items-center justify-center overflow-hidden">
+                            {generandoPdfResolucion && !pdfResolucionBlobUrl ? (
+                              <div className="text-center p-12 space-y-3">
+                                <RefreshCw className="w-8 h-8 text-[#0060a8] animate-spin mx-auto" />
+                                <p className="text-xs font-bold text-slate-700">Generando documento oficial de Resolución Administrativa...</p>
+                                <p className="text-[11px] text-slate-400">Compilando artículos, considerandos, sellos y firmas oficiales.</p>
+                              </div>
+                            ) : pdfResolucionBlobUrl ? (
+                              <iframe
+                                key={pdfResolucionBlobUrl}
+                                src={pdfResolucionBlobUrl}
+                                title={`Resolución Administrativa Oficial — ${editNumeroResolucion}`}
+                                className="w-full h-[850px] rounded-xl border border-slate-300 bg-white shadow-md"
                               />
-                              <Edit2 className="w-3.5 h-3.5 text-[#0060a8] absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                            ) : (
+                              <div className="text-center p-12 space-y-3">
+                                <AlertTriangle className="w-8 h-8 text-amber-500 mx-auto" />
+                                <p className="text-xs font-bold text-slate-700">No se pudo cargar la vista previa de la Resolución.</p>
+                              </div>
+                            )}
+                          </div>
+
+                        </div>
+                      )}
+
+                      {/* ======================================================= */}
+                      {/* PESTAÑA 2: FORMULARIO COMPLETO DE EDICIÓN DE DATOS      */}
+                      {/* ======================================================= */}
+                      {tabResolucionActiva === 'editor' && (
+                        <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/90 shadow-2xs space-y-6">
+
+                          {/* 1. Identificación y CITE de la Resolución */}
+                          <div className="space-y-3">
+                            <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider flex items-center space-x-1.5">
+                              <Award className="w-4 h-4 text-[#0060a8]" />
+                              <span>1. Identificación de la Resolución Administrativa</span>
+                            </h4>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                              <div className="space-y-1">
+                                <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">
+                                  Nº DE RESOLUCIÓN ADMINISTRATIVA
+                                </label>
+                                <input
+                                  type="text"
+                                  value={editNumeroResolucion}
+                                  onChange={(e) => setEditNumeroResolucion(e.target.value)}
+                                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:bg-white focus:ring-2 focus:ring-[#0073c6] transition"
+                                />
+                              </div>
+
+                              <div className="space-y-1">
+                                <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">
+                                  FECHA DE EMISIÓN OFICIAL
+                                </label>
+                                <input
+                                  type="text"
+                                  value={editFechaEmision}
+                                  onChange={(e) => handleCambioFechaEmision(e.target.value)}
+                                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:bg-white focus:ring-2 focus:ring-[#0073c6] transition"
+                                />
+                              </div>
                             </div>
                           </div>
 
-                          {/* Tipo de Establecimiento */}
-                          <div className="space-y-1">
-                            <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">
-                              TIPO DE ESTABLECIMIENTO
-                            </label>
-                            <input
-                              type="text"
-                              value={editTipoEstablecimiento}
-                              onChange={(e) => setEditTipoEstablecimiento(e.target.value)}
-                              className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:bg-white focus:ring-2 focus:ring-[#0073c6] transition"
-                            />
+                          {/* 2. Datos del Establecimiento y Representación */}
+                          <div className="space-y-3 pt-2 border-t border-slate-100">
+                            <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider flex items-center space-x-1.5">
+                              <Building2 className="w-4 h-4 text-[#0060a8]" />
+                              <span>2. Datos del Establecimiento y Representación Técnica</span>
+                            </h4>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                              <div className="space-y-1">
+                                <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">
+                                  ESTABLECIMIENTO
+                                </label>
+                                <input
+                                  type="text"
+                                  value={editEstablecimiento}
+                                  onChange={(e) => handleCambioEstablecimiento(e.target.value)}
+                                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:bg-white focus:ring-2 focus:ring-[#0073c6] transition"
+                                />
+                              </div>
+
+                              <div className="space-y-1">
+                                <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">
+                                  RAZÓN SOCIAL / PROPIETARIO
+                                </label>
+                                <input
+                                  type="text"
+                                  value={editRazonSocial}
+                                  onChange={(e) => handleCambioPropietario(e.target.value)}
+                                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:bg-white focus:ring-2 focus:ring-[#0073c6] transition"
+                                />
+                              </div>
+
+                              <div className="space-y-1">
+                                <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">
+                                  CI / NIT DEL PROPIETARIO
+                                </label>
+                                <input
+                                  type="text"
+                                  value={editCiNit}
+                                  onChange={(e) => handleCambioCiNit(e.target.value)}
+                                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:bg-white focus:ring-2 focus:ring-[#0073c6] transition"
+                                />
+                              </div>
+
+                              <div className="space-y-1">
+                                <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">
+                                  REGENTE BIOQUÍMICO RESPONSABLE
+                                </label>
+                                <input
+                                  type="text"
+                                  value={editRegente}
+                                  onChange={(e) => handleCambioRegente(e.target.value)}
+                                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:bg-white focus:ring-2 focus:ring-[#0073c6] transition"
+                                />
+                              </div>
+
+                              <div className="space-y-1">
+                                <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">
+                                  CI DE LA REGENTE
+                                </label>
+                                <input
+                                  type="text"
+                                  value={editCiRegente}
+                                  onChange={(e) => handleCambioCiRegente(e.target.value)}
+                                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:bg-white focus:ring-2 focus:ring-[#0073c6] transition"
+                                />
+                              </div>
+
+                              <div className="space-y-1">
+                                <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">
+                                  TIPO DE ESTABLECIMIENTO / NIVEL
+                                </label>
+                                <input
+                                  type="text"
+                                  value={editTipoEstablecimiento}
+                                  onChange={(e) => handleCambioTipoEstablecimiento(e.target.value)}
+                                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:bg-white focus:ring-2 focus:ring-[#0073c6] transition"
+                                />
+                              </div>
+
+                              <div className="sm:col-span-2 space-y-1">
+                                <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">
+                                  DIRECCIÓN REGISTRADA
+                                </label>
+                                <input
+                                  type="text"
+                                  value={editDireccion}
+                                  onChange={(e) => handleCambioDireccion(e.target.value)}
+                                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:bg-white focus:ring-2 focus:ring-[#0073c6] transition"
+                                />
+                              </div>
+                            </div>
                           </div>
 
-                          {/* Dirección Registrada (Full Width) */}
-                          <div className="sm:col-span-2 space-y-1">
-                            <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">
-                              DIRECCIÓN REGISTRADA
-                            </label>
-                            <input
-                              type="text"
-                              value={editDireccion}
-                              onChange={(e) => setEditDireccion(e.target.value)}
-                              className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:bg-white focus:ring-2 focus:ring-[#0073c6] transition"
-                            />
+                          {/* 3. VISTOS y CONSIDERANDOS */}
+                          <div className="space-y-3 pt-2 border-t border-slate-100">
+                            <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider flex items-center space-x-1.5">
+                              <FileText className="w-4 h-4 text-[#0060a8]" />
+                              <span>3. VISTOS y CONSIDERANDO (Narrativa Jurídica)</span>
+                            </h4>
+
+                            <div className="space-y-3">
+                              <div className="space-y-1">
+                                <label className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block">
+                                  VISTOS (Solicitud y Antecedentes)
+                                </label>
+                                <textarea
+                                  rows={4}
+                                  value={editAntecedentes}
+                                  onChange={(e) => setEditAntecedentes(e.target.value)}
+                                  className="w-full p-3.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 font-medium leading-relaxed focus:bg-white focus:ring-2 focus:ring-[#0073c6]"
+                                />
+                              </div>
+
+                              <div className="space-y-1">
+                                <label className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block">
+                                  CONSIDERANDO (Marco Legal y Dictamen de Coordinación)
+                                </label>
+                                <textarea
+                                  rows={4}
+                                  value={editFundamentoLegal}
+                                  onChange={(e) => setEditFundamentoLegal(e.target.value)}
+                                  className="w-full p-3.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 font-medium leading-relaxed focus:bg-white focus:ring-2 focus:ring-[#0073c6]"
+                                />
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* 4. POR TANTO y ARTÍCULOS RESOLUTIVOS */}
+                          <div className="space-y-3 pt-2 border-t border-slate-100">
+                            <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider flex items-center space-x-1.5">
+                              <ShieldCheck className="w-4 h-4 text-[#0060a8]" />
+                              <span>4. POR TANTO y Artículos Resolutivos</span>
+                            </h4>
+
+                            <div className="space-y-3">
+                              <div className="space-y-1">
+                                <label className="text-[10px] font-extrabold text-slate-700 uppercase tracking-wider block">
+                                  ARTÍCULO PRIMERO (Autorización de Funcionamiento)
+                                </label>
+                                <textarea
+                                  rows={3}
+                                  value={editArticuloPrimero}
+                                  onChange={(e) => setEditArticuloPrimero(e.target.value)}
+                                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 font-medium focus:bg-white"
+                                />
+                              </div>
+
+                              <div className="space-y-1.5">
+                                <label className="text-[10px] font-extrabold text-slate-700 uppercase tracking-wider block">
+                                  ARTÍCULO SEGUNDO (Vigencia)
+                                </label>
+                                <textarea
+                                  rows={2}
+                                  value={editArticuloSegundo}
+                                  onChange={(e) => setEditArticuloSegundo(e.target.value)}
+                                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 font-medium focus:bg-white"
+                                />
+                                <div className="flex items-center space-x-2 pt-1">
+                                  <span className="text-[11px] font-bold text-slate-500">Rango de Vigencia:</span>
+                                  <input
+                                    type="text"
+                                    value={editVigenciaRango}
+                                    onChange={(e) => handleCambioVigenciaRango(e.target.value)}
+                                    className="px-3 py-1 bg-sky-50 border border-sky-200 rounded-lg text-xs font-black text-sky-900"
+                                  />
+                                </div>
+                              </div>
+
+                              <div className="space-y-1">
+                                <label className="text-[10px] font-extrabold text-slate-700 uppercase tracking-wider block">
+                                  ARTÍCULO TERCERO (Inspecciones Periódicas)
+                                </label>
+                                <textarea
+                                  rows={2}
+                                  value={editArticuloTercero}
+                                  onChange={(e) => setEditArticuloTercero(e.target.value)}
+                                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 font-medium focus:bg-white"
+                                />
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* 5. Notas de Asesoría Legal */}
+                          <div className="space-y-2 pt-2 border-t border-slate-100">
+                            <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider">
+                              5. Dictamen y Notas de Asesoría Legal
+                            </h4>
+                            <div className="bg-sky-50/70 border border-sky-200/80 rounded-2xl p-4">
+                              <textarea
+                                rows={3}
+                                value={editObservacionesLegales}
+                                onChange={(e) => setEditObservacionesLegales(e.target.value)}
+                                className="w-full bg-transparent border-none text-xs text-sky-950 font-medium leading-relaxed focus:outline-none"
+                              />
+                            </div>
                           </div>
 
                         </div>
-                      </div>
+                      )}
 
-                      {/* I. Antecedentes Administrativos */}
-                      <div className="space-y-1.5 pt-2 border-t border-slate-100">
-                        <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider">
-                          I. Antecedentes Administrativos
-                        </h4>
-                        <textarea
-                          rows={3}
-                          value={editAntecedentes}
-                          onChange={(e) => setEditAntecedentes(e.target.value)}
-                          className="w-full p-3.5 bg-slate-50 hover:bg-slate-50/90 border border-slate-200 rounded-xl text-xs text-slate-700 font-medium leading-relaxed focus:bg-white focus:ring-2 focus:ring-[#0073c6]"
-                        />
-                      </div>
+                      {/* Barra de Acciones Inferior */}
+                      <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-2xs flex flex-col sm:flex-row items-center justify-between gap-3">
+                        <div className="flex items-center space-x-2 w-full sm:w-auto">
+                          <button
+                            type="button"
+                            onClick={handleGuardarBorrador}
+                            disabled={guardandoResolucion}
+                            className="w-full sm:w-auto px-5 py-2.5 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 rounded-xl text-xs font-bold transition shadow-2xs cursor-pointer flex items-center justify-center space-x-1.5"
+                          >
+                            {guardandoResolucion ? (
+                              <RefreshCw className="w-3.5 h-3.5 animate-spin text-[#0060a8]" />
+                            ) : (
+                              <Edit3 className="w-3.5 h-3.5 text-slate-500" />
+                            )}
+                            <span>Guardar Modificaciones</span>
+                          </button>
 
-                      {/* II. Fundamento Legal */}
-                      <div className="space-y-1.5 pt-2 border-t border-slate-100">
-                        <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider">
-                          II. Fundamento Legal
-                        </h4>
-                        <textarea
-                          rows={3}
-                          value={editFundamentoLegal}
-                          onChange={(e) => setEditFundamentoLegal(e.target.value)}
-                          className="w-full p-3.5 bg-slate-50 hover:bg-slate-50/90 border border-slate-200 rounded-xl text-xs text-slate-700 font-medium leading-relaxed focus:bg-white focus:ring-2 focus:ring-[#0073c6]"
-                        />
-                      </div>
-
-                      {/* III. Por Tanto y Dictamen Resolutivo */}
-                      <div className="space-y-3 pt-2 border-t border-slate-100 text-xs">
-                        <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider">
-                          III. Por Tanto y Dictamen Resolutivo
-                        </h4>
-
-                        {/* Artículo Primero */}
-                        <div className="space-y-1">
-                          <p className="font-extrabold text-slate-900">ARTÍCULO PRIMERO:</p>
-                          <textarea
-                            rows={2}
-                            value={editArticuloPrimero}
-                            onChange={(e) => setEditArticuloPrimero(e.target.value)}
-                            className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 font-medium focus:bg-white"
-                          />
+                          {tabResolucionActiva === 'editor' && (
+                            <button
+                              type="button"
+                              onClick={() => setTabResolucionActiva('pdf')}
+                              className="w-full sm:w-auto px-5 py-2.5 bg-sky-50 hover:bg-sky-100 border border-sky-200 text-[#0060a8] rounded-xl text-xs font-black transition flex items-center justify-center space-x-1.5 cursor-pointer shadow-2xs"
+                            >
+                              <FileText className="w-4 h-4" />
+                              <span>Ver Documento PDF Oficial</span>
+                            </button>
+                          )}
                         </div>
 
-                        {/* Artículo Segundo con Badge de Vigencia */}
-                        <div className="space-y-1.5">
-                          <p className="font-extrabold text-slate-900">ARTÍCULO SEGUNDO:</p>
-                          <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-                            <span className="text-slate-700 font-medium">
-                              La presente autorización tiene vigencia de cinco (5) años a partir de su emisión, computable desde:
-                            </span>
-                            <span className="px-3 py-1 bg-sky-100 text-sky-900 font-black rounded-lg border border-sky-200 text-xs shrink-0 self-start sm:self-auto">
-                              {editVigenciaRango}
-                            </span>
-                          </div>
-                        </div>
+                        <div className="flex items-center space-x-3 w-full sm:w-auto">
+                          <button
+                            type="button"
+                            onClick={handleDescargarResolucionPDF}
+                            className="w-full sm:w-auto px-6 py-2.5 bg-[#0073c6] hover:bg-[#005fa6] text-white rounded-xl text-xs font-extrabold transition shadow-sm flex items-center justify-center space-x-2 cursor-pointer"
+                          >
+                            <Download className="w-4 h-4 text-white" />
+                            <span>Descargar Resolución (PDF)</span>
+                          </button>
 
-                        {/* Artículo Tercero */}
-                        <div className="space-y-1 pt-1">
-                          <p className="font-extrabold text-slate-900">ARTÍCULO TERCERO:</p>
-                          <textarea
-                            rows={2}
-                            value={editArticuloTercero}
-                            onChange={(e) => setEditArticuloTercero(e.target.value)}
-                            className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 font-medium focus:bg-white"
-                          />
-                        </div>
-                      </div>
-
-                      {/* IV. Observaciones y Notas del Área Legal (Última revisión) */}
-                      <div className="space-y-2 pt-2 border-t border-slate-100">
-                        <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider">
-                          IV. Observaciones y Notas del Área Legal (Última revisión)
-                        </h4>
-                        <div className="bg-sky-50/70 border border-sky-200/80 rounded-2xl p-4">
-                          <textarea
-                            rows={3}
-                            value={editObservacionesLegales}
-                            onChange={(e) => setEditObservacionesLegales(e.target.value)}
-                            className="w-full bg-transparent border-none text-xs text-sky-950 font-medium leading-relaxed focus:outline-none"
-                          />
+                          <button
+                            type="button"
+                            onClick={handleEnviarAlCoordinador}
+                            disabled={enviandoCoordinador}
+                            className="w-full sm:w-auto px-7 py-2.5 bg-[#0e533c] hover:bg-[#093d2b] text-white rounded-xl text-xs font-extrabold transition shadow-md flex items-center justify-center space-x-2 cursor-pointer disabled:opacity-50"
+                          >
+                            {enviandoCoordinador ? (
+                              <RefreshCw className="w-4 h-4 animate-spin text-white" />
+                            ) : (
+                              <CheckCircle2 className="w-4 h-4 text-white" />
+                            )}
+                            <span>Enviar al Coordinador</span>
+                          </button>
                         </div>
                       </div>
 
                     </div>
-
-                    {/* Botones de Acción de la Resolución (Descargar y Enviar) */}
-                    <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-2xs flex flex-col sm:flex-row items-center justify-end gap-3">
-                      
-                      {/* Botón Guardar Borrador */}
-                      <button
-                        type="button"
-                        onClick={handleGuardarBorrador}
-                        disabled={guardandoResolucion}
-                        className="w-full sm:w-auto px-5 py-2.5 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 rounded-xl text-xs font-bold transition shadow-2xs cursor-pointer flex items-center justify-center space-x-1.5"
-                      >
-                        {guardandoResolucion ? (
-                          <RefreshCw className="w-3.5 h-3.5 animate-spin text-[#0060a8]" />
-                        ) : (
-                          <Edit3 className="w-3.5 h-3.5 text-slate-500" />
-                        )}
-                        <span>Guardar Cambios</span>
-                      </button>
-
-                      {/* Botón Descargar Resolución (Azul con Icono Download) */}
-                      <button
-                        type="button"
-                        onClick={handleDescargarResolucionPDF}
-                        className="w-full sm:w-auto px-6 py-2.5 bg-[#0073c6] hover:bg-[#005fa6] text-white rounded-xl text-xs font-extrabold transition shadow-sm flex items-center justify-center space-x-2 cursor-pointer"
-                      >
-                        <Download className="w-4 h-4 text-white" />
-                        <span>Descargar Resolución</span>
-                      </button>
-
-                      {/* Botón Enviar al Coordinador (Verde con Icono Check/Send) */}
-                      <button
-                        type="button"
-                        onClick={handleEnviarAlCoordinador}
-                        disabled={enviandoCoordinador}
-                        className="w-full sm:w-auto px-7 py-2.5 bg-[#0e533c] hover:bg-[#093d2b] text-white rounded-xl text-xs font-extrabold transition shadow-md flex items-center justify-center space-x-2 cursor-pointer disabled:opacity-50"
-                      >
-                        {enviandoCoordinador ? (
-                          <RefreshCw className="w-4 h-4 animate-spin text-white" />
-                        ) : (
-                          <CheckCircle2 className="w-4 h-4 text-white" />
-                        )}
-                        <span>Enviar al Coordinador</span>
-                      </button>
-
-                    </div>
-
-                  </div>
-                )}
+                )
+              )}
 
               </div>
 
