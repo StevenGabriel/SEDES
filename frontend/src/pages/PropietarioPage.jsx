@@ -1078,16 +1078,16 @@ export default function PropietarioPage() {
       `}>
         <div className="p-6 space-y-8">
           
-          {/* Logo SI_Lab */}
+          {/* Logo SI_Lab (Sin enlace para evitar redirección involuntaria al portal público) */}
           <div className="flex items-center justify-between">
-            <Link to="/" className="flex items-center space-x-3 group cursor-pointer" title="Ir a la página principal">
-              <div className="bg-white/20 p-2.5 rounded-2xl backdrop-blur-md border border-white/30 group-hover:bg-white/30 transition shadow-inner">
+            <div className="flex items-center space-x-3 select-none">
+              <div className="bg-white/20 p-2.5 rounded-2xl backdrop-blur-md border border-white/30 shadow-inner">
                 <FlaskConical className="w-6 h-6 text-white" />
               </div>
               <span className="font-black text-2xl tracking-tight text-white flex items-center">
                 SI<span className="text-cyan-200">_Lab</span>
               </span>
-            </Link>
+            </div>
 
             <button 
               onClick={() => setSidebarOpen(false)} 
@@ -1147,27 +1147,27 @@ export default function PropietarioPage() {
         
         {/* Barra Superior (Top Header) */}
         <header className="bg-white border-b border-slate-200/80 sticky top-0 z-30 shadow-2xs">
-          <div className="w-full px-4 sm:px-8 h-16 flex items-center justify-between">
+          <div className="w-full px-3 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-2">
             
             {/* Breadcrumb / Ruta Actual */}
-            <div className="flex items-center space-x-3 truncate">
+            <div className="flex items-center space-x-2 sm:space-x-3 min-w-0">
               <button 
                 onClick={() => setSidebarOpen(true)}
-                className="lg:hidden p-2 rounded-xl text-slate-600 hover:bg-slate-100 mr-1"
+                className="lg:hidden p-2 rounded-xl text-slate-600 hover:bg-slate-100 shrink-0"
                 aria-label="Abrir menú"
               >
                 <Menu className="w-5 h-5" />
               </button>
 
               <div className="text-xs sm:text-sm font-medium text-slate-500 truncate flex items-center space-x-1.5">
-                <span>Portal de Trámites SEDES</span>
-                <span className="text-slate-300">/</span>
-                <span className="font-bold text-slate-800">{itemActivo.label}</span>
+                <span className="hidden sm:inline">Portal de Trámites SEDES</span>
+                <span className="text-slate-300 hidden sm:inline">/</span>
+                <span className="font-bold text-slate-800 truncate">{itemActivo.label}</span>
               </div>
             </div>
 
             {/* Perfil del Usuario & Notificaciones */}
-            <div className="flex items-center space-x-3 sm:space-x-5">
+            <div className="flex items-center space-x-2 sm:space-x-4 shrink-0">
               
               {/* Campana de Notificaciones Interactiva con Dropdown */}
               <div className="relative">
@@ -1196,7 +1196,7 @@ export default function PropietarioPage() {
                       className="fixed inset-0 z-40" 
                       onClick={() => setNotifDropdownOpen(false)}
                     />
-                    <div className="absolute right-0 mt-2 w-96 sm:w-[460px] md:w-[500px] max-w-[95vw] bg-white rounded-2xl shadow-2xl border border-slate-200/90 z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150 ring-1 ring-black/5">
+                    <div className="absolute right-[-40px] sm:right-0 mt-2 w-[calc(100vw-32px)] sm:w-[460px] md:w-[500px] max-w-[95vw] bg-white rounded-2xl shadow-2xl border border-slate-200/90 z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150 ring-1 ring-black/5">
                       {/* Cabecera */}
                       <div className="px-5 py-4 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 text-white flex items-center justify-between border-b border-slate-700/60 shadow-xs">
                         <div className="flex items-center space-x-2.5">
@@ -1382,18 +1382,18 @@ export default function PropietarioPage() {
 
           {/* VISTA 1: MIS ESTABLECIMIENTOS */}
           {seccionActiva === 'mis-establecimientos' && (
-            <div className="space-y-8">
+            <div className="space-y-6 sm:space-y-8">
               
               {/* Tarjetas de Métricas Superiores (Figma) */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-5">
                 
                 {/* Métrica 1: Establecimientos Activos */}
-                <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-2xs flex items-center space-x-4">
-                  <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
-                    <CheckCircle2 className="w-6 h-6" />
+                <div className="bg-white p-4 sm:p-6 rounded-2xl border border-slate-200/80 shadow-2xs flex items-center space-x-3.5 sm:space-x-4">
+                  <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold shrink-0">
+                    <CheckCircle2 className="w-5 h-5 sm:w-6 sm:h-6" />
                   </div>
                   <div>
-                    <h3 className="text-2xl font-black text-slate-900 leading-tight">
+                    <h3 className="text-xl sm:text-2xl font-black text-slate-900 leading-tight">
                       {misEstablecimientos.filter(lab => lab.estado_operativo === 'Habilitado').length}
                     </h3>
                     <p className="text-xs font-semibold text-slate-500">
@@ -1403,12 +1403,12 @@ export default function PropietarioPage() {
                 </div>
 
                 {/* Métrica 2: Trámites en Proceso */}
-                <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-2xs flex items-center space-x-4">
-                  <div className="w-12 h-12 rounded-2xl bg-blue-50 text-[#0073c6] flex items-center justify-center font-bold">
-                    <RefreshCw className="w-6 h-6" />
+                <div className="bg-white p-4 sm:p-6 rounded-2xl border border-slate-200/80 shadow-2xs flex items-center space-x-3.5 sm:space-x-4">
+                  <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-blue-50 text-[#0073c6] flex items-center justify-center font-bold shrink-0">
+                    <RefreshCw className="w-5 h-5 sm:w-6 sm:h-6" />
                   </div>
                   <div>
-                    <h3 className="text-2xl font-black text-slate-900 leading-tight">
+                    <h3 className="text-xl sm:text-2xl font-black text-slate-900 leading-tight">
                       {misEstablecimientos.filter(lab => lab.estado_operativo !== 'Habilitado').length}
                     </h3>
                     <p className="text-xs font-semibold text-slate-500">
@@ -1418,12 +1418,12 @@ export default function PropietarioPage() {
                 </div>
 
                 {/* Métrica 3: Inspecciones Programadas */}
-                <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-2xs flex items-center space-x-4">
-                  <div className="w-12 h-12 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center font-bold">
-                    <Calendar className="w-6 h-6" />
+                <div className="bg-white p-4 sm:p-6 rounded-2xl border border-slate-200/80 shadow-2xs flex items-center space-x-3.5 sm:space-x-4 col-span-1 sm:col-span-2 md:col-span-1">
+                  <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center font-bold shrink-0">
+                    <Calendar className="w-5 h-5 sm:w-6 sm:h-6" />
                   </div>
                   <div>
-                    <h3 className="text-2xl font-black text-slate-900 leading-tight">
+                    <h3 className="text-xl sm:text-2xl font-black text-slate-900 leading-tight">
                       0
                     </h3>
                     <p className="text-xs font-semibold text-slate-500">
@@ -1436,7 +1436,7 @@ export default function PropietarioPage() {
 
               {/* Sección: Establecimientos Registrados */}
               <div className="space-y-4">
-                <h2 className="text-lg font-extrabold text-slate-900 tracking-tight">
+                <h2 className="text-base sm:text-lg font-extrabold text-slate-900 tracking-tight">
                   Establecimientos Registrados
                 </h2>
 
@@ -1445,12 +1445,12 @@ export default function PropietarioPage() {
                     Cargando sus establecimientos...
                   </div>
                 ) : misEstablecimientos.length === 0 ? (
-                  <div className="bg-white p-10 rounded-2xl border border-slate-200 text-center text-slate-500 space-y-4 shadow-2xs">
+                  <div className="bg-white p-6 sm:p-10 rounded-2xl border border-slate-200 text-center text-slate-500 space-y-4 shadow-2xs">
                     <div className="w-14 h-14 bg-slate-100 text-slate-400 rounded-full flex items-center justify-center mx-auto">
                       <Building2 className="w-7 h-7" />
                     </div>
                     <div className="space-y-1">
-                      <p className="font-bold text-slate-800 text-base">No tiene establecimientos registrados a su nombre</p>
+                      <p className="font-bold text-slate-800 text-sm sm:text-base">No tiene establecimientos registrados a su nombre</p>
                       <p className="text-xs text-slate-500 max-w-md mx-auto">
                         Inicie una nueva solicitud de apertura para registrar su laboratorio clínico ante el SEDES Cochabamba.
                       </p>
@@ -1470,22 +1470,22 @@ export default function PropietarioPage() {
                     {misEstablecimientos.map((lab) => (
                       <div 
                         key={lab.id}
-                        className="bg-white rounded-2xl p-5 sm:p-6 border border-slate-200/90 shadow-2xs hover:shadow-md transition-all flex flex-col lg:flex-row lg:items-center justify-between gap-6"
+                        className="bg-white rounded-2xl p-4 sm:p-6 border border-slate-200/90 shadow-2xs hover:shadow-md transition-all flex flex-col lg:flex-row lg:items-center justify-between gap-4 sm:gap-6"
                       >
                         
                         {/* Info Izquierda */}
-                        <div className="flex items-start space-x-4">
-                          <div className="w-12 h-12 rounded-2xl bg-slate-100 text-[#005596] flex items-center justify-center shrink-0 mt-0.5">
-                            <Building2 className="w-6 h-6" />
+                        <div className="flex items-start space-x-3.5 sm:space-x-4 min-w-0">
+                          <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-slate-100 text-[#005596] flex items-center justify-center shrink-0 mt-0.5">
+                            <Building2 className="w-5 h-5 sm:w-6 sm:h-6" />
                           </div>
 
-                          <div className="space-y-1">
-                            <div className="flex flex-wrap items-center gap-2.5">
-                              <h3 className="text-base sm:text-lg font-black text-slate-900 tracking-tight">
+                          <div className="space-y-1 min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <h3 className="text-base sm:text-lg font-black text-slate-900 tracking-tight truncate">
                                 {lab.nombre_comercial}
                               </h3>
 
-                              <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full ${
+                              <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full shrink-0 ${
                                 lab.estado_operativo === 'Habilitado'
                                   ? 'bg-emerald-100 text-emerald-800'
                                   : 'bg-amber-100 text-amber-800'
@@ -1496,17 +1496,17 @@ export default function PropietarioPage() {
 
                             <p className="text-xs text-slate-500 flex items-center gap-1">
                               <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                              <span>{lab.direccion}, {lab.municipio}</span>
+                              <span className="truncate">{lab.direccion}, {lab.municipio}</span>
                             </p>
 
-                            <p className="text-[11px] text-slate-400 font-medium pt-1">
+                            <p className="text-[11px] text-slate-400 font-medium pt-0.5">
                               🕒 Última inspección SEDES: 15/07/2026 • CUE: <strong className="text-slate-700">{lab.codigo_cue}</strong>
                             </p>
                           </div>
                         </div>
 
                         {/* Botones de Acción (Figma + Editar Página) */}
-                        <div className="flex flex-wrap items-center gap-2.5 self-end lg:self-center">
+                        <div className="flex flex-wrap items-center gap-2 self-stretch sm:self-auto justify-end sm:justify-start pt-3 lg:pt-0 border-t lg:border-t-0 border-slate-100">
                           
                           {/* Botón 1: Documentos */}
                           <button
@@ -1518,7 +1518,7 @@ export default function PropietarioPage() {
                               }
                               navigate('/propietario/tramites');
                             }}
-                            className="bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-xs font-bold px-3.5 py-2.5 rounded-xl transition flex items-center space-x-1.5 cursor-pointer shadow-2xs"
+                            className="flex-1 sm:flex-none bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-xs font-bold px-3.5 py-2.5 rounded-xl transition flex items-center justify-center space-x-1.5 cursor-pointer shadow-2xs"
                             title="Ver seguimiento de trámites y documentación"
                           >
                             <FileText className="w-3.5 h-3.5 text-slate-500" />
@@ -1528,7 +1528,7 @@ export default function PropietarioPage() {
                           {/* Botón 2: Ver Detalle */}
                           <Link
                             to={`/laboratorio/${encodeURIComponent(lab.codigo_cue !== 'Nuevo' ? lab.codigo_cue : lab.id)}`}
-                            className="bg-[#19324d] hover:bg-[#122438] text-white text-xs font-bold px-4 py-2.5 rounded-xl transition flex items-center space-x-1.5 shadow-sm"
+                            className="flex-1 sm:flex-none bg-[#19324d] hover:bg-[#122438] text-white text-xs font-bold px-4 py-2.5 rounded-xl transition flex items-center justify-center space-x-1.5 shadow-sm"
                           >
                             <Eye className="w-3.5 h-3.5 text-white" />
                             <span>Ver Detalle</span>
@@ -1538,7 +1538,7 @@ export default function PropietarioPage() {
                           <button
                             type="button"
                             onClick={() => handleAbrirEditar(lab)}
-                            className="bg-[#0073c6] hover:bg-[#005da3] text-white text-xs font-bold px-4 py-2.5 rounded-xl transition flex items-center space-x-1.5 shadow-sm cursor-pointer"
+                            className="w-full sm:w-auto bg-[#0073c6] hover:bg-[#005da3] text-white text-xs font-bold px-4 py-2.5 rounded-xl transition flex items-center justify-center space-x-1.5 shadow-sm cursor-pointer"
                             title="Editar la información pública mostrada en su página"
                           >
                             <Edit3 className="w-3.5 h-3.5 text-white" />
@@ -2074,7 +2074,7 @@ export default function PropietarioPage() {
                     </div>
 
                     {/* Grid de Campos Principales */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
                       
                       {/* Municipio */}
                       <div className="space-y-1.5">
@@ -2084,7 +2084,7 @@ export default function PropietarioPage() {
                         <select
                           value={formNueva.municipio}
                           onChange={(e) => setFormNueva({ ...formNueva, municipio: e.target.value })}
-                          className="w-full bg-slate-50 border border-slate-200 text-slate-800 text-sm rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#0077be] font-medium cursor-pointer"
+                          className="w-full bg-slate-50 border border-slate-200 text-slate-800 text-base sm:text-sm rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#0077be] font-medium cursor-pointer"
                         >
                           <option value="CERCADO">Cochabamba (Cercado)</option>
                           <option value="QUILLACOLLO">Quillacollo</option>
@@ -2109,7 +2109,7 @@ export default function PropietarioPage() {
                         <select
                           value={formNueva.tipo}
                           onChange={(e) => setFormNueva({ ...formNueva, tipo: e.target.value })}
-                          className="w-full bg-slate-50 border border-slate-200 text-slate-800 text-sm rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#0077be] font-medium cursor-pointer"
+                          className="w-full bg-slate-50 border border-slate-200 text-slate-800 text-base sm:text-sm rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#0077be] font-medium cursor-pointer"
                         >
                           <option value="Laboratorio Clínico Privado">Laboratorio Clínico Privado</option>
                           <option value="Laboratorio Clínico Público">Laboratorio Clínico Público</option>
@@ -2129,7 +2129,7 @@ export default function PropietarioPage() {
                           value={formNueva.nombre_comercial}
                           onChange={(e) => setFormNueva({ ...formNueva, nombre_comercial: e.target.value })}
                           placeholder="Ej: LABORATORIO CLÍNICO BIOMEDICAL"
-                          className="w-full bg-slate-50 border border-slate-200 text-slate-800 text-sm rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#0077be] font-medium"
+                          className="w-full bg-slate-50 border border-slate-200 text-slate-800 text-base sm:text-sm rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#0077be] font-medium"
                         />
                       </div>
 
@@ -2141,7 +2141,7 @@ export default function PropietarioPage() {
                         <select
                           value={formNueva.nivel}
                           onChange={(e) => setFormNueva({ ...formNueva, nivel: e.target.value })}
-                          className="w-full bg-slate-50 border border-slate-200 text-slate-800 text-sm rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#0077be] font-medium cursor-pointer"
+                          className="w-full bg-slate-50 border border-slate-200 text-slate-800 text-base sm:text-sm rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#0077be] font-medium cursor-pointer"
                         >
                           <option value="Nivel 1">Nivel 1 (Baja Complejidad)</option>
                           <option value="Nivel 2">Nivel 2 (Mediana Complejidad)</option>
@@ -2161,7 +2161,7 @@ export default function PropietarioPage() {
                           value={formNueva.direccion}
                           onChange={(e) => setFormNueva({ ...formNueva, direccion: e.target.value })}
                           placeholder="Ej: Av. Heroínas #456, entre San Martín y 25 de Mayo"
-                          className="w-full bg-slate-50 border border-slate-200 text-slate-800 text-sm rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#0077be] font-medium"
+                          className="w-full bg-slate-50 border border-slate-200 text-slate-800 text-base sm:text-sm rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#0077be] font-medium"
                         />
                       </div>
 
@@ -2175,7 +2175,7 @@ export default function PropietarioPage() {
                           value={formNueva.telefono}
                           onChange={(e) => setFormNueva({ ...formNueva, telefono: e.target.value })}
                           placeholder="Ej: +591 4 4258900 / 71458920"
-                          className="w-full bg-slate-50 border border-slate-200 text-slate-800 text-sm rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#0077be] font-medium"
+                          className="w-full bg-slate-50 border border-slate-200 text-slate-800 text-base sm:text-sm rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#0077be] font-medium"
                         />
                       </div>
 
@@ -2189,7 +2189,7 @@ export default function PropietarioPage() {
                           value={formNueva.responsable_laboratorio}
                           onChange={(e) => setFormNueva({ ...formNueva, responsable_laboratorio: e.target.value })}
                           placeholder="Ej: DRA. MARIA ELENA VARGAS ROJAS - 5489632 CBBA"
-                          className="w-full bg-slate-50 border border-slate-200 text-slate-800 text-sm rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#0077be] font-medium"
+                          className="w-full bg-slate-50 border border-slate-200 text-slate-800 text-base sm:text-sm rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#0077be] font-medium"
                         />
                       </div>
 
@@ -2214,7 +2214,7 @@ export default function PropietarioPage() {
                           value={formNueva.email_contacto}
                           onChange={(e) => setFormNueva({ ...formNueva, email_contacto: e.target.value })}
                           placeholder="Ej: contacto@laboratoriobiomedical.com"
-                          className="w-full bg-slate-50 border border-slate-200 text-slate-800 text-sm rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#0077be] font-medium"
+                          className="w-full bg-slate-50 border border-slate-200 text-slate-800 text-base sm:text-sm rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#0077be] font-medium"
                         />
                       </div>
                     </div>
@@ -2229,7 +2229,7 @@ export default function PropietarioPage() {
                         value={formNueva.descripcion}
                         onChange={(e) => setFormNueva({ ...formNueva, descripcion: e.target.value })}
                         placeholder="Describa la infraestructura, áreas especializadas y servicios que ofrece su laboratorio para los pacientes..."
-                        className="w-full bg-slate-50 border border-slate-200 text-slate-800 text-sm rounded-xl p-3.5 focus:outline-none focus:ring-2 focus:ring-[#0077be] font-medium resize-y"
+                        className="w-full bg-slate-50 border border-slate-200 text-slate-800 text-base sm:text-sm rounded-xl p-3.5 focus:outline-none focus:ring-2 focus:ring-[#0077be] font-medium resize-y"
                       />
                     </div>
 

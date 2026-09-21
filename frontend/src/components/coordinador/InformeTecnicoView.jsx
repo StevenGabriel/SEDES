@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   FileText,
@@ -38,59 +38,62 @@ export default function InformeTecnicoView({
   const navigate = useNavigate();
 
   // Filtrar ÚNICAMENTE los trámites reales de la Base de Datos que han sido pasados a Informe Técnico
-  // (por ejemplo: estado 'En Informe Técnico', 'Derivado a Asesoría Legal', 'Aprobado', o si fue seleccionado explícitamente)
-  const tramitesEnInforme = tramites.filter(t => {
-    const est = (t.estado || '').toLowerCase();
-    const esEstadoValido = (
-      est.includes('informe') ||
-      est.includes('legal') ||
-      est.includes('derivado') ||
-      est.includes('aprobado') ||
-      est === 'en informe técnico'
-    );
-    const esSeleccionado = tramiteSeleccionadoId && (t.id === tramiteSeleccionadoId || t.tramite_uuid === tramiteSeleccionadoId);
-    return esEstadoValido || esSeleccionado;
-  });
+  const tramitesEnInforme = useMemo(() => {
+    return tramites.filter(t => {
+      const est = (t.estado || '').toLowerCase();
+      const esEstadoValido = (
+        est.includes('informe') ||
+        est.includes('legal') ||
+        est.includes('derivado') ||
+        est.includes('aprobado') ||
+        est === 'en informe técnico'
+      );
+      const esSeleccionado = tramiteSeleccionadoId && (t.id === tramiteSeleccionadoId || t.tramite_uuid === tramiteSeleccionadoId);
+      return esEstadoValido || esSeleccionado;
+    });
+  }, [tramites, tramiteSeleccionadoId]);
 
   // Mapear los trámites reales de la Base de Datos al formato estructurado
-  const listaEstablecimientos = tramitesEnInforme.map(t => {
-    const docs = t.documentos || [];
-    const docsAprobadosNombres = docs
-      .filter(d => (d.estado || '').toLowerCase() === 'aprobado')
-      .map(d => d.nombre);
+  const listaEstablecimientos = useMemo(() => {
+    return tramitesEnInforme.map(t => {
+      const docs = t.documentos || [];
+      const docsAprobadosNombres = docs
+        .filter(d => (d.estado || '').toLowerCase() === 'aprobado')
+        .map(d => d.nombre);
 
-    const veredicto = t.veredicto_supervisor_raw || t.veredictoSupervisor || 'Favorable (Cumple con estándares vigentes de bioseguridad)';
-    const obsSupervisor = (t.observacionesSupervisor && t.observacionesSupervisor.length > 0)
-      ? t.observacionesSupervisor.join(' ')
-      : 'Infraestructura adecuada, manejo de residuos patógenos correcto y señalización de seguridad implementada.';
+      const veredicto = t.veredicto_supervisor_raw || t.veredictoSupervisor || 'Favorable (Cumple con estándares vigentes de bioseguridad)';
+      const obsSupervisor = (t.observacionesSupervisor && t.observacionesSupervisor.length > 0)
+        ? t.observacionesSupervisor.join(' ')
+        : 'Infraestructura adecuada, manejo de residuos patógenos correcto y señalización de seguridad implementada.';
 
-    return {
-      id: t.id,
-      tramite_uuid: t.tramite_uuid || t.id,
-      codigo: t.id,
-      establecimiento: t.establecimiento || 'Laboratorio Clínico',
-      tipo: t.tipo || 'Apertura',
-      fecha: t.fecha || 'Reciente',
-      estado: t.estado || 'En Informe Técnico',
-      propietario: t.propietario || 'Propietario no registrado',
-      ci_nit: t.propietario_ci || t.ci_nit || '3799203 CB.',
-      direccion: t.direccion || 'Cochabamba, Bolivia',
-      tipoDetallado: t.categoria || t.tipo || 'Laboratorio de Diagnóstico Clínico',
-      fechaInspeccion: t.fechaInspeccion && t.fechaInspeccion !== 'Pendiente' ? t.fechaInspeccion : 'Inspección realizada',
-      supervisorAsignado: (t.supervisorAsignado && t.supervisorAsignado !== 'Sin Asignar') ? t.supervisorAsignado : 'Supervisor de Área SEDES',
-      resultadoGeneral: veredicto.includes('FAVORABLE') || veredicto.includes('favorable') || veredicto.includes('Aprobado')
-        ? 'Favorable (Cumple con estándares vigentes de bioseguridad)'
-        : veredicto,
-      observacionesCampo: obsSupervisor,
-      regente: t.regente || t.director_tecnico || 'DRA. NORMA VILLAVICENCIO SILES',
-      documentosAprobados: docsAprobadosNombres.length > 0 ? docsAprobadosNombres : [
-        'Licencia Municipal (Vigente)',
-        'Certificado Sanitario Previo',
-        'Plano Arquitectónico Aprobado',
-        'Registro Vigente SENASAG'
-      ]
-    };
-  });
+      return {
+        id: t.id,
+        tramite_uuid: t.tramite_uuid || t.id,
+        codigo: t.id,
+        establecimiento: t.establecimiento || 'Laboratorio Clínico',
+        tipo: t.tipo || 'Apertura',
+        fecha: t.fecha || 'Reciente',
+        estado: t.estado || 'En Informe Técnico',
+        propietario: t.propietario || 'Propietario no registrado',
+        ci_nit: t.propietario_ci || t.ci_nit || '3799203 CB.',
+        direccion: t.direccion || 'Cochabamba, Bolivia',
+        tipoDetallado: t.categoria || t.tipo || 'Laboratorio de Diagnóstico Clínico',
+        fechaInspeccion: t.fechaInspeccion && t.fechaInspeccion !== 'Pendiente' ? t.fechaInspeccion : 'Inspección realizada',
+        supervisorAsignado: (t.supervisorAsignado && t.supervisorAsignado !== 'Sin Asignar') ? t.supervisorAsignado : 'Supervisor de Área SEDES',
+        resultadoGeneral: veredicto.includes('FAVORABLE') || veredicto.includes('favorable') || veredicto.includes('Aprobado')
+          ? 'Favorable (Cumple con estándares vigentes de bioseguridad)'
+          : veredicto,
+        observacionesCampo: obsSupervisor,
+        regente: t.regente || t.director_tecnico || 'DRA. NORMA VILLAVICENCIO SILES',
+        documentosAprobados: docsAprobadosNombres.length > 0 ? docsAprobadosNombres : [
+          'Licencia Municipal (Vigente)',
+          'Certificado Sanitario Previo',
+          'Plano Arquitectónico Aprobado',
+          'Registro Vigente SENASAG'
+        ]
+      };
+    });
+  }, [tramitesEnInforme]);
 
   // Trámite seleccionado actualmente
   const [tramiteActivoId, setTramiteActivoId] = useState(
@@ -98,14 +101,16 @@ export default function InformeTecnicoView({
   );
 
   useEffect(() => {
-    if (tramiteSeleccionadoId) {
+    if (tramiteSeleccionadoId && tramiteSeleccionadoId !== tramiteActivoId) {
       setTramiteActivoId(tramiteSeleccionadoId);
     } else if (listaEstablecimientos.length > 0 && !tramiteActivoId) {
       setTramiteActivoId(listaEstablecimientos[0].id);
     }
-  }, [tramiteSeleccionadoId, listaEstablecimientos]);
+  }, [tramiteSeleccionadoId, listaEstablecimientos.length]);
 
-  const tramiteActivo = listaEstablecimientos.find(t => t.id === tramiteActivoId || t.tramite_uuid === tramiteActivoId) || (listaEstablecimientos.length > 0 ? listaEstablecimientos[0] : null);
+  const tramiteActivo = useMemo(() => {
+    return listaEstablecimientos.find(t => t.id === tramiteActivoId || t.tramite_uuid === tramiteActivoId) || (listaEstablecimientos.length > 0 ? listaEstablecimientos[0] : null);
+  }, [listaEstablecimientos, tramiteActivoId]);
 
   // Estado del formulario de Informe Técnico
   const [observacionesCoordinador, setObservacionesCoordinador] = useState(
@@ -124,6 +129,71 @@ export default function InformeTecnicoView({
   // Estados de carga y acciones
   const [generandoPdf, setGenerandoPdf] = useState(false);
   const [enviandoLegal, setEnviandoLegal] = useState(false);
+
+  // Estados del Visualizador de PDF interactivo
+  const [vistaModo, setVistaModo] = useState('visor'); // 'visor' (por defecto) | 'formulario'
+  const [pdfBlobUrl, setPdfBlobUrl] = useState(null);
+  const [generandoVistaPrevia, setGenerandoVistaPrevia] = useState(false);
+  const urlAnteriorRef = useRef(null);
+
+  // Actualizar en tiempo real la vista previa del PDF oficial de 3 páginas
+  const actualizarVistaPreviaPDF = useCallback(async () => {
+    if (!tramiteActivo) return;
+    setGenerandoVistaPrevia(true);
+    try {
+      const doc = await generarComunicacionInternaPDF(tramiteActivo, {
+        cite: citeNumero,
+        destinatario: destinatarioLegal,
+        destinatarioCargo: destinatarioCargo,
+        via: viaJefe,
+        viaCargo: viaCargo,
+        remitente: nombreCoordinador,
+        remitenteCargo: 'RESPONSABLE DEPARTAMENTAL DE LABORATORIOS CODELAB - SEDES',
+        regente: tramiteActivo.regente,
+        observaciones: observacionesCoordinador
+      });
+      const blob = doc.output('blob');
+      const url = URL.createObjectURL(blob);
+      if (urlAnteriorRef.current) {
+        URL.revokeObjectURL(urlAnteriorRef.current);
+      }
+      urlAnteriorRef.current = url;
+      setPdfBlobUrl(url);
+    } catch (err) {
+      console.warn('Error al generar vista previa del PDF:', err);
+    } finally {
+      setGenerandoVistaPrevia(false);
+    }
+  }, [
+    tramiteActivo?.id,
+    tramiteActivo?.establecimiento,
+    tramiteActivo?.regente,
+    citeNumero,
+    destinatarioLegal,
+    destinatarioCargo,
+    viaJefe,
+    viaCargo,
+    nombreCoordinador,
+    observacionesCoordinador
+  ]);
+
+  // Generar la vista previa al cambiar de trámite o parámetros clave
+  useEffect(() => {
+    actualizarVistaPreviaPDF();
+    return () => {
+      if (urlAnteriorRef.current) {
+        URL.revokeObjectURL(urlAnteriorRef.current);
+      }
+    };
+  }, [
+    tramiteActivo?.id,
+    citeNumero,
+    destinatarioLegal,
+    destinatarioCargo,
+    viaJefe,
+    viaCargo,
+    observacionesCoordinador
+  ]);
 
   // Manejar cambio de trámite seleccionado
   const handleSeleccionar = (item) => {
@@ -344,15 +414,46 @@ export default function InformeTecnicoView({
       {/* ===================================================================== */}
       <div className="flex-1 bg-white rounded-2xl border border-slate-200/90 shadow-xs flex flex-col min-w-0 overflow-hidden">
         
-        {/* Cabecera del Panel */}
-        <div className="p-4 sm:px-6 sm:py-4 border-b border-slate-100 flex items-center justify-between shrink-0 bg-white">
-          <h1 className="font-black text-slate-900 text-base sm:text-lg tracking-tight truncate">
-            {tramiteActivo ? `${tramiteActivo.codigo || tramiteActivo.id} — Informe Técnico: ${tramiteActivo.establecimiento}` : 'Informe Técnico'}
-          </h1>
+        {/* Cabecera del Panel con Tabs de Modo de Visualización */}
+        <div className="p-4 sm:px-6 sm:py-3.5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shrink-0 bg-white">
+          
+          <div className="flex items-center space-x-3 min-w-0">
+            <h1 className="font-black text-slate-900 text-base sm:text-lg tracking-tight truncate">
+              {tramiteActivo ? `${tramiteActivo.codigo || tramiteActivo.id} — Informe Técnico` : 'Informe Técnico'}
+            </h1>
+
+            {/* Selector de Modo: Visor PDF / Formulario */}
+            <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200 shrink-0">
+              <button
+                type="button"
+                onClick={() => setVistaModo('visor')}
+                className={`px-3 py-1 rounded-lg text-xs font-bold transition flex items-center space-x-1.5 cursor-pointer ${
+                  vistaModo === 'visor'
+                    ? 'bg-white text-[#0077c8] shadow-xs'
+                    : 'text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                <FileText className="w-3.5 h-3.5 text-[#0077c8]" />
+                <span>Visualizador PDF</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setVistaModo('formulario')}
+                className={`px-3 py-1 rounded-lg text-xs font-bold transition flex items-center space-x-1.5 cursor-pointer ${
+                  vistaModo === 'formulario'
+                    ? 'bg-white text-[#0077c8] shadow-xs'
+                    : 'text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                <Eye className="w-3.5 h-3.5 text-slate-600" />
+                <span>Datos y Formulario</span>
+              </button>
+            </div>
+          </div>
 
           <button
             onClick={() => setMostrarConfigMemo(!mostrarConfigMemo)}
-            className={`p-2 rounded-xl border text-xs font-bold transition flex items-center space-x-1.5 cursor-pointer ${
+            className={`p-2 rounded-xl border text-xs font-bold transition flex items-center space-x-1.5 cursor-pointer self-end sm:self-auto ${
               mostrarConfigMemo
                 ? 'bg-[#0077c8] text-white border-[#0077c8]'
                 : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
@@ -364,12 +465,12 @@ export default function InformeTecnicoView({
           </button>
         </div>
 
-        {/* Formulario / Contenido Scrollable */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6">
+        {/* Formulario o Visualizador de PDF */}
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6 flex flex-col">
 
           {/* Panel Opcional de Configuración del Membrete Oficial CITE */}
           {mostrarConfigMemo && (
-            <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-3 animate-in fade-in duration-150">
+            <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-3 animate-in fade-in duration-150 shrink-0">
               <div className="flex items-center justify-between">
                 <h4 className="font-bold text-xs text-slate-800 uppercase tracking-wide flex items-center space-x-1.5">
                   <FileText className="w-4 h-4 text-[#0077c8]" />
@@ -412,117 +513,181 @@ export default function InformeTecnicoView({
             </div>
           )}
 
-          {/* Sección 1: Datos del Establecimiento */}
-          <div className="space-y-3">
-            <h3 className="font-black text-sm text-slate-900 border-b border-slate-100 pb-2">
-              Datos del Establecimiento
-            </h3>
-            
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-2.5 gap-x-6 text-xs sm:text-sm">
-              <div className="flex flex-col sm:flex-row sm:items-baseline">
-                <span className="text-slate-500 font-semibold w-44 shrink-0">Establecimiento:</span>
-                <span className="font-bold text-slate-900">{tramiteActivo?.establecimiento}</span>
+          {/* ================================================================= */}
+          {/* MODO 1: VISUALIZADOR DE PDF OFICIAL (IGUAL A BANDEJA DE ENTRADA)   */}
+          {/* ================================================================= */}
+          {vistaModo === 'visor' ? (
+            <div className="bg-white rounded-xl shadow-md border border-slate-300 overflow-hidden flex flex-col flex-1 min-h-[560px]">
+              {/* Barra superior de herramientas del visor */}
+              <div className="bg-slate-800 text-white px-4 py-2.5 text-xs flex items-center justify-between font-mono shrink-0">
+                <div className="flex items-center space-x-2 truncate">
+                  <FileText className="w-4 h-4 text-cyan-400 shrink-0" />
+                  <span className="truncate">Visualizador de Documento PDF - Comunicación Interna ({tramiteActivo?.establecimiento})</span>
+                </div>
+                <div className="flex items-center space-x-3 shrink-0">
+                  <span className="text-cyan-300 text-[11px] font-bold hidden sm:inline">3 Páginas Oficiales</span>
+                  <button
+                    type="button"
+                    onClick={actualizarVistaPreviaPDF}
+                    disabled={generandoVistaPrevia}
+                    className="p-1 rounded hover:bg-slate-700 text-slate-300 hover:text-white transition cursor-pointer flex items-center space-x-1"
+                    title="Actualizar / Regenerar vista previa del PDF"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${generandoVistaPrevia ? 'animate-spin text-cyan-400' : ''}`} />
+                    <span className="text-[10px] hidden md:inline">Actualizar</span>
+                  </button>
+                  {pdfBlobUrl && (
+                    <a
+                      href={pdfBlobUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="p-1 rounded hover:bg-slate-700 text-slate-300 hover:text-white transition cursor-pointer flex items-center space-x-1"
+                      title="Abrir PDF en pestaña independiente"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5 text-slate-300" />
+                      <span className="text-[10px] hidden md:inline">Ver Completo</span>
+                    </a>
+                  )}
+                </div>
               </div>
 
-              <div className="flex flex-col sm:flex-row sm:items-baseline">
-                <span className="text-slate-500 font-semibold w-44 shrink-0">Razón Social / Propietario:</span>
-                <span className="font-bold text-slate-900">{tramiteActivo?.propietario}</span>
-              </div>
-
-              <div className="flex flex-col sm:flex-row sm:items-baseline sm:col-span-2">
-                <span className="text-slate-500 font-semibold w-44 shrink-0">Dirección:</span>
-                <span className="text-slate-800 font-medium">{tramiteActivo?.direccion}</span>
-              </div>
-
-              <div className="flex flex-col sm:flex-row sm:items-baseline sm:col-span-2">
-                <span className="text-slate-500 font-semibold w-44 shrink-0">Tipo de Establecimiento:</span>
-                <span className="text-slate-800 font-medium">{tramiteActivo?.tipoDetallado || tramiteActivo?.tipo}</span>
-              </div>
+              {/* Área del iframe incrustado */}
+              {generandoVistaPrevia && !pdfBlobUrl ? (
+                <div className="flex-1 min-h-[520px] flex flex-col items-center justify-center bg-slate-50 text-slate-400 space-y-2.5 p-8">
+                  <RefreshCw className="w-8 h-8 animate-spin text-[#0077c8]" />
+                  <p className="text-xs font-bold text-slate-800">Generando documento oficial de Comunicación Interna...</p>
+                  <p className="text-[11px] text-slate-400">Compilando 3 páginas con sellos, membrete institucional y checklist</p>
+                </div>
+              ) : pdfBlobUrl ? (
+                <iframe
+                  src={`${pdfBlobUrl}#toolbar=1&navpanes=0`}
+                  className="w-full flex-1 min-h-[560px] sm:min-h-[620px] border-0 bg-slate-100"
+                  title="Comunicación Interna SEDES"
+                />
+              ) : (
+                <div className="flex-1 min-h-[520px] flex items-center justify-center bg-slate-50 text-slate-400 text-xs">
+                  No se pudo cargar la vista previa del PDF.
+                </div>
+              )}
             </div>
-          </div>
-
-          {/* Sección 2: Resumen de Documentación Legal */}
-          <div className="space-y-3">
-            <h3 className="font-black text-sm text-slate-900 border-b border-slate-100 pb-2">
-              Resumen de Documentación Legal
-            </h3>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-              {docsList.map((docItem, idx) => (
-                <div key={idx} className="flex items-center space-x-2 text-xs sm:text-sm text-slate-800">
-                  <div className="w-4 h-4 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
-                    <Check className="w-3 h-3 stroke-[3]" />
+          ) : (
+            /* ================================================================= */
+            /* MODO 2: FORMULARIO Y RESUMEN TÉCNICO                             */
+            /* ================================================================= */
+            <div className="space-y-6">
+              {/* Sección 1: Datos del Establecimiento */}
+              <div className="space-y-3">
+                <h3 className="font-black text-sm text-slate-900 border-b border-slate-100 pb-2">
+                  Datos del Establecimiento
+                </h3>
+                
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-2.5 gap-x-6 text-xs sm:text-sm">
+                  <div className="flex flex-col sm:flex-row sm:items-baseline">
+                    <span className="text-slate-500 font-semibold w-44 shrink-0">Establecimiento:</span>
+                    <span className="font-bold text-slate-900">{tramiteActivo?.establecimiento}</span>
                   </div>
-                  <span className="font-medium text-slate-700">{docItem}</span>
-                </div>
-              ))}
-            </div>
-          </div>
 
-          {/* Sección 3: Resumen de Inspección de Campo */}
-          <div className="space-y-3">
-            <h3 className="font-black text-sm text-slate-900 border-b border-slate-100 pb-2">
-              Resumen de Inspección de Campo
-            </h3>
+                  <div className="flex flex-col sm:flex-row sm:items-baseline">
+                    <span className="text-slate-500 font-semibold w-44 shrink-0">Razón Social / Propietario:</span>
+                    <span className="font-bold text-slate-900">{tramiteActivo?.propietario}</span>
+                  </div>
 
-            <div className="space-y-2.5 text-xs sm:text-sm">
-              <div className="flex flex-col sm:flex-row sm:items-baseline">
-                <span className="text-slate-500 font-semibold w-44 shrink-0">Fecha de Inspección:</span>
-                <span className="text-slate-800 font-medium">{tramiteActivo?.fechaInspeccion}</span>
-              </div>
+                  <div className="flex flex-col sm:flex-row sm:items-baseline sm:col-span-2">
+                    <span className="text-slate-500 font-semibold w-44 shrink-0">Dirección:</span>
+                    <span className="text-slate-800 font-medium">{tramiteActivo?.direccion}</span>
+                  </div>
 
-              <div className="flex flex-col sm:flex-row sm:items-baseline">
-                <span className="text-slate-500 font-semibold w-44 shrink-0">Supervisor Asignado:</span>
-                <span className="font-bold text-slate-900">{tramiteActivo?.supervisorAsignado}</span>
-              </div>
-
-              <div className="flex flex-col sm:flex-row sm:items-baseline">
-                <span className="text-slate-500 font-semibold w-44 shrink-0">Resultado General:</span>
-                <span className="text-emerald-700 font-bold">{tramiteActivo?.resultadoGeneral}</span>
-              </div>
-
-              <div className="flex flex-col sm:flex-row sm:items-baseline">
-                <span className="text-slate-500 font-semibold w-44 shrink-0">Observaciones de Campo:</span>
-                <span className="text-slate-700 font-normal leading-relaxed">{tramiteActivo?.observacionesCampo}</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Sección 4: Observaciones del Coordinador (Edición) */}
-          <div className="space-y-2.5">
-            <h3 className="font-black text-sm text-slate-900 border-b border-slate-100 pb-2">
-              Observaciones del Coordinador (Edición)
-            </h3>
-
-            <div className="relative">
-              <textarea
-                rows={3}
-                value={observacionesCoordinador}
-                onChange={(e) => setObservacionesCoordinador(e.target.value)}
-                placeholder="Escriba aquí las observaciones técnicas complementarias del informe técnico..."
-                className="w-full p-3 text-xs sm:text-sm text-slate-700 bg-white border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0077c8] focus:border-transparent leading-relaxed transition resize-none shadow-xs"
-              />
-            </div>
-          </div>
-
-          {/* Sección 5: Conclusión y Dictamen Técnico */}
-          <div className="space-y-3 pb-2">
-            <h3 className="font-black text-sm text-slate-900 border-b border-slate-100 pb-2">
-              Conclusión y Dictamen Técnico
-            </h3>
-
-            <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-              <span className="text-slate-500 font-semibold text-xs sm:text-sm w-44 shrink-0">Dictamen Final:</span>
-              
-              <div className="relative inline-block w-full sm:w-auto">
-                <div className="inline-flex items-center space-x-2 px-3.5 py-2 rounded-xl bg-emerald-50 border border-emerald-300 text-emerald-900 text-xs sm:text-sm font-bold shadow-xs">
-                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0" />
-                  <span>{dictamenFinal}</span>
-                  <ChevronDown className="w-4 h-4 text-emerald-700 ml-1" />
+                  <div className="flex flex-col sm:flex-row sm:items-baseline sm:col-span-2">
+                    <span className="text-slate-500 font-semibold w-44 shrink-0">Tipo de Establecimiento:</span>
+                    <span className="text-slate-800 font-medium">{tramiteActivo?.tipoDetallado || tramiteActivo?.tipo}</span>
+                  </div>
                 </div>
               </div>
+
+              {/* Sección 2: Resumen de Documentación Legal */}
+              <div className="space-y-3">
+                <h3 className="font-black text-sm text-slate-900 border-b border-slate-100 pb-2">
+                  Resumen de Documentación Legal
+                </h3>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  {docsList.map((docItem, idx) => (
+                    <div key={idx} className="flex items-center space-x-2 text-xs sm:text-sm text-slate-800">
+                      <div className="w-4 h-4 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
+                        <Check className="w-3 h-3 stroke-[3]" />
+                      </div>
+                      <span className="font-medium text-slate-700">{docItem}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Sección 3: Resumen de Inspección de Campo */}
+              <div className="space-y-3">
+                <h3 className="font-black text-sm text-slate-900 border-b border-slate-100 pb-2">
+                  Resumen de Inspección de Campo
+                </h3>
+
+                <div className="space-y-2.5 text-xs sm:text-sm">
+                  <div className="flex flex-col sm:flex-row sm:items-baseline">
+                    <span className="text-slate-500 font-semibold w-44 shrink-0">Fecha de Inspección:</span>
+                    <span className="text-slate-800 font-medium">{tramiteActivo?.fechaInspeccion}</span>
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row sm:items-baseline">
+                    <span className="text-slate-500 font-semibold w-44 shrink-0">Supervisor Asignado:</span>
+                    <span className="font-bold text-slate-900">{tramiteActivo?.supervisorAsignado}</span>
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row sm:items-baseline">
+                    <span className="text-slate-500 font-semibold w-44 shrink-0">Resultado General:</span>
+                    <span className="text-emerald-700 font-bold">{tramiteActivo?.resultadoGeneral}</span>
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row sm:items-baseline">
+                    <span className="text-slate-500 font-semibold w-44 shrink-0">Observaciones de Campo:</span>
+                    <span className="text-slate-700 font-normal leading-relaxed">{tramiteActivo?.observacionesCampo}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Sección 4: Observaciones del Coordinador (Edición) */}
+              <div className="space-y-2.5">
+                <h3 className="font-black text-sm text-slate-900 border-b border-slate-100 pb-2">
+                  Observaciones del Coordinador (Edición)
+                </h3>
+
+                <div className="relative">
+                  <textarea
+                    rows={3}
+                    value={observacionesCoordinador}
+                    onChange={(e) => setObservacionesCoordinador(e.target.value)}
+                    placeholder="Escriba aquí las observaciones técnicas complementarias del informe técnico..."
+                    className="w-full p-3 text-xs sm:text-sm text-slate-700 bg-white border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0077c8] focus:border-transparent leading-relaxed transition resize-none shadow-xs"
+                  />
+                </div>
+              </div>
+
+              {/* Sección 5: Conclusión y Dictamen Técnico */}
+              <div className="space-y-3 pb-2">
+                <h3 className="font-black text-sm text-slate-900 border-b border-slate-100 pb-2">
+                  Conclusión y Dictamen Técnico
+                </h3>
+
+                <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                  <span className="text-slate-500 font-semibold text-xs sm:text-sm w-44 shrink-0">Dictamen Final:</span>
+                  
+                  <div className="relative inline-block w-full sm:w-auto">
+                    <div className="inline-flex items-center space-x-2 px-3.5 py-2 rounded-xl bg-emerald-50 border border-emerald-300 text-emerald-900 text-xs sm:text-sm font-bold shadow-xs">
+                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0" />
+                      <span>{dictamenFinal}</span>
+                      <ChevronDown className="w-4 h-4 text-emerald-700 ml-1" />
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
-          </div>
+          )}
 
         </div>
 

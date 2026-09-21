@@ -564,14 +564,14 @@ export default function SupervisorPage() {
           
           {/* Logo SI_Lab */}
           <div className="flex items-center justify-between">
-            <Link to="/" className="flex items-center space-x-3 group cursor-pointer" title="Ir a la página principal">
-              <div className="bg-white/20 p-2.5 rounded-2xl backdrop-blur-md border border-white/30 group-hover:bg-white/30 transition shadow-inner">
+            <div className="flex items-center space-x-3 select-none">
+              <div className="bg-white/20 p-2.5 rounded-2xl backdrop-blur-md border border-white/30 shadow-inner">
                 <FlaskConical className="w-6 h-6 text-white" />
               </div>
               <span className="font-black text-2xl tracking-tight text-white flex items-center">
                 SI<span className="text-cyan-200">_Lab</span>
               </span>
-            </Link>
+            </div>
 
             <button 
               onClick={() => setSidebarOpen(false)} 

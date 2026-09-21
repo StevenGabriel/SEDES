@@ -147,6 +147,20 @@ const INITIAL_USERS = [
     telefono: '71239845'
   },
   {
+    id: 'usr-legal',
+    nombres: 'Mery D.',
+    apellidos: 'Loroño V.',
+    nombreCompleto: 'Dra. Mery D. Loroño V.',
+    email: 'abogado@sedes.gob.bo',
+    rol: 'Abogado',
+    rolBadgeColor: 'bg-purple-50 text-purple-700 border-purple-200',
+    ultimaConexion: 'Hace 30 min',
+    estado: 'Activo',
+    avatar: 'https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?w=100&auto=format&fit=crop&q=80',
+    ci: '5129384 CB',
+    telefono: '71458920'
+  },
+  {
     id: 'usr-5',
     nombres: 'Andrea',
     apellidos: 'Torrico',
@@ -199,6 +213,7 @@ const INITIAL_MATRIZ_PERMISOS = [
     permisos: {
       director: 'Total',
       coordinador: 'Total',
+      abogado: 'Total',
       supervisor: 'Lectura',
       propietario: 'Propios',
       publico: 'Público'
@@ -211,6 +226,7 @@ const INITIAL_MATRIZ_PERMISOS = [
     permisos: {
       director: 'Total',
       coordinador: 'Total',
+      abogado: 'Lectura',
       supervisor: 'Total',
       propietario: 'Denegado',
       publico: 'Denegado'
@@ -223,6 +239,7 @@ const INITIAL_MATRIZ_PERMISOS = [
     permisos: {
       director: 'Total',
       coordinador: 'Total',
+      abogado: 'Total',
       supervisor: 'Lectura',
       propietario: 'Propios',
       publico: 'Denegado'
@@ -235,6 +252,7 @@ const INITIAL_MATRIZ_PERMISOS = [
     permisos: {
       director: 'Total',
       coordinador: 'Lectura',
+      abogado: 'Denegado',
       supervisor: 'Denegado',
       propietario: 'Denegado',
       publico: 'Denegado'
@@ -247,6 +265,7 @@ const INITIAL_MATRIZ_PERMISOS = [
     permisos: {
       director: 'Total',
       coordinador: 'Total',
+      abogado: 'Lectura',
       supervisor: 'Denegado',
       propietario: 'Denegado',
       publico: 'Denegado'
@@ -610,6 +629,7 @@ export default function AdminPage() {
   const [formPermisosModulo, setFormPermisosModulo] = useState({
     director: 'Total',
     coordinador: 'Total',
+    abogado: 'Total',
     supervisor: 'Lectura',
     propietario: 'Propios',
     publico: 'Denegado'
@@ -1168,14 +1188,14 @@ export default function AdminPage() {
           
           {/* Logo SI_Lab */}
           <div className="flex items-center justify-between">
-            <Link to="/" className="flex items-center space-x-3 group cursor-pointer" title="Ir a la página principal">
-              <div className="bg-white/20 p-2.5 rounded-2xl backdrop-blur-md border border-white/30 group-hover:bg-white/30 transition shadow-inner">
+            <div className="flex items-center space-x-3 select-none">
+              <div className="bg-white/20 p-2.5 rounded-2xl backdrop-blur-md border border-white/30 shadow-inner">
                 <FlaskConical className="w-6 h-6 text-white" />
               </div>
               <span className="font-black text-2xl tracking-tight text-white flex items-center">
                 SI<span className="text-cyan-200">_Lab</span>
               </span>
-            </Link>
+            </div>
 
             <button 
               onClick={() => setSidebarOpen(false)} 
@@ -1407,6 +1427,7 @@ export default function AdminPage() {
                     <option value="Todos los Roles">Todos los Roles</option>
                     <option value="Director">Director</option>
                     <option value="Coordinador">Coordinador</option>
+                    <option value="Abogado">Abogado</option>
                     <option value="Supervisor">Supervisor</option>
                     <option value="Administrador">Administrador</option>
                   </select>
@@ -1644,10 +1665,11 @@ export default function AdminPage() {
               </div>
 
               {/* 1. Tarjetas Superiores de Roles */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5 sm:gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3.5 sm:gap-4">
                 {[
                   { rol: 'Director', nivel: 'Nivel 5', usuarios: '2 usuarios', border: 'border-t-[#1e293b]', iconColor: 'text-slate-700' },
                   { rol: 'Coordinador', nivel: 'Nivel 4', usuarios: '3 usuarios', border: 'border-t-[#0284c7]', iconColor: 'text-sky-600' },
+                  { rol: 'Abogado', nivel: 'Nivel 4', usuarios: '1 usuario', border: 'border-t-[#9333ea]', iconColor: 'text-purple-600' },
                   { rol: 'Supervisor', nivel: 'Nivel 3', usuarios: '5 usuarios', border: 'border-t-[#0ea5e9]', iconColor: 'text-cyan-500' },
                   { rol: 'Propietario', nivel: 'Nivel 2', usuarios: '35 usuarios', border: 'border-t-[#10b981]', iconColor: 'text-emerald-600' },
                   { rol: 'Público', nivel: 'Nivel 1', usuarios: 'Sin cuenta', border: 'border-t-[#64748b]', iconColor: 'text-slate-500' },
@@ -1691,6 +1713,7 @@ export default function AdminPage() {
                         <th className="py-3.5 px-5">Módulo / Área del Sistema</th>
                         <th className="py-3.5 px-4 text-center">Director Gral.</th>
                         <th className="py-3.5 px-4 text-center">Coordinador</th>
+                        <th className="py-3.5 px-4 text-center">Abogado</th>
                         <th className="py-3.5 px-4 text-center">Supervisor</th>
                         <th className="py-3.5 px-4 text-center">Propietario</th>
                         <th className="py-3.5 px-4 text-center">Público</th>
@@ -1719,6 +1742,11 @@ export default function AdminPage() {
                           {/* Coordinador */}
                           <td className="py-4 px-4 text-center">
                             {renderPermisoBadge(modulo.permisos.coordinador, () => handleAbrirEditarPermisos(modulo))}
+                          </td>
+
+                          {/* Abogado */}
+                          <td className="py-4 px-4 text-center">
+                            {renderPermisoBadge(modulo.permisos.abogado || 'Lectura', () => handleAbrirEditarPermisos(modulo))}
                           </td>
 
                           {/* Supervisor */}
@@ -2053,6 +2081,7 @@ export default function AdminPage() {
                 >
                   <option value="Supervisor">Supervisor</option>
                   <option value="Coordinador">Coordinador</option>
+                  <option value="Abogado">Abogado</option>
                   <option value="Director">Director</option>
                   <option value="Administrador">Administrador</option>
                 </select>
@@ -2184,6 +2213,7 @@ export default function AdminPage() {
                   >
                     <option value="Supervisor">Supervisor</option>
                     <option value="Coordinador">Coordinador</option>
+                    <option value="Abogado">Abogado</option>
                     <option value="Director">Director</option>
                     <option value="Administrador">Administrador</option>
                   </select>
@@ -2290,6 +2320,23 @@ export default function AdminPage() {
                   <select
                     value={formPermisosModulo.coordinador}
                     onChange={(e) => setFormPermisosModulo({ ...formPermisosModulo, coordinador: e.target.value })}
+                    className="bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#0077c8] cursor-pointer"
+                  >
+                    <option value="Total">Total (✓)</option>
+                    <option value="Lectura">Lectura (👁)</option>
+                    <option value="Denegado">Denegado (✕)</option>
+                  </select>
+                </div>
+
+                {/* Abogado */}
+                <div className="p-3 bg-slate-50 border border-slate-200/80 rounded-2xl flex items-center justify-between">
+                  <div>
+                    <span className="font-black text-slate-900 text-xs block">Abogado</span>
+                    <span className="text-[11px] text-slate-400">Nivel 4 - Revisión Jurídica y Resolución</span>
+                  </div>
+                  <select
+                    value={formPermisosModulo.abogado || 'Total'}
+                    onChange={(e) => setFormPermisosModulo({ ...formPermisosModulo, abogado: e.target.value })}
                     className="bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#0077c8] cursor-pointer"
                   >
                     <option value="Total">Total (✓)</option>

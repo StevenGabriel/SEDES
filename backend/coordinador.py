@@ -303,24 +303,22 @@ def validar_documento_legal(
     estab_nombre = tramite.establecimiento.nombre_comercial if (tramite and tramite.establecimiento) else "Establecimiento"
     cod_trm = f"TRM-{str(tramite.id)[:8].upper()}" if tramite else "TRM-0000"
 
-    # Registrar en auditoría
-    badge = "bg-emerald-50 text-emerald-700 border-emerald-200" if payload.estado == "Aprobado" else (
-        "bg-rose-50 text-rose-700 border-rose-200" if payload.estado in ["Rechazado", "Observado"] else "bg-amber-50 text-amber-700 border-amber-200"
-    )
-    ahora_formato = datetime.now().strftime("%d %b %Y - %H:%M")
-
-    obs_texto = f" Obs: {payload.observacion}" if payload.observacion else ""
-    nuevo_log = models.HistorialActividad(
-        id=uuid.uuid4(),
-        codigo_tramite=cod_trm,
-        establecimiento=estab_nombre,
-        accion=f"Documento {payload.estado.lower()}: {nombre_doc}.{obs_texto}",
-        responsable=payload.responsable or "Dra. Claudia Morales V.",
-        estado_resultado=payload.estado,
-        estado_badge=badge,
-        fecha_hora_formato=ahora_formato
-    )
-    db.add(nuevo_log)
+    # No registrar aprobaciones individuales de documentos en el historial general (solo eventos clave de trámites)
+    if payload.estado in ["Rechazado", "Observado"]:
+        badge = "bg-rose-50 text-rose-700 border-rose-200" if payload.estado == "Rechazado" else "bg-amber-50 text-amber-700 border-amber-200"
+        ahora_formato = datetime.now().strftime("%d %b %Y - %H:%M")
+        obs_texto = f" Obs: {payload.observacion}" if payload.observacion else ""
+        nuevo_log = models.HistorialActividad(
+            id=uuid.uuid4(),
+            codigo_tramite=cod_trm,
+            establecimiento=estab_nombre,
+            accion=f"Observación de requisito: {nombre_doc}.{obs_texto}",
+            responsable=payload.responsable or "Dra. Claudia Morales V.",
+            estado_resultado=payload.estado,
+            estado_badge=badge,
+            fecha_hora_formato=ahora_formato
+        )
+        db.add(nuevo_log)
 
     # Notificar al propietario en tiempo real
     try:
@@ -1010,12 +1008,13 @@ def consultar_historial(
     desde: Optional[str] = Query(None, description="Fecha inicial ISO"),
     hasta: Optional[str] = Query(None, description="Fecha final ISO"),
     pagina: int = Query(1, ge=1),
-    limite: int = Query(10, ge=1, le=100),
+    limite: int = Query(100, ge=1, le=500),
     db: Session = Depends(get_db)
 ):
-    """Consulta la bitácora real de movimientos y auditoría con filtros multicriterio."""
+    """Consulta la bitácora real de movimientos y auditoría con filtros multicriterio (solo eventos de trámites)."""
     query = db.query(models.HistorialActividad).filter(
-        models.HistorialActividad.estado == True
+        models.HistorialActividad.estado == True,
+        ~models.HistorialActividad.accion.ilike("%Documento aprobado%")
     ).order_by(desc(models.HistorialActividad.fecha_creacion))
 
     if buscar and buscar.strip():

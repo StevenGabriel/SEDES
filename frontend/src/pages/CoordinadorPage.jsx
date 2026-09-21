@@ -13,6 +13,7 @@ import {
   X,
   Menu,
   ChevronRight,
+  ChevronLeft,
   Search,
   Filter,
   Check,
@@ -491,15 +492,63 @@ export default function CoordinadorPage() {
     }
   };
 
-  // Filtrado de actividades de auditoría
+  // Filtrado de actividades de auditoría (excluyendo aprobaciones individuales de documentos)
   const actividadesFiltradas = historialActividades.filter(act => {
+    const accionLower = (act.accion || '').toLowerCase();
+    // Excluir aprobaciones individuales de documentos como "Documento aprobado: ..."
+    if (accionLower.includes('documento aprobado') || accionLower.startsWith('documento aprobado')) {
+      return false;
+    }
     const matchTexto = (act.codigo || '').toLowerCase().includes(filtroHistorialTexto.toLowerCase()) ||
                        (act.establecimiento || '').toLowerCase().includes(filtroHistorialTexto.toLowerCase()) ||
-                       (act.accion || '').toLowerCase().includes(filtroHistorialTexto.toLowerCase());
+                       accionLower.includes(filtroHistorialTexto.toLowerCase());
     const matchEstado = filtroHistorialEstado === 'Todos' || act.estado === filtroHistorialEstado;
     const matchSupervisor = filtroHistorialSupervisor === 'Todos' || (act.responsable || '').includes(filtroHistorialSupervisor.replace('Ing.', '').replace('Dra.', '').replace('Lic.', '').trim());
     return matchTexto && matchEstado && matchSupervisor;
   });
+
+  // Paginación para Historial y Trazabilidad (10 por defecto, configurable a 25 y 50)
+  const [itemsPorPaginaHistorial, setItemsPorPaginaHistorial] = useState(10);
+  const totalRegistrosHistorial = actividadesFiltradas.length;
+  const totalPaginasHistorial = Math.max(1, Math.ceil(totalRegistrosHistorial / itemsPorPaginaHistorial));
+  const inicioHistorial = (paginaHistorial - 1) * itemsPorPaginaHistorial;
+  const finHistorial = inicioHistorial + itemsPorPaginaHistorial;
+  const actividadesPaginadas = actividadesFiltradas.slice(inicioHistorial, finHistorial);
+
+  // Reiniciar a la primera página al cambiar filtros o tamaño de página
+  useEffect(() => {
+    setPaginaHistorial(1);
+  }, [filtroHistorialTexto, filtroHistorialEstado, filtroHistorialSupervisor, itemsPorPaginaHistorial]);
+
+  const getNumeroPaginasHistorial = () => {
+    const paginas = [];
+    if (totalPaginasHistorial <= 7) {
+      for (let i = 1; i <= totalPaginasHistorial; i++) {
+        paginas.push(i);
+      }
+    } else {
+      if (paginaHistorial <= 4) {
+        for (let i = 1; i <= 5; i++) paginas.push(i);
+        paginas.push('...');
+        paginas.push(totalPaginasHistorial);
+      } else if (paginaHistorial >= totalPaginasHistorial - 3) {
+        paginas.push(1);
+        paginas.push('...');
+        for (let i = totalPaginasHistorial - 4; i <= totalPaginasHistorial; i++) {
+          paginas.push(i);
+        }
+      } else {
+        paginas.push(1);
+        paginas.push('...');
+        paginas.push(paginaHistorial - 1);
+        paginas.push(paginaHistorial);
+        paginas.push(paginaHistorial + 1);
+        paginas.push('...');
+        paginas.push(totalPaginasHistorial);
+      }
+    }
+    return paginas;
+  };
 
   // Manejar cambio de estado de un documento legal (Aprobado / Rechazado / Observado)
   const handleCambiarEstadoDoc = async (nuevoEstado, observacionTexto = null) => {
@@ -672,14 +721,14 @@ export default function CoordinadorPage() {
 
           {/* Logo SI_Lab */}
           <div className="flex items-center justify-between">
-            <Link to="/" className="flex items-center space-x-3 group cursor-pointer" title="Ir a la página principal">
-              <div className="bg-white/20 p-2.5 rounded-2xl backdrop-blur-md border border-white/30 group-hover:bg-white/30 transition shadow-inner">
+            <div className="flex items-center space-x-3 select-none">
+              <div className="bg-white/20 p-2.5 rounded-2xl backdrop-blur-md border border-white/30 shadow-inner">
                 <FlaskConical className="w-6 h-6 text-white" />
               </div>
               <span className="font-black text-2xl tracking-tight text-white flex items-center">
                 SI<span className="text-cyan-200 font-extrabold">_Lab</span>
               </span>
-            </Link>
+            </div>
 
             <button
               onClick={() => setSidebarOpen(false)}
@@ -1645,42 +1694,6 @@ export default function CoordinadorPage() {
                         </ul>
                       </div>
 
-                      {/* Botones de acción desde la bitácora de campo */}
-                      <div className="flex flex-col sm:flex-row items-stretch gap-3 pt-2">
-                        <button
-                          onClick={() => navigate('/coordinador/asignar-supervisores')}
-                          className="w-full sm:flex-1 py-3 px-5 rounded-xl font-extrabold text-sm text-white bg-[#0077c8] hover:bg-[#0064a7] shadow-md transition-all flex items-center justify-center space-x-2 cursor-pointer"
-                        >
-                          <Calendar className="w-4 h-4" />
-                          <span>{tieneSupervisorAsignado ? 'Gestionar Inspección' : 'Agendar / Asignar Supervisor'}</span>
-                        </button>
-
-                        {puedeAprobarTramite ? (
-                          <button
-                            onClick={() => setModalAprobacionOpen(true)}
-                            className="w-full sm:flex-1 py-3 px-5 rounded-xl font-extrabold text-sm text-emerald-950 bg-[#c7f9cc] hover:bg-[#a7f3d0] border border-emerald-400 shadow-sm transition-all flex items-center justify-center space-x-2 cursor-pointer active:scale-98"
-                            title="Todos los requisitos y el acta técnica están aprobados. Haga clic para emitir la resolución."
-                          >
-                            <Award className="w-4 h-4 text-emerald-700" />
-                            <span>Aprobar Trámite y Emitir Resolución</span>
-                          </button>
-                        ) : (
-                          <div className="w-full sm:flex-1 flex flex-col justify-center">
-                            <button
-                              disabled
-                              className="w-full py-3 px-5 rounded-xl font-extrabold text-sm text-slate-400 bg-slate-100 border border-slate-200 cursor-not-allowed transition-all flex items-center justify-center space-x-2 opacity-80"
-                            >
-                              <Award className="w-4 h-4 text-slate-400" />
-                              <span>Aprobar Trámite y Emitir Resolución</span>
-                            </button>
-                            <div className="text-[11px] text-amber-800 bg-amber-50 border border-amber-200 px-3 py-1.5 rounded-lg mt-1.5 flex items-center space-x-1.5 font-medium">
-                              <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                              <span>{motivoBloqueoAprobacion}</span>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-
                     </div>
                   )}
 
@@ -1973,7 +1986,6 @@ export default function CoordinadorPage() {
                         <option value="Todos">Todos los Estados</option>
                         <option value="Aprobado">Aprobado</option>
                         <option value="Asignado">Asignado</option>
-                        <option value="Observado">Observado</option>
                         <option value="Rechazado">Rechazado</option>
                       </select>
                       <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-slate-400">
@@ -2021,12 +2033,12 @@ export default function CoordinadorPage() {
                 </div>
               </div>
 
-              {/* Registro de Actividad (Tabla) */}
+              {/* Registro de Actividad (Tabla con Paginación) */}
               <div className="bg-white rounded-2xl border border-slate-200/90 shadow-xs p-6 space-y-4">
 
                 {/* Cabecera */}
-                <h2 className="text-sm sm:text-base font-extrabold text-slate-800 tracking-tight">
-                  Registro de Actividades y Auditoría ({actividadesFiltradas.length})
+                <h2 className="text-base font-black text-slate-900 tracking-tight">
+                  Registro de Actividad
                 </h2>
 
                 {/* Tabla de Actividades */}
@@ -2043,7 +2055,7 @@ export default function CoordinadorPage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 text-xs">
-                      {actividadesFiltradas.map((item) => (
+                      {actividadesPaginadas.map((item) => (
                         <tr key={item.id} className="hover:bg-slate-50/60 transition-colors">
 
                           {/* Fecha / Hora */}
@@ -2081,15 +2093,90 @@ export default function CoordinadorPage() {
                         </tr>
                       ))}
 
-                      {actividadesFiltradas.length === 0 && (
+                      {actividadesPaginadas.length === 0 && (
                         <tr>
-                          <td colSpan={6} className="py-8 text-center text-slate-400 text-xs">
-                            No se encontraron registros de auditoría en la base de datos.
+                          <td colSpan={6} className="py-8 text-center text-slate-400 text-xs font-medium">
+                            No se encontraron registros de trámites en el historial.
                           </td>
                         </tr>
                       )}
                     </tbody>
                   </table>
+                </div>
+
+                {/* Pie de Tabla: Paginación, selector de cantidad y contador de registros */}
+                <div className="pt-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs">
+                  {/* Conteo de registros + Selector de tamaño de página (Combobox) */}
+                  <div className="flex flex-wrap items-center gap-3">
+                    <span className="text-slate-500 font-medium">
+                      Mostrando {totalRegistrosHistorial === 0 ? 0 : inicioHistorial + 1}-{Math.min(finHistorial, totalRegistrosHistorial)} de {totalRegistrosHistorial} registros
+                    </span>
+
+                    <div className="flex items-center space-x-1.5 pl-2 sm:border-l sm:border-slate-200">
+                      <span className="text-[11px] font-semibold text-slate-400">Mostrar:</span>
+                      <select
+                        value={itemsPorPaginaHistorial}
+                        onChange={(e) => {
+                          setItemsPorPaginaHistorial(Number(e.target.value));
+                          setPaginaHistorial(1);
+                        }}
+                        className="px-2.5 py-1 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-700 hover:border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#0077c8]/20 focus:border-[#0077c8] cursor-pointer shadow-2xs transition"
+                      >
+                        <option value={10}>10 por vista</option>
+                        <option value={25}>25 por vista</option>
+                        <option value={50}>50 por vista</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Controles de Paginación */}
+                  {totalPaginasHistorial > 1 && (
+                    <div className="flex items-center space-x-1.5">
+                      {/* Botón Anterior < */}
+                      <button
+                        type="button"
+                        onClick={() => setPaginaHistorial(prev => Math.max(1, prev - 1))}
+                        disabled={paginaHistorial === 1}
+                        className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed text-xs font-semibold cursor-pointer transition shadow-2xs"
+                        title="Página anterior"
+                      >
+                        <ChevronLeft className="w-4 h-4" />
+                      </button>
+
+                      {/* Botones de número de página */}
+                      {getNumeroPaginasHistorial().map((p, idx) => (
+                        p === '...' ? (
+                          <span key={`dots-${idx}`} className="w-8 h-8 flex items-center justify-center text-slate-400 text-xs font-bold select-none">
+                            ...
+                          </span>
+                        ) : (
+                          <button
+                            key={`page-${p}`}
+                            type="button"
+                            onClick={() => setPaginaHistorial(p)}
+                            className={`w-8 h-8 flex items-center justify-center rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                              paginaHistorial === p
+                                ? 'bg-[#0f2438] text-white border border-[#0f2438] shadow-xs'
+                                : 'border border-slate-200 text-slate-700 hover:bg-slate-50 bg-white'
+                            }`}
+                          >
+                            {p}
+                          </button>
+                        )
+                      ))}
+
+                      {/* Botón Siguiente > */}
+                      <button
+                        type="button"
+                        onClick={() => setPaginaHistorial(prev => Math.min(totalPaginasHistorial, prev + 1))}
+                        disabled={paginaHistorial === totalPaginasHistorial}
+                        className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed text-xs font-semibold cursor-pointer transition shadow-2xs"
+                        title="Página siguiente"
+                      >
+                        <ChevronRight className="w-4 h-4" />
+                      </button>
+                    </div>
+                  )}
                 </div>
 
               </div>
