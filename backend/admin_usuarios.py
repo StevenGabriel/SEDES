@@ -19,6 +19,8 @@ def get_rol_badge_color(rol_nombre: str) -> str:
         return "bg-indigo-50 text-indigo-700 border-indigo-200"
     elif "coordinador" in rol_lower:
         return "bg-sky-50 text-sky-700 border-sky-200"
+    elif "abogado" in rol_lower or "legal" in rol_lower:
+        return "bg-purple-50 text-purple-700 border-purple-200"
     elif "administrador" in rol_lower:
         return "bg-slate-100 text-slate-800 border-slate-300"
     elif "supervisor" in rol_lower:

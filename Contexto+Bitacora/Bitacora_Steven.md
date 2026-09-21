@@ -2670,5 +2670,194 @@ Ajustar la sección final del formulario de emisión de actas del supervisor (`N
 
 ---
 
+## [2026-09-21] Depuración de Historial y Trazabilidad (Solo Eventos Clave de Trámites) e Implementación de Paginación
+
+### 📌 Objetivo
+1. **Filtrar la bitácora de Historial y Trazabilidad (`/coordinador/historial-trazabilidad`):**
+   - Mostrar **únicamente eventos principales de trámites**:
+     - Asignación y programación de inspectores / supervisores.
+     - Derivación formal del Informe Técnico al Área Legal / Abogado.
+     - Rechazo de actas, inspecciones o trámites (solicitud de reingreso).
+     - Finalización, resoluciones administrativas y aprobaciones finales.
+   - **Excluir por completo las validaciones y aprobaciones individuales de documentos** (por ejemplo: *"Documento aprobado: Libro de entrega de resultados..."*, *"Documento aprobado: Licencia Municipal..."*).
+2. **Paginación Inteligente según el Diseño Oficial:**
+   - Incorporar controles de paginación en el pie de la tabla *"Registro de Actividad"*:
+     - Texto indicador a la izquierda: `Mostrando X-Y de Z registros`.
+     - Controles a la derecha con botones `<` (anterior), números de página (`1`, `2`, `3`, `...`, `N`) y `>` (siguiente).
+     - Resaltado de la página activa con el estilo azul oscuro institucional (`#0f2438`) y cálculo dinámico de registros visibles por página.
+
+---
+
+### 🛠️ Archivos Modificados
+
+#### 1. `backend/coordinador.py` [MODIFICADO]
+* **Endpoint `GET /api/coordinador/historial`:**
+  - Se añadió filtro de exclusión `~models.HistorialActividad.accion.ilike("%Documento aprobado%")` para evitar que las aprobaciones de archivos individuales saturen la bitácora institucional de auditoría.
+* **Endpoint `PATCH /api/coordinador/documentos/{id}/validar`:**
+  - Se eliminó el registro de auditoría en `HistorialActividad` para aprobaciones de documentos individuales, manteniéndose solo las observaciones o rechazos que requieren atención del solicitante.
+
+#### 2. `frontend/src/pages/CoordinadorPage.jsx` [MODIFICADO]
+* **Filtro del lado del cliente (`actividadesFiltradas`):** Exclusión estricta de cualquier evento que contenga `"Documento aprobado"`.
+* **Paginador Completo y Selector de Registros (Combobox):**
+  - Configuración inicial de `itemsPorPaginaHistorial = 10` por defecto.
+  - Inclusión de un selector desplegable (Combobox) con opciones para mostrar **10, 25 o 50 registros por vista**.
+  - Funciones auxiliares para cálculo de rangos (`inicioHistorial`, `finHistorial`, `totalPaginasHistorial`, `getNumeroPaginasHistorial`).
+  - Renderizado de la tabla con `actividadesPaginadas` y barra de paginación interactiva idéntica a la maqueta de diseño.
+
+* **Bandeja de Entrada (Pestaña "Fiscalización e Inspección"):**
+  - Se eliminaron los botones redundantes de *"Gestionar Inspección"* y *"Aprobar Trámite y Emitir Resolución"* de la pestaña de **Fiscalización e Inspección**, dejándola como un panel informativo de consulta técnica (veredicto, acta PDF, ficha técnica y notas). Las acciones de gestión y avance de trámite quedan centralizadas exclusivamente en la pestaña de **Documentación y Requisitos**.
+
+---
+
+## [2026-09-21] Integración del Visualizador Oficial de PDF en la Vista de Informe Técnico del Coordinador
+
+### 📌 Objetivo
+Incorporar un área interactiva de previsualización del documento oficial en formato PDF dentro de la vista **"Informe Técnico"** (`/coordinador/informe-tecnico`), replicando la estructura, controles y estilo visual del visualizador de documentos de la **Bandeja de Entrada**.
+
+---
+
+### 🛠️ Archivos Modificados
+
+#### 1. `frontend/src/components/coordinador/InformeTecnicoView.jsx` [MODIFICADO]
+* **Generación en Tiempo Real de Blob URL:**
+  - Se implementó la función `actualizarVistaPreviaPDF` usando `generarComunicacionInternaPDF` para compilar el documento oficial de 3 páginas de Comunicación Interna y convertirlo a un `blobUrl`.
+  - Sincronización automática ante cambios de CITE, destinatario legal, observaciones y trámite activo.
+* **Pestañas de Selección de Modo en la Cabecera:**
+  - **Visualizador PDF (por defecto):** Presenta el documento PDF interactivo integrado con iframe y barra superior oscura institucional (`bg-slate-800`).
+  - **Datos y Formulario:** Permite editar los datos de dictamen, observaciones y destinatarios.
+* **Barra de Herramientas y Controles del Visor:**
+  - Identificador oficial del archivo con icono PDF y badge informativo *"3 Páginas Oficiales"*.
+  - Botón de actualización/recarga del PDF en tiempo real.
+  - Botón para abrir el documento en una pestaña independiente del navegador.
+  - Marco embebido (`<iframe>`) con soporte nativo de zoom, scroll y paginación.
+* **Barra de Acciones Persistente:**
+  - Botones de acción unificados al pie: *"Imprimir / Descargar Informe"*, *"Enviar a Área Legal"* y *"Aprobar Trámite Final (Bloqueado)"*.
+
+---
+
+## [2026-09-21] Habilitación del Rol de Abogado en la Consola del Administrador
+
+### 📌 Objetivo
+Permitir que el usuario con rol de **Administrador** (`/admin/usuarios` y `/admin/roles-permisos`) pueda crear, editar, filtrar y configurar permisos para nuevos usuarios institucionales con el rol oficial de **Abogado**.
+
+---
+
+### 🛠️ Archivos Modificados
+
+#### 1. `backend/admin_usuarios.py` [MODIFICADO]
+* **Identificación y Estilo de Rol:**
+  - Se añadió la regla de insignia con estilo púrpura institucional (`bg-purple-50 text-purple-700 border-purple-200`) para los usuarios que tengan el rol de `Abogado` o `Legal`.
+  - Soporte completo en los endpoints `POST /api/admin/usuarios`, `PUT /api/admin/usuarios/{id}` y `GET /api/admin/usuarios`.
+
+#### 2. `frontend/src/pages/AdminPage.jsx` [MODIFICADO]
+* **Modal "Crear Nuevo Usuario":**
+  - Se agregó la opción `"Abogado"` de forma clara y directa en el selector desplegable de asignación de rol.
+* **Modal "Editar Usuario Institucional":**
+  - Se incorporó la opción `"Abogado"` para reasignación o actualización de roles.
+* **Filtros de Búsqueda:**
+  - Se añadió `"Abogado"` al desplegable de filtro por rol en la tabla de funcionarios institucionales.
+* **Sección "Roles y Permisos":**
+  - Se integró la tarjeta superior del rol `Abogado` (Nivel 4) con su conteo de usuarios y borde púrpura institucional.
+  - Se agregó la columna de **Abogado** en la *Matriz de Especificación de Permisos* y en el modal de configuración de privilegios por módulo.
+
+---
+
+## [2026-09-21] Optimización de Diseño Responsivo en la Landing Page (Móviles y Tablets)
+
+### 📌 Objetivo
+Adaptar los componentes de la página de inicio pública (`/` y `/landingpage`) para garantizar una visualización fluida, sin desbordamientos horizontales ni cortes de texto, en dispositivos móviles (smartphones) y tabletas.
+
+---
+
+### 🛠️ Archivos Modificados
+
+#### 1. `frontend/src/components/landing/Navbar.jsx` [MODIFICADO]
+* **Buscador Dinámico e Interactivo de Laboratorios:**
+  - Se conectó la barra de búsqueda en tiempo real al endpoint `GET /api/establecimientos`.
+  - Filtro instantáneo por nombre comercial, código CUE, municipio y dirección.
+  - Dropdown desplegable con resultados detallados (icono, nombre comercial, municipio, código CUE y nivel de complejidad).
+  - Navegación directa al hacer clic a la vista pública de detalle del laboratorio (`/laboratorio/:id`).
+  - Botón de limpieza rápida (`X`) y cierre automático al hacer clic fuera del componente.
+  - Botón de búsqueda desplegable optimizado para dispositivos móviles.
+* **Distribución Adaptable de Cabecera:**
+  - Reducción dinámica de espaciados y tamaños de fuente del logotipo `SI_Lab` en pantallas angostas.
+  - Ocultamiento inteligente de elementos secundarios y buscador en vista compacta móvil para evitar desbordamiento del header.
+  - Texto de acción adaptado: `"Ingresar"` en móviles y `"Iniciar Sesión / Registrarse"` en pantallas de escritorio.
+
+#### 2. `frontend/src/components/landing/HeroBanner.jsx` [MODIFICADO]
+* **Ajuste de Tipografía y Botones de Acción:**
+  - Tipografía responsiva (`text-2xl xs:text-3xl sm:text-4xl md:text-5xl`) para los títulos de los laboratorios destacados.
+  - Botones *"VER DETALLES"* y *"REQUISITOS"* con ancho completo en pantallas móviles pequeñas (`flex-1 xs:flex-none`) para facilitar el toque táctil.
+  - Paginador numérico y controles táctiles de flechas ajustados.
+
+#### 3. `frontend/src/components/landing/MapSection.jsx` [MODIFICADO]
+* **Contenedor del Mapa y Filtros Espaciales:**
+  - Altura del mapa Leaflet adaptada por breakpoint (`h-[360px]` en móviles, `h-[460px]` en tablets, `h-[520px]` en desktop).
+  - Panel lateral de filtros con scroll táctil optimizado y espaciados compactos.
+
+---
+
+## [2026-09-21] Optimización de Diseño Responsivo en Inicio de Sesión y Registro (Móviles y Tablets)
+
+### 📌 Objetivo
+Optimizar la ergonomía, distribución espacial y usabilidad en dispositivos móviles (smartphones) y tabletas en las vistas de **Inicio de Sesión** (`/login`) y **Registro de Propietarios** (`/register`).
+
+---
+
+### 🛠️ Archivos Modificados
+
+#### 1. `frontend/src/pages/LoginPage.jsx` [MODIFICADO]
+* **Panel de Branding Institucional (Izquierdo):**
+  - Altura mínima y espaciados adaptativos (`min-h-[220px] sm:min-h-[280px] lg:min-h-screen`, `p-5 sm:p-8 md:p-10 lg:p-12 xl:p-14`).
+  - Escala de tipografía responsiva en título (`text-2xl sm:text-3xl md:text-4xl lg:text-5xl`) y textos informativos institucionales para evitar scroll excesivo en móviles.
+  - Botón de retorno al inicio integrado de forma compacta y accesible en la cabecera móvil.
+* **Tarjeta de Formulario (Derecha):**
+  - Espaciado y radios de borde adaptativos (`p-5 sm:p-8 lg:p-10`, `rounded-2xl sm:rounded-3xl`).
+  - Tamaño de fuente base en inputs (`text-base sm:text-sm`) para evitar el auto-zoom no deseado de navegadores móviles (iOS Safari).
+  - Áreas de toque aumentadas para botones, checkbox de "Recordar sesión" y enlaces secundarios.
+
+#### 2. `frontend/src/pages/RegisterPage.jsx` [MODIFICADO]
+* **Panel de Branding Institucional (Izquierdo):**
+  - Mantenimiento coherente de la experiencia móvil con `LoginPage.jsx`.
+* **Tarjeta de Formulario (Derecha):**
+  - Distribución en rejilla adaptable para campos contiguos (Nombres / Apellidos) pasando de 1 columna en teléfonos a 2 columnas a partir de pantallas `sm`.
+  - Indicador de seguridad de contraseña estilizado y proporcionado para pantallas angostas.
+  - Checkbox y textos legales de "Términos y Condiciones" optimizados con áreas de toque táctil cómodas y legibles.
+  - Botones de envío con altura mínima táctil (`min-h-[46px]`).
+
+---
+
+## [2026-09-21] Optimización de Vistas del Propietario (Móviles y Tablets) y Eliminación de Redirección Involuntaria en Logo SI_Lab
+
+### 📌 Objetivo
+1. Adaptar integralmente todas las secciones del panel del **Propietario** (`/propietario`) para dispositivos móviles y tabletas.
+2. Eliminar el enlace del logotipo institucional `SI_Lab` en la barra lateral de los paneles de control para evitar redirecciones accidentales al portal público (Landing Page).
+
+---
+
+### 🛠️ Archivos Modificados
+
+#### 1. `frontend/src/pages/PropietarioPage.jsx` [MODIFICADO]
+* **Eliminación de Redirección en Logo SI_Lab:**
+  - Se sustituyó el enlace `<Link to="/">` por un contenedor estático no cliqueable `<div className="flex items-center space-x-3 select-none">`, impidiendo que el usuario sea redirigido por error a la Landing Page mientras opera en el sistema.
+* **Cabecera y Navegación Móvil:**
+  - Breadcrumb adaptativo con ocultamiento inteligente de textos secundarios en pantallas angostas.
+  - Dropdown de notificaciones redimensionado dinámicamente (`w-[calc(100vw-32px)] sm:w-[460px]`) para no desbordar en smartphones.
+* **Vista "Mis Establecimientos":**
+  - Rejilla responsiva de tarjetas de métricas (`grid-cols-1 sm:grid-cols-2 md:grid-cols-3`).
+  - Tarjetas de laboratorios con botones de acción flexibles (`flex-1 sm:flex-none` y `w-full sm:w-auto`).
+* **Vista "Trámites" (Seguimiento y Subsanación):**
+  - Panel de alerta para documentos observados con botón de subsanación y carga de PDFs adaptable a resoluciones móviles.
+  - Tabla de requisitos documentales con contenedor de desplazamiento horizontal suave (`overflow-x-auto min-w-[520px]`).
+* **Vista "Nueva Solicitud" y Modales:**
+  - Tamaño de fuente de inputs y selectores optimizado (`text-base sm:text-sm`) para prevenir auto-zoom en navegadores móviles (iOS Safari).
+  - Rejillas adaptativas a 1 y 2 columnas (`grid-cols-1 sm:grid-cols-2`).
+  - Modales de edición de información pública y requisitos faltantes con límites de altura (`max-h-[90vh]`) y scroll interno.
+
+#### 2. `frontend/src/pages/AdminPage.jsx`, `DirectorPage.jsx`, `CoordinadorPage.jsx`, `SupervisorPage.jsx` [MODIFICADOS]
+* Se removió el enlace de redirección a la landing page en el logotipo `SI_Lab` de la barra lateral institucional en todos los roles restantes, asegurando consistencia en la experiencia de usuario.
+
+---
+
 *Bitácora actualizada por: Steven*
 

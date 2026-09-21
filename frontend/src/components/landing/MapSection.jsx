@@ -70,22 +70,22 @@ export default function MapSection() {
   const municipiosDisponibles = ['Todos', ...new Set(laboratorios.map(l => l.municipio).filter(Boolean))];
 
   return (
-    <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-8">
+    <section className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-6 sm:py-10 space-y-6 sm:space-y-8">
       {/* Title & Subtitle */}
       <div className="space-y-1">
-        <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+        <h2 className="text-xl sm:text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight">
           Mapa Georreferenciado de Laboratorios
         </h2>
-        <p className="text-sm sm:text-base text-slate-500 font-medium">
+        <p className="text-xs sm:text-sm md:text-base text-slate-500 font-medium">
           Consulte la ubicación, nivel y horario de atención de los laboratorios habilitados en el departamento de Cochabamba.
         </p>
       </div>
 
       {/* Grid: Real Map + Sidebar Filters */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 sm:gap-6 items-stretch">
         
         {/* Mapa Real Georreferenciado con Leaflet + OpenStreetMap */}
-        <div className="lg:col-span-8 min-h-[480px] h-[520px] rounded-2xl overflow-hidden shadow-sm border border-slate-200 relative">
+        <div className="lg:col-span-8 h-[360px] sm:h-[460px] lg:h-[520px] rounded-2xl overflow-hidden shadow-sm border border-slate-200 relative">
           <RealMultiMapView
             laboratorios={filteredLabs}
             selectedLab={selectedLab}
@@ -96,10 +96,10 @@ export default function MapSection() {
         </div>
 
         {/* Sidebar Filters & Results Panel */}
-        <div className="lg:col-span-4 bg-white rounded-2xl p-5 border border-slate-200 shadow-sm flex flex-col justify-between space-y-4 max-h-[520px]">
-          <div className="space-y-4">
+        <div className="lg:col-span-4 bg-white rounded-2xl p-4 sm:p-5 border border-slate-200 shadow-sm flex flex-col justify-between space-y-4 max-h-[460px] lg:max-h-[520px]">
+          <div className="space-y-3 sm:space-y-4">
             <div>
-              <h3 className="text-lg font-bold text-slate-900">Filtros Espaciales</h3>
+              <h3 className="text-base sm:text-lg font-bold text-slate-900">Filtros Espaciales</h3>
               <p className="text-xs text-slate-500">Consulte por municipio y tipo de especialidad.</p>
             </div>
 
