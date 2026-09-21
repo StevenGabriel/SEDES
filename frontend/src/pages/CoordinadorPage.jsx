@@ -41,6 +41,7 @@ import {
 
 import logoL1 from '../assets/L1.png';
 import logoL2 from '../assets/L2.png';
+import InformeTecnicoView from '../components/coordinador/InformeTecnicoView';
 
 // Obtener iniciales de 2 a 4 letras a partir de nombres y apellidos
 const getInitials = (u) => {
@@ -97,7 +98,9 @@ export default function CoordinadorPage() {
     ? 'asignar-supervisores'
     : (rawSeccion === 'historial' || rawSeccion === 'historial-trazabilidad')
       ? 'historial-trazabilidad'
-      : 'bandeja';
+      : (rawSeccion === 'informe-tecnico' || rawSeccion === 'informe')
+        ? 'informe-tecnico'
+        : 'bandeja';
 
   const [usuario, setUsuario] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -312,6 +315,13 @@ export default function CoordinadorPage() {
       label: 'Historial y Trazabilidad',
       icon: History,
       tituloBreadcrumb: 'Historial y Trazabilidad'
+    },
+    {
+      id: 'informe-tecnico',
+      path: '/coordinador/informe-tecnico',
+      label: 'Informe Técnico',
+      icon: FileText,
+      tituloBreadcrumb: 'Informe Técnico'
     }
   ];
 
@@ -346,15 +356,29 @@ export default function CoordinadorPage() {
     (esActaFavorable || esActaRechazada || esActaConObservaciones)
   );
 
+  const estadoTramiteNorm = (tramiteActual?.estado || '').toLowerCase();
+  const yaEnInformeTecnico = estadoTramiteNorm.includes('informe');
+  const yaDerivadoLegal = estadoTramiteNorm.includes('legal') || estadoTramiteNorm.includes('derivado');
+  const yaAprobadoFinal = estadoTramiteNorm === 'aprobado';
+  const estaEnEtapaPosterior = yaEnInformeTecnico || yaDerivadoLegal || yaAprobadoFinal;
+
   const puedeAprobarTramite = Boolean(
-    tramiteActual?.puede_aprobar !== undefined
-      ? tramiteActual.puede_aprobar
-      : (todosDocsAprobados && tieneSupervisorAsignado && esActaFavorable)
+    !estaEnEtapaPosterior && (
+      tramiteActual?.puede_aprobar !== undefined
+        ? tramiteActual.puede_aprobar
+        : (todosDocsAprobados && tieneSupervisorAsignado && esActaFavorable)
+    )
   );
 
   // Motivo descriptivo del bloqueo si no se puede aprobar
   let motivoBloqueoAprobacion = '';
-  if (!todosDocsAprobados) {
+  if (yaAprobadoFinal) {
+    motivoBloqueoAprobacion = 'Trámite APROBADO: Cuenta con Resolución Administrativa emitida.';
+  } else if (yaDerivadoLegal) {
+    motivoBloqueoAprobacion = 'Trámite derivado a Asesoría Legal para la emisión de Resolución.';
+  } else if (yaEnInformeTecnico) {
+    motivoBloqueoAprobacion = 'Trámite en etapa de Informe Técnico. Ingrese a "Informe Técnico" en el menú lateral para redactar o imprimir el informe.';
+  } else if (!todosDocsAprobados) {
     motivoBloqueoAprobacion = `Faltan validar documentos (${docsAprobadosCount}/${totalDocs} aprobados). Debe aprobar todos los requisitos previamente.`;
   } else if (!tieneSupervisorAsignado) {
     motivoBloqueoAprobacion = 'Debe asignar un supervisor para la fiscalización técnica en campo.';
@@ -584,6 +608,35 @@ export default function CoordinadorPage() {
     } catch (err) {
       console.warn('Error al aprobar trámite:', err);
       mostrarToast('Error de conexión con el servidor', 'warning');
+    }
+  };
+
+  // Derivar trámite a Informe Técnico tras validación completa
+  const [pasandoAInforme, setPasandoAInforme] = useState(false);
+  const handlePasarAInformeTecnico = async (tramite) => {
+    if (!tramite) return;
+    setPasandoAInforme(true);
+    try {
+      const targetId = tramite.tramite_uuid || tramite.id;
+      const response = await fetch(`http://localhost:8000/api/coordinador/tramites/${targetId}/pasar-a-informe-tecnico`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ responsable: nombreCoordinador })
+      });
+
+      if (response.ok) {
+        mostrarToast(`¡Trámite de '${tramite.establecimiento}' derivado a Informe Técnico!`, 'success');
+        await cargarDatosBackend();
+      } else {
+        const err = await response.json();
+        console.warn('Respuesta backend pasar-a-informe-tecnico:', err);
+      }
+    } catch (err) {
+      console.warn('Error al pasar a informe técnico:', err);
+    } finally {
+      setPasandoAInforme(false);
+      setTramiteSeleccionadoId(tramite.id);
+      navigate('/coordinador/informe-tecnico');
     }
   };
 
@@ -1354,22 +1407,34 @@ export default function CoordinadorPage() {
 
                       {/* Botones Globales de Acción del Trámite */}
                       <div className="flex flex-col sm:flex-row items-stretch gap-3 pt-2">
-                        <button
-                          onClick={() => navigate('/coordinador/asignar-supervisores')}
-                          className="w-full sm:flex-1 py-3 px-5 rounded-xl font-extrabold text-sm text-white bg-[#0077c8] hover:bg-[#0064a7] shadow-md transition-all flex items-center justify-center space-x-2 cursor-pointer"
-                        >
-                          <Calendar className="w-4 h-4" />
-                          <span>{tieneSupervisorAsignado ? 'Gestionar Inspección' : 'Agendar / Asignar Supervisor'}</span>
-                        </button>
+                        {estaEnEtapaPosterior ? (
+                          <button
+                            disabled
+                            className="w-full sm:flex-1 py-3 px-5 rounded-xl font-extrabold text-sm text-slate-400 bg-slate-100 border border-slate-200 cursor-not-allowed transition-all flex items-center justify-center space-x-2 opacity-80"
+                            title="La fiscalización técnica e inspección ya concluyeron favorablemente para este trámite."
+                          >
+                            <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                            <span>Inspección Concluida</span>
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => navigate('/coordinador/asignar-supervisores')}
+                            className="w-full sm:flex-1 py-3 px-5 rounded-xl font-extrabold text-sm text-white bg-[#0077c8] hover:bg-[#0064a7] shadow-md transition-all flex items-center justify-center space-x-2 cursor-pointer"
+                          >
+                            <Calendar className="w-4 h-4" />
+                            <span>{tieneSupervisorAsignado ? 'Gestionar Inspección' : 'Agendar / Asignar Supervisor'}</span>
+                          </button>
+                        )}
 
                         {puedeAprobarTramite ? (
                           <button
-                            onClick={() => setModalAprobacionOpen(true)}
-                            className="w-full sm:flex-1 py-3 px-5 rounded-xl font-extrabold text-sm text-emerald-950 bg-[#c7f9cc] hover:bg-[#a7f3d0] border border-emerald-400 shadow-sm transition-all flex items-center justify-center space-x-2 cursor-pointer active:scale-98"
-                            title="Todos los requisitos y el acta técnica están aprobados. Haga clic para emitir la resolución."
+                            onClick={() => handlePasarAInformeTecnico(tramiteActual)}
+                            disabled={pasandoAInforme}
+                            className="w-full sm:flex-1 py-3 px-5 rounded-xl font-extrabold text-sm text-emerald-950 bg-[#c7f9cc] hover:bg-[#a7f3d0] border border-emerald-400 shadow-sm transition-all flex items-center justify-center space-x-2 cursor-pointer active:scale-98 disabled:opacity-50"
+                            title="Todos los requisitos y el acta técnica están aprobados. Haga clic para pasar a Informe Técnico y redactar la resolución."
                           >
                             <Award className="w-4 h-4 text-emerald-700" />
-                            <span>Aprobar Trámite y Emitir Resolución</span>
+                            <span>{pasandoAInforme ? 'Procesando...' : 'Aprobar Trámite y Emitir Resolución'}</span>
                           </button>
                         ) : (
                           <div className="w-full sm:flex-1 flex flex-col justify-center">
@@ -1380,9 +1445,24 @@ export default function CoordinadorPage() {
                               <Award className="w-4 h-4 text-slate-400" />
                               <span>Aprobar Trámite y Emitir Resolución</span>
                             </button>
-                            <div className="text-[11px] text-amber-800 bg-amber-50 border border-amber-200 px-3 py-1.5 rounded-lg mt-1.5 flex items-center space-x-1.5 font-medium">
-                              <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                              <span>{motivoBloqueoAprobacion}</span>
+                            <div className="text-[11px] text-amber-800 bg-amber-50 border border-amber-200 px-3 py-1.5 rounded-lg mt-1.5 flex flex-col space-y-1 font-medium">
+                              <div className="flex items-center space-x-1.5">
+                                <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                                <span>{motivoBloqueoAprobacion}</span>
+                              </div>
+                              {yaEnInformeTecnico && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setTramiteSeleccionadoId(tramiteActual.id);
+                                    navigate('/coordinador/informe-tecnico');
+                                  }}
+                                  className="self-start text-[11px] font-bold text-[#0077c8] hover:underline flex items-center space-x-1 cursor-pointer pt-0.5"
+                                >
+                                  <FileText className="w-3.5 h-3.5" />
+                                  <span>Ir al Módulo de Informe Técnico →</span>
+                                </button>
+                              )}
                             </div>
                           </div>
                         )}
@@ -2016,6 +2096,26 @@ export default function CoordinadorPage() {
 
             </div>
           </div>
+        )}
+
+        {/* ========================================================================= */}
+        {/* 6. VISTA 4: INFORME TÉCNICO (COMUNICACIÓN INTERNA SEDES)                 */}
+        {/* ========================================================================= */}
+        {seccionActiva === 'informe-tecnico' && (
+          <InformeTecnicoView
+            tramites={tramites}
+            tramiteSeleccionadoId={tramiteSeleccionadoId}
+            onSeleccionarTramite={(id) => setTramiteSeleccionadoId(id)}
+            onRecargarDatos={cargarDatosBackend}
+            nombreCoordinador={nombreCoordinador}
+            mostrarToast={mostrarToast}
+            onAprobarFinal={(tramiteParaAprobar) => {
+              if (tramiteParaAprobar) {
+                setTramiteSeleccionadoId(tramiteParaAprobar.id);
+              }
+              setModalAprobacionOpen(true);
+            }}
+          />
         )}
 
       </div>

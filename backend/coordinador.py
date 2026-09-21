@@ -46,12 +46,24 @@ class NotificarReingresoRequest(BaseModel):
     motivo: Optional[str] = "La inspección de campo no fue favorable. Debe subsanar las observaciones y cargar nuevamente todos los requisitos requeridos."
     responsable: Optional[str] = "Dra. Claudia Morales V."
 
+class DerivarAreaLegalRequest(BaseModel):
+    codigo_cite: Optional[str] = None
+    destinatario: Optional[str] = "Dra. Mery D. Loroño V. - ASESOR LEGAL"
+    dictamen: Optional[str] = "Favorabilidad Concedida (Favorable)"
+    observaciones: Optional[str] = None
+    responsable: Optional[str] = "Dra. Claudia Morales V."
+
+class PasarInformeTecnicoRequest(BaseModel):
+    responsable: Optional[str] = "Dra. Claudia Morales V."
+
 # ==============================================================================
 # HELPERS DE SERIALIZACIÓN REAL DESDE BASE DE DATOS
 # ==============================================================================
 
 def get_estado_color(estado: str) -> str:
     est = (estado or "").lower()
+    if "informe" in est:
+        return "bg-sky-100 text-sky-800 border-sky-300"
     if "aprobado" in est:
         return "bg-emerald-100 text-emerald-800 border-emerald-300"
     if "observado" in est or "rechazado" in est:
@@ -175,7 +187,8 @@ def serializar_tramite_coordinador(tramite: models.Tramite, db: Session) -> dict
         "observa" in veredicto_raw.lower()
     )
 
-    puede_aprobar = (todos_docs_aprobados and (supervisor is not None) and es_acta_aprobada)
+    ya_en_etapa_posterior = (tramite.estado_tramite or "") in ["En Informe Técnico", "Derivado a Asesoría Legal", "Aprobado", "Rechazado - Requiere Reingreso", "Rechazado"]
+    puede_aprobar = (todos_docs_aprobados and (supervisor is not None) and es_acta_aprobada and not ya_en_etapa_posterior)
 
     return {
         "id": codigo_visual,
@@ -626,6 +639,161 @@ def notificar_reingreso_requisitos(
 
     return {
         "mensaje": f"Notificación enviada al propietario de '{estab_nombre}'. El trámite ha sido reiniciado para la recarga de requisitos.",
+        "tramite": serializar_tramite_coordinador(tramite, db)
+    }
+
+@router.post("/tramites/{tramite_id}/pasar-a-informe-tecnico", summary="Mover trámite a Informe Técnico tras validación completa")
+def pasar_tramite_a_informe_tecnico(
+    tramite_id: str,
+    payload: Optional[PasarInformeTecnicoRequest] = None,
+    db: Session = Depends(get_db)
+):
+    """Marca el trámite como 'En Informe Técnico' para que aparezca en el módulo de Informe Técnico."""
+    tramite = None
+    try:
+        t_uuid = uuid.UUID(tramite_id)
+        tramite = db.query(models.Tramite).filter(models.Tramite.id == t_uuid).first()
+    except ValueError:
+        pass
+
+    if not tramite:
+        clean_code = tramite_id.replace("TRM-", "").replace("REQ-", "").strip().lower()
+        tramites = db.query(models.Tramite).filter(models.Tramite.estado == True).all()
+        for t in tramites:
+            if str(t.id).lower().startswith(clean_code):
+                tramite = t
+                break
+
+    if not tramite:
+        raise HTTPException(status_code=404, detail="Trámite no encontrado.")
+
+    # Validar que todos los documentos estén aprobados
+    docs_db = db.query(models.TramiteDocumento).filter(
+        models.TramiteDocumento.tramite_id == tramite.id,
+        models.TramiteDocumento.estado == True
+    ).all()
+    docs_pendientes = [d for d in docs_db if (d.estado_validacion or "").lower() != "aprobado"]
+    if docs_pendientes:
+        raise HTTPException(
+            status_code=400,
+            detail=f"No se puede emitir informe: Hay {len(docs_pendientes)} documentos pendientes de validación."
+        )
+
+    if not tramite.supervisor_asignado_id:
+        raise HTTPException(
+            status_code=400,
+            detail="No se puede emitir informe: No se ha asignado un supervisor para la fiscalización técnica."
+        )
+
+    ultima_inspeccion = db.query(models.Inspeccion).filter(
+        models.Inspeccion.tramite_id == tramite.id,
+        models.Inspeccion.estado == True
+    ).order_by(models.Inspeccion.fecha_creacion.desc()).first()
+
+    if not ultima_inspeccion or not ultima_inspeccion.veredicto_final:
+        raise HTTPException(
+            status_code=400,
+            detail="No se puede emitir informe: El supervisor aún no ha emitido el acta oficial de inspección técnica."
+        )
+
+    veredicto_lower = (ultima_inspeccion.veredicto_final or "").lower()
+    if veredicto_lower not in ["favorable", "aprobado"]:
+        raise HTTPException(
+            status_code=400,
+            detail=f"No se puede emitir informe: El veredicto técnico es '{ultima_inspeccion.veredicto_final}'. Solo se permite con dictamen Favorable."
+        )
+
+    tramite.estado_tramite = "En Informe Técnico"
+    db.commit()
+    db.refresh(tramite)
+
+    estab_nombre = tramite.establecimiento.nombre_comercial if tramite.establecimiento else "Establecimiento"
+    cod_trm = f"TRM-{str(tramite.id)[:8].upper()}"
+    ahora_formato = datetime.now().strftime("%d %b %Y - %H:%M")
+    resp = (payload and payload.responsable) or "Dra. Claudia Morales V."
+
+    nuevo_log = models.HistorialActividad(
+        id=uuid.uuid4(),
+        codigo_tramite=cod_trm,
+        establecimiento=estab_nombre,
+        accion="Trámite habilitado y derivado a Informe Técnico tras cumplimiento del 100% de requisitos y acta técnica favorable.",
+        responsable=resp,
+        estado_resultado="En Informe Técnico",
+        estado_badge="bg-sky-50 text-sky-700 border-sky-200",
+        fecha_hora_formato=ahora_formato
+    )
+    db.add(nuevo_log)
+    db.commit()
+
+    return {
+        "mensaje": f"Trámite {cod_trm} ('{estab_nombre}') enviado a Informe Técnico exitosamente.",
+        "tramite": serializar_tramite_coordinador(tramite, db)
+    }
+
+@router.post("/tramites/{tramite_id}/derivar-legal", summary="Derivar Informe Técnico a Asesoría Legal en PostgreSQL")
+def derivar_area_legal(
+    tramite_id: str,
+    payload: DerivarAreaLegalRequest,
+    db: Session = Depends(get_db)
+):
+    """Registra la derivación formal del Informe Técnico (Comunicación Interna) a la Unidad de Asesoría Legal."""
+    tramite = None
+    try:
+        t_uuid = uuid.UUID(tramite_id)
+        tramite = db.query(models.Tramite).filter(models.Tramite.id == t_uuid).first()
+    except ValueError:
+        pass
+
+    if not tramite:
+        clean_code = tramite_id.replace("TRM-", "").replace("REQ-", "").strip().lower()
+        tramites = db.query(models.Tramite).filter(models.Tramite.estado == True).all()
+        for t in tramites:
+            if str(t.id).lower().startswith(clean_code):
+                tramite = t
+                break
+
+    if not tramite:
+        raise HTTPException(status_code=404, detail="Trámite no encontrado.")
+
+    tramite.estado_tramite = "Derivado a Asesoría Legal"
+    db.commit()
+    db.refresh(tramite)
+
+    estab_nombre = tramite.establecimiento.nombre_comercial if tramite.establecimiento else "Establecimiento"
+    cod_trm = f"TRM-{str(tramite.id)[:8].upper()}"
+    ahora_formato = datetime.now().strftime("%d %b %Y - %H:%M")
+    cite = payload.codigo_cite or f"CODELAB/SEDES/71/{datetime.now().year}"
+
+    nuevo_log = models.HistorialActividad(
+        id=uuid.uuid4(),
+        codigo_tramite=cod_trm,
+        establecimiento=estab_nombre,
+        accion=f"Informe Técnico ({cite}) derivado formalmente a Asesoría Legal con Dictamen '{payload.dictamen}'. {payload.observaciones or ''}",
+        responsable=payload.responsable or "Dra. Claudia Morales V.",
+        estado_resultado="Derivado",
+        estado_badge="bg-indigo-50 text-indigo-700 border-indigo-200",
+        fecha_hora_formato=ahora_formato
+    )
+    db.add(nuevo_log)
+
+    # Notificar a los asesores legales y al propietario
+    try:
+        from notificaciones import crear_notificacion_db
+        abogados = db.query(models.Usuario).join(models.Role).filter(models.Role.nombre.ilike("%Abogado%")).all()
+        for ab in abogados:
+            crear_notificacion_db(
+                db,
+                usuario_id=ab.id,
+                titulo=f"📑 Nuevo Informe Técnico Recibido: {estab_nombre}",
+                mensaje=f"Se ha derivado el Informe Técnico {cite} para '{estab_nombre}' ({cod_trm}) con dictamen favorable para la emisión de Resolución Administrativa."
+            )
+    except Exception as e:
+        print(f"Error al notificar derivación a área legal: {e}")
+
+    db.commit()
+
+    return {
+        "mensaje": f"¡Informe Técnico {cite} derivado con éxito a Asesoría Legal para '{estab_nombre}'!",
         "tramite": serializar_tramite_coordinador(tramite, db)
     }
 

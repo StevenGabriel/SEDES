@@ -2560,5 +2560,86 @@ Ajustar la sección final del formulario de emisión de actas del supervisor (`N
 
 *Bitácora actualizada por: Steven*
 
+---
 
+## [2026-09-18] Implementación del Módulo "Informe Técnico" y Generación Oficial de PDF "Comunicación Interna" (SEDES Cochabamba)
 
+### 📌 Objetivo
+1. Incorporar la nueva opción de menú lateral **"Informe Técnico"** (`/coordinador/informe-tecnico`) en la consola del Coordinador.
+2. Configurar el flujo de aprobación para que al pulsar el botón **"Aprobar Trámite y Emitir Resolución"** en la bandeja de trámites (cuando requisitos e inspección de campo estén 100% aprobados), el sistema redireccione de inmediato a la sección de **"Informe Técnico"** con el establecimiento seleccionado.
+3. Desarrollar la vista interactiva de **Informe Técnico** fiel a la interfaz oficial del SEDES:
+   - **Columna izquierda:** Lista de *Establecimientos Aprobados* con tarjetas informativas, estado *"Aprobación Pendiente"* y contador dinámico de listos.
+   - **Columna derecha:** Ficha técnica completa del trámite seleccionado:
+     - *Datos del Establecimiento:* Nombre, Razón Social/Propietario, Dirección y Tipo de Establecimiento.
+     - *Resumen de Documentación Legal:* Cuadrícula de requisitos aprobados con checks verdes.
+     - *Resumen de Inspección de Campo:* Fecha de inspección, Supervisor asignado, Resultado general y Observaciones de campo.
+     - *Observaciones del Coordinador (Edición):* Campo de texto editable prellenado con la redacción técnica reglamentaria.
+     - *Conclusión y Dictamen Técnico:* Selector de veredicto final *"Favorabilidad Concedida (Favorable)"*.
+     - *Barra inferior de acciones:* Botones **"Imprimir Informe"**, **"Enviar a Área Legal"** y **"Aprobar Trámite Final"**.
+4. Implementar el motor de generación del documento oficial de 3 páginas de **"COMUNICACIÓN INTERNA"** (PDF fiel a la estructura real de SEDES Cochabamba en `Contexto+Bitacora/Comunicacion interna.pdf`):
+   - Integración de los 3 logos oficiales de la cabecera: `Logo Chakana.svg`, `Logo cochabamba 2.png` y `logo cochabamba 3.png`.
+   - CITE correlativo y tabla de enrutamiento institucional (A: Asesor Legal, VIA: Jefe Unidad Calidad y Servicios a.i., DE: Responsable CODELAB - SEDES, MOTIVO y FECHA).
+   - Marco legal completo: Ley 1178 (Art. 28 y 38), R.M. 0202 (22/03/2010), R.M. 847 (30/11), R.M. 0936 (16/12/2005) y equivalencia ISO 9001 / ISO 15189.
+   - Desglose de Requisitos en 4 categorías: *1. Requisitos Legales*, *2. Requisitos Administrativos*, *3. Requisitos Técnicos*, *4. Requisitos Financieros*.
+   - Conclusiones y dictamen técnico favorable solicitando la emisión de la Resolución Administrativa.
+   - Firmas oficiales de la Responsable de CODELAB y de la Jefa de Calidad y Servicios a.i. con pie de página institucional del SEDES.
+
+---
+
+### 🛠️ Archivos Creados y Modificados
+
+#### 1. `frontend/src/components/coordinador/ComunicacionInternaPDF.js` [NUEVO]
+* Generador en tiempo real con `jsPDF` que renderiza las 3 páginas oficiales respetando márgenes, tipografías, encabezados, tablas de memo, textos normativos, lista de requisitos, firmas e iniciales de archivo (`I.F.R./J.P.I.S./K.S.V. - CC/Arch`).
+
+#### 2. `frontend/src/components/coordinador/InformeTecnicoView.jsx` [NUEVO]
+* Componente de visualización y edición del Informe Técnico según el diseño institucional, sincronizado con la base de datos y con capacidad de descarga/impresión directa del PDF oficial y derivación al Área Legal.
+
+#### 3. `frontend/src/pages/CoordinadorPage.jsx` [MODIFICADO]
+* Registro de `'informe-tecnico'` en la lista `menuItems` y normalización de ruta `seccionActiva`.
+* Vinculación del botón *"Aprobar Trámite y Emitir Resolución"* en la Bandeja para redireccionar automáticamente a la sección `/coordinador/informe-tecnico`.
+* Renderizado del módulo `<InformeTecnicoView />` cuando la sección activa es `'informe-tecnico'`.
+
+#### 4. `backend/coordinador.py` [MODIFICADO]
+* Endpoint `POST /api/coordinador/tramites/{tramite_id}/derivar-legal` con registro en la bitácora de auditoría (`HistorialActividad`) y notificación formal a los usuarios del rol Abogado / Asesoría Legal.
+
+---
+
+*Bitácora actualizada por: Steven*
+
+---
+
+## [2026-09-21] Vinculación Exclusiva con la BDD y Activación de Informe Técnico tras Pulsar "Aprobar Trámite y Emitir Resolución"
+
+### 📌 Objetivo
+1. Asegurar que en la vista de **Informe Técnico** del Coordinador (`/coordinador/informe-tecnico`) figuren **única y exclusivamente los laboratorios y trámites reales registrados en la base de datos PostgreSQL**, eliminando cualquier dato estático o ficticio (mock).
+2. Condicionar la aparición de los laboratorios en la lista de *"Establecimientos Aprobados"* de Informe Técnico a que el Coordinador previamente haya presionado el botón **"Aprobar Trámite y Emitir Resolución"** en la Bandeja de Entrada.
+3. Al presionar el botón en la Bandeja:
+   - El sistema valida el 100% de requisitos aprobados y el acta favorable del supervisor.
+   - Envía la solicitud al backend (`POST /api/coordinador/tramites/{id}/pasar-a-informe-tecnico`) para marcar el trámite en estado `"En Informe Técnico"` y registrar la trazabilidad en la bitácora de auditoría.
+   - Redirecciona de forma inmediata a `/coordinador/informe-tecnico` con el laboratorio seleccionado y cargado desde la BDD.
+4. Mostrar vistas de estado vacío descriptivas y amigables cuando no haya laboratorios derivados a Informe Técnico, guiando al usuario a la Bandeja de Entrada.
+
+---
+
+### 🛠️ Archivos Modificados
+
+#### 1. `backend/coordinador.py` [MODIFICADO]
+* **Nuevo Endpoint `POST /api/coordinador/tramites/{tramite_id}/pasar-a-informe-tecnico`:**
+  - Valida que todos los requisitos estén aprobados y el supervisor haya emitido acta técnica con veredicto Favorable.
+  - Actualiza el estado del trámite a `"En Informe Técnico"` en la base de datos.
+  - Inserta el registro correspondiente en `HistorialActividad` para trazabilidad de auditoría.
+* **Helper `get_estado_color`:** Soporte para el estado `"En Informe Técnico"`.
+
+#### 2. `frontend/src/components/coordinador/InformeTecnicoView.jsx` [MODIFICADO]
+* **Depuración de Datos Mock:** Eliminación total de `mockFallbackTramites`.
+* **Filtrado BDD:** Filtra estrictamente los trámites de la base de datos que están en estado de informe (`"En Informe Técnico"`, `"Derivado a Asesoría Legal"`, `"Aprobado"` o seleccionados por el flujo del coordinador).
+* **Manejo de Estado Vacío:** Pantalla explicativa con botón de acceso rápido a la Bandeja de Entrada cuando no hay laboratorios derivados a Informe Técnico.
+
+#### 3. `frontend/src/pages/CoordinadorPage.jsx` [MODIFICADO]
+* **Función `handlePasarAInformeTecnico`:** Conecta el botón *"Aprobar Trámite y Emitir Resolución"* con el endpoint del backend, actualiza la base de datos y transiciona al panel de Informe Técnico con el trámite activo.
+* **Bloqueo de Botones en Estados Posteriores (`estaEnEtapaPosterior`):**
+  - Si un trámite ya se encuentra en `"En Informe Técnico"`, `"Derivado a Asesoría Legal"` o `"Aprobado"`, los botones de *"Gestionar Inspección"* (pasa a estado inactivo *"Inspección Concluida"*) y *"Aprobar Trámite y Emitir Resolución"* quedan deshabilitados/bloqueados con un banner explicativo y enlace directo al módulo de Informe Técnico.
+
+---
+
+*Bitácora actualizada por: Steven*
