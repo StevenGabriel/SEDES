@@ -102,10 +102,23 @@ def listar_informes_recibidos(db: Session = Depends(get_db)):
     Retorna los informes técnicos y trámites enviados por el Coordinador
     listos para revisión jurídica y elaboración de la Resolución Administrativa.
     """
-    # Trámites reales de la base de datos
+    # Trámites reales de la base de datos (priorizando los derivados a asesoría legal y más recientes)
     tramites_db = db.query(models.Tramite).join(models.Establecimiento).filter(
         models.Tramite.estado == True
-    ).order_by(desc(models.Tramite.fecha_ingreso), desc(models.Tramite.fecha_creacion)).all()
+    ).all()
+
+    def obtener_prioridad_tramite(t):
+        est = (t.estado_tramite or "").strip()
+        if est == "Derivado a Asesoría Legal":
+            return (0, -(t.fecha_ingreso.toordinal() if t.fecha_ingreso else 0))
+        elif est in ["En Informe Técnico", "En Asesoría Legal"]:
+            return (1, -(t.fecha_ingreso.toordinal() if t.fecha_ingreso else 0))
+        elif est == "Aprobado":
+            return (2, -(t.fecha_ingreso.toordinal() if t.fecha_ingreso else 0))
+        else:
+            return (3, -(t.fecha_ingreso.toordinal() if t.fecha_ingreso else 0))
+
+    tramites_db = sorted(tramites_db, key=obtener_prioridad_tramite)
 
     # Resoluciones ya registradas
     resoluciones_db = {str(r.tramite_id): r for r in db.query(models.ResolucionAdministrativa).filter(models.ResolucionAdministrativa.estado == True).all()}
@@ -124,9 +137,16 @@ def listar_informes_recibidos(db: Session = Depends(get_db)):
         # Verificar si ya existe resolución guardada
         resol = resoluciones_db.get(t_id_str)
         
-        estado_proceso = "En edición final" if idx == 1 else ("En Proceso" if idx <= 3 else "Pendiente de Revisión")
         if resol:
             estado_proceso = resol.estado_resolucion
+        elif t.estado_tramite == "Derivado a Asesoría Legal":
+            estado_proceso = "Pendiente de Revisión"
+        elif t.estado_tramite == "Aprobado":
+            estado_proceso = "Aprobado"
+        elif t.estado_tramite == "En Informe Técnico":
+            estado_proceso = "En Informe Técnico"
+        else:
+            estado_proceso = "En Proceso" if idx <= 3 else "Pendiente de Revisión"
         
         estab_nombre = estab.nombre_comercial if estab else f"Establecimiento #{idx}"
         
@@ -256,7 +276,18 @@ def obtener_detalle_informe(tramite_id: str, db: Session = Depends(get_db)):
         pass
 
     if not tramite:
-        tramite = db.query(models.Tramite).first()
+        clean_code = tramite_id.replace("TRM-", "").replace("REQ-", "").strip().lower()
+        tramites = db.query(models.Tramite).filter(models.Tramite.estado == True).all()
+        for t in tramites:
+            if str(t.id).lower().startswith(clean_code) or str(t.id).lower() == clean_code:
+                tramite = t
+                break
+
+    if not tramite and not tramite_id.startswith("demo-"):
+        # Priorizar trámites en estado "Derivado a Asesoría Legal"
+        tramite = db.query(models.Tramite).filter(
+            models.Tramite.estado_tramite == "Derivado a Asesoría Legal"
+        ).first() or db.query(models.Tramite).first()
 
     # Si hay trámite real
     if tramite and not tramite_id.startswith("demo-"):
@@ -281,6 +312,36 @@ def obtener_detalle_informe(tramite_id: str, db: Session = Depends(get_db)):
         f_insp = insp.fecha_programada if (insp and insp.fecha_programada) else date.today()
         f_insp_txt = formatear_fecha_larga(f_insp)
 
+        # Documentos reales del trámite si existen
+        docs_list = []
+        if tramite.documentos:
+            for td in tramite.documentos:
+                req_nom = td.requisito.nombre_documento if td.requisito else "Documento Requerido"
+                docs_list.append({
+                    "nombre": req_nom,
+                    "estado": td.estado_validacion or "Aprobado",
+                    "aprobado": (td.estado_validacion or "").lower() == "aprobado"
+                })
+        if not docs_list:
+            docs_list = [
+                {"nombre": "Licencia Municipal (Vigente)", "estado": "Vigente", "aprobado": True},
+                {"nombre": "Certificado Sanitario Previo", "estado": "Vigente", "aprobado": True},
+                {"nombre": "Plano Arquitectónico Aprobado", "estado": "Aprobado", "aprobado": True},
+                {"nombre": "Registro Vigente SENASAG", "estado": "Vigente", "aprobado": True}
+            ]
+
+        # Veredicto de supervisor
+        veredicto_sup_txt = (insp.veredicto_final if insp and insp.veredicto_final else None) or "Favorable (Cumple con estándares vigentes de bioseguridad)"
+        obs_campo_txt = (insp.observaciones if insp and insp.observaciones else None) or (insp.veredicto_final if insp and insp.veredicto_final else None) or "Infraestructura adecuada, manejo de residuos patógenos correcto y señalización de seguridad implementada."
+
+        # Estado del proceso
+        if tramite.estado_tramite == "Derivado a Asesoría Legal":
+            estado_proceso_val = "Pendiente de Revisión"
+        elif tramite.estado_tramite == "Aprobado":
+            estado_proceso_val = "Aprobado"
+        else:
+            estado_proceso_val = "En edición final"
+
         return {
             "tramite_id": str(tramite.id),
             "codigo": cod_trm,
@@ -290,21 +351,16 @@ def obtener_detalle_informe(tramite_id: str, db: Session = Depends(get_db)):
             "direccion": estab_dir,
             "tipo_establecimiento": estab_tipo,
             "tipo_tramite": tramite.tipo_tramite or "Renovación",
-            "documentacion_legal": [
-                {"nombre": "Licencia Municipal (Vigente)", "estado": "Vigente", "aprobado": True},
-                {"nombre": "Certificado Sanitario Previo", "estado": "Vigente", "aprobado": True},
-                {"nombre": "Plano Arquitectónico Aprobado", "estado": "Aprobado", "aprobado": True},
-                {"nombre": "Registro Vigente SENASAG", "estado": "Vigente", "aprobado": True}
-            ],
+            "documentacion_legal": docs_list,
             "inspeccion_campo": {
                 "fecha": f_insp_txt,
                 "supervisor": sup_nombre,
-                "resultado": "Favorable (Cumple con estándares vigentes de bioseguridad)",
-                "observaciones": (insp.veredicto_final if insp and insp.veredicto_final else None) or "Infraestructura adecuada, manejo de residuos patógenos correcto y señalización de seguridad implementada."
+                "resultado": veredicto_sup_txt,
+                "observaciones": obs_campo_txt
             },
             "observaciones_coordinador": "Habiéndose verificado tanto el cumplimiento estricto de la carpeta legal como la conformidad en el informe de campo emitido por el supervisor de área, se concluye que el establecimiento cuenta con las garantías técnicas requeridas para su normal funcionamiento.",
             "dictamen_final": "Favorabilidad Concedida (Favorable)",
-            "estado_proceso": "En edición final",
+            "estado_proceso": estado_proceso_val,
             "numero_resolucion": f"RA-2026-{cod_trm.replace('REQ-', '')}"
         }
 

@@ -21,7 +21,8 @@ import {
   Eye,
   RefreshCw,
   X,
-  Inbox
+  Inbox,
+  Lock
 } from 'lucide-react';
 import { generarComunicacionInternaPDF } from './ComunicacionInternaPDF';
 
@@ -322,8 +323,14 @@ export default function InformeTecnicoView({
 
                 {/* Badge de Estado */}
                 <div>
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[#dcfce7] text-[#166534] border border-[#bbf7d0]">
-                    {item.estado === 'Derivado a Asesoría Legal' ? 'Derivado a Legal' : item.estado === 'Aprobado' ? 'Aprobado' : 'Aprobación Pendiente'}
+                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${
+                    item.estado === 'Derivado a Asesoría Legal'
+                      ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
+                      : item.estado === 'Aprobado'
+                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                        : 'bg-amber-50 text-amber-700 border-amber-200'
+                  }`}>
+                    {item.estado === 'Derivado a Asesoría Legal' ? 'Derivado a Legal' : item.estado === 'Aprobado' ? 'Aprobado' : 'En Informe Técnico'}
                   </span>
                 </div>
               </div>
@@ -540,19 +547,38 @@ export default function InformeTecnicoView({
             type="button"
             onClick={handleEnviarAreaLegal}
             disabled={enviandoLegal}
-            className="px-5 py-2.5 bg-white hover:bg-sky-50 text-[#0077c8] font-extrabold text-xs sm:text-sm border border-[#0077c8] rounded-xl shadow-xs transition flex items-center justify-center space-x-2 cursor-pointer active:scale-98 disabled:opacity-50"
+            className={`px-5 py-2.5 font-extrabold text-xs sm:text-sm rounded-xl shadow-xs transition flex items-center justify-center space-x-2 cursor-pointer active:scale-98 disabled:opacity-50 ${
+              tramiteActivo?.estado === 'Derivado a Asesoría Legal'
+                ? 'bg-indigo-50 text-indigo-700 border border-indigo-300 hover:bg-indigo-100'
+                : 'bg-[#0077c8] hover:bg-[#0064a7] text-white shadow-md'
+            }`}
+            title={
+              tramiteActivo?.estado === 'Derivado a Asesoría Legal'
+                ? 'Este informe técnico ya fue derivado a Asesoría Legal. Puede volver a enviar si realizó modificaciones.'
+                : 'Enviar informe técnico y antecedentes a la Unidad de Asesoría Legal'
+            }
           >
-            <Send className="w-4 h-4 text-[#0077c8]" />
-            <span>{enviandoLegal ? 'Derivando...' : 'Enviar a Área Legal'}</span>
+            {tramiteActivo?.estado === 'Derivado a Asesoría Legal' ? (
+              <>
+                <CheckCircle2 className="w-4 h-4 text-indigo-600" />
+                <span>{enviandoLegal ? 'Re-derivando a Legal...' : 'Derivado a Área Legal (Reenviar)'}</span>
+              </>
+            ) : (
+              <>
+                <Send className="w-4 h-4 text-white" />
+                <span>{enviandoLegal ? 'Derivando a Legal...' : 'Enviar a Área Legal'}</span>
+              </>
+            )}
           </button>
 
-          {/* Botón 3: Aprobar Trámite Final */}
+          {/* Botón 3: Aprobar Trámite Final (BLOQUEADO / DESHABILITADO) */}
           <button
             type="button"
-            onClick={() => onAprobarFinal(tramiteActivo)}
-            className="px-5 py-2.5 bg-[#14532d] hover:bg-[#166534] text-white font-extrabold text-xs sm:text-sm rounded-xl shadow-md transition flex items-center justify-center space-x-2 cursor-pointer active:scale-98"
+            disabled={true}
+            title="La aprobación final del trámite requiere la previa emisión y revisión de la Resolución Administrativa en Asesoría Legal."
+            className="px-5 py-2.5 bg-slate-100 text-slate-400 font-extrabold text-xs sm:text-sm rounded-xl border border-slate-200 flex items-center justify-center space-x-2 cursor-not-allowed opacity-75 select-none"
           >
-            <Award className="w-4 h-4 text-emerald-300" />
+            <Lock className="w-4 h-4 text-slate-400" />
             <span>Aprobar Trámite Final</span>
           </button>
         </div>

@@ -2642,4 +2642,33 @@ Ajustar la sección final del formulario de emisión de actas del supervisor (`N
 
 ---
 
+## [2026-09-21] Bloqueo de Aprobación Final y Derivación de Informe Técnico al Rol Abogado ("Informes Recibidos")
+
+### 📌 Objetivo
+1. En la vista de **Informe Técnico** del Coordinador (`/coordinador/informe-tecnico`), **bloquear y deshabilitar (`disabled`) el botón "Aprobar Trámite Final"**, mostrando un icono de candado y un mensaje explicativo de que la aprobación definitiva requiere la previa emisión y revisión de la Resolución Administrativa por parte del Área Legal.
+2. Habilitar como acción principal el botón **"Enviar a Área Legal"**:
+   - Al pulsar el botón, se remite formalmente el Informe Técnico (Comunicación Interna) a través de `POST /api/coordinador/tramites/{id}/derivar-legal`.
+   - Se actualiza el estado en PostgreSQL a `"Derivado a Asesoría Legal"`.
+   - Se genera la entrada en la bitácora de auditoría (`HistorialActividad`) y se notifica al rol Abogado.
+   - En la vista del Coordinador, el botón pasa a estado de derivado exitoso y la tarjeta del laboratorio se etiqueta con el badge `"Derivado a Legal"`.
+3. Conectar el módulo del rol **Abogado** (`/abogado/informes-recibidos`):
+   - Al entrar como Abogado, en **"Informes Recibidos"** aparecen los laboratorios y trámites reales derivados desde la base de datos encabezando la lista con prioridad alta.
+   - Al seleccionar el informe recibido, se visualizan todos los antecedentes del establecimiento, los requisitos aprobados, los datos de la inspección técnica del supervisor y las observaciones del coordinador, permitiendo al abogado proceder a la generación de la Resolución Administrativa Oficial.
+
+---
+
+### 🛠️ Archivos Modificados
+
+#### 1. `frontend/src/components/coordinador/InformeTecnicoView.jsx` [MODIFICADO]
+* **Bloqueo del Botón "Aprobar Trámite Final":** Se estableció `disabled={true}`, con cursor no permitido (`cursor-not-allowed`), estilo atenuado y tooltip que aclara que se debe esperar la resolución jurídica.
+* **Acción "Enviar a Área Legal":** Integración completa con el backend, estado dinámico de carga (`enviandoLegal`), toast de confirmación y cambio visual a `"Derivado a Área Legal"` con icono de verificación.
+* **Badges de Estado de Tarjetas:** Diferenciación visual clara entre trámites en `"En Informe Técnico"` y `"Derivado a Legal"`.
+
+#### 2. `backend/abogado.py` [MODIFICADO]
+* **Priorización en `GET /api/abogado/informes`:** Ordenamiento inteligente que posiciona a los trámites con estado `"Derivado a Asesoría Legal"` en el primer lugar de la bandeja de informes recibidos.
+* **Búsqueda Dinámica en `GET /api/abogado/informe/{tramite_id}`:** Mapeo flexible de identificadores (UUID y códigos institucionales) y carga de los documentos y datos reales de la inspección desde PostgreSQL.
+
+---
+
 *Bitácora actualizada por: Steven*
+
