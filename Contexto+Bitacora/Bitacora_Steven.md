@@ -2898,3 +2898,37 @@ Permitir que los laboratorios autorizados con múltiples especialidades (por eje
 
 ---
 
+## [2026-09-23] Campos Dinámicos Obligatorios de Encargados de Área (Nombre y CI) en Solicitud de Apertura
+
+### 📌 Objetivo
+Permitir que al momento en que el propietario seleccione una o varias especialidades autorizadas (ej. *Hematología*, *Inmunología*, *Genética*, etc.) en la vista **Nueva Solicitud de Apertura** (`/propietario/nueva-solicitud`), se desplieguen de forma automática y reactiva los campos de captura obligatorios para ingresar el **Nombre Completo** y el **C.I.** del profesional bioquímico responsable de cada área elegida.
+
+---
+
+### 🛠️ Archivos Creados y Modificados
+
+#### 1. `frontend/src/pages/PropietarioPage.jsx` [MODIFICADO]
+* **Estado Reactivo `encargadosAreas`:**
+  - Estructura `{ [especialidad]: { nombre: string, ci: string } }` sincronizada automáticamente con la selección y deselección de píldoras de especialidades.
+* **Componentes de Entrada Dinámicos:**
+  - Por cada especialidad activa, se genera una tarjeta estilizada con el color institucional del área, descripción técnica y dos campos en grilla responsiva:
+    1. *Nombre Completo del Responsable Técnico de Área* (Obligatorio con ícono `User`).
+    2. *Cédula de Identidad (C.I.) del Responsable* (Obligatorio con ícono `CreditCard`).
+* **Validación Estricta de Formulario:**
+  - `handleEnviarNuevaSolicitud` comprueba que todos los encargados de las áreas seleccionadas cuenten con Nombre y CI antes de proceder, bloqueando el envío y alertando con el detalle exacto de los datos faltantes si alguno fue omitido.
+* **Persistencia Estructurada:**
+  - Formatea la información como `"Especialidad: NOMBRE COMPLETO (CI: NRO_CI)"` concatenada con `; ` en el campo `responsables_areas` enviado a la API de PostgreSQL.
+
+#### 2. `backend/models.py` & `backend/init_db.py` [MODIFICADO]
+* Se amplió el tipo de dato de la columna `responsables_areas` de `String(255)` a `Text` en el modelo y migraciones para soportar el almacenamiento sin límite de longitud cuando un laboratorio registre múltiples especialidades con sus respectivos encargados.
+
+---
+
+### 📊 Verificación y Pruebas Realizadas
+* **Compilación Frontend:** `npm run build` completado exitosamente con 0 errores.
+* **Pruebas de Validación:** Si se seleccionan 3 especialidades y se deja un campo de CI o Nombre vacío, el sistema alerta e indica con precisión la especialidad y el dato faltante.
+* **Persistencia:** Al enviar la solicitud, los datos se guardan estructurados en PostgreSQL vinculados al trámite.
+
+---
+
+

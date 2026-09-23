@@ -78,7 +78,7 @@ class Establecimiento(Base):
     nivel = Column(String(50), nullable=False)  # Ej: 'Nivel 1', 'Nivel 2'
     municipio = Column(String(100), nullable=False) # Ej: 'CERCADO', 'QUILLACOLLO', 'PUNATA'
     responsable_laboratorio = Column(String(200), nullable=True) # Responsable técnico
-    responsables_areas = Column(String(255), nullable=True) # Especialidades/Áreas
+    responsables_areas = Column(Text, nullable=True) # Especialidades/Áreas
     direccion = Column(Text, nullable=False)
     coordenadas = Column(Geometry(geometry_type='POINT', srid=4326), nullable=True)  # PostGIS Point (Lat/Lng)
     horario = Column(String(100), default="Lun-Vie 7:00 - 19:00, Sáb 8:00 - 13:00", nullable=True)

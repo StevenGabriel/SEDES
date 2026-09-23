@@ -34,8 +34,9 @@ def init_database(reset_tables: bool = False, poblar_laboratorios_demo: bool = F
                 conn.execute(text("ALTER TABLE catalogo_requisitos ADD COLUMN IF NOT EXISTS orden INTEGER DEFAULT 1;"))
                 conn.execute(text("ALTER TABLE catalogo_requisitos ALTER COLUMN nombre_documento TYPE TEXT;"))
                 conn.execute(text("ALTER TABLE catalogo_requisitos ALTER COLUMN seccion_subtitulo TYPE TEXT;"))
+                conn.execute(text("ALTER TABLE establecimientos ALTER COLUMN responsables_areas TYPE TEXT;"))
                 conn.commit()
-                logger.info("✅ Esquema de catálogo de requisitos (con TEXT sin límite) verificado.")
+                logger.info("✅ Esquema de catálogo de requisitos y establecimientos (con TEXT sin límite) verificado.")
             except Exception as e_mig:
                 logger.warning(f"Aviso en migración de columnas: {e_mig}")
 
