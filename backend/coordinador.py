@@ -187,8 +187,19 @@ def serializar_tramite_coordinador(tramite: models.Tramite, db: Session) -> dict
         "observa" in veredicto_raw.lower()
     )
 
-    ya_en_etapa_posterior = (tramite.estado_tramite or "") in ["En Informe Técnico", "Derivado a Asesoría Legal", "Aprobado", "Rechazado - Requiere Reingreso", "Rechazado"]
+    ya_en_etapa_posterior = (tramite.estado_tramite or "") in ["En Informe Técnico", "Derivado a Asesoría Legal", "Resolución Lista para Firma", "Aprobado", "Rechazado - Requiere Reingreso", "Rechazado"]
     puede_aprobar = (todos_docs_aprobados and (supervisor is not None) and es_acta_aprobada and not ya_en_etapa_posterior)
+
+    # Consultar si el Asesor Legal ya emitió y elevó la Resolución Administrativa
+    resol = db.query(models.ResolucionAdministrativa).filter(
+        models.ResolucionAdministrativa.tramite_id == tramite.id,
+        models.ResolucionAdministrativa.estado == True
+    ).order_by(models.ResolucionAdministrativa.fecha_creacion.desc()).first()
+
+    resolucion_lista_para_firma = bool(
+        (tramite.estado_tramite in ["Resolución Lista para Firma", "Aprobado por Legal", "Enviado a Coordinador"]) or
+        (resol and resol.estado_resolucion in ["Enviado a Coordinador", "Aprobado por Legal", "Emitida", "Firmada"])
+    )
 
     return {
         "id": codigo_visual,
@@ -224,6 +235,9 @@ def serializar_tramite_coordinador(tramite: models.Tramite, db: Session) -> dict
         "inspeccion_rechazada": es_acta_rechazada,
         "inspeccion_con_observaciones": es_acta_con_observaciones,
         "puede_aprobar": puede_aprobar,
+        "resolucion_lista_para_firma": resolucion_lista_para_firma,
+        "resolucion_numero": resol.numero_resolucion if resol else None,
+        "resolucion_estado": resol.estado_resolucion if resol else None,
         "observacionesSupervisor": observaciones
     }
 

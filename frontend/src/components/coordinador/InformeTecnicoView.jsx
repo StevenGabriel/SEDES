@@ -37,7 +37,7 @@ export default function InformeTecnicoView({
 }) {
   const navigate = useNavigate();
 
-  // Filtrar ÚNICAMENTE los trámites reales de la Base de Datos que han sido pasados a Informe Técnico
+  // Filtrar ÚNICAMENTE los trámites reales de la Base de Datos que han sido pasados a Informe Técnico o etapas legales
   const tramitesEnInforme = useMemo(() => {
     return tramites.filter(t => {
       const est = (t.estado || '').toLowerCase();
@@ -45,7 +45,11 @@ export default function InformeTecnicoView({
         est.includes('informe') ||
         est.includes('legal') ||
         est.includes('derivado') ||
+        est.includes('resolución') ||
+        est.includes('resolucion') ||
+        est.includes('firma') ||
         est.includes('aprobado') ||
+        t.resolucion_lista_para_firma ||
         est === 'en informe técnico'
       );
       const esSeleccionado = tramiteSeleccionadoId && (t.id === tramiteSeleccionadoId || t.tramite_uuid === tramiteSeleccionadoId);
@@ -74,6 +78,9 @@ export default function InformeTecnicoView({
         tipo: t.tipo || 'Apertura',
         fecha: t.fecha || 'Reciente',
         estado: t.estado || 'En Informe Técnico',
+        resolucion_lista_para_firma: t.resolucion_lista_para_firma,
+        resolucion_numero: t.resolucion_numero,
+        resolucion_estado: t.resolucion_estado,
         propietario: t.propietario || 'Propietario no registrado',
         ci_nit: t.propietario_ci || t.ci_nit || '3799203 CB.',
         direccion: t.direccion || 'Cochabamba, Bolivia',
@@ -267,6 +274,17 @@ export default function InformeTecnicoView({
       setEnviandoLegal(false);
     }
   };
+
+  // Estados calculados para aprobación final del trámite
+  const esAprobadoFinal = (tramiteActivo?.estado || '').toLowerCase() === 'aprobado';
+  const esListoParaAprobarFinal = Boolean(
+    tramiteActivo?.resolucion_lista_para_firma ||
+    (tramiteActivo?.estado || '').toLowerCase().includes('resolución') ||
+    (tramiteActivo?.estado || '').toLowerCase().includes('resolucion') ||
+    (tramiteActivo?.estado || '').toLowerCase().includes('firma') ||
+    (tramiteActivo?.estado || '').toLowerCase().includes('aprobado por legal') ||
+    (tramiteActivo?.resolucion_estado || '').toLowerCase().includes('coordinador')
+  );
 
   // Documentos aprobados del trámite actual
   const docsList = (tramiteActivo?.documentosAprobados && tramiteActivo.documentosAprobados.length > 0)
@@ -467,6 +485,37 @@ export default function InformeTecnicoView({
 
         {/* Formulario o Visualizador de PDF */}
         <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6 flex flex-col">
+
+          {/* Banner de Resolución Aprobada por Legal (Listo para Aprobación Final) */}
+          {esListoParaAprobarFinal && !esAprobadoFinal && (
+            <div className="bg-emerald-50/90 border border-emerald-300 p-4 sm:p-5 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs shrink-0 animate-in fade-in duration-200">
+              <div className="flex items-start sm:items-center space-x-3.5">
+                <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0 shadow-inner">
+                  <Award className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className="text-xs sm:text-sm font-black text-emerald-900 flex items-center space-x-2">
+                    <span>¡Resolución Administrativa Aprobada por Asesoría Legal!</span>
+                    <span className="text-[10px] font-bold bg-emerald-200 text-emerald-900 px-2 py-0.5 rounded-full">
+                      Listo para Firma
+                    </span>
+                  </h4>
+                  <p className="text-[11px] sm:text-xs text-emerald-800 font-medium mt-0.5 leading-relaxed">
+                    El Asesor Legal ha revisado el expediente técnico y remitido la Resolución Administrativa oficial. Puede presionar <strong>"Aprobar Trámite Final"</strong> para concluir el trámite y habilitar el establecimiento.
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => onAprobarFinal(tramiteActivo)}
+                className="w-full sm:w-auto px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-extrabold text-xs rounded-xl shadow-md transition flex items-center justify-center space-x-2 shrink-0 cursor-pointer"
+              >
+                <Award className="w-4 h-4 text-white" />
+                <span>Aprobar Ahora</span>
+              </button>
+            </div>
+          )}
 
           {/* Panel Opcional de Configuración del Membrete Oficial CITE */}
           {mostrarConfigMemo && (
@@ -736,16 +785,33 @@ export default function InformeTecnicoView({
             )}
           </button>
 
-          {/* Botón 3: Aprobar Trámite Final (BLOQUEADO / DESHABILITADO) */}
-          <button
-            type="button"
-            disabled={true}
-            title="La aprobación final del trámite requiere la previa emisión y revisión de la Resolución Administrativa en Asesoría Legal."
-            className="px-5 py-2.5 bg-slate-100 text-slate-400 font-extrabold text-xs sm:text-sm rounded-xl border border-slate-200 flex items-center justify-center space-x-2 cursor-not-allowed opacity-75 select-none"
-          >
-            <Lock className="w-4 h-4 text-slate-400" />
-            <span>Aprobar Trámite Final</span>
-          </button>
+          {/* Botón 3: Aprobar Trámite Final (Dinámico según estado de Asesoría Legal) */}
+          {esAprobadoFinal ? (
+            <div className="px-5 py-2.5 bg-emerald-50 text-emerald-800 border border-emerald-300 font-extrabold text-xs sm:text-sm rounded-xl shadow-xs flex items-center justify-center space-x-2 select-none">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+              <span>Trámite Aprobado y Habilitado</span>
+            </div>
+          ) : esListoParaAprobarFinal ? (
+            <button
+              type="button"
+              onClick={() => onAprobarFinal(tramiteActivo)}
+              className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 active:scale-98 text-white font-extrabold text-xs sm:text-sm rounded-xl shadow-md hover:shadow-lg transition flex items-center justify-center space-x-2 cursor-pointer ring-2 ring-emerald-400/60 animate-pulse"
+              title="El Asesor Legal ha aprobado la Resolución Administrativa. Haga clic para emitir la aprobación final y habilitar el establecimiento."
+            >
+              <Award className="w-4 h-4 text-white" />
+              <span>Aprobar Trámite Final</span>
+            </button>
+          ) : (
+            <button
+              type="button"
+              disabled={true}
+              title="La aprobación final del trámite se habilitará automáticamente una vez que Asesoría Legal elabore y apruebe la Resolución Administrativa."
+              className="px-5 py-2.5 bg-slate-100 text-slate-400 font-extrabold text-xs sm:text-sm rounded-xl border border-slate-200 flex items-center justify-center space-x-2 cursor-not-allowed opacity-75 select-none"
+            >
+              <Lock className="w-4 h-4 text-slate-400" />
+              <span>Aprobar Trámite Final</span>
+            </button>
+          )}
         </div>
 
       </div>

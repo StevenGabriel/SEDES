@@ -552,6 +552,22 @@ def enviar_resolucion_coordinador(payload: EnviarCoordinadorRequest, db: Session
         resol.estado_resolucion = "Enviado a Coordinador"
         db.commit()
 
+    # Actualizar estado del trámite en la base de datos
+    t_id = None
+    if payload.tramite_id:
+        try:
+            t_id = uuid.UUID(payload.tramite_id)
+        except ValueError:
+            pass
+    if not t_id and resol and resol.tramite_id:
+        t_id = resol.tramite_id
+
+    if t_id:
+        t_obj = db.query(models.Tramite).filter(models.Tramite.id == t_id).first()
+        if t_obj:
+            t_obj.estado_tramite = "Resolución Lista para Firma"
+            db.commit()
+
     # 1. Registrar evento en Historial de Auditoría (historial_actividades)
     ahora_formateado = formatear_fecha_es(datetime.now(), con_hora=True)
     actividad = models.HistorialActividad(

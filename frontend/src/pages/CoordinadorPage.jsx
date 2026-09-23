@@ -443,6 +443,23 @@ export default function CoordinadorPage() {
     return matchSec && matchTxt;
   });
 
+  // Índice del documento actual para navegación secuencial (Anterior / Siguiente)
+  const currentDocIndex = docsFiltrados.findIndex(d => d.id === docActual?.id);
+  const tieneDocAnterior = currentDocIndex > 0;
+  const tieneDocSiguiente = currentDocIndex !== -1 && currentDocIndex < docsFiltrados.length - 1;
+
+  const handleDocAnterior = () => {
+    if (tieneDocAnterior) {
+      setDocSeleccionadoId(docsFiltrados[currentDocIndex - 1].id);
+    }
+  };
+
+  const handleDocSiguiente = () => {
+    if (tieneDocSiguiente) {
+      setDocSeleccionadoId(docsFiltrados[currentDocIndex + 1].id);
+    }
+  };
+
   // Manejar cambio de supervisor seleccionado en tabla
   const handleSelectSupervisorChange = (codigoTramite, nombreSupervisor) => {
     setTramitesAsignacion(prev => prev.map(t => {
@@ -586,6 +603,23 @@ export default function CoordinadorPage() {
         setModalObservarDocOpen(false);
         setMotivoObservacionDoc('');
         recargarHistorial();
+
+        // Avance automático al siguiente documento al aprobar
+        if (nuevoEstado === 'Aprobado') {
+          const indexActual = docsFiltrados.findIndex(d => d.id === docActual.id);
+          if (indexActual !== -1 && indexActual < docsFiltrados.length - 1) {
+            const siguienteDoc = docsFiltrados[indexActual + 1];
+            setDocSeleccionadoId(siguienteDoc.id);
+          } else {
+            // Si era el último de la lista filtrada, buscar si hay algún otro documento pendiente en el expediente
+            const otrosPendientes = docsDisponibles.filter(d => d.id !== docActual.id && d.estado !== 'Aprobado');
+            if (otrosPendientes.length > 0) {
+              setDocSeleccionadoId(otrosPendientes[0].id);
+            } else {
+              mostrarToast('🎉 ¡Excelente! Ha revisado y aprobado todos los documentos del expediente.', 'success');
+            }
+          }
+        }
       } else {
         const err = await response.json();
         mostrarToast(err.detail || 'Error al actualizar documento', 'warning');
@@ -1327,30 +1361,62 @@ export default function CoordinadorPage() {
                               </p>
                             </div>
 
-                            {/* Enlaces de apertura externa y descarga si tiene archivo PDF real */}
-                            {docActual.archivo_url && (
-                              <div className="flex items-center space-x-2">
-                                <a
-                                  href={`http://localhost:8000${docActual.archivo_url}`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-white text-slate-700 border border-slate-300 hover:bg-slate-50 transition shadow-2xs cursor-pointer"
-                                  title="Abrir PDF en pestaña independiente"
-                                >
-                                  <ExternalLink className="w-3.5 h-3.5 text-[#0077c8]" />
-                                  <span>Abrir PDF</span>
-                                </a>
-                                <a
-                                  href={`http://localhost:8000${docActual.archivo_url}`}
-                                  download
-                                  className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-[#19324d] text-white hover:bg-[#102235] transition shadow-2xs cursor-pointer"
-                                  title="Descargar documento PDF original"
-                                >
-                                  <Download className="w-3.5 h-3.5" />
-                                  <span>Descargar</span>
-                                </a>
-                              </div>
-                            )}
+                            {/* Controles de Navegación y Enlaces de Apertura/Descarga */}
+                            <div className="flex items-center flex-wrap gap-2">
+                              {/* Botones Anterior / Siguiente con contador */}
+                              {docsFiltrados.length > 1 && (
+                                <div className="flex items-center bg-white border border-slate-300 rounded-xl p-1 shadow-2xs space-x-1">
+                                  <button
+                                    type="button"
+                                    onClick={handleDocAnterior}
+                                    disabled={!tieneDocAnterior}
+                                    className="p-1.5 rounded-lg text-slate-600 hover:text-[#0077c8] hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed transition cursor-pointer"
+                                    title="Documento anterior"
+                                  >
+                                    <ChevronLeft className="w-4 h-4" />
+                                  </button>
+                                  
+                                  <span className="text-[11px] font-bold text-slate-700 px-2 select-none font-mono">
+                                    {currentDocIndex + 1} / {docsFiltrados.length}
+                                  </span>
+
+                                  <button
+                                    type="button"
+                                    onClick={handleDocSiguiente}
+                                    disabled={!tieneDocSiguiente}
+                                    className="p-1.5 rounded-lg text-slate-600 hover:text-[#0077c8] hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed transition cursor-pointer"
+                                    title="Documento siguiente"
+                                  >
+                                    <ChevronRight className="w-4 h-4" />
+                                  </button>
+                                </div>
+                              )}
+
+                              {/* Enlaces de apertura externa y descarga si tiene archivo PDF real */}
+                              {docActual.archivo_url && (
+                                <>
+                                  <a
+                                    href={`http://localhost:8000${docActual.archivo_url}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-white text-slate-700 border border-slate-300 hover:bg-slate-50 transition shadow-2xs cursor-pointer"
+                                    title="Abrir PDF en pestaña independiente"
+                                  >
+                                    <ExternalLink className="w-3.5 h-3.5 text-[#0077c8]" />
+                                    <span>Abrir PDF</span>
+                                  </a>
+                                  <a
+                                    href={`http://localhost:8000${docActual.archivo_url}`}
+                                    download
+                                    className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-[#19324d] text-white hover:bg-[#102235] transition shadow-2xs cursor-pointer"
+                                    title="Descargar documento PDF original"
+                                  >
+                                    <Download className="w-3.5 h-3.5" />
+                                    <span>Descargar</span>
+                                  </a>
+                                </>
+                              )}
+                            </div>
                           </div>
 
                           {/* Contenedor del Visor */}
@@ -1418,37 +1484,63 @@ export default function CoordinadorPage() {
                             </div>
                           )}
 
-                          {/* Botones de Dictamen para este Documento (Aprobado / Observado / Rechazado) */}
-                          <div className="flex items-center justify-center space-x-3 max-w-md mx-auto pt-2">
+                          {/* Botones de Dictamen para este Documento (Aprobado / Observado / Rechazado y Navegación) */}
+                          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
+                            {/* Botón Anterior */}
                             <button
-                              onClick={() => handleCambiarEstadoDoc('Aprobado')}
-                              className={`
-                                flex-1 py-2.5 px-4 rounded-xl font-bold text-xs transition-all shadow-xs flex items-center justify-center space-x-2 cursor-pointer
-                                ${docActual.estado === 'Aprobado'
-                                  ? 'bg-emerald-600 text-white ring-2 ring-emerald-400'
-                                  : 'bg-emerald-100 hover:bg-emerald-200 text-emerald-800'
-                                }
-                              `}
+                              type="button"
+                              onClick={handleDocAnterior}
+                              disabled={!tieneDocAnterior}
+                              className="w-full sm:w-auto px-3.5 py-2.5 rounded-xl text-xs font-bold bg-white text-slate-700 border border-slate-300 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition flex items-center justify-center space-x-1.5 shadow-2xs cursor-pointer"
                             >
-                              <Check className="w-4 h-4" />
-                              <span>Aprobar Documento</span>
+                              <ChevronLeft className="w-4 h-4" />
+                              <span>Anterior</span>
                             </button>
 
+                            {/* Acciones de Validación */}
+                            <div className="flex items-center justify-center space-x-3 flex-1 w-full max-w-md">
+                              <button
+                                onClick={() => handleCambiarEstadoDoc('Aprobado')}
+                                className={`
+                                  flex-1 py-2.5 px-4 rounded-xl font-bold text-xs transition-all shadow-xs flex items-center justify-center space-x-2 cursor-pointer
+                                  ${docActual.estado === 'Aprobado'
+                                    ? 'bg-emerald-600 text-white ring-2 ring-emerald-400'
+                                    : 'bg-emerald-100 hover:bg-emerald-200 text-emerald-800'
+                                  }
+                                `}
+                                title="Aprobar y pasar automáticamente al siguiente documento"
+                              >
+                                <Check className="w-4 h-4" />
+                                <span>{docActual.estado === 'Aprobado' ? '✓ Aprobado (Avanzar)' : 'Aprobar y Siguiente'}</span>
+                              </button>
+
+                              <button
+                                onClick={() => {
+                                  setMotivoObservacionDoc(docActual.observaciones_supervisor || '');
+                                  setModalObservarDocOpen(true);
+                                }}
+                                className={`
+                                  flex-1 py-2.5 px-4 rounded-xl font-bold text-xs transition-all shadow-xs flex items-center justify-center space-x-2 cursor-pointer
+                                  ${docActual.estado === 'Observado' || docActual.estado === 'Rechazado'
+                                    ? 'bg-rose-600 text-white ring-2 ring-rose-400'
+                                    : 'bg-rose-100 hover:bg-rose-200 text-rose-700'
+                                  }
+                                `}
+                              >
+                                <X className="w-4 h-4" />
+                                <span>Observar / Rechazar</span>
+                              </button>
+                            </div>
+
+                            {/* Botón Siguiente */}
                             <button
-                              onClick={() => {
-                                setMotivoObservacionDoc(docActual.observaciones_supervisor || '');
-                                setModalObservarDocOpen(true);
-                              }}
-                              className={`
-                                flex-1 py-2.5 px-4 rounded-xl font-bold text-xs transition-all shadow-xs flex items-center justify-center space-x-2 cursor-pointer
-                                ${docActual.estado === 'Observado' || docActual.estado === 'Rechazado'
-                                  ? 'bg-rose-600 text-white ring-2 ring-rose-400'
-                                  : 'bg-rose-100 hover:bg-rose-200 text-rose-700'
-                                }
-                              `}
+                              type="button"
+                              onClick={handleDocSiguiente}
+                              disabled={!tieneDocSiguiente}
+                              className="w-full sm:w-auto px-3.5 py-2.5 rounded-xl text-xs font-bold bg-white text-slate-700 border border-slate-300 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition flex items-center justify-center space-x-1.5 shadow-2xs cursor-pointer"
                             >
-                              <X className="w-4 h-4" />
-                              <span>Observar / Rechazar</span>
+                              <span>Siguiente</span>
+                              <ChevronRight className="w-4 h-4" />
                             </button>
                           </div>
                         </div>
@@ -2199,6 +2291,12 @@ export default function CoordinadorPage() {
             onAprobarFinal={(tramiteParaAprobar) => {
               if (tramiteParaAprobar) {
                 setTramiteSeleccionadoId(tramiteParaAprobar.id);
+                if (tramiteParaAprobar.resolucion_numero) {
+                  setAprobacionData(prev => ({
+                    ...prev,
+                    codigoResolucion: tramiteParaAprobar.resolucion_numero
+                  }));
+                }
               }
               setModalAprobacionOpen(true);
             }}

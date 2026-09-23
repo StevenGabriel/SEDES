@@ -2931,4 +2931,72 @@ Permitir que al momento en que el propietario seleccione una o varias especialid
 
 ---
 
+## [2026-09-23] Avance Automático y Navegación Secuencial en Revisión de Documentos del Coordinador
+
+### 📌 Objetivo
+Optimizar la ergonomía y velocidad de revisión documental en la **Bandeja de Entrada del Coordinador** (`/coordinador/bandeja`):
+1. Avanzar de forma automática e inmediata al siguiente documento pendiente tan pronto como el coordinador hace clic en **"Aprobar y Siguiente"**.
+2. Incorporar controles explícitos de navegación rápida (**`< Anterior`**, contador **`X / Total`** y **`Siguiente >`**) tanto en el encabezado del visor como en la barra inferior de dictamen, permitiendo revisar todo el expediente sin necesidad de desplazarse verticalmente ni seleccionar manualmente cada ítem en la lista.
+
+---
+
+### 🛠️ Archivos Modificados
+
+#### 1. `frontend/src/pages/CoordinadorPage.jsx` [MODIFICADO]
+* **Avance Automático al Aprobar:**
+  - En `handleCambiarEstadoDoc`, al registrar la aprobación exitosa de un documento (`Aprobado`), el sistema calcula el índice actual y cambia `docSeleccionadoId` al siguiente documento visible en la lista.
+  - Si era el último de la sección filtrada pero existen otros documentos pendientes en el trámite, salta automáticamente al siguiente pendiente.
+  - Si todos los documentos quedan aprobados, notifica con feedback de finalización del expediente.
+* **Controles de Navegación Secuencial:**
+  - Se incorporaron botones interactivos `< Anterior` y `Siguiente >` con contador posicional (`1 / 18`) en el encabezado del visor interactivo (junto a los botones de "Abrir PDF" y "Descargar").
+  - Se añadieron botones de navegación directa en la barra inferior de acciones junto al botón **"Aprobar y Siguiente"** y **"Observar / Rechazar"**.
+* **Flexibilidad de Elección:**
+  - El coordinador conserva en todo momento la libertad de hacer clic en cualquier documento específico de la lista superior o filtrar por secciones normativas.
+
+---
+
+### 📊 Verificación y Pruebas Realizadas
+* **Compilación Frontend:** `npm run build` completado exitosamente con 0 errores en 1.07s.
+* **Flujo Continuo:** Al hacer clic en "Aprobar y Siguiente", el documento se aprueba y el visor carga instantáneamente el próximo requisito sin recargar la página ni perder el contexto de lectura.
+
+---
+
+## [2026-09-23] Habilitación Automática del Botón "Aprobar Trámite Final" tras Aprobación de Asesoría Legal
+
+### 📌 Objetivo
+Permitir que en la vista de **Informe Técnico** del Coordinador (`/coordinador/informe-tecnico`), el botón **"Aprobar Trámite Final"** se habilite de forma dinámica y automática tan pronto como el área de Asesoría Legal (Abogado) apruebe y emita la Resolución Administrativa (`ResolucionAdministrativa`), culminando el ciclo de acreditación oficial y dejando al establecimiento en estado `Habilitado` sin nada pendiente.
+
+---
+
+### 🛠️ Archivos Modificados
+
+#### 1. `backend/abogado.py` [MODIFICADO]
+* En el endpoint `enviar_resolucion_coordinador` (`POST /api/abogado/enviar-coordinador`), se actualiza de manera atómica el estado del trámite en la base de datos a `tramite.estado_tramite = "Resolución Lista para Firma"`.
+* Se genera la notificación y registro de auditoría correspondiente comunicando que el proyecto de Resolución Administrativa fue revisado y aprobado jurídicamente.
+
+#### 2. `backend/coordinador.py` [MODIFICADO]
+* En la función de serialización `serializar_tramite_coordinador`, se consulta el modelo `ResolucionAdministrativa` asociado al trámite y se inyectan las propiedades:
+  - `resolucion_lista_para_firma`: booleano (`True` si la resolución ya fue remitida/aprobada por legal).
+  - `resolucion_numero`: código oficial de la resolución (`RES-ADM-...`).
+  - `resolucion_estado`: estado actual del acto resolutivo.
+
+#### 3. `frontend/src/components/coordinador/InformeTecnicoView.jsx` [MODIFICADO]
+* **Filtro de Trámites:** Se adaptó `tramitesEnInforme` para incluir trámites que contengan estados resolutivos y legales (`resolucion_lista_para_firma`, `Resolución Lista para Firma`, etc.).
+* **Banner Informativo Superior:** Si el trámite cuenta con la resolución de legal lista, se muestra un banner interactivo verde esmeralda destacando el número de resolución y un botón de acceso directo *"Aprobar Trámite Ahora"*.
+* **Botón de Acción Inferior Dinámico:**
+  - **Estado Pendiente Legal:** Muestra el botón bloqueado en gris con icono de candado (`Lock`) y tooltip explicativo.
+  - **Estado Listo para Aprobación:** Se desbloquea con estilo verde esmeralda (`bg-emerald-600`), icono de condecoración (`Award`) y efecto de pulso activo para llamar a la acción.
+  - **Estado Ya Aprobado:** Se transforma en una insignia de confirmación `"Trámite Aprobado y Habilitado"` con icono `CheckCircle2`.
+
+#### 4. `frontend/src/pages/CoordinadorPage.jsx` [MODIFICADO]
+* Se enriqueció el callback `onAprobarFinal` para prellenar automáticamente el código de resolución legal (`resolucion_numero`) en el formulario del modal de aprobación final.
+* Al confirmar la aprobación final, se invoca `POST /api/coordinador/tramites/{id}/aprobar`, estableciendo `tramite.estado_tramite = "Aprobado"` y el laboratorio en `establecimiento.estado_operativo = "Habilitado"`.
+
+---
+
+### 📊 Verificación y Pruebas Realizadas
+* **Compilación Frontend:** `npm run build` ejecutado exitosamente con 0 errores de compilación.
+* **Integración Extremo a Extremo:** Verificación de la transición de estados: *Derivado a Asesoría Legal* ➔ *Resolución Lista para Firma (Abogado aprueba)* ➔ *Botón Desbloqueado en Informe Técnico* ➔ *Aprobación Final y Habilitación Oficial*.
+
+
 
