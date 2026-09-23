@@ -378,8 +378,8 @@ def obtener_borrador_resolucion(tramite_id: str, db: Session = Depends(get_db)):
             models.ResolucionAdministrativa.estado == True
         ).first()
 
-    cod_clean = info["codigo"].replace("REQ-", "")
-    num_res = (resol.numero_resolucion if resol else None) or f"55/2026"
+    cod_clean = info["codigo"].replace("REQ-", "").replace("TRM-", "")
+    num_res = (resol.numero_resolucion if resol else None) or f"RA-2026-{cod_clean}"
     
     hoy = date.today()
     f_emision = formatear_fecha_es(hoy)
@@ -492,24 +492,37 @@ def guardar_resolucion(payload: GuardarResolucionRequest, db: Session = Depends(
     (razón social, CI/NIT, artículos o notas legales) en PostgreSQL.
     """
     t_id = None
-    try:
-        if payload.tramite_id:
-            t_id = uuid.UUID(payload.tramite_id)
-    except Exception:
-        pass
-
     tramite = None
-    if t_id:
-        tramite = db.query(models.Tramite).filter(models.Tramite.id == t_id).first()
-    
-    if not tramite and payload.codigo_tramite:
-        clean = payload.codigo_tramite.replace("REQ-", "").replace("TRM-", "").strip().lower()
+
+    raw_id = (payload.tramite_id or payload.codigo_tramite or "").strip()
+    clean_id = raw_id.replace("REQ-", "").replace("TRM-", "").strip()
+
+    # 1. Intentar como UUID completo
+    if clean_id:
+        try:
+            t_id = uuid.UUID(clean_id)
+            tramite = db.query(models.Tramite).filter(models.Tramite.id == t_id).first()
+        except Exception:
+            pass
+
+    # 2. Si no se encontró por UUID directo, buscar por prefijo
+    if not tramite and clean_id:
         tramites_all = db.query(models.Tramite).filter(models.Tramite.estado == True).all()
         for t in tramites_all:
-            if str(t.id).lower().startswith(clean):
+            if str(t.id).lower().startswith(clean_id.lower()) or str(t.id).lower() == clean_id.lower():
                 tramite = t
                 t_id = t.id
                 break
+
+    # 3. Buscar por número de resolución si ya existe
+    if not tramite and payload.numero_resolucion:
+        resol_exist = db.query(models.ResolucionAdministrativa).filter(
+            models.ResolucionAdministrativa.numero_resolucion == payload.numero_resolucion,
+            models.ResolucionAdministrativa.estado == True
+        ).first()
+        if resol_exist:
+            tramite = resol_exist.tramite
+            t_id = resol_exist.tramite_id
 
     if not tramite:
         tramite = db.query(models.Tramite).first()
@@ -525,9 +538,10 @@ def guardar_resolucion(payload: GuardarResolucionRequest, db: Session = Depends(
     num_res = payload.numero_resolucion or f"RA-2026-{cod_clean}"
 
     resol = db.query(models.ResolucionAdministrativa).filter(
-        (models.ResolucionAdministrativa.tramite_id == t_id) |
-        (models.ResolucionAdministrativa.numero_resolucion == num_res)
+        models.ResolucionAdministrativa.tramite_id == t_id
     ).first()
+
+    antecedentes_final = payload.antecedentes or getattr(payload, 'vistos', None)
 
     if not resol:
         resol = models.ResolucionAdministrativa(
@@ -536,26 +550,35 @@ def guardar_resolucion(payload: GuardarResolucionRequest, db: Session = Depends(
             establecimiento_id=estab_id,
             abogado_id=abogado_id,
             establecimiento_nombre=payload.establecimiento_nombre or (estab.nombre_comercial if estab else "Establecimiento"),
-            razon_social_propietario=payload.razon_social_propietario,
-            ci_nit_solicitante=payload.ci_nit_solicitante,
-            tipo_establecimiento=payload.tipo_establecimiento,
-            direccion_registrada=payload.direccion_registrada,
-            antecedentes=payload.antecedentes,
+            razon_social_propietario=payload.razon_social_propietario or (estab.propietario.nombres + " " + estab.propietario.apellidos if estab and estab.propietario else None),
+            ci_nit_solicitante=payload.ci_nit_solicitante or (estab.propietario.ci_nit if estab and estab.propietario else None),
+            tipo_establecimiento=payload.tipo_establecimiento or (estab.tipo if estab else None),
+            direccion_registrada=payload.direccion_registrada or (estab.direccion if estab else None),
+            regente_tecnico=payload.regente if hasattr(payload, 'regente') else None,
+            ci_regente=payload.ci_regente if hasattr(payload, 'ci_regente') else None,
+            cite_informe=payload.cite_informe if hasattr(payload, 'cite_informe') else None,
+            antecedentes=antecedentes_final,
             fundamento_legal=payload.fundamento_legal,
             articulo_primero=payload.articulo_primero,
             articulo_segundo=payload.articulo_segundo,
             articulo_tercero=payload.articulo_tercero,
             observaciones_legales=payload.observaciones_legales,
+            observaciones_coordinador=payload.observaciones_coordinador,
+            dictamen_coordinador=payload.dictamen_final,
             estado_resolucion="En edición final"
         )
         db.add(resol)
     else:
+        if payload.numero_resolucion: resol.numero_resolucion = payload.numero_resolucion
         if payload.establecimiento_nombre: resol.establecimiento_nombre = payload.establecimiento_nombre
         if payload.razon_social_propietario: resol.razon_social_propietario = payload.razon_social_propietario
         if payload.ci_nit_solicitante: resol.ci_nit_solicitante = payload.ci_nit_solicitante
         if payload.tipo_establecimiento: resol.tipo_establecimiento = payload.tipo_establecimiento
         if payload.direccion_registrada: resol.direccion_registrada = payload.direccion_registrada
-        if payload.antecedentes: resol.antecedentes = payload.antecedentes
+        if getattr(payload, 'regente', None): resol.regente_tecnico = getattr(payload, 'regente')
+        if getattr(payload, 'ci_regente', None): resol.ci_regente = getattr(payload, 'ci_regente')
+        if getattr(payload, 'cite_informe', None): resol.cite_informe = getattr(payload, 'cite_informe')
+        if antecedentes_final: resol.antecedentes = antecedentes_final
         if payload.fundamento_legal: resol.fundamento_legal = payload.fundamento_legal
         if payload.articulo_primero: resol.articulo_primero = payload.articulo_primero
         if payload.articulo_segundo: resol.articulo_segundo = payload.articulo_segundo
@@ -583,33 +606,67 @@ def enviar_resolucion_coordinador(payload: EnviarCoordinadorRequest, db: Session
     Valida legalmente el expediente y envía la Resolución Administrativa elaborada
     al Coordinador del SEDES para firma y emisión de Resolución definitiva.
     """
-    num_res = payload.numero_resolucion or "RA-2026-SEDES"
-    estab_nombre = payload.establecimiento_nombre or "Establecimiento"
-    cod_trm = payload.codigo_tramite or "REQ-SEDES"
-
-    # Guardar en BD
+    # Guardar en BD primero con todos los campos
     guardar_resolucion(payload, db)
 
-    # Actualizar estado a 'Enviado a Coordinador'
-    resol = db.query(models.ResolucionAdministrativa).filter(
-        (models.ResolucionAdministrativa.numero_resolucion == num_res) |
-        (models.ResolucionAdministrativa.tramite_id == payload.tramite_id if payload.tramite_id else False)
-    ).first()
+    # Extraer ID seguro del trámite
+    t_id = None
+    raw_id = (payload.tramite_id or payload.codigo_tramite or "").strip()
+    clean_id = raw_id.replace("REQ-", "").replace("TRM-", "").strip()
+
+    if clean_id:
+        try:
+            t_id = uuid.UUID(clean_id)
+        except Exception:
+            pass
+
+    if not t_id and clean_id:
+        tramites_all = db.query(models.Tramite).filter(models.Tramite.estado == True).all()
+        for t in tramites_all:
+            if str(t.id).lower().startswith(clean_id.lower()) or str(t.id).lower() == clean_id.lower():
+                t_id = t.id
+                break
+
+    # Obtener la resolución del trámite
+    resol = None
+    if t_id:
+        resol = db.query(models.ResolucionAdministrativa).filter(
+            models.ResolucionAdministrativa.tramite_id == t_id
+        ).first()
+
+    num_res = (resol.numero_resolucion if resol else None) or payload.numero_resolucion or "RA-2026-SEDES"
+    estab_nombre = (resol.establecimiento_nombre if resol else None) or payload.establecimiento_nombre or "Establecimiento"
+    cod_trm = payload.codigo_tramite or (f"REQ-{str(t_id)[:4].upper()}" if t_id else "REQ-SEDES")
+
     if resol:
         resol.estado_resolucion = "Enviado a Coordinador"
+        if payload.numero_resolucion:
+            resol.numero_resolucion = payload.numero_resolucion
+        if payload.establecimiento_nombre:
+            resol.establecimiento_nombre = payload.establecimiento_nombre
+        if payload.razon_social_propietario:
+            resol.razon_social_propietario = payload.razon_social_propietario
+        if payload.ci_nit_solicitante:
+            resol.ci_nit_solicitante = payload.ci_nit_solicitante
+        if payload.tipo_establecimiento:
+            resol.tipo_establecimiento = payload.tipo_establecimiento
+        if payload.direccion_registrada:
+            resol.direccion_registrada = payload.direccion_registrada
+        if payload.antecedentes:
+            resol.antecedentes = payload.antecedentes
+        if payload.fundamento_legal:
+            resol.fundamento_legal = payload.fundamento_legal
+        if payload.articulo_primero:
+            resol.articulo_primero = payload.articulo_primero
+        if payload.articulo_segundo:
+            resol.articulo_segundo = payload.articulo_segundo
+        if payload.articulo_tercero:
+            resol.articulo_tercero = payload.articulo_tercero
+        if payload.observaciones_legales:
+            resol.observaciones_legales = payload.observaciones_legales
         if resol.tramite:
             resol.tramite.estado_tramite = "Resolución Lista para Firma"
         db.commit()
-
-    # Actualizar estado del trámite en la base de datos
-    t_id = None
-    if payload.tramite_id:
-        try:
-            t_id = uuid.UUID(payload.tramite_id)
-        except ValueError:
-            pass
-    if not t_id and resol and resol.tramite_id:
-        t_id = resol.tramite_id
 
     if t_id:
         t_obj = db.query(models.Tramite).filter(models.Tramite.id == t_id).first()

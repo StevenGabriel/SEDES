@@ -3023,6 +3023,7 @@ Permitir que las ediciones y redacciones que el Asesor Legal (Abogado) realiza s
 * **Acceso Rápido desde el Banner:** Al hacer clic en *"Ver Resolución"*, el visor cambia instantáneamente a la Resolución Administrativa editada por Legal.
 * **Impresión / Descarga Contextual:** El botón *"Imprimir"* se adapta dinámicamente al documento actualmente seleccionado (*Imprimir Resolución RA* vs *Imprimir Informe Técnico*).
 
-
-
-
+#### 4. `frontend/src/pages/AbogadoPage.jsx` [MODIFICADO]
+* En `handleGuardarBorrador`, se incluyeron todos los campos editables (`establecimiento_nombre`, `razon_social_propietario`, `ci_nit_solicitante`, `tipo_establecimiento`, `direccion_registrada`, `antecedentes`, `fundamento_legal`, `articulo_primero`, etc.) en el payload JSON enviado a `/api/abogado/guardar-resolucion`.
+* En `backend/abogado.py`, se mejoró la resolución de IDs (UUID completo, prefijo y coincidencia de número de resolución) para asociar las modificaciones exactamente al expediente seleccionado.
+* En `InformeTecnicoView.jsx`, se agregó la recarga de datos al montar y en el botón de actualización del visor.

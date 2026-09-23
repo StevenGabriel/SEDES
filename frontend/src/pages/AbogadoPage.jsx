@@ -663,18 +663,26 @@ export default function AbogadoPage() {
         tramite_id: borradorResolucion.tramite_id,
         numero_resolucion: editNumeroResolucion,
         fecha_emision: editFechaEmision,
+        establecimiento_nombre: editEstablecimiento,
+        razon_social_propietario: editRazonSocial,
+        ci_nit_solicitante: editCiNit,
+        tipo_establecimiento: editTipoEstablecimiento,
+        direccion_registrada: editDireccion,
         regente: editRegente,
         ci_regente: editCiRegente,
         tipo_tramite: detalleInforme?.tipo_tramite || 'APERTURA Y HABILITACIÓN',
         cite_informe: borradorResolucion?.datos_establecimiento?.cite_informe || 'CODELAB/SEDES/71/2026',
         fecha_informe: borradorResolucion?.datos_establecimiento?.fecha_informe || editFechaEmision,
+        antecedentes: editAntecedentes,
         vistos: editAntecedentes,
         fundamento_legal: editFundamentoLegal,
         articulo_primero: editArticuloPrimero,
         articulo_segundo: editArticuloSegundo,
         articulo_tercero: editArticuloTercero,
         vigencia_rango: editVigenciaRango,
-        observaciones_legales: editObservacionesLegales
+        observaciones_legales: editObservacionesLegales,
+        observaciones_coordinador: observacionesCoordinadorEdicion,
+        dictamen_final: dictamenSeleccionado
       };
 
       const res = await fetch('http://localhost:8000/api/abogado/guardar-resolucion', {

@@ -802,6 +802,8 @@ def derivar_area_legal(
     estab_nombre = tramite.establecimiento.nombre_comercial if tramite.establecimiento else "Establecimiento"
     cod_trm = f"TRM-{str(tramite.id)[:8].upper()}"
     ahora_formato = datetime.now().strftime("%d %b %Y - %H:%M")
+    cite = payload.codigo_cite or f"CODELAB/SEDES/71/{datetime.now().year}"
+
     # Guardar/Actualizar expediente técnico en ResolucionAdministrativa para revisión del Asesor Legal
     estab = tramite.establecimiento
     prop = estab.propietario if estab else None
