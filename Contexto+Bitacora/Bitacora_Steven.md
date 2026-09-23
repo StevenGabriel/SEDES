@@ -2861,3 +2861,40 @@ Optimizar la ergonomía, distribución espacial y usabilidad en dispositivos mó
 
 *Bitácora actualizada por: Steven*
 
+---
+
+## [2026-09-23] Soporte y Filtrado Multi-Especialidad en el Mapa Cartográfico y Leyenda de la Landing Page
+
+### 📌 Objetivo
+Permitir que los laboratorios autorizados con múltiples especialidades (por ejemplo *"Lab prueba 2"*) sean reconocidos y filtrados correctamente en el mapa interactivo y en la lista lateral cuando el ciudadano selecciona cualquiera de sus especialidades en la **Leyenda de Tipos de Laboratorio**, mostrando badges múltiples y adaptando el pin al filtro seleccionado.
+
+---
+
+### 🛠️ Archivos Modificados
+
+#### 1. `frontend/src/components/common/RealMultiMapView.jsx` [MODIFICADO]
+* **Parser Exhaustivo `getLabSpecialties(lab)`:**
+  - Analiza tanto arreglos como cadenas separadas por coma (`lab.servicios`), campos de responsables de área (`lab.responsables_areas`), tipo de laboratorio y nombre comercial.
+  - Detecta e indexa todas las especialidades oficiales (`GENERAL`, `MICROBIOLOGIA`, `ANATOMIA`, `HEMATOLOGIA`, `INMUNOLOGIA`, `ENDOCRINOLOGIA`, `GENETICA`, `TOXICOLOGIA`) con tolerancia a mayúsculas, minúsculas y tildes.
+* **Marcadores Dinámicos en Mapa:**
+  - Si un laboratorio posee más de una especialidad, el marcador Leaflet incluye una insignia superior de conteo (`+N`) para evidenciar que cuenta con múltiples áreas autorizadas.
+  - Cuando se selecciona una especialidad en la leyenda, el marcador adopta el color e ícono de la especialidad filtrada.
+* **Popups Informativos Enriquecidos:**
+  - Muestra todas las insignias de especialidad correspondientes al establecimiento con sus respectivos colores institucionales y nombres.
+
+#### 2. `frontend/src/components/landing/MapSection.jsx` [MODIFICADO]
+* **Filtrado Multi-Especialidad:**
+  - El filtro `filteredLabs` ahora utiliza `specialties.some(esp => esp.id === selectedEspecialidad.id || esp.key === selectedEspecialidad.key)`, asegurando que laboratorios con varias áreas aparezcan siempre que coincidan con la categoría elegida.
+* **Tarjetas Laterales Mejoradas:**
+  - Renderizado de todos los badges de especialidad de cada laboratorio en su tarjeta correspondiente, destacando visualmente con anillo y borde la especialidad que coincide con el filtro activo.
+* **Sincronización con el Mapa:**
+  - Se pasa `selectedEspecialidad` al componente `RealMultiMapView` para mantener sincronizados los colores de los pines en tiempo real.
+
+---
+
+### 📊 Verificación y Pruebas Realizadas
+* **Compilación Frontend:** `npm run build` ejecutado exitosamente con 0 errores (dist generado sin fallos de sintaxis).
+* **Prueba de Filtrado:** Un laboratorio con múltiples especialidades (como *"Lab prueba 2"*) ahora aparece en cada una de las categorías seleccionadas en la leyenda.
+
+---
+
