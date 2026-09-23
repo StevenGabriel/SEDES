@@ -291,6 +291,16 @@ class ResolucionAdministrativa(Base):
     ci_nit_solicitante = Column(String(50), nullable=True)
     tipo_establecimiento = Column(String(150), nullable=True)
     direccion_registrada = Column(Text, nullable=True)
+    regente_tecnico = Column(String(200), nullable=True)
+    ci_regente = Column(String(50), nullable=True)
+    
+    # Datos del informe técnico remitido por el Coordinador
+    cite_informe = Column(String(100), nullable=True)
+    observaciones_coordinador = Column(Text, nullable=True)
+    dictamen_coordinador = Column(String(150), nullable=True)
+    destinatario_informe = Column(String(200), nullable=True)
+    coordinador_nombre = Column(String(150), nullable=True)
+    fecha_informe = Column(Date, default=func.current_date(), nullable=True)
     
     # Contenido jurídico de la resolución
     antecedentes = Column(Text, nullable=True)

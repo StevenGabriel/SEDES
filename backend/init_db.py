@@ -35,8 +35,16 @@ def init_database(reset_tables: bool = False, poblar_laboratorios_demo: bool = F
                 conn.execute(text("ALTER TABLE catalogo_requisitos ALTER COLUMN nombre_documento TYPE TEXT;"))
                 conn.execute(text("ALTER TABLE catalogo_requisitos ALTER COLUMN seccion_subtitulo TYPE TEXT;"))
                 conn.execute(text("ALTER TABLE establecimientos ALTER COLUMN responsables_areas TYPE TEXT;"))
+                conn.execute(text("ALTER TABLE resoluciones_administrativas ADD COLUMN IF NOT EXISTS regente_tecnico VARCHAR(200);"))
+                conn.execute(text("ALTER TABLE resoluciones_administrativas ADD COLUMN IF NOT EXISTS ci_regente VARCHAR(50);"))
+                conn.execute(text("ALTER TABLE resoluciones_administrativas ADD COLUMN IF NOT EXISTS cite_informe VARCHAR(100);"))
+                conn.execute(text("ALTER TABLE resoluciones_administrativas ADD COLUMN IF NOT EXISTS observaciones_coordinador TEXT;"))
+                conn.execute(text("ALTER TABLE resoluciones_administrativas ADD COLUMN IF NOT EXISTS dictamen_coordinador VARCHAR(150);"))
+                conn.execute(text("ALTER TABLE resoluciones_administrativas ADD COLUMN IF NOT EXISTS destinatario_informe VARCHAR(200);"))
+                conn.execute(text("ALTER TABLE resoluciones_administrativas ADD COLUMN IF NOT EXISTS coordinador_nombre VARCHAR(150);"))
+                conn.execute(text("ALTER TABLE resoluciones_administrativas ADD COLUMN IF NOT EXISTS fecha_informe DATE;"))
                 conn.commit()
-                logger.info("✅ Esquema de catálogo de requisitos y establecimientos (con TEXT sin límite) verificado.")
+                logger.info("✅ Esquema de catálogo de requisitos, establecimientos y resoluciones administrativas verificado.")
             except Exception as e_mig:
                 logger.warning(f"Aviso en migración de columnas: {e_mig}")
 

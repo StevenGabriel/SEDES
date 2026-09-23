@@ -53,7 +53,7 @@ export default function LoginPage() {
         } else if (rol.includes('director')) {
           navigate('/director');
         } else if (rol.includes('abogado') || rol.includes('legal')) {
-          navigate('/abogado');
+          navigate('/abogado/informes-recibidos');
         } else if (rol.includes('supervisor')) {
           navigate('/supervisor');
         } else if (rol.includes('coordinador')) {

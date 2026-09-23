@@ -92,7 +92,7 @@ export default function AbogadoPage() {
   const { seccion } = useParams();
 
   const SECCIONES_VALIDAS = ['informes-recibidos', 'resolucion-administrativa', 'historial'];
-  const seccionActiva = SECCIONES_VALIDAS.includes(seccion) ? seccion : 'resolucion-administrativa';
+  const seccionActiva = SECCIONES_VALIDAS.includes(seccion) ? seccion : 'informes-recibidos';
 
   const menuItems = [
     {
@@ -212,6 +212,29 @@ export default function AbogadoPage() {
       });
     }
   }, []);
+
+  // Cargar historial de resoluciones y dictámenes reales
+  const cargarHistorial = useCallback(async (searchQuery = '', estado = 'Todos') => {
+    setCargandoHistorial(true);
+    try {
+      const params = new URLSearchParams();
+      if (searchQuery && searchQuery.trim()) params.append('search', searchQuery.trim());
+      if (estado && estado !== 'Todos') params.append('estado_filtro', estado);
+      const res = await fetch(`http://localhost:8000/api/abogado/historial?${params.toString()}`);
+      if (res.ok) {
+        const data = await res.json();
+        setHistorialList(data.resoluciones || []);
+      }
+    } catch (err) {
+      console.warn('Error al cargar historial:', err);
+    } finally {
+      setCargandoHistorial(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    cargarHistorial(busquedaHistorial, filtroEstadoHistorial);
+  }, [cargarHistorial, busquedaHistorial, filtroEstadoHistorial, seccionActiva]);
 
   // 1. Cargar lista de informes reales desde el backend
   const cargarInformes = useCallback(async () => {
@@ -443,14 +466,15 @@ export default function AbogadoPage() {
         };
 
         const doc = await generarComunicacionInternaPDF(tramiteParaPdf, {
-          cite: detalleInforme.numero_resolucion ? `CODELAB/SEDES/${(detalleInforme.codigo || '71').replace('REQ-', '')}/2026` : `CODELAB/SEDES/71/2026`,
-          destinatario: usuario?.nombres ? `${usuario.nombres} ${usuario.apellidos || ''}`.trim() : 'Dr. Marco Villanueva',
-          destinatarioCargo: 'ASESOR LEGAL - UNIDAD DE HABILITACIÓN SEDES',
+          cite: detalleInforme.cite_informe || `CODELAB/SEDES/${(detalleInforme.codigo || '71').replace('REQ-', '')}/2026`,
+          destinatario: detalleInforme.destinatario_informe ? detalleInforme.destinatario_informe.split(' - ')[0] : (usuario?.nombres ? `${usuario.nombres} ${usuario.apellidos || ''}`.trim() : 'Dr. Marco Villanueva'),
+          destinatarioCargo: detalleInforme.destinatario_informe && detalleInforme.destinatario_informe.includes(' - ') ? detalleInforme.destinatario_informe.split(' - ')[1] : 'ASESOR LEGAL - UNIDAD DE HABILITACIÓN SEDES',
           via: 'Dra. Karina Soliz Villarroel',
           viaCargo: 'JEFE DE LA UNIDAD DE CALIDAD Y SERVICIOS a.i.',
-          remitente: 'Dra. Claudia Morales Valenzuela',
+          remitente: detalleInforme.coordinador_nombre || 'Dra. Claudia Morales Valenzuela',
           remitenteCargo: 'RESPONSABLE DEPARTAMENTAL DE LABORATORIOS CODELAB - SEDES',
-          regente: detalleInforme.razon_social_propietario,
+          regente: detalleInforme.regente_tecnico || detalleInforme.razon_social_propietario,
+          ciRegente: detalleInforme.ci_regente || detalleInforme.ci_nit_solicitante,
           observaciones: observacionesCoordinadorEdicion || detalleInforme.observaciones_coordinador
         });
 
@@ -509,9 +533,9 @@ export default function AbogadoPage() {
           direccion: editDireccion,
           direccion_registrada: editDireccion,
           tipo_establecimiento: editTipoEstablecimiento,
-          cite_informe: borradorResolucion?.datos_establecimiento?.cite_informe || 'CODELAB/SEDES/71/2026',
-          fecha_informe: borradorResolucion?.datos_establecimiento?.fecha_informe || editFechaEmision,
-          coordinador_nombre: 'Dra. Claudia Morales Valenzuela',
+          cite_informe: borradorResolucion?.datos_establecimiento?.cite_informe || detalleInforme?.cite_informe || 'CODELAB/SEDES/71/2026',
+          fecha_informe: borradorResolucion?.datos_establecimiento?.fecha_informe || detalleInforme?.fecha_informe || editFechaEmision,
+          coordinador_nombre: borradorResolucion?.datos_establecimiento?.coordinador_nombre || detalleInforme?.coordinador_nombre || 'Dra. Claudia Morales Valenzuela',
           abogado_nombre: usuario?.nombres ? `${usuario.nombres} ${usuario.apellidos || ''}`.trim() : 'Dr. Marco Villanueva',
           vigencia_anios: 5,
           vigencia_rango: editVigenciaRango,
@@ -595,14 +619,15 @@ export default function AbogadoPage() {
       };
 
       const doc = await generarComunicacionInternaPDF(tramiteParaPdf, {
-        cite: detalleInforme.numero_resolucion ? `CODELAB/SEDES/${(detalleInforme.codigo || '71').replace('REQ-', '')}/2026` : `CODELAB/SEDES/71/2026`,
-        destinatario: usuario?.nombres ? `${usuario.nombres} ${usuario.apellidos || ''}`.trim() : 'Dr. Marco Villanueva',
-        destinatarioCargo: 'ASESOR LEGAL - UNIDAD DE HABILITACIÓN SEDES',
+        cite: detalleInforme.cite_informe || `CODELAB/SEDES/${(detalleInforme.codigo || '71').replace('REQ-', '')}/2026`,
+        destinatario: detalleInforme.destinatario_informe ? detalleInforme.destinatario_informe.split(' - ')[0] : (usuario?.nombres ? `${usuario.nombres} ${usuario.apellidos || ''}`.trim() : 'Dr. Marco Villanueva'),
+        destinatarioCargo: detalleInforme.destinatario_informe && detalleInforme.destinatario_informe.includes(' - ') ? detalleInforme.destinatario_informe.split(' - ')[1] : 'ASESOR LEGAL - UNIDAD DE HABILITACIÓN SEDES',
         via: 'Dra. Karina Soliz Villarroel',
         viaCargo: 'JEFE DE LA UNIDAD DE CALIDAD Y SERVICIOS a.i.',
-        remitente: 'Dra. Claudia Morales Valenzuela',
+        remitente: detalleInforme.coordinador_nombre || 'Dra. Claudia Morales Valenzuela',
         remitenteCargo: 'RESPONSABLE DEPARTAMENTAL DE LABORATORIOS CODELAB - SEDES',
-        regente: detalleInforme.razon_social_propietario,
+        regente: detalleInforme.regente_tecnico || detalleInforme.razon_social_propietario,
+        ciRegente: detalleInforme.ci_regente || detalleInforme.ci_nit_solicitante,
         observaciones: observacionesCoordinadorEdicion || detalleInforme.observaciones_coordinador
       });
 
@@ -684,7 +709,20 @@ export default function AbogadoPage() {
         tramite_id: borradorResolucion.tramite_id,
         numero_resolucion: editNumeroResolucion,
         fecha_emision: editFechaEmision,
-        observaciones: editObservacionesLegales
+        establecimiento_nombre: editEstablecimiento,
+        razon_social_propietario: editRazonSocial,
+        ci_nit_solicitante: editCiNit,
+        tipo_establecimiento: editTipoEstablecimiento,
+        direccion_registrada: editDireccion,
+        antecedentes: editAntecedentes,
+        fundamento_legal: editFundamentoLegal,
+        articulo_primero: editArticuloPrimero,
+        articulo_segundo: editArticuloSegundo,
+        articulo_tercero: editArticuloTercero,
+        vigencia_rango: editVigenciaRango,
+        observaciones_legales: editObservacionesLegales,
+        observaciones: editObservacionesLegales,
+        abogado_nombre: usuario?.nombres ? `${usuario.nombres} ${usuario.apellidos || ''}`.trim() : 'Dr. Marco Villanueva'
       };
 
       const res = await fetch('http://localhost:8000/api/abogado/enviar-coordinador', {
@@ -695,7 +733,8 @@ export default function AbogadoPage() {
 
       if (res.ok) {
         mostrarToast('Resolución Administrativa remitida exitosamente al Coordinador.', 'success');
-        cargarInformes();
+        await cargarInformes();
+        await cargarHistorial();
         navigate('/abogado/historial');
       } else {
         mostrarToast('Error al enviar la resolución al Coordinador.', 'warning');
@@ -705,6 +744,67 @@ export default function AbogadoPage() {
       mostrarToast('Error de conexión al enviar.', 'warning');
     } finally {
       setEnviandoCoordinador(false);
+    }
+  };
+
+  // Descargar PDF de una Resolución específica del Historial
+  const handleDescargarResolucionHistorial = async (h) => {
+    try {
+      const res = await fetch(`http://localhost:8000/api/abogado/resolucion-borrador/${encodeURIComponent(h.tramite_id || h.id)}`);
+      let datosParaPdf;
+      if (res.ok) {
+        const data = await res.json();
+        const de = data.datos_establecimiento || {};
+        datosParaPdf = {
+          numero_resolucion: data.numero_resolucion || h.numero_resolucion,
+          fecha_emision: data.fecha_emision || h.fecha_emision,
+          establecimiento: de.establecimiento || h.establecimiento,
+          establecimiento_nombre: de.establecimiento || h.establecimiento,
+          propietario: de.razon_social || h.propietario,
+          razon_social: de.razon_social || h.propietario,
+          razon_social_propietario: de.razon_social || h.propietario,
+          ci_nit: de.ci_nit || '',
+          ci_nit_solicitante: de.ci_nit || '',
+          regente: de.regente || h.propietario,
+          regente_nombre: de.regente || h.propietario,
+          ci_regente: de.ci_regente || de.ci_nit || '',
+          tipo_tramite: h.tipo_tramite || 'APERTURA Y HABILITACIÓN',
+          direccion: de.direccion || '',
+          direccion_registrada: de.direccion || '',
+          tipo_establecimiento: de.tipo_establecimiento || 'LABORATORIO CLÍNICO PÚBLICO',
+          cite_informe: de.cite_informe || 'CODELAB/SEDES/71/2026',
+          fecha_informe: de.fecha_informe || data.fecha_emision,
+          coordinador_nombre: de.coordinador_nombre || 'Dra. Claudia Morales Valenzuela',
+          abogado_nombre: usuario?.nombres ? `${usuario.nombres} ${usuario.apellidos || ''}`.trim() : 'Dr. Marco Villanueva',
+          vigencia_anios: 5,
+          vigencia_rango: data.vigencia_rango || '18 de Septiembre de 2026 - 18 de Septiembre de 2031',
+          antecedentes: data.antecedentes,
+          vistos: data.antecedentes,
+          fundamento_legal: data.fundamento_legal,
+          articulo_primero: data.articulo_primero,
+          articulo_segundo: data.articulo_segundo,
+          articulo_tercero: data.articulo_tercero,
+          observaciones_legales: data.observaciones_legales
+        };
+      } else {
+        datosParaPdf = {
+          numero_resolucion: h.numero_resolucion,
+          fecha_emision: h.fecha_emision,
+          establecimiento: h.establecimiento,
+          establecimiento_nombre: h.establecimiento,
+          propietario: h.propietario,
+          razon_social: h.propietario,
+          tipo_tramite: h.tipo_tramite,
+          abogado_nombre: usuario?.nombres ? `${usuario.nombres} ${usuario.apellidos || ''}`.trim() : 'Dr. Marco Villanueva'
+        };
+      }
+      const doc = await generarResolucionAdministrativaPDF(datosParaPdf);
+      const cleanNum = (h.numero_resolucion || 'RA-2026').replace(/\//g, '_');
+      doc.save(`Resolucion_Administrativa_${cleanNum}.pdf`);
+      mostrarToast(`Resolución ${h.numero_resolucion} descargada con éxito.`, 'success');
+    } catch (err) {
+      console.error('Error descargando PDF de historial:', err);
+      mostrarToast('Error al descargar el PDF de la Resolución.', 'warning');
     }
   };
 
@@ -728,9 +828,9 @@ export default function AbogadoPage() {
         direccion: editDireccion,
         direccion_registrada: editDireccion,
         tipo_establecimiento: editTipoEstablecimiento,
-        cite_informe: borradorResolucion?.datos_establecimiento?.cite_informe || 'CODELAB/SEDES/71/2026',
-        fecha_informe: borradorResolucion?.datos_establecimiento?.fecha_informe || editFechaEmision,
-        coordinador_nombre: 'Dra. Claudia Morales Valenzuela',
+        cite_informe: borradorResolucion?.datos_establecimiento?.cite_informe || detalleInforme?.cite_informe || 'CODELAB/SEDES/71/2026',
+        fecha_informe: borradorResolucion?.datos_establecimiento?.fecha_informe || detalleInforme?.fecha_informe || editFechaEmision,
+        coordinador_nombre: borradorResolucion?.datos_establecimiento?.coordinador_nombre || detalleInforme?.coordinador_nombre || 'Dra. Claudia Morales Valenzuela',
         abogado_nombre: usuario?.nombres ? `${usuario.nombres} ${usuario.apellidos || ''}`.trim() : 'Dr. Marco Villanueva',
         vigencia_anios: 5,
         vigencia_rango: editVigenciaRango,
@@ -764,8 +864,23 @@ export default function AbogadoPage() {
     navigate('/login');
   };
 
-  // Conteo de pendientes
-  const totalPendientes = informes.filter(x => x.estado_proceso !== 'Emitido' && x.estado_proceso !== 'Aprobado').length;
+  // Conteo de pendientes y filtrado según sección activa:
+  // - En 'informes-recibidos': solo los que están pendientes de procesar/emitir RA (no enviados ni aprobados)
+  // - En 'resolucion-administrativa': los pendientes de resolución y en edición final
+  const informesPendientes = (informes || []).filter(x => x.estado_proceso !== 'Emitido' && x.estado_proceso !== 'Aprobado' && x.estado_proceso !== 'Enviado a Coordinador');
+  const totalPendientes = informesPendientes.length;
+
+  const listaCardsMostrada = informesPendientes;
+
+  useEffect(() => {
+    if (listaCardsMostrada.length > 0) {
+      if (!tramiteSeleccionadoId || !listaCardsMostrada.some(x => x.id === tramiteSeleccionadoId)) {
+        setTramiteSeleccionadoId(listaCardsMostrada[0].id);
+      }
+    } else {
+      setTramiteSeleccionadoId(null);
+    }
+  }, [listaCardsMostrada, tramiteSeleccionadoId]);
 
   return (
     <div className="min-h-screen bg-[#f3f6f9] flex font-sans text-slate-800 antialiased overflow-hidden">
@@ -998,43 +1113,65 @@ export default function AbogadoPage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
-                      {historialList.map((h) => (
-                        <tr key={h.id} className="hover:bg-slate-50/60 transition">
-                          <td className="py-3.5 px-5 font-black text-slate-900">
-                            {h.numero_resolucion}
-                          </td>
-                          <td className="py-3.5 px-5 font-bold text-[#0060a8]">
-                            {h.codigo_tramite}
-                          </td>
-                          <td className="py-3.5 px-5 font-bold text-slate-800">
-                            {h.establecimiento}
-                          </td>
-                          <td className="py-3.5 px-5 text-slate-500 font-medium">
-                            {h.fecha_emision}
-                          </td>
-                          <td className="py-3.5 px-5 font-semibold text-slate-600">
-                            {h.vigencia}
-                          </td>
-                          <td className="py-3.5 px-5">
-                            <span className={`px-2.5 py-1 rounded-full text-[11px] font-bold border ${h.estado === 'Emitido'
-                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                              : 'bg-amber-50 text-amber-700 border-amber-200'
-                            }`}>
-                              {h.estado}
-                            </span>
-                          </td>
-                          <td className="py-3.5 px-5 text-right">
-                            <button
-                              type="button"
-                              onClick={handleDescargarResolucionPDF}
-                              className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-600 transition"
-                              title="Descargar PDF"
-                            >
-                              <Download className="w-4 h-4 text-[#0060a8]" />
-                            </button>
+                      {cargandoHistorial ? (
+                        <tr>
+                          <td colSpan={7} className="py-8 text-center text-slate-400 font-medium">
+                            <RefreshCw className="w-5 h-5 animate-spin mx-auto text-[#0060a8]" />
+                            <span className="block mt-2 text-xs">Cargando historial de resoluciones...</span>
                           </td>
                         </tr>
-                      ))}
+                      ) : historialList.length === 0 ? (
+                        <tr>
+                          <td colSpan={7} className="py-12 text-center text-slate-400 font-medium space-y-2">
+                            <FileText className="w-8 h-8 text-slate-300 mx-auto" />
+                            <p className="text-xs font-bold text-slate-700">Sin resoluciones en el historial</p>
+                            <p className="text-[11px] text-slate-400 max-w-sm mx-auto">
+                              Las resoluciones administrativas elaboradas y enviadas al Coordinador aparecerán registradas aquí.
+                            </p>
+                          </td>
+                        </tr>
+                      ) : (
+                        historialList.map((h) => (
+                          <tr key={h.id} className="hover:bg-slate-50/60 transition">
+                            <td className="py-3.5 px-5 font-black text-slate-900">
+                              {h.numero_resolucion}
+                            </td>
+                            <td className="py-3.5 px-5 font-bold text-[#0060a8]">
+                              {h.codigo_tramite}
+                            </td>
+                            <td className="py-3.5 px-5 font-bold text-slate-800">
+                              {h.establecimiento}
+                            </td>
+                            <td className="py-3.5 px-5 text-slate-500 font-medium">
+                              {h.fecha_emision}
+                            </td>
+                            <td className="py-3.5 px-5 font-semibold text-slate-600">
+                              {h.vigencia}
+                            </td>
+                            <td className="py-3.5 px-5">
+                              <span className={`px-2.5 py-1 rounded-full text-[11px] font-bold border ${
+                                h.estado === 'Emitido' || h.estado === 'Aprobado'
+                                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                  : h.estado === 'Enviado a Coordinador'
+                                    ? 'bg-sky-50 text-sky-800 border-sky-200'
+                                    : 'bg-amber-50 text-amber-700 border-amber-200'
+                              }`}>
+                                {h.estado}
+                              </span>
+                            </td>
+                            <td className="py-3.5 px-5 text-right">
+                              <button
+                                type="button"
+                                onClick={() => handleDescargarResolucionHistorial(h)}
+                                className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-600 transition cursor-pointer"
+                                title={`Descargar PDF de ${h.numero_resolucion}`}
+                              >
+                                <Download className="w-4 h-4 text-[#0060a8]" />
+                              </button>
+                            </td>
+                          </tr>
+                        ))
+                      )}
                     </tbody>
                   </table>
                 </div>
@@ -1068,16 +1205,18 @@ export default function AbogadoPage() {
                       <RefreshCw className="w-5 h-5 animate-spin mx-auto text-[#0060a8]" />
                       <p className="text-xs text-slate-500 font-medium mt-2">Cargando expedientes...</p>
                     </div>
-                  ) : informes.length === 0 ? (
+                  ) : listaCardsMostrada.length === 0 ? (
                     <div className="p-6 text-center bg-white rounded-2xl border border-slate-200/90 shadow-2xs space-y-2">
                       <FileText className="w-8 h-8 text-slate-300 mx-auto" />
-                      <p className="text-xs font-bold text-slate-700">Sin informes técnicos</p>
+                      <p className="text-xs font-bold text-slate-700">Sin informes técnicos pendientes</p>
                       <p className="text-[11px] text-slate-400 leading-relaxed">
-                        No hay trámites derivados por el Coordinador pendientes de revisión en este momento.
+                        {seccionActiva === 'informes-recibidos'
+                          ? 'Todos los informes recibidos han sido convertidos en resoluciones y remitidos a Coordinación.'
+                          : 'No hay resoluciones pendientes de revisión en este momento.'}
                       </p>
                     </div>
                   ) : (
-                    informes.map((item) => {
+                    listaCardsMostrada.map((item) => {
                       const isSelected = tramiteSeleccionadoId === item.id;
                       return (
                         <div
@@ -1166,7 +1305,7 @@ export default function AbogadoPage() {
                           <div className="space-y-1">
                             <div className="flex items-center space-x-2 flex-wrap gap-y-1">
                               <span className="px-2.5 py-1 bg-sky-100 text-[#0060a8] font-black rounded-lg border border-sky-200 text-xs">
-                                {detalleInforme.numero_resolucion ? `CITE: CODELAB/SEDES/${detalleInforme.codigo.replace('REQ-', '')}/2026` : 'CITE: CODELAB/SEDES/71/2026'}
+                                {detalleInforme.cite_informe ? `CITE: ${detalleInforme.cite_informe}` : (detalleInforme.numero_resolucion ? `CITE: CODELAB/SEDES/${detalleInforme.codigo.replace('REQ-', '')}/2026` : 'CITE: CODELAB/SEDES/71/2026')}
                               </span>
                               <span className="px-2.5 py-1 bg-emerald-100 text-emerald-900 font-bold rounded-lg border border-emerald-200 text-xs">
                                 {detalleInforme.tipo_tramite || 'Apertura'}
@@ -1451,113 +1590,143 @@ export default function AbogadoPage() {
                     <div className="space-y-4">
                       
                       {/* Cabecera y Controles de la Resolución Administrativa */}
-                      <div className="bg-white rounded-3xl p-5 sm:p-6 border border-slate-200/90 shadow-2xs space-y-4">
-                        
-                        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-                          <div className="space-y-1">
-                            <div className="flex items-center space-x-2 flex-wrap gap-y-1">
-                              <span className="px-2.5 py-1 bg-sky-100 text-[#0060a8] font-black rounded-lg border border-sky-200 text-xs">
-                                RA Nº {editNumeroResolucion || '55/2026'}
-                              </span>
-                              <span className="px-2.5 py-1 bg-emerald-100 text-emerald-900 font-bold rounded-lg border border-emerald-200 text-xs">
-                                {editTipoEstablecimiento || 'Laboratorio Clínico'}
-                              </span>
-                              <span className="px-2.5 py-1 bg-slate-100 text-slate-700 font-semibold rounded-lg border border-slate-200 text-xs">
-                                {borradorResolucion.estado_resolucion || 'En edición final'}
-                              </span>
+                      {(() => {
+                        const estadoResActual = borradorResolucion.estado_resolucion || detalleInforme?.estado_proceso || '';
+                        const yaEnviadoCoordinador = estadoResActual === 'Enviado a Coordinador' || estadoResActual === 'Aprobado' || estadoResActual === 'Emitido';
+
+                        return (
+                          <div className="bg-white rounded-3xl p-5 sm:p-6 border border-slate-200/90 shadow-2xs space-y-4">
+                            
+                            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                              <div className="space-y-1">
+                                <div className="flex items-center space-x-2 flex-wrap gap-y-1">
+                                  <span className="px-2.5 py-1 bg-sky-100 text-[#0060a8] font-black rounded-lg border border-sky-200 text-xs">
+                                    RA Nº {editNumeroResolucion || '55/2026'}
+                                  </span>
+                                  <span className="px-2.5 py-1 bg-emerald-100 text-emerald-900 font-bold rounded-lg border border-emerald-200 text-xs">
+                                    {editTipoEstablecimiento || 'Laboratorio Clínico'}
+                                  </span>
+                                  <span className={`px-2.5 py-1 font-bold rounded-lg border text-xs flex items-center space-x-1 ${
+                                    yaEnviadoCoordinador
+                                      ? 'bg-emerald-100 text-emerald-900 border-emerald-300'
+                                      : 'bg-slate-100 text-slate-700 border-slate-200'
+                                  }`}>
+                                    {yaEnviadoCoordinador && <Check className="w-3 h-3 stroke-[3] text-emerald-700 inline mr-1" />}
+                                    <span>{yaEnviadoCoordinador ? 'Remitido a Coordinación (Para Firma)' : (borradorResolucion.estado_resolucion || 'En edición final')}</span>
+                                  </span>
+                                </div>
+                                <h2 className="text-base sm:text-lg font-black text-slate-900 tracking-tight">
+                                  Resolución Administrativa — {borradorResolucion.codigo}: {editEstablecimiento || 'Establecimiento'}
+                                </h2>
+                                <p className="text-xs text-slate-500 font-medium">
+                                  Edición de datos preliminares y generación del documento oficial de habilitación sanitaria (SEDES Cochabamba)
+                                </p>
+                              </div>
+
+                              {/* Botones Rápidos de Acción */}
+                              <div className="flex items-center space-x-2 flex-wrap gap-y-2">
+                                <button
+                                  type="button"
+                                  onClick={handleAbrirResolucionPDFNuevaPestana}
+                                  disabled={!pdfResolucionBlobUrl}
+                                  className="px-3.5 py-2 bg-slate-50 hover:bg-slate-100 text-slate-700 rounded-xl text-xs font-bold transition border border-slate-200 flex items-center space-x-1.5 shadow-2xs cursor-pointer disabled:opacity-50"
+                                  title="Abrir en pestaña nueva"
+                                >
+                                  <ExternalLink className="w-3.5 h-3.5 text-slate-500" />
+                                  <span className="hidden sm:inline">Abrir PDF</span>
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={handleGuardarBorrador}
+                                  disabled={guardandoResolucion || yaEnviadoCoordinador}
+                                  className={`px-3.5 py-2 bg-white text-slate-700 rounded-xl text-xs font-bold transition border border-slate-300 flex items-center space-x-1.5 shadow-2xs ${
+                                    yaEnviadoCoordinador ? 'opacity-50 cursor-not-allowed' : 'hover:bg-slate-50 cursor-pointer'
+                                  }`}
+                                  title={yaEnviadoCoordinador ? 'La resolución ya fue remitida a Coordinación.' : 'Guardar cambios en la base de datos'}
+                                >
+                                  {guardandoResolucion ? (
+                                    <RefreshCw className="w-3.5 h-3.5 animate-spin text-[#0060a8]" />
+                                  ) : (
+                                    <Edit3 className="w-3.5 h-3.5 text-slate-600" />
+                                  )}
+                                  <span>Guardar</span>
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={handleDescargarResolucionPDF}
+                                  className="px-3.5 py-2 bg-[#0073c6] hover:bg-[#005fa6] text-white rounded-xl text-xs font-bold transition flex items-center space-x-1.5 shadow-2xs cursor-pointer"
+                                  title="Descargar documento oficial en PDF"
+                                >
+                                  <Download className="w-3.5 h-3.5 text-white" />
+                                  <span>Descargar RA</span>
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={handleEnviarAlCoordinador}
+                                  disabled={enviandoCoordinador || yaEnviadoCoordinador}
+                                  className={`px-4 py-2 text-white rounded-xl text-xs font-black transition shadow-sm flex items-center space-x-1.5 ${
+                                    yaEnviadoCoordinador
+                                      ? 'bg-emerald-800 text-emerald-100 cursor-not-allowed opacity-90'
+                                      : 'bg-[#0e533c] hover:bg-[#093d2b] cursor-pointer'
+                                  }`}
+                                  title={yaEnviadoCoordinador ? 'La resolución ya fue enviada a Coordinación para firma oficial.' : 'Enviar resolución final al Coordinador para firma'}
+                                >
+                                  {yaEnviadoCoordinador ? (
+                                    <>
+                                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-300" />
+                                      <span>Enviado al Coordinador</span>
+                                    </>
+                                  ) : enviandoCoordinador ? (
+                                    <>
+                                      <RefreshCw className="w-3.5 h-3.5 animate-spin text-white" />
+                                      <span>Enviando...</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <CheckCircle2 className="w-3.5 h-3.5 text-white" />
+                                      <span>Enviar al Coordinador</span>
+                                    </>
+                                  )}
+                                </button>
+                              </div>
+
                             </div>
-                            <h2 className="text-base sm:text-lg font-black text-slate-900 tracking-tight">
-                              Resolución Administrativa — {borradorResolucion.codigo}: {editEstablecimiento || 'Establecimiento'}
-                            </h2>
-                            <p className="text-xs text-slate-500 font-medium">
-                              Edición de datos preliminares y generación del documento oficial de habilitación sanitaria (SEDES Cochabamba)
-                            </p>
+
+                            {/* Selector de Pestañas: Documento PDF vs Formulario de Edición */}
+                            <div className="flex items-center space-x-2 pt-2 border-t border-slate-100">
+                              <button
+                                type="button"
+                                onClick={() => setTabResolucionActiva('pdf')}
+                                className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center space-x-2 cursor-pointer ${
+                                  tabResolucionActiva === 'pdf'
+                                    ? 'bg-[#0060a8] text-white shadow-xs'
+                                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200/70'
+                                }`}
+                              >
+                                <FileText className="w-3.5 h-3.5" />
+                                <span>Documento PDF Oficial (Resolución Administrativa)</span>
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => setTabResolucionActiva('editor')}
+                                className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center space-x-2 cursor-pointer ${
+                                  tabResolucionActiva === 'editor'
+                                    ? 'bg-[#0060a8] text-white shadow-xs'
+                                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200/70'
+                                }`}
+                              >
+                                <Edit3 className="w-3.5 h-3.5" />
+                                <span>Formulario de Edición de Datos</span>
+                              </button>
+                            </div>
+
                           </div>
-
-                          {/* Botones Rápidos de Acción */}
-                          <div className="flex items-center space-x-2 flex-wrap gap-y-2">
-                            <button
-                              type="button"
-                              onClick={handleAbrirResolucionPDFNuevaPestana}
-                              disabled={!pdfResolucionBlobUrl}
-                              className="px-3.5 py-2 bg-slate-50 hover:bg-slate-100 text-slate-700 rounded-xl text-xs font-bold transition border border-slate-200 flex items-center space-x-1.5 shadow-2xs cursor-pointer disabled:opacity-50"
-                              title="Abrir en pestaña nueva"
-                            >
-                              <ExternalLink className="w-3.5 h-3.5 text-slate-500" />
-                              <span className="hidden sm:inline">Abrir PDF</span>
-                            </button>
-
-                            <button
-                              type="button"
-                              onClick={handleGuardarBorrador}
-                              disabled={guardandoResolucion}
-                              className="px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 rounded-xl text-xs font-bold transition border border-slate-300 flex items-center space-x-1.5 shadow-2xs cursor-pointer"
-                              title="Guardar cambios en la base de datos"
-                            >
-                              {guardandoResolucion ? (
-                                <RefreshCw className="w-3.5 h-3.5 animate-spin text-[#0060a8]" />
-                              ) : (
-                                <Edit3 className="w-3.5 h-3.5 text-slate-600" />
-                              )}
-                              <span>Guardar</span>
-                            </button>
-
-                            <button
-                              type="button"
-                              onClick={handleDescargarResolucionPDF}
-                              className="px-3.5 py-2 bg-[#0073c6] hover:bg-[#005fa6] text-white rounded-xl text-xs font-bold transition flex items-center space-x-1.5 shadow-2xs cursor-pointer"
-                              title="Descargar documento oficial en PDF"
-                            >
-                              <Download className="w-3.5 h-3.5 text-white" />
-                              <span>Descargar RA</span>
-                            </button>
-
-                            <button
-                              type="button"
-                              onClick={handleEnviarAlCoordinador}
-                              disabled={enviandoCoordinador}
-                              className="px-4 py-2 bg-[#0e533c] hover:bg-[#093d2b] text-white rounded-xl text-xs font-black transition shadow-sm flex items-center space-x-1.5 cursor-pointer disabled:opacity-50"
-                            >
-                              {enviandoCoordinador ? (
-                                <RefreshCw className="w-3.5 h-3.5 animate-spin text-white" />
-                              ) : (
-                                <CheckCircle2 className="w-3.5 h-3.5 text-white" />
-                              )}
-                              <span>Enviar al Coordinador</span>
-                            </button>
-                          </div>
-                          {/* Selector de Pestañas: Documento PDF vs Formulario de Edición */}
-                          <div className="flex items-center space-x-2 pt-2 border-t border-slate-100">
-                            <button
-                              type="button"
-                              onClick={() => setTabResolucionActiva('pdf')}
-                              className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center space-x-2 cursor-pointer ${
-                                tabResolucionActiva === 'pdf'
-                                  ? 'bg-[#0060a8] text-white shadow-xs'
-                                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200/70'
-                              }`}
-                            >
-                              <FileText className="w-3.5 h-3.5" />
-                              <span>Documento PDF Oficial (Resolución Administrativa)</span>
-                            </button>
-
-                            <button
-                              type="button"
-                              onClick={() => setTabResolucionActiva('editor')}
-                              className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center space-x-2 cursor-pointer ${
-                                tabResolucionActiva === 'editor'
-                                  ? 'bg-[#0060a8] text-white shadow-xs'
-                                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200/70'
-                              }`}
-                            >
-                              <Edit3 className="w-3.5 h-3.5" />
-                              <span>Formulario de Edición de Datos</span>
-                            </button>
-                          </div>
-
-                        </div>
-
-                      </div>
+                        );
+                      })()}
 
                       {/* ======================================================= */}
                       {/* PESTAÑA 1: VISOR INTERACTIVO DEL PDF OFICIAL (2 PÁGINAS) */}

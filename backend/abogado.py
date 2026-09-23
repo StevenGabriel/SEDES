@@ -263,7 +263,7 @@ def obtener_detalle_informe(tramite_id: str, db: Session = Depends(get_db)):
     veredicto_sup_txt = (insp.veredicto_final if insp and insp.veredicto_final else None) or "Favorable (Cumple con estándares vigentes de bioseguridad)"
     obs_campo_txt = getattr(insp, 'observaciones', None) or "Infraestructura adecuada, manejo de residuos patógenos correcto y señalización de seguridad implementada."
 
-    # Buscar resolución existente
+    # Buscar resolución existente y datos del informe técnico registrado
     resol = db.query(models.ResolucionAdministrativa).filter(
         models.ResolucionAdministrativa.tramite_id == tramite.id,
         models.ResolucionAdministrativa.estado == True
@@ -282,13 +282,47 @@ def obtener_detalle_informe(tramite_id: str, db: Session = Depends(get_db)):
         estado_proceso_val = tramite.estado_tramite or "Pendiente de Revisión"
         num_res_val = f"RA-2026-{cod_trm.replace('REQ-', '')}"
 
-    # Observaciones del coordinador desde el historial de actividades
-    obs_coordinador = "Habiéndose verificado tanto el cumplimiento estricto de la carpeta legal como la conformidad en el informe de campo emitido por el supervisor de área, se concluye que el establecimiento cuenta con las garantías técnicas requeridas para su normal funcionamiento."
-    ultimo_log = db.query(models.HistorialActividad).filter(
-        models.HistorialActividad.codigo_tramite.ilike(f"%{str(tramite.id)[:8]}%")
-    ).order_by(desc(models.HistorialActividad.fecha_creacion)).first()
-    if ultimo_log and ultimo_log.accion:
-        obs_coordinador = ultimo_log.accion
+    # Recuperar datos reales remitidos por la Coordinación Departamental de Laboratorios (CODELAB)
+    cite_informe_real = (resol.cite_informe if resol and resol.cite_informe else None)
+    coord_nombre_real = (resol.coordinador_nombre if resol and resol.coordinador_nombre else None)
+    dest_informe_real = (resol.destinatario_informe if resol and resol.destinatario_informe else None)
+    dictamen_real = (resol.dictamen_coordinador if resol and resol.dictamen_coordinador else None)
+    obs_coordinador_real = (resol.observaciones_coordinador if resol and resol.observaciones_coordinador else None)
+    regente_real = (resol.regente_tecnico if resol and resol.regente_tecnico else None) or estab.responsable_laboratorio or prop_nombre
+    ci_regente_real = (resol.ci_regente if resol and resol.ci_regente else None) or prop_ci
+    fecha_inf_val = resol.fecha_informe if resol and resol.fecha_informe else None
+    fecha_inf_txt = formatear_fecha_es(fecha_inf_val) if fecha_inf_val else formatear_fecha_es(date.today())
+
+    # Fallback inteligente desde historial si no estuviera en resol
+    if not obs_coordinador_real or not cite_informe_real:
+        ultimo_log = db.query(models.HistorialActividad).filter(
+            models.HistorialActividad.codigo_tramite.ilike(f"%{str(tramite.id)[:8]}%")
+        ).order_by(desc(models.HistorialActividad.fecha_creacion)).first()
+        if ultimo_log and ultimo_log.accion:
+            texto_accion = ultimo_log.accion
+            if "Informe Técnico (" in texto_accion and ") derivado" in texto_accion:
+                try:
+                    c_extraido = texto_accion.split("Informe Técnico (")[1].split(")")[0]
+                    if not cite_informe_real:
+                        cite_informe_real = c_extraido
+                except Exception:
+                    pass
+            if not obs_coordinador_real:
+                if "'. " in texto_accion:
+                    obs_coordinador_real = texto_accion.split("'. ")[1].strip()
+                else:
+                    obs_coordinador_real = texto_accion
+
+    if not cite_informe_real:
+        cite_informe_real = f"CODELAB/SEDES/{cod_trm.replace('REQ-', '')}/{date.today().year}"
+    if not coord_nombre_real:
+        coord_nombre_real = "Dra. Claudia Morales Valenzuela"
+    if not dest_informe_real:
+        dest_informe_real = "Dr. Marco Villanueva - ASESOR LEGAL"
+    if not dictamen_real:
+        dictamen_real = "Favorabilidad Concedida (Favorable)"
+    if not obs_coordinador_real:
+        obs_coordinador_real = "Habiéndose verificado tanto el cumplimiento estricto de la carpeta legal como la conformidad en el informe de campo emitido por el supervisor de área, se concluye que el establecimiento cuenta con las garantías técnicas requeridas para su normal funcionamiento."
 
     return {
         "tramite_id": str(tramite.id),
@@ -296,9 +330,16 @@ def obtener_detalle_informe(tramite_id: str, db: Session = Depends(get_db)):
         "establecimiento_nombre": estab_nombre,
         "razon_social_propietario": prop_nombre,
         "ci_nit_solicitante": prop_ci,
+        "regente_tecnico": regente_real,
+        "ci_regente": ci_regente_real,
         "direccion": estab_dir,
+        "municipio": estab.municipio if estab else "Cochabamba",
         "tipo_establecimiento": estab_tipo,
         "tipo_tramite": tramite.tipo_tramite or "Apertura / Renovación",
+        "cite_informe": cite_informe_real,
+        "coordinador_nombre": coord_nombre_real,
+        "destinatario_informe": dest_informe_real,
+        "fecha_informe": fecha_inf_txt,
         "documentacion_legal": docs_list,
         "inspeccion_campo": {
             "fecha": f_insp_txt,
@@ -306,8 +347,8 @@ def obtener_detalle_informe(tramite_id: str, db: Session = Depends(get_db)):
             "resultado": veredicto_sup_txt,
             "observaciones": obs_campo_txt
         },
-        "observaciones_coordinador": obs_coordinador,
-        "dictamen_final": "Favorabilidad Concedida (Favorable)",
+        "observaciones_coordinador": obs_coordinador_real,
+        "dictamen_final": dictamen_real,
         "estado_proceso": estado_proceso_val,
         "numero_resolucion": num_res_val
     }
@@ -348,16 +389,18 @@ def obtener_borrador_resolucion(tramite_id: str, db: Session = Depends(get_db)):
     estab_upper = info["establecimiento_nombre"].upper()
     prop_nombre = info["razon_social_propietario"]
     ci_prop = info["ci_nit_solicitante"]
-    regente_nom = prop_nombre
-    ci_reg = ci_prop
+    regente_nom = info.get("regente_tecnico") or prop_nombre
+    ci_reg = info.get("ci_regente") or ci_prop
     tipo_trm_upper = (info.get("tipo_tramite") or "APERTURA Y HABILITACIÓN").upper()
     tipo_estab = info["tipo_establecimiento"]
     dir_estab = info["direccion"]
     f_insp_txt = info['inspeccion_campo']['fecha']
-    cite_inf = f"CODELAB/SEDES/71/{hoy.year}"
+    cite_inf = info.get("cite_informe") or f"CODELAB/SEDES/71/{hoy.year}"
+    coord_nom = info.get("coordinador_nombre") or "Dra. Claudia Morales Valenzuela"
+    fecha_inf_txt = info.get("fecha_informe") or f_emision
 
     vistos_default = (
-        f"La solicitud presentada en fecha {f_insp_txt}, de propiedad del {prop_nombre}, "
+        f"La solicitud presentada en fecha {fecha_inf_txt}, de propiedad del {prop_nombre}, "
         f"representado por el titular con C.I. Nº {ci_prop}, siendo Responsable Técnica la profesional {regente_nom} "
         f"con C.I. Nº {ci_reg}, quien solicita a la Señora Directora Departamental de Salud, la Resolución Administrativa de "
         f"{tipo_trm_upper} del {estab_upper}, ubicado en {dir_estab}, del Departamento de Cochabamba, y demás antecedentes."
@@ -370,8 +413,8 @@ def obtener_borrador_resolucion(tramite_id: str, db: Session = Depends(get_db)):
         "de Salud, es un órgano desconcentrado de la Gobernación con estructura propia e independencia de gestión "
         "administrativa y competencia departamental y su misión institucional es ejercer como Autoridad de Salud en el ámbito Departamental. "
         f"Asimismo conforme la Resolución Ministerial Nº 0202 del 22.03.2010 que aprueba el Reglamento General para la Habilitación y "
-        f"Funcionamiento de Laboratorios. El Informe Técnico de fecha {f_insp_txt} con No. CITE: {cite_inf}, en la que la "
-        f"Responsable CODELAB concluye que es procedente la {tipo_trm_upper} del establecimiento {estab_upper}."
+        f"Funcionamiento de Laboratorios. El Informe Técnico de fecha {fecha_inf_txt} con No. CITE: {cite_inf}, en la que la "
+        f"Responsable CODELAB, {coord_nom}, concluye que es procedente la {tipo_trm_upper} del establecimiento {estab_upper}."
     )
 
     art1_default = (
@@ -420,9 +463,10 @@ def obtener_borrador_resolucion(tramite_id: str, db: Session = Depends(get_db)):
             "tipo_establecimiento": info["tipo_establecimiento"],
             "tipo_tramite": info.get("tipo_tramite", "Apertura"),
             "direccion": info["direccion"],
+            "municipio": info.get("municipio", "Cochabamba"),
             "cite_informe": cite_inf,
-            "fecha_informe": f_insp_txt,
-            "coordinador_nombre": "Dra. Claudia Morales Valenzuela",
+            "fecha_informe": fecha_inf_txt,
+            "coordinador_nombre": coord_nom,
             "abogado_nombre": "Dr. Marco Villanueva"
         },
         "antecedentes": antecedentes_txt,
@@ -546,11 +590,23 @@ def enviar_resolucion_coordinador(payload: EnviarCoordinadorRequest, db: Session
 
     # Actualizar estado a 'Enviado a Coordinador'
     resol = db.query(models.ResolucionAdministrativa).filter(
-        models.ResolucionAdministrativa.numero_resolucion == num_res
+        (models.ResolucionAdministrativa.numero_resolucion == num_res) |
+        (models.ResolucionAdministrativa.tramite_id == payload.tramite_id if payload.tramite_id else False)
     ).first()
     if resol:
         resol.estado_resolucion = "Enviado a Coordinador"
+        if resol.tramite:
+            resol.tramite.estado_tramite = "Enviado a Coordinador"
         db.commit()
+
+    if payload.tramite_id:
+        try:
+            t_obj = db.query(models.Tramite).filter(models.Tramite.id == uuid.UUID(payload.tramite_id)).first()
+            if t_obj:
+                t_obj.estado_tramite = "Enviado a Coordinador"
+                db.commit()
+        except Exception:
+            pass
 
     # 1. Registrar evento en Historial de Auditoría (historial_actividades)
     ahora_formateado = formatear_fecha_es(datetime.now(), con_hora=True)
