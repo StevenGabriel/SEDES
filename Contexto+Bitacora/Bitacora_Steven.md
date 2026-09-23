@@ -2998,5 +2998,31 @@ Permitir que en la vista de **Informe Técnico** del Coordinador (`/coordinador/
 * **Compilación Frontend:** `npm run build` ejecutado exitosamente con 0 errores de compilación.
 * **Integración Extremo a Extremo:** Verificación de la transición de estados: *Derivado a Asesoría Legal* ➔ *Resolución Lista para Firma (Abogado aprueba)* ➔ *Botón Desbloqueado en Informe Técnico* ➔ *Aprobación Final y Habilitación Oficial*.
 
+---
+
+## [2026-09-23] Sincronización y Visualización de la Resolución Administrativa Editada por Abogado en la Vista del Coordinador
+
+### 📌 Objetivo
+Permitir que las ediciones y redacciones que el Asesor Legal (Abogado) realiza sobre la **Resolución Administrativa** (razón social, NIT/CI, antecedentes, fundamentos legales, artículos resolutivos y observaciones) se sincronicen íntegramente con el Coordinador y puedan previsualizarse e imprimirse en vivo en el visualizador PDF de **Informe Técnico** (`/coordinador/informe-tecnico`).
+
+---
+
+### 🛠️ Archivos Modificados
+
+#### 1. `backend/coordinador.py` [MODIFICADO]
+* En `serializar_tramite_coordinador`, se serializa el objeto completo `resolucion` con todos los campos editados por el Asesor Legal (`articulo_primero`, `articulo_segundo`, `articulo_tercero`, `antecedentes`, `fundamento_legal`, `observaciones_legales`, `observaciones_coordinador`, `dictamen_coordinador`, `razon_social_propietario`, `ci_nit_solicitante`, `direccion_registrada`, etc.).
+* Se priorizan los datos actualizados de la resolución en la información general del establecimiento.
+
+#### 2. `backend/abogado.py` [MODIFICADO]
+* En `guardar_resolucion`, se asegura el guardado persistente de `observaciones_coordinador` y `dictamen_final` en la base de datos PostgreSQL.
+
+#### 3. `frontend/src/components/coordinador/InformeTecnicoView.jsx` [MODIFICADO]
+* **Selector Dual de Documentos en el Visor:** Se integró un selector de pestañas en la barra superior del visualizador PDF:
+  - **📄 1. Informe Técnico (Comunicación Interna SEDES - 3 Páginas):** Generado con `generarComunicacionInternaPDF`.
+  - **⚖️ 2. Resolución Legal RA (Editada por Abogado - 2 Páginas):** Generada en vivo con `generarResolucionAdministrativaPDF` reflejando todas las modificaciones jurídicas.
+* **Acceso Rápido desde el Banner:** Al hacer clic en *"Ver Resolución"*, el visor cambia instantáneamente a la Resolución Administrativa editada por Legal.
+* **Impresión / Descarga Contextual:** El botón *"Imprimir"* se adapta dinámicamente al documento actualmente seleccionado (*Imprimir Resolución RA* vs *Imprimir Informe Técnico*).
+
+
 
 

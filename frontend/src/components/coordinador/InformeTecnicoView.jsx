@@ -25,6 +25,7 @@ import {
   Lock
 } from 'lucide-react';
 import { generarComunicacionInternaPDF } from './ComunicacionInternaPDF';
+import { generarResolucionAdministrativaPDF } from '../abogado/ResolucionAdministrativaPDF';
 
 export default function InformeTecnicoView({
   tramites = [],
@@ -50,6 +51,7 @@ export default function InformeTecnicoView({
         est.includes('firma') ||
         est.includes('aprobado') ||
         t.resolucion_lista_para_firma ||
+        t.resolucion ||
         est === 'en informe técnico'
       );
       const esSeleccionado = tramiteSeleccionadoId && (t.id === tramiteSeleccionadoId || t.tramite_uuid === tramiteSeleccionadoId);
@@ -74,24 +76,25 @@ export default function InformeTecnicoView({
         id: t.id,
         tramite_uuid: t.tramite_uuid || t.id,
         codigo: t.id,
-        establecimiento: t.establecimiento || 'Laboratorio Clínico',
+        establecimiento: t.resolucion?.establecimiento_nombre || t.establecimiento || 'Laboratorio Clínico',
         tipo: t.tipo || 'Apertura',
         fecha: t.fecha || 'Reciente',
         estado: t.estado || 'En Informe Técnico',
+        resolucion: t.resolucion || null,
         resolucion_lista_para_firma: t.resolucion_lista_para_firma,
-        resolucion_numero: t.resolucion_numero,
-        resolucion_estado: t.resolucion_estado,
-        propietario: t.propietario || 'Propietario no registrado',
-        ci_nit: t.propietario_ci || t.ci_nit || '3799203 CB.',
-        direccion: t.direccion || 'Cochabamba, Bolivia',
-        tipoDetallado: t.categoria || t.tipo || 'Laboratorio de Diagnóstico Clínico',
+        resolucion_numero: t.resolucion_numero || t.resolucion?.numero_resolucion,
+        resolucion_estado: t.resolucion_estado || t.resolucion?.estado_resolucion,
+        propietario: t.resolucion?.razon_social_propietario || t.propietario || 'Propietario no registrado',
+        ci_nit: t.resolucion?.ci_nit_solicitante || t.propietario_ci || t.ci_nit || '3799203 CB.',
+        direccion: t.resolucion?.direccion_registrada || t.direccion || 'Cochabamba, Bolivia',
+        tipoDetallado: t.resolucion?.tipo_establecimiento || t.categoria || t.tipo || 'Laboratorio de Diagnóstico Clínico',
         fechaInspeccion: t.fechaInspeccion && t.fechaInspeccion !== 'Pendiente' ? t.fechaInspeccion : 'Inspección realizada',
         supervisorAsignado: (t.supervisorAsignado && t.supervisorAsignado !== 'Sin Asignar') ? t.supervisorAsignado : 'Supervisor de Área SEDES',
         resultadoGeneral: veredicto.includes('FAVORABLE') || veredicto.includes('favorable') || veredicto.includes('Aprobado')
           ? 'Favorable (Cumple con estándares vigentes de bioseguridad)'
           : veredicto,
         observacionesCampo: obsSupervisor,
-        regente: t.regente || t.director_tecnico || 'DRA. NORMA VILLAVICENCIO SILES',
+        regente: t.resolucion?.regente_tecnico || t.regente || t.director_tecnico || 'DRA. NORMA VILLAVICENCIO SILES',
         documentosAprobados: docsAprobadosNombres.length > 0 ? docsAprobadosNombres : [
           'Licencia Municipal (Vigente)',
           'Certificado Sanitario Previo',
@@ -119,6 +122,30 @@ export default function InformeTecnicoView({
     return listaEstablecimientos.find(t => t.id === tramiteActivoId || t.tramite_uuid === tramiteActivoId) || (listaEstablecimientos.length > 0 ? listaEstablecimientos[0] : null);
   }, [listaEstablecimientos, tramiteActivoId]);
 
+  // Documento visualizado: 'informe' (Comunicación Interna) | 'resolucion' (Resolución Administrativa Legal)
+  const [tipoDocumentoVisor, setTipoDocumentoVisor] = useState('informe');
+
+  // Sincronizar selección de documento y datos al cambiar de trámite activo
+  useEffect(() => {
+    if (tramiteActivo) {
+      if (tramiteActivo.resolucion_lista_para_firma || tramiteActivo.resolucion) {
+        setTipoDocumentoVisor('resolucion');
+      } else {
+        setTipoDocumentoVisor('informe');
+      }
+
+      if (tramiteActivo.resolucion?.observaciones_coordinador) {
+        setObservacionesCoordinador(tramiteActivo.resolucion.observaciones_coordinador);
+      }
+      if (tramiteActivo.resolucion?.dictamen_coordinador) {
+        setDictamenFinal(tramiteActivo.resolucion.dictamen_coordinador);
+      }
+      if (tramiteActivo.resolucion?.cite_informe) {
+        setCiteNumero(tramiteActivo.resolucion.cite_informe);
+      }
+    }
+  }, [tramiteActivo?.id, tramiteActivo?.resolucion?.id]);
+
   // Estado del formulario de Informe Técnico
   const [observacionesCoordinador, setObservacionesCoordinador] = useState(
     'Habiéndose verificado tanto el cumplimiento estricto de la carpeta legal como la conformidad en el informe de campo emitido por el supervisor de área, se concluye que el establecimiento cuenta con las garantías técnicas requeridas para su normal funcionamiento.'
@@ -143,22 +170,58 @@ export default function InformeTecnicoView({
   const [generandoVistaPrevia, setGenerandoVistaPrevia] = useState(false);
   const urlAnteriorRef = useRef(null);
 
-  // Actualizar en tiempo real la vista previa del PDF oficial de 3 páginas
+  // Actualizar en tiempo real la vista previa del PDF oficial (Informe Técnico o Resolución Administrativa)
   const actualizarVistaPreviaPDF = useCallback(async () => {
     if (!tramiteActivo) return;
     setGenerandoVistaPrevia(true);
     try {
-      const doc = await generarComunicacionInternaPDF(tramiteActivo, {
-        cite: citeNumero,
-        destinatario: destinatarioLegal,
-        destinatarioCargo: destinatarioCargo,
-        via: viaJefe,
-        viaCargo: viaCargo,
-        remitente: nombreCoordinador,
-        remitenteCargo: 'RESPONSABLE DEPARTAMENTAL DE LABORATORIOS CODELAB - SEDES',
-        regente: tramiteActivo.regente,
-        observaciones: observacionesCoordinador
-      });
+      let doc;
+      if (tipoDocumentoVisor === 'resolucion' && (tramiteActivo.resolucion || tramiteActivo.resolucion_numero)) {
+        const res = tramiteActivo.resolucion || {};
+        const datosParaPdf = {
+          numero_resolucion: res.numero_resolucion || tramiteActivo.resolucion_numero || 'RA-2026-SEDES',
+          fecha_emision: res.fecha_emision || new Date().toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' }),
+          establecimiento: res.establecimiento_nombre || tramiteActivo.establecimiento,
+          establecimiento_nombre: res.establecimiento_nombre || tramiteActivo.establecimiento,
+          propietario: res.razon_social_propietario || tramiteActivo.propietario,
+          razon_social: res.razon_social_propietario || tramiteActivo.propietario,
+          razon_social_propietario: res.razon_social_propietario || tramiteActivo.propietario,
+          ci_nit: res.ci_nit_solicitante || tramiteActivo.ci_nit,
+          ci_nit_solicitante: res.ci_nit_solicitante || tramiteActivo.ci_nit,
+          regente: res.regente_tecnico || tramiteActivo.regente || tramiteActivo.propietario,
+          regente_nombre: res.regente_tecnico || tramiteActivo.regente || tramiteActivo.propietario,
+          ci_regente: res.ci_regente || tramiteActivo.ci_nit,
+          tipo_tramite: tramiteActivo.tipo || 'APERTURA Y HABILITACIÓN',
+          direccion: res.direccion_registrada || tramiteActivo.direccion,
+          direccion_registrada: res.direccion_registrada || tramiteActivo.direccion,
+          tipo_establecimiento: res.tipo_establecimiento || tramiteActivo.tipoDetallado,
+          cite_informe: res.cite_informe || citeNumero,
+          fecha_informe: res.fecha_emision || 'Reciente',
+          coordinador_nombre: nombreCoordinador,
+          abogado_nombre: res.abogado_nombre || 'Dr. Marco Villanueva (Asesor Legal SEDES)',
+          vigencia_anios: res.vigencia_anios || 5,
+          antecedentes: res.antecedentes,
+          vistos: res.antecedentes,
+          fundamento_legal: res.fundamento_legal,
+          articulo_primero: res.articulo_primero,
+          articulo_segundo: res.articulo_segundo,
+          articulo_tercero: res.articulo_tercero,
+          observaciones_legales: res.observaciones_legales
+        };
+        doc = await generarResolucionAdministrativaPDF(datosParaPdf);
+      } else {
+        doc = await generarComunicacionInternaPDF(tramiteActivo, {
+          cite: citeNumero,
+          destinatario: destinatarioLegal,
+          destinatarioCargo: destinatarioCargo,
+          via: viaJefe,
+          viaCargo: viaCargo,
+          remitente: nombreCoordinador,
+          remitenteCargo: 'RESPONSABLE DEPARTAMENTAL DE LABORATORIOS CODELAB - SEDES',
+          regente: tramiteActivo.regente,
+          observaciones: observacionesCoordinador
+        });
+      }
       const blob = doc.output('blob');
       const url = URL.createObjectURL(blob);
       if (urlAnteriorRef.current) {
@@ -175,6 +238,8 @@ export default function InformeTecnicoView({
     tramiteActivo?.id,
     tramiteActivo?.establecimiento,
     tramiteActivo?.regente,
+    tramiteActivo?.resolucion,
+    tipoDocumentoVisor,
     citeNumero,
     destinatarioLegal,
     destinatarioCargo,
@@ -184,7 +249,7 @@ export default function InformeTecnicoView({
     observacionesCoordinador
   ]);
 
-  // Generar la vista previa al cambiar de trámite o parámetros clave
+  // Generar la vista previa al cambiar de trámite, documento o parámetros clave
   useEffect(() => {
     actualizarVistaPreviaPDF();
     return () => {
@@ -193,13 +258,7 @@ export default function InformeTecnicoView({
       }
     };
   }, [
-    tramiteActivo?.id,
-    citeNumero,
-    destinatarioLegal,
-    destinatarioCargo,
-    viaJefe,
-    viaCargo,
-    observacionesCoordinador
+    actualizarVistaPreviaPDF
   ]);
 
   // Manejar cambio de trámite seleccionado
@@ -210,33 +269,72 @@ export default function InformeTecnicoView({
     }
   };
 
-  // Generar e Imprimir / Descargar el PDF oficial de 3 páginas
+  // Generar e Imprimir / Descargar el PDF oficial correspondiente
   const handleImprimirInforme = async () => {
     if (!tramiteActivo) return;
     setGenerandoPdf(true);
     try {
-      const doc = await generarComunicacionInternaPDF(tramiteActivo, {
-        cite: citeNumero,
-        destinatario: destinatarioLegal,
-        destinatarioCargo: destinatarioCargo,
-        via: viaJefe,
-        viaCargo: viaCargo,
-        remitente: nombreCoordinador,
-        remitenteCargo: 'RESPONSABLE DEPARTAMENTAL DE LABORATORIOS CODELAB - SEDES',
-        regente: tramiteActivo.regente,
-        observaciones: observacionesCoordinador
-      });
+      let doc;
+      let filename;
+      if (tipoDocumentoVisor === 'resolucion' && (tramiteActivo.resolucion || tramiteActivo.resolucion_numero)) {
+        const res = tramiteActivo.resolucion || {};
+        const datosParaPdf = {
+          numero_resolucion: res.numero_resolucion || tramiteActivo.resolucion_numero || 'RA-2026-SEDES',
+          fecha_emision: res.fecha_emision || new Date().toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' }),
+          establecimiento: res.establecimiento_nombre || tramiteActivo.establecimiento,
+          establecimiento_nombre: res.establecimiento_nombre || tramiteActivo.establecimiento,
+          propietario: res.razon_social_propietario || tramiteActivo.propietario,
+          razon_social: res.razon_social_propietario || tramiteActivo.propietario,
+          razon_social_propietario: res.razon_social_propietario || tramiteActivo.propietario,
+          ci_nit: res.ci_nit_solicitante || tramiteActivo.ci_nit,
+          ci_nit_solicitante: res.ci_nit_solicitante || tramiteActivo.ci_nit,
+          regente: res.regente_tecnico || tramiteActivo.regente || tramiteActivo.propietario,
+          regente_nombre: res.regente_tecnico || tramiteActivo.regente || tramiteActivo.propietario,
+          ci_regente: res.ci_regente || tramiteActivo.ci_nit,
+          tipo_tramite: tramiteActivo.tipo || 'APERTURA Y HABILITACIÓN',
+          direccion: res.direccion_registrada || tramiteActivo.direccion,
+          direccion_registrada: res.direccion_registrada || tramiteActivo.direccion,
+          tipo_establecimiento: res.tipo_establecimiento || tramiteActivo.tipoDetallado,
+          cite_informe: res.cite_informe || citeNumero,
+          fecha_informe: res.fecha_emision || 'Reciente',
+          coordinador_nombre: nombreCoordinador,
+          abogado_nombre: res.abogado_nombre || 'Dr. Marco Villanueva (Asesor Legal SEDES)',
+          vigencia_anios: res.vigencia_anios || 5,
+          antecedentes: res.antecedentes,
+          vistos: res.antecedentes,
+          fundamento_legal: res.fundamento_legal,
+          articulo_primero: res.articulo_primero,
+          articulo_segundo: res.articulo_segundo,
+          articulo_tercero: res.articulo_tercero,
+          observaciones_legales: res.observaciones_legales
+        };
+        doc = await generarResolucionAdministrativaPDF(datosParaPdf);
+        filename = `Resolucion_Administrativa_${(res.numero_resolucion || 'SEDES').replace(/[\/\\]/g, '_')}.pdf`;
+      } else {
+        doc = await generarComunicacionInternaPDF(tramiteActivo, {
+          cite: citeNumero,
+          destinatario: destinatarioLegal,
+          destinatarioCargo: destinatarioCargo,
+          via: viaJefe,
+          viaCargo: viaCargo,
+          remitente: nombreCoordinador,
+          remitenteCargo: 'RESPONSABLE DEPARTAMENTAL DE LABORATORIOS CODELAB - SEDES',
+          regente: tramiteActivo.regente,
+          observaciones: observacionesCoordinador
+        });
+        filename = `Informe_Tecnico_${tramiteActivo.codigo || 'SEDES'}.pdf`;
+      }
 
       // Abrir en ventana de impresión nativa y descargar
       const blob = doc.output('blob');
       const blobUrl = URL.createObjectURL(blob);
       window.open(blobUrl, '_blank');
-      doc.save(`Informe_Tecnico_${tramiteActivo.codigo || 'SEDES'}.pdf`);
+      doc.save(filename);
 
-      mostrarToast('Informe Técnico (Comunicación Interna) generado e impreso con éxito.', 'success');
+      mostrarToast(`Documento (${tipoDocumentoVisor === 'resolucion' ? 'Resolución Administrativa' : 'Informe Técnico'}) generado e impreso con éxito.`, 'success');
     } catch (err) {
-      console.error('Error generando PDF de Comunicación Interna:', err);
-      mostrarToast('Error al generar el PDF de Comunicación Interna.', 'warning');
+      console.error('Error generando PDF:', err);
+      mostrarToast('Error al generar el PDF.', 'warning');
     } finally {
       setGenerandoPdf(false);
     }
@@ -495,25 +593,38 @@ export default function InformeTecnicoView({
                 </div>
                 <div>
                   <h4 className="text-xs sm:text-sm font-black text-emerald-900 flex items-center space-x-2">
-                    <span>¡Resolución Administrativa Aprobada por Asesoría Legal!</span>
+                    <span>¡Resolución Administrativa {tramiteActivo?.resolucion_numero ? `(${tramiteActivo.resolucion_numero})` : ''} Aprobada por Asesoría Legal!</span>
                     <span className="text-[10px] font-bold bg-emerald-200 text-emerald-900 px-2 py-0.5 rounded-full">
                       Listo para Firma
                     </span>
                   </h4>
                   <p className="text-[11px] sm:text-xs text-emerald-800 font-medium mt-0.5 leading-relaxed">
-                    El Asesor Legal ha revisado el expediente técnico y remitido la Resolución Administrativa oficial. Puede presionar <strong>"Aprobar Trámite Final"</strong> para concluir el trámite y habilitar el establecimiento.
+                    El Asesor Legal ha redactado/editado la Resolución Administrativa y la ha remitido para su revisión final. Puede visualizarla en el visor o presionar <strong>"Aprobar Trámite Final"</strong>.
                   </p>
                 </div>
               </div>
 
-              <button
-                type="button"
-                onClick={() => onAprobarFinal(tramiteActivo)}
-                className="w-full sm:w-auto px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-extrabold text-xs rounded-xl shadow-md transition flex items-center justify-center space-x-2 shrink-0 cursor-pointer"
-              >
-                <Award className="w-4 h-4 text-white" />
-                <span>Aprobar Ahora</span>
-              </button>
+              <div className="flex items-center space-x-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTipoDocumentoVisor('resolucion');
+                    setVistaModo('visor');
+                  }}
+                  className="px-3.5 py-2 bg-white text-emerald-800 hover:bg-emerald-100/70 border border-emerald-300 font-bold text-xs rounded-xl transition flex items-center space-x-1.5 cursor-pointer shadow-xs"
+                >
+                  <Eye className="w-3.5 h-3.5 text-emerald-700" />
+                  <span>Ver Resolución</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onAprobarFinal(tramiteActivo)}
+                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-extrabold text-xs rounded-xl shadow-md transition flex items-center justify-center space-x-2 cursor-pointer"
+                >
+                  <Award className="w-4 h-4 text-white" />
+                  <span>Aprobar Ahora</span>
+                </button>
+              </div>
             </div>
           )}
 
@@ -563,38 +674,73 @@ export default function InformeTecnicoView({
           )}
 
           {/* ================================================================= */}
-          {/* MODO 1: VISUALIZADOR DE PDF OFICIAL (IGUAL A BANDEJA DE ENTRADA)   */}
+          {/* MODO 1: VISUALIZADOR DE PDF OFICIAL                               */}
           {/* ================================================================= */}
           {vistaModo === 'visor' ? (
             <div className="bg-white rounded-xl shadow-md border border-slate-300 overflow-hidden flex flex-col flex-1 min-h-[560px]">
-              {/* Barra superior de herramientas del visor */}
-              <div className="bg-slate-800 text-white px-4 py-2.5 text-xs flex items-center justify-between font-mono shrink-0">
-                <div className="flex items-center space-x-2 truncate">
-                  <FileText className="w-4 h-4 text-cyan-400 shrink-0" />
-                  <span className="truncate">Visualizador de Documento PDF - Comunicación Interna ({tramiteActivo?.establecimiento})</span>
+              
+              {/* Barra de Selección de Documento: Informe Técnico vs Resolución Administrativa */}
+              <div className="bg-slate-900 border-b border-slate-700 px-4 py-2 flex flex-wrap items-center justify-between gap-2 shrink-0">
+                <div className="flex items-center space-x-2">
+                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider hidden sm:inline">Documento:</span>
+                  <div className="flex items-center bg-slate-800 p-0.5 rounded-lg border border-slate-700">
+                    <button
+                      type="button"
+                      onClick={() => setTipoDocumentoVisor('informe')}
+                      className={`px-3 py-1.5 rounded-md text-xs font-bold transition flex items-center space-x-1.5 cursor-pointer ${
+                        tipoDocumentoVisor === 'informe'
+                          ? 'bg-[#0077c8] text-white shadow-xs'
+                          : 'text-slate-300 hover:text-white hover:bg-slate-700/60'
+                      }`}
+                    >
+                      <FileText className="w-3.5 h-3.5" />
+                      <span>1. Informe Técnico (3 Páginas)</span>
+                    </button>
+
+                    {(tramiteActivo?.resolucion || tramiteActivo?.resolucion_lista_para_firma || tramiteActivo?.resolucion_numero) && (
+                      <button
+                        type="button"
+                        onClick={() => setTipoDocumentoVisor('resolucion')}
+                        className={`px-3 py-1.5 rounded-md text-xs font-bold transition flex items-center space-x-1.5 cursor-pointer ${
+                          tipoDocumentoVisor === 'resolucion'
+                            ? 'bg-emerald-600 text-white shadow-xs'
+                            : 'text-slate-300 hover:text-emerald-300 hover:bg-slate-700/60'
+                        }`}
+                      >
+                        <Award className="w-3.5 h-3.5" />
+                        <span>2. Resolución Legal RA {tramiteActivo?.resolucion_numero ? `(${tramiteActivo.resolucion_numero})` : ''}</span>
+                        {tramiteActivo?.resolucion && (
+                          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse ml-0.5"></span>
+                        )}
+                      </button>
+                    )}
+                  </div>
                 </div>
-                <div className="flex items-center space-x-3 shrink-0">
-                  <span className="text-cyan-300 text-[11px] font-bold hidden sm:inline">3 Páginas Oficiales</span>
+
+                <div className="flex items-center space-x-2">
+                  <span className="text-slate-300 text-[11px] font-mono hidden md:inline">
+                    {tipoDocumentoVisor === 'resolucion' ? 'Resolución Legal (Editada por Abogado)' : 'Comunicación Interna SEDES'}
+                  </span>
                   <button
                     type="button"
                     onClick={actualizarVistaPreviaPDF}
                     disabled={generandoVistaPrevia}
-                    className="p-1 rounded hover:bg-slate-700 text-slate-300 hover:text-white transition cursor-pointer flex items-center space-x-1"
+                    className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition cursor-pointer flex items-center space-x-1 text-xs border border-slate-700"
                     title="Actualizar / Regenerar vista previa del PDF"
                   >
                     <RefreshCw className={`w-3.5 h-3.5 ${generandoVistaPrevia ? 'animate-spin text-cyan-400' : ''}`} />
-                    <span className="text-[10px] hidden md:inline">Actualizar</span>
+                    <span className="text-[11px] hidden sm:inline">Actualizar</span>
                   </button>
                   {pdfBlobUrl && (
                     <a
                       href={pdfBlobUrl}
                       target="_blank"
                       rel="noreferrer"
-                      className="p-1 rounded hover:bg-slate-700 text-slate-300 hover:text-white transition cursor-pointer flex items-center space-x-1"
+                      className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition cursor-pointer flex items-center space-x-1 text-xs border border-slate-700"
                       title="Abrir PDF en pestaña independiente"
                     >
                       <ExternalLink className="w-3.5 h-3.5 text-slate-300" />
-                      <span className="text-[10px] hidden md:inline">Ver Completo</span>
+                      <span className="text-[11px] hidden sm:inline">Ver Completo</span>
                     </a>
                   )}
                 </div>
@@ -604,14 +750,18 @@ export default function InformeTecnicoView({
               {generandoVistaPrevia && !pdfBlobUrl ? (
                 <div className="flex-1 min-h-[520px] flex flex-col items-center justify-center bg-slate-50 text-slate-400 space-y-2.5 p-8">
                   <RefreshCw className="w-8 h-8 animate-spin text-[#0077c8]" />
-                  <p className="text-xs font-bold text-slate-800">Generando documento oficial de Comunicación Interna...</p>
-                  <p className="text-[11px] text-slate-400">Compilando 3 páginas con sellos, membrete institucional y checklist</p>
+                  <p className="text-xs font-bold text-slate-800">
+                    {tipoDocumentoVisor === 'resolucion'
+                      ? 'Compilando Resolución Administrativa con cambios legales...'
+                      : 'Generando documento oficial de Comunicación Interna...'}
+                  </p>
+                  <p className="text-[11px] text-slate-400">Renderizando formato oficial institucional con membretes y firmas</p>
                 </div>
               ) : pdfBlobUrl ? (
                 <iframe
                   src={`${pdfBlobUrl}#toolbar=1&navpanes=0`}
                   className="w-full flex-1 min-h-[560px] sm:min-h-[620px] border-0 bg-slate-100"
-                  title="Comunicación Interna SEDES"
+                  title={tipoDocumentoVisor === 'resolucion' ? 'Resolución Administrativa SEDES' : 'Comunicación Interna SEDES'}
                 />
               ) : (
                 <div className="flex-1 min-h-[520px] flex items-center justify-center bg-slate-50 text-slate-400 text-xs">
@@ -745,7 +895,7 @@ export default function InformeTecnicoView({
         {/* ===================================================================== */}
         <div className="p-4 sm:px-6 sm:py-4 border-t border-slate-200 bg-white flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-3 shrink-0">
           
-          {/* Botón 1: Imprimir Informe (Genera PDF 3 páginas) */}
+          {/* Botón 1: Imprimir Documento Activo (Informe Técnico 3 págs o Resolución RA 2 págs) */}
           <button
             type="button"
             onClick={handleImprimirInforme}
@@ -753,7 +903,11 @@ export default function InformeTecnicoView({
             className="px-5 py-2.5 bg-white hover:bg-slate-50 text-slate-800 font-extrabold text-xs sm:text-sm border border-slate-300 rounded-xl shadow-xs transition flex items-center justify-center space-x-2 cursor-pointer active:scale-98 disabled:opacity-50"
           >
             <Printer className="w-4 h-4 text-slate-600" />
-            <span>{generandoPdf ? 'Generando PDF...' : 'Imprimir Informe'}</span>
+            <span>
+              {generandoPdf
+                ? 'Generando PDF...'
+                : (tipoDocumentoVisor === 'resolucion' ? 'Imprimir Resolución RA' : 'Imprimir Informe')}
+            </span>
           </button>
 
           {/* Botón 2: Enviar a Área Legal */}

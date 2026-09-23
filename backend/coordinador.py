@@ -201,6 +201,33 @@ def serializar_tramite_coordinador(tramite: models.Tramite, db: Session) -> dict
         (resol and resol.estado_resolucion in ["Enviado a Coordinador", "Aprobado por Legal", "Emitida", "Firmada"])
     )
 
+    resolucion_dict = None
+    if resol:
+        resolucion_dict = {
+            "id": str(resol.id),
+            "numero_resolucion": resol.numero_resolucion,
+            "establecimiento_nombre": resol.establecimiento_nombre,
+            "razon_social_propietario": resol.razon_social_propietario,
+            "ci_nit_solicitante": resol.ci_nit_solicitante,
+            "tipo_establecimiento": resol.tipo_establecimiento,
+            "direccion_registrada": resol.direccion_registrada,
+            "regente_tecnico": resol.regente_tecnico,
+            "ci_regente": resol.ci_regente,
+            "cite_informe": resol.cite_informe,
+            "observaciones_coordinador": resol.observaciones_coordinador,
+            "dictamen_coordinador": resol.dictamen_coordinador,
+            "antecedentes": resol.antecedentes,
+            "fundamento_legal": resol.fundamento_legal,
+            "articulo_primero": resol.articulo_primero,
+            "articulo_segundo": resol.articulo_segundo,
+            "articulo_tercero": resol.articulo_tercero,
+            "observaciones_legales": resol.observaciones_legales,
+            "fecha_emision": resol.fecha_emision.strftime("%d de %B de %Y") if resol.fecha_emision else None,
+            "vigencia_anios": resol.vigencia_anios or 5,
+            "estado_resolucion": resol.estado_resolucion,
+            "abogado_nombre": f"{resol.abogado.nombres} {resol.abogado.apellidos}" if resol.abogado else "Dr. Marco Villanueva"
+        }
+
     return {
         "id": codigo_visual,
         "tramite_uuid": str(tramite.id),
@@ -208,14 +235,14 @@ def serializar_tramite_coordinador(tramite: models.Tramite, db: Session) -> dict
         "tipoBadgeColor": get_tipo_badge_color(tramite.tipo_tramite),
         "fecha": fecha_formateada,
         "fechaISO": fecha_iso,
-        "establecimiento": estab.nombre_comercial if estab else "Establecimiento",
+        "establecimiento": resol.establecimiento_nombre if (resol and resol.establecimiento_nombre) else (estab.nombre_comercial if estab else "Establecimiento"),
         "categoria": f"{estab.tipo if estab else 'Laboratorio Clínico'} ({estab.nivel if estab else 'Nivel 1'})",
         "municipio": estab.municipio if estab else "CERCADO",
-        "direccion": estab.direccion if estab else "Cochabamba",
+        "direccion": resol.direccion_registrada if (resol and resol.direccion_registrada) else (estab.direccion if estab else "Cochabamba"),
         "telefono": estab.telefono if estab else (propietario.telefono if propietario else ""),
         "email": estab.email_contacto if estab else (propietario.email if propietario else ""),
-        "propietario": prop_nombre,
-        "propietario_ci": propietario.ci_nit if propietario else "",
+        "propietario": resol.razon_social_propietario if (resol and resol.razon_social_propietario) else prop_nombre,
+        "propietario_ci": resol.ci_nit_solicitante if (resol and resol.ci_nit_solicitante) else (propietario.ci_nit if propietario else ""),
         "propietario_email": propietario.email if propietario else "",
         "estado": tramite.estado_tramite or "Pendiente",
         "estadoColor": get_estado_color(tramite.estado_tramite),
@@ -238,6 +265,7 @@ def serializar_tramite_coordinador(tramite: models.Tramite, db: Session) -> dict
         "resolucion_lista_para_firma": resolucion_lista_para_firma,
         "resolucion_numero": resol.numero_resolucion if resol else None,
         "resolucion_estado": resol.estado_resolucion if resol else None,
+        "resolucion": resolucion_dict,
         "observacionesSupervisor": observaciones
     }
 

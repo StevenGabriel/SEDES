@@ -561,6 +561,8 @@ def guardar_resolucion(payload: GuardarResolucionRequest, db: Session = Depends(
         if payload.articulo_segundo: resol.articulo_segundo = payload.articulo_segundo
         if payload.articulo_tercero: resol.articulo_tercero = payload.articulo_tercero
         if payload.observaciones_legales: resol.observaciones_legales = payload.observaciones_legales
+        if payload.observaciones_coordinador: resol.observaciones_coordinador = payload.observaciones_coordinador
+        if payload.dictamen_final: resol.dictamen_coordinador = payload.dictamen_final
         resol.estado_resolucion = "En edición final"
 
     db.commit()
