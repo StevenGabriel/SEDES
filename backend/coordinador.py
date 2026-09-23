@@ -774,7 +774,54 @@ def derivar_area_legal(
     estab_nombre = tramite.establecimiento.nombre_comercial if tramite.establecimiento else "Establecimiento"
     cod_trm = f"TRM-{str(tramite.id)[:8].upper()}"
     ahora_formato = datetime.now().strftime("%d %b %Y - %H:%M")
-    cite = payload.codigo_cite or f"CODELAB/SEDES/71/{datetime.now().year}"
+    # Guardar/Actualizar expediente técnico en ResolucionAdministrativa para revisión del Asesor Legal
+    estab = tramite.establecimiento
+    prop = estab.propietario if estab else None
+    prop_nom = f"{prop.nombres} {prop.apellidos}" if prop else "Propietario Registrado"
+    prop_ci = prop.ci_nit if prop else ""
+    regente_nom = estab.responsable_laboratorio if (estab and estab.responsable_laboratorio) else prop_nom
+    
+    num_res_default = f"RA-2026-{str(tramite.id)[:4].upper()}"
+    resol = db.query(models.ResolucionAdministrativa).filter(
+        models.ResolucionAdministrativa.tramite_id == tramite.id
+    ).first()
+
+    abogado_user = db.query(models.Usuario).join(models.Role).filter(models.Role.nombre.ilike("%Abogado%")).first()
+
+    if not resol:
+        resol = models.ResolucionAdministrativa(
+            id=uuid.uuid4(),
+            numero_resolucion=num_res_default,
+            tramite_id=tramite.id,
+            establecimiento_id=estab.id if estab else uuid.uuid4(),
+            abogado_id=abogado_user.id if abogado_user else None,
+            establecimiento_nombre=estab.nombre_comercial if estab else "Establecimiento",
+            razon_social_propietario=prop_nom,
+            ci_nit_solicitante=prop_ci,
+            tipo_establecimiento=estab.tipo if estab else "Laboratorio Clínico",
+            direccion_registrada=estab.direccion if estab else "Cochabamba",
+            regente_tecnico=regente_nom,
+            ci_regente=prop_ci,
+            cite_informe=cite,
+            observaciones_coordinador=payload.observaciones or "Habiéndose verificado tanto el cumplimiento estricto de la carpeta legal como la conformidad en el informe de campo emitido por el supervisor de área, se concluye que el establecimiento cuenta con las garantías técnicas requeridas para su normal funcionamiento.",
+            dictamen_coordinador=payload.dictamen or "Favorabilidad Concedida (Favorable)",
+            destinatario_informe=payload.destinatario or "Dr. Marco Villanueva - ASESOR LEGAL",
+            coordinador_nombre=payload.responsable or "Dra. Claudia Morales Valenzuela",
+            fecha_informe=date.today(),
+            estado_resolucion="Pendiente de Revisión"
+        )
+        db.add(resol)
+    else:
+        resol.cite_informe = cite
+        resol.observaciones_coordinador = payload.observaciones or resol.observaciones_coordinador
+        resol.dictamen_coordinador = payload.dictamen or resol.dictamen_coordinador
+        resol.destinatario_informe = payload.destinatario or resol.destinatario_informe
+        resol.coordinador_nombre = payload.responsable or resol.coordinador_nombre
+        resol.fecha_informe = date.today()
+        resol.regente_tecnico = regente_nom
+        resol.ci_regente = prop_ci
+        if resol.estado_resolucion not in ["Aprobado", "Emitido"]:
+            resol.estado_resolucion = "Pendiente de Revisión"
 
     nuevo_log = models.HistorialActividad(
         id=uuid.uuid4(),
