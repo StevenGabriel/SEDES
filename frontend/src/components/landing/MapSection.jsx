@@ -16,7 +16,7 @@ import {
   Clock,
   X
 } from 'lucide-react';
-import RealMultiMapView, { getLabSpecialty, checkEstaAbierto, ESPECIALIDADES_MAPA } from '../common/RealMultiMapView';
+import RealMultiMapView, { getLabSpecialty, getLabSpecialties, checkEstaAbierto, ESPECIALIDADES_MAPA } from '../common/RealMultiMapView';
 
 export default function MapSection() {
   const [selectedMunicipio, setSelectedMunicipio] = useState('Todos');
@@ -55,15 +55,16 @@ export default function MapSection() {
     { id: 8, key: 'TOXICOLOGIA', name: 'LABORATORIO DE TOXICOLOGÍA', shortName: 'Toxicología', icon: TestTube2, color: 'bg-amber-600', hex: '#d97706' },
   ];
 
-  // Filtrado combinado por municipio y especialidad
+  // Filtrado combinado por municipio y especialidad (reconoce múltiples especialidades por laboratorio)
   const filteredLabs = laboratorios.filter(lab => {
     const matchMunicipio = selectedMunicipio === 'Todos' || (lab.municipio || '').toUpperCase() === selectedMunicipio.toUpperCase();
     
     if (!matchMunicipio) return false;
     if (!selectedEspecialidad) return true;
 
-    const esp = getLabSpecialty(lab);
-    return esp.id === selectedEspecialidad.id;
+    // Verificar si alguna de las especialidades del laboratorio coincide con la seleccionada en la leyenda
+    const specialties = getLabSpecialties(lab);
+    return specialties.some(esp => esp.id === selectedEspecialidad.id || esp.key === selectedEspecialidad.key);
   });
 
   // Extraer lista de municipios únicos presentes en los datos
@@ -91,6 +92,7 @@ export default function MapSection() {
             selectedLab={selectedLab}
             onSelectLab={(lab) => setSelectedLab(lab)}
             selectedMunicipio={selectedMunicipio}
+            selectedEspecialidad={selectedEspecialidad}
             height="100%"
           />
         </div>
@@ -175,7 +177,7 @@ export default function MapSection() {
             ) : (
               filteredLabs.map((lab) => {
                 const isSelected = selectedLab && selectedLab.id === lab.id;
-                const especialidad = getLabSpecialty(lab);
+                const specialties = getLabSpecialties(lab);
                 const estadoHorario = checkEstaAbierto(lab.horario);
 
                 return (
@@ -202,19 +204,29 @@ export default function MapSection() {
                       </span>
                     </div>
 
-                    {/* Insignia de Especialidad y Horario */}
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span 
-                        className="inline-flex items-center space-x-1.5 px-2 py-0.5 rounded-md text-[10px] font-bold border"
-                        style={{
-                          backgroundColor: `${especialidad.colorHex}15`,
-                          color: especialidad.colorHex,
-                          borderColor: `${especialidad.colorHex}35`
-                        }}
-                      >
-                        <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: especialidad.colorHex }}></span>
-                        <span>{especialidad.shortName}</span>
-                      </span>
+                    {/* Insignias de Especialidades y Horario */}
+                    <div className="space-y-1.5">
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        {specialties.map((esp) => {
+                          const isHighlighted = selectedEspecialidad && (selectedEspecialidad.id === esp.id || selectedEspecialidad.key === esp.key);
+                          return (
+                            <span 
+                              key={esp.id}
+                              className={`inline-flex items-center space-x-1.5 px-2 py-0.5 rounded-md text-[10px] font-bold border transition ${
+                                isHighlighted ? 'ring-2 ring-offset-1 ring-[#0073c6]' : ''
+                              }`}
+                              style={{
+                                backgroundColor: `${esp.colorHex}15`,
+                                color: esp.colorHex,
+                                borderColor: `${esp.colorHex}35`
+                              }}
+                            >
+                              <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: esp.colorHex }}></span>
+                              <span>{esp.shortName}</span>
+                            </span>
+                          );
+                        })}
+                      </div>
 
                       <span className="text-[10px] text-slate-500 font-medium flex items-center gap-1">
                         <Clock className="w-3 h-3 text-slate-400" />

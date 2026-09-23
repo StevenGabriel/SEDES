@@ -288,25 +288,109 @@ export const checkEstaAbierto = (horarioStr) => {
   }
 };
 
-// Función para clasificar y obtener la especialidad de un laboratorio
-export const getLabSpecialty = (lab) => {
-  const text = `${lab.servicios || ''} ${lab.responsables_areas || ''} ${lab.nombre_comercial || ''} ${lab.tipo || ''}`.toLowerCase();
+// Función para extraer y normalizar TODAS las especialidades de un laboratorio
+export const getLabSpecialties = (lab) => {
+  if (!lab) return [ESPECIALIDADES_MAPA.GENERAL];
+
+  let rawServicios = [];
+  if (Array.isArray(lab.servicios)) {
+    rawServicios = lab.servicios;
+  } else if (typeof lab.servicios === 'string') {
+    const trimmed = lab.servicios.trim();
+    if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+      try {
+        rawServicios = JSON.parse(trimmed);
+      } catch {
+        rawServicios = trimmed.split(',');
+      }
+    } else {
+      rawServicios = trimmed.split(',');
+    }
+  }
+
+  const fullText = `${lab.servicios || ''} ${lab.responsables_areas || ''} ${lab.nombre_comercial || ''} ${lab.tipo || ''}`.toLowerCase();
   
-  if (text.includes('microbio')) return ESPECIALIDADES_MAPA.MICROBIOLOGIA;
-  if (text.includes('patol') || text.includes('citol')) return ESPECIALIDADES_MAPA.ANATOMIA;
-  if (text.includes('hemat')) return ESPECIALIDADES_MAPA.HEMATOLOGIA;
-  if (text.includes('inmuno')) return ESPECIALIDADES_MAPA.INMUNOLOGIA;
-  if (text.includes('endo') || text.includes('bioquim') || text.includes('bioquím')) return ESPECIALIDADES_MAPA.ENDOCRINOLOGIA;
-  if (text.includes('genét') || text.includes('genet')) return ESPECIALIDADES_MAPA.GENETICA;
-  if (text.includes('toxi')) return ESPECIALIDADES_MAPA.TOXICOLOGIA;
-  
-  return ESPECIALIDADES_MAPA.GENERAL;
+  const foundSpecialties = [];
+  const addedIds = new Set();
+
+  const addSpecialty = (esp) => {
+    if (esp && !addedIds.has(esp.id)) {
+      addedIds.add(esp.id);
+      foundSpecialties.push(esp);
+    }
+  };
+
+  // 1. Revisar cada elemento individual en rawServicios
+  rawServicios.forEach(s => {
+    const item = (typeof s === 'string' ? s : '').toLowerCase().trim();
+    if (!item) return;
+
+    if (item.includes('microbio')) {
+      addSpecialty(ESPECIALIDADES_MAPA.MICROBIOLOGIA);
+    } else if (item.includes('patol') || item.includes('citol')) {
+      addSpecialty(ESPECIALIDADES_MAPA.ANATOMIA);
+    } else if (item.includes('hemat')) {
+      addSpecialty(ESPECIALIDADES_MAPA.HEMATOLOGIA);
+    } else if (item.includes('inmuno')) {
+      addSpecialty(ESPECIALIDADES_MAPA.INMUNOLOGIA);
+    } else if (item.includes('endo') || item.includes('hormon') || item.includes('bioquim') || item.includes('bioquím')) {
+      addSpecialty(ESPECIALIDADES_MAPA.ENDOCRINOLOGIA);
+    } else if (item.includes('genét') || item.includes('genet') || item.includes('adn') || item.includes('molecular')) {
+      addSpecialty(ESPECIALIDADES_MAPA.GENETICA);
+    } else if (item.includes('toxi')) {
+      addSpecialty(ESPECIALIDADES_MAPA.TOXICOLOGIA);
+    } else if (item.includes('clínic') || item.includes('clinico') || item.includes('general') || item.includes('rutina')) {
+      addSpecialty(ESPECIALIDADES_MAPA.GENERAL);
+    }
+  });
+
+  // 2. Verificar en el texto completo para cada una de las 8 especialidades
+  if (fullText.includes('microbio') || fullText.includes('bacterio') || fullText.includes('cultivo')) {
+    addSpecialty(ESPECIALIDADES_MAPA.MICROBIOLOGIA);
+  }
+  if (fullText.includes('patol') || fullText.includes('citol') || fullText.includes('papanicolaou') || fullText.includes('biopsia')) {
+    addSpecialty(ESPECIALIDADES_MAPA.ANATOMIA);
+  }
+  if (fullText.includes('hemat') || fullText.includes('coagulaci')) {
+    addSpecialty(ESPECIALIDADES_MAPA.HEMATOLOGIA);
+  }
+  if (fullText.includes('inmuno') || fullText.includes('serolog') || fullText.includes('anticuerpo') || fullText.includes('alergia')) {
+    addSpecialty(ESPECIALIDADES_MAPA.INMUNOLOGIA);
+  }
+  if (fullText.includes('endo') || fullText.includes('hormon') || fullText.includes('tiroides') || fullText.includes('bioquim') || fullText.includes('bioquím')) {
+    addSpecialty(ESPECIALIDADES_MAPA.ENDOCRINOLOGIA);
+  }
+  if (fullText.includes('genét') || fullText.includes('genet') || fullText.includes('adn') || fullText.includes('molecular')) {
+    addSpecialty(ESPECIALIDADES_MAPA.GENETICA);
+  }
+  if (fullText.includes('toxi') || fullText.includes('drogas')) {
+    addSpecialty(ESPECIALIDADES_MAPA.TOXICOLOGIA);
+  }
+
+  // 3. Si sigue vacía o incluye explícitamente clínico general
+  if (foundSpecialties.length === 0 || fullText.includes('clínic') || fullText.includes('clinico') || fullText.includes('general')) {
+    addSpecialty(ESPECIALIDADES_MAPA.GENERAL);
+  }
+
+  return foundSpecialties.length > 0 ? foundSpecialties : [ESPECIALIDADES_MAPA.GENERAL];
+};
+
+// Función para obtener la especialidad primaria o coincidente con el filtro activo
+export const getLabSpecialty = (lab, selectedEspecialidad = null) => {
+  const specialties = getLabSpecialties(lab);
+  if (selectedEspecialidad) {
+    const match = specialties.find(e => e.id === selectedEspecialidad.id || e.key === selectedEspecialidad.key);
+    if (match) return match;
+  }
+  return specialties[0] || ESPECIALIDADES_MAPA.GENERAL;
 };
 
 // Generador de iconos personalizados para marcadores de laboratorio
-const createMarkerIcon = (lab, isSelected = false) => {
+const createMarkerIcon = (lab, isSelected = false, selectedEspecialidad = null) => {
   const estadoHorario = checkEstaAbierto(lab.horario);
-  const especialidad = getLabSpecialty(lab);
+  const especialidad = getLabSpecialty(lab, selectedEspecialidad);
+  const allSpecialties = getLabSpecialties(lab);
+  const isMulti = allSpecialties.length > 1;
   const pinBg = especialidad.colorHex;
   const badgeBg = especialidad.badgeBg;
 
@@ -317,6 +401,7 @@ const createMarkerIcon = (lab, isSelected = false) => {
         <div style="background-color: ${badgeBg}; color: white; padding: 2.5px 8px; border-radius: 9999px; font-size: 10px; font-weight: 800; white-space: nowrap; box-shadow: 0 4px 10px rgba(0,0,0,0.35); border: 1.5px solid rgba(255,255,255,0.9); margin-bottom: 2px; display: flex; align-items: center; gap: 4px;">
           <span style="width: 6px; height: 6px; border-radius: 9999px; background-color: ${estadoHorario.abierto ? '#10b981' : '#ef4444'};"></span>
           <span>${lab.nombre_comercial}</span>
+          ${isMulti ? `<span style="background-color: rgba(255,255,255,0.25); border-radius: 4px; padding: 0 4px; font-size: 9px; font-weight: 800;" title="${allSpecialties.length} especialidades">+${allSpecialties.length - 1}</span>` : ''}
         </div>
 
         <div style="width: ${isSelected ? '38px' : '33px'}; height: ${isSelected ? '38px' : '33px'}; background-color: ${pinBg}; border-radius: 9999px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 14px rgba(0,0,0,0.45); border: 2.5px solid white; transition: all 0.2s; transform: ${isSelected ? 'scale(1.15)' : 'scale(1)'};">
@@ -334,6 +419,7 @@ export default function RealMultiMapView({
   selectedLab = null, 
   onSelectLab = () => {},
   selectedMunicipio = 'Todos',
+  selectedEspecialidad = null,
   height = "480px" 
 }) {
   const mapContainerRef = useRef(null);
@@ -414,7 +500,7 @@ export default function RealMultiMapView({
     }
   }, [selectedMunicipio]);
 
-  // 3. Renderizar y actualizar marcadores según la lista de laboratorios
+  // 3. Renderizar y actualizar marcadores según la lista de laboratorios y filtro de especialidad
   useEffect(() => {
     const map = mapInstanceRef.current;
     const markersLayer = markersLayerRef.current;
@@ -430,17 +516,25 @@ export default function RealMultiMapView({
       if (isNaN(lat) || isNaN(lng)) return;
 
       const isSelected = selectedLab && selectedLab.id === lab.id;
-      const especialidad = getLabSpecialty(lab);
       const estadoHorario = checkEstaAbierto(lab.horario);
+      const allSpecialties = getLabSpecialties(lab);
 
       const marker = L.marker([lat, lng], {
-        icon: createMarkerIcon(lab, isSelected),
+        icon: createMarkerIcon(lab, isSelected, selectedEspecialidad),
         zIndexOffset: isSelected ? 1000 : 0
       });
 
       const cueText = lab.codigo_cue && lab.codigo_cue !== 'Nuevo' ? lab.codigo_cue : lab.id;
+      
+      const badgesHtml = allSpecialties.map(esp => `
+        <span style="display: inline-flex; align-items: center; gap: 3px; padding: 2px 7px; border-radius: 6px; background-color: ${esp.colorHex}15; color: ${esp.colorHex}; font-size: 10px; font-weight: 800; border: 1px solid ${esp.colorHex}30;">
+          <span style="width: 5px; height: 5px; border-radius: 50%; background-color: ${esp.colorHex};"></span>
+          <span>${esp.shortName}</span>
+        </span>
+      `).join('');
+
       const popupHtml = `
-        <div style="font-family: system-ui, sans-serif; min-width: 210px; padding: 2px;">
+        <div style="font-family: system-ui, sans-serif; min-width: 220px; max-width: 280px; padding: 2px;">
           <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 4px;">
             <span style="font-size: 10px; font-weight: 800; text-transform: uppercase; color: #005596;">
               ${lab.municipio || 'Cochabamba'} • ${lab.nivel || 'Nivel 1'}
@@ -450,12 +544,12 @@ export default function RealMultiMapView({
             </span>
           </div>
 
-          <h4 style="font-size: 14px; font-weight: 900; color: #0f172a; margin: 0 0 4px 0; line-height: 1.2;">
+          <h4 style="font-size: 14px; font-weight: 900; color: #0f172a; margin: 0 0 5px 0; line-height: 1.2;">
             ${lab.nombre_comercial}
           </h4>
 
-          <div style="display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 6px; background-color: ${especialidad.colorHex}15; color: ${especialidad.colorHex}; font-size: 10px; font-weight: 800; margin-bottom: 4px; border: 1px solid ${especialidad.colorHex}30;">
-            <span>${especialidad.shortName}</span>
+          <div style="display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 6px;">
+            ${badgesHtml}
           </div>
 
           <p style="font-size: 11px; color: #64748b; margin: 0 0 4px 0; line-height: 1.3;">
@@ -481,7 +575,7 @@ export default function RealMultiMapView({
       marker.addTo(markersLayer);
       markersMapRef.current.set(lab.id, marker);
     });
-  }, [laboratorios]);
+  }, [laboratorios, selectedEspecialidad]);
 
   // 4. Enfocar el mapa si se selecciona un laboratorio específico desde la lista
   useEffect(() => {

@@ -2861,3 +2861,74 @@ Optimizar la ergonomía, distribución espacial y usabilidad en dispositivos mó
 
 *Bitácora actualizada por: Steven*
 
+---
+
+## [2026-09-23] Soporte y Filtrado Multi-Especialidad en el Mapa Cartográfico y Leyenda de la Landing Page
+
+### 📌 Objetivo
+Permitir que los laboratorios autorizados con múltiples especialidades (por ejemplo *"Lab prueba 2"*) sean reconocidos y filtrados correctamente en el mapa interactivo y en la lista lateral cuando el ciudadano selecciona cualquiera de sus especialidades en la **Leyenda de Tipos de Laboratorio**, mostrando badges múltiples y adaptando el pin al filtro seleccionado.
+
+---
+
+### 🛠️ Archivos Modificados
+
+#### 1. `frontend/src/components/common/RealMultiMapView.jsx` [MODIFICADO]
+* **Parser Exhaustivo `getLabSpecialties(lab)`:**
+  - Analiza tanto arreglos como cadenas separadas por coma (`lab.servicios`), campos de responsables de área (`lab.responsables_areas`), tipo de laboratorio y nombre comercial.
+  - Detecta e indexa todas las especialidades oficiales (`GENERAL`, `MICROBIOLOGIA`, `ANATOMIA`, `HEMATOLOGIA`, `INMUNOLOGIA`, `ENDOCRINOLOGIA`, `GENETICA`, `TOXICOLOGIA`) con tolerancia a mayúsculas, minúsculas y tildes.
+* **Marcadores Dinámicos en Mapa:**
+  - Si un laboratorio posee más de una especialidad, el marcador Leaflet incluye una insignia superior de conteo (`+N`) para evidenciar que cuenta con múltiples áreas autorizadas.
+  - Cuando se selecciona una especialidad en la leyenda, el marcador adopta el color e ícono de la especialidad filtrada.
+* **Popups Informativos Enriquecidos:**
+  - Muestra todas las insignias de especialidad correspondientes al establecimiento con sus respectivos colores institucionales y nombres.
+
+#### 2. `frontend/src/components/landing/MapSection.jsx` [MODIFICADO]
+* **Filtrado Multi-Especialidad:**
+  - El filtro `filteredLabs` ahora utiliza `specialties.some(esp => esp.id === selectedEspecialidad.id || esp.key === selectedEspecialidad.key)`, asegurando que laboratorios con varias áreas aparezcan siempre que coincidan con la categoría elegida.
+* **Tarjetas Laterales Mejoradas:**
+  - Renderizado de todos los badges de especialidad de cada laboratorio en su tarjeta correspondiente, destacando visualmente con anillo y borde la especialidad que coincide con el filtro activo.
+* **Sincronización con el Mapa:**
+  - Se pasa `selectedEspecialidad` al componente `RealMultiMapView` para mantener sincronizados los colores de los pines en tiempo real.
+
+---
+
+### 📊 Verificación y Pruebas Realizadas
+* **Compilación Frontend:** `npm run build` ejecutado exitosamente con 0 errores (dist generado sin fallos de sintaxis).
+* **Prueba de Filtrado:** Un laboratorio con múltiples especialidades (como *"Lab prueba 2"*) ahora aparece en cada una de las categorías seleccionadas en la leyenda.
+
+---
+
+## [2026-09-23] Campos Dinámicos Obligatorios de Encargados de Área (Nombre y CI) en Solicitud de Apertura
+
+### 📌 Objetivo
+Permitir que al momento en que el propietario seleccione una o varias especialidades autorizadas (ej. *Hematología*, *Inmunología*, *Genética*, etc.) en la vista **Nueva Solicitud de Apertura** (`/propietario/nueva-solicitud`), se desplieguen de forma automática y reactiva los campos de captura obligatorios para ingresar el **Nombre Completo** y el **C.I.** del profesional bioquímico responsable de cada área elegida.
+
+---
+
+### 🛠️ Archivos Creados y Modificados
+
+#### 1. `frontend/src/pages/PropietarioPage.jsx` [MODIFICADO]
+* **Estado Reactivo `encargadosAreas`:**
+  - Estructura `{ [especialidad]: { nombre: string, ci: string } }` sincronizada automáticamente con la selección y deselección de píldoras de especialidades.
+* **Componentes de Entrada Dinámicos:**
+  - Por cada especialidad activa, se genera una tarjeta estilizada con el color institucional del área, descripción técnica y dos campos en grilla responsiva:
+    1. *Nombre Completo del Responsable Técnico de Área* (Obligatorio con ícono `User`).
+    2. *Cédula de Identidad (C.I.) del Responsable* (Obligatorio con ícono `CreditCard`).
+* **Validación Estricta de Formulario:**
+  - `handleEnviarNuevaSolicitud` comprueba que todos los encargados de las áreas seleccionadas cuenten con Nombre y CI antes de proceder, bloqueando el envío y alertando con el detalle exacto de los datos faltantes si alguno fue omitido.
+* **Persistencia Estructurada:**
+  - Formatea la información como `"Especialidad: NOMBRE COMPLETO (CI: NRO_CI)"` concatenada con `; ` en el campo `responsables_areas` enviado a la API de PostgreSQL.
+
+#### 2. `backend/models.py` & `backend/init_db.py` [MODIFICADO]
+* Se amplió el tipo de dato de la columna `responsables_areas` de `String(255)` a `Text` en el modelo y migraciones para soportar el almacenamiento sin límite de longitud cuando un laboratorio registre múltiples especialidades con sus respectivos encargados.
+
+---
+
+### 📊 Verificación y Pruebas Realizadas
+* **Compilación Frontend:** `npm run build` completado exitosamente con 0 errores.
+* **Pruebas de Validación:** Si se seleccionan 3 especialidades y se deja un campo de CI o Nombre vacío, el sistema alerta e indica con precisión la especialidad y el dato faltante.
+* **Persistencia:** Al enviar la solicitud, los datos se guardan estructurados en PostgreSQL vinculados al trámite.
+
+---
+
+

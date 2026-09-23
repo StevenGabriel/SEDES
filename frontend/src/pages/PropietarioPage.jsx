@@ -36,7 +36,10 @@ import {
   ChevronRight,
   Send,
   Loader2,
-  FolderOpen
+  FolderOpen,
+  User,
+  UserCheck,
+  ShieldCheck
 } from 'lucide-react';
 
 import logoL1 from '../assets/L1.png';
@@ -193,6 +196,57 @@ const ESPECIALIDADES_OFICIALES = [
   'Toxicología'
 ];
 
+const ESPECIALIDAD_INFO = {
+  'Clínico General': {
+    badge: 'bg-teal-50 text-teal-700 border-teal-200',
+    dot: 'bg-teal-500',
+    iconColor: 'text-teal-600',
+    descripcion: 'Área de análisis clínicos básicos, química sanguínea y orina'
+  },
+  'Clínico Microbiológico': {
+    badge: 'bg-indigo-50 text-indigo-700 border-indigo-200',
+    dot: 'bg-indigo-500',
+    iconColor: 'text-indigo-600',
+    descripcion: 'Cultivos, antibiogramas, bacteriología y micología'
+  },
+  'Anatomía Patológica y Citología': {
+    badge: 'bg-purple-50 text-purple-700 border-purple-200',
+    dot: 'bg-purple-500',
+    iconColor: 'text-purple-600',
+    descripcion: 'Biopsias, citología cervicovaginal (Papanicolaou) e histopatología'
+  },
+  'Hematología': {
+    badge: 'bg-rose-50 text-rose-700 border-rose-200',
+    dot: 'bg-rose-500',
+    iconColor: 'text-rose-600',
+    descripcion: 'Hemogramas completos, coagulación, frotis sanguíneo y médula ósea'
+  },
+  'Inmunología': {
+    badge: 'bg-sky-50 text-sky-700 border-sky-200',
+    dot: 'bg-sky-500',
+    iconColor: 'text-sky-600',
+    descripcion: 'Serología, pruebas infecciosas, ELISA, autoanticuerpos y alergias'
+  },
+  'Endocrinología': {
+    badge: 'bg-amber-50 text-amber-700 border-amber-200',
+    dot: 'bg-amber-500',
+    iconColor: 'text-amber-600',
+    descripcion: 'Hormonas tiroideas, fertilidad, marcadores tumorales y metabolismo'
+  },
+  'Genética': {
+    badge: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+    dot: 'bg-emerald-500',
+    iconColor: 'text-emerald-600',
+    descripcion: 'Genética molecular, cariotipos, PCR y estudios cromosómicos'
+  },
+  'Toxicología': {
+    badge: 'bg-orange-50 text-orange-700 border-orange-200',
+    dot: 'bg-orange-500',
+    iconColor: 'text-orange-600',
+    descripcion: 'Detección de fármacos, drogas de abuso, metales pesados y metabolitos'
+  }
+};
+
 const normalizarEspecialidad = (str) => {
   const s = (str || '').toLowerCase().trim();
   if (s.includes('clínic') && !s.includes('microbio')) return 'Clínico General';
@@ -278,6 +332,9 @@ export default function PropietarioPage() {
     servicios: ['Clínico General'],
     latitud: -17.3895,
     longitud: -66.1568
+  });
+  const [encargadosAreas, setEncargadosAreas] = useState({
+    'Clínico General': { nombre: '', ci: '' }
   });
   const [nuevaFotoFile, setNuevaFotoFile] = useState(null);
   const [nuevaFotoPreview, setNuevaFotoPreview] = useState(null);
@@ -836,13 +893,46 @@ export default function PropietarioPage() {
   // Manejadores para la Vista: "Nueva Solicitud de Apertura"
   // =========================================================================
   const handleToggleEspecialidadNueva = (esp) => {
-    setFormNueva((prev) => {
-      const existe = prev.servicios.includes(esp);
-      const nuevos = existe 
-        ? prev.servicios.filter(s => s !== esp) 
-        : [...prev.servicios, esp];
-      return { ...prev, servicios: nuevos.length > 0 ? nuevos : [esp] };
+    const existe = formNueva.servicios.includes(esp);
+    let nuevosServicios;
+    
+    if (existe) {
+      nuevosServicios = formNueva.servicios.filter(s => s !== esp);
+      // Evitar que quede con 0 especialidades
+      if (nuevosServicios.length === 0) {
+        nuevosServicios = [esp];
+      }
+    } else {
+      nuevosServicios = [...formNueva.servicios, esp];
+    }
+
+    setFormNueva(prev => ({ ...prev, servicios: nuevosServicios }));
+
+    setEncargadosAreas(prev => {
+      if (existe) {
+        if (formNueva.servicios.length > 1) {
+          const copy = { ...prev };
+          delete copy[esp];
+          return copy;
+        }
+        return prev;
+      } else {
+        return {
+          ...prev,
+          [esp]: prev[esp] || { nombre: '', ci: '' }
+        };
+      }
     });
+  };
+
+  const handleEncargadoAreaChange = (esp, campo, valor) => {
+    setEncargadosAreas(prev => ({
+      ...prev,
+      [esp]: {
+        ...(prev[esp] || { nombre: '', ci: '' }),
+        [campo]: valor
+      }
+    }));
   };
 
   const handleFotoNuevaChange = (e) => {
@@ -903,8 +993,36 @@ export default function PropietarioPage() {
       alert('Por favor ingrese la Dirección del establecimiento.');
       return;
     }
+    if (!formNueva.responsable_laboratorio.trim()) {
+      alert('Por favor ingrese el Responsable Técnico / Bioquímico Regente general del establecimiento.');
+      return;
+    }
 
-    // 1. Validar que todos los documentos marcados como OBLIGATORIOS hayan sido adjuntados
+    // 1. Validar que todas las especialidades seleccionadas cuenten con Nombre y CI de sus encargados
+    if (formNueva.servicios.length === 0) {
+      alert('Debe seleccionar al menos una especialidad autorizada para su establecimiento.');
+      return;
+    }
+
+    const faltantesEncargados = [];
+    for (const esp of formNueva.servicios) {
+      const enc = encargadosAreas[esp] || {};
+      const nom = (enc.nombre || '').trim();
+      const ci = (enc.ci || '').trim();
+      if (!nom || !ci) {
+        const faltanCampos = [];
+        if (!nom) faltanCampos.push('Nombre Completo');
+        if (!ci) faltanCampos.push('C.I.');
+        faltantesEncargados.push(`• Área ${esp}: Falta ${faltanCampos.join(' y ')}`);
+      }
+    }
+
+    if (faltantesEncargados.length > 0) {
+      alert(`⚠️ Datos obligatorios incompletos en Servicios y Especialidades:\n\nDebe ingresar obligatoriamente el Nombre y C.I. del encargado para cada especialidad seleccionada:\n\n${faltantesEncargados.join('\n')}`);
+      return;
+    }
+
+    // 2. Validar que todos los documentos marcados como OBLIGATORIOS hayan sido adjuntados
     const faltantes = [];
     seccionesRequisitos.forEach((grupo) => {
       (grupo.requisitos || []).forEach((req, idx) => {
@@ -930,7 +1048,16 @@ export default function PropietarioPage() {
 
     setIsSubmittingNueva(true);
     try {
-      // 2. Crear el establecimiento en PostgreSQL
+      // 3. Construir la cadena estructurada de responsables de área
+      const resAreasList = formNueva.servicios.map(esp => {
+        const enc = encargadosAreas[esp] || {};
+        const nom = (enc.nombre || '').trim();
+        const ci = (enc.ci || '').trim();
+        return `${esp}: ${nom} (CI: ${ci})`;
+      });
+      const responsablesAreasStr = resAreasList.join('; ');
+
+      // 4. Crear el establecimiento en PostgreSQL
       const payload = {
         propietario_id: usuario?.id || '987556ee-60cb-4672-887e-d958564db7bd',
         nombre_comercial: formNueva.nombre_comercial.trim(),
@@ -941,7 +1068,7 @@ export default function PropietarioPage() {
         telefono: formNueva.telefono.trim(),
         email_contacto: formNueva.email_contacto.trim(),
         responsable_laboratorio: formNueva.responsable_laboratorio.trim(),
-        responsables_areas: formNueva.servicios.join(', '),
+        responsables_areas: responsablesAreasStr,
         horario: formNueva.horario.trim(),
         descripcion: formNueva.descripcion.trim(),
         servicios: formNueva.servicios.join(', '),
@@ -2267,20 +2394,25 @@ export default function PropietarioPage() {
                       </div>
                     </div>
 
-                    {/* Servicios y Especialidades Autorizados (Píldoras) */}
-                    <div className="space-y-2 pt-2 border-t border-slate-100">
-                      <div className="flex items-center justify-between">
-                        <label className="text-xs font-bold text-slate-700 uppercase">
-                          SERVICIOS Y ESPECIALIDADES AUTORIZADOS
-                        </label>
-                        <span className="text-[11px] font-bold text-[#005596] bg-blue-50 px-2 py-0.5 rounded-md border border-blue-100">
-                          {formNueva.servicios.length} seleccionada(s)
+                    {/* Servicios y Especialidades Autorizados (Píldoras y Encargados) */}
+                    <div className="space-y-4 pt-4 border-t border-slate-100">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                        <div>
+                          <label className="text-xs font-bold text-slate-700 uppercase flex items-center space-x-1.5">
+                            <span>SERVICIOS Y ESPECIALIDADES AUTORIZADOS</span>
+                            <span className="text-rose-500">*</span>
+                          </label>
+                          <p className="text-xs text-slate-500 mt-0.5">
+                            Active las especialidades de su establecimiento. Por cada especialidad elegida se solicitarán los datos del profesional a cargo.
+                          </p>
+                        </div>
+                        <span className="inline-flex items-center space-x-1.5 text-xs font-bold text-[#005596] bg-blue-50 px-3 py-1 rounded-full border border-blue-200/80 shrink-0 self-start sm:self-auto">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-[#005596]" />
+                          <span>{formNueva.servicios.length} seleccionada(s)</span>
                         </span>
                       </div>
-                      <p className="text-xs text-slate-500">
-                        Haga clic para activar o desactivar las áreas autorizadas de su laboratorio:
-                      </p>
 
+                      {/* Selector de Píldoras */}
                       <div className="flex flex-wrap gap-2 pt-1">
                         {ESPECIALIDADES_OFICIALES.map((esp) => {
                           const isSelected = formNueva.servicios.includes(esp);
@@ -2289,18 +2421,108 @@ export default function PropietarioPage() {
                               key={esp}
                               type="button"
                               onClick={() => handleToggleEspecialidadNueva(esp)}
-                              className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition flex items-center space-x-1.5 cursor-pointer ${
+                              className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center space-x-2 cursor-pointer ${
                                 isSelected
-                                  ? 'bg-[#0f172a] text-white shadow-xs'
+                                  ? 'bg-[#005596] text-white shadow-sm ring-2 ring-[#005596]/30'
                                   : 'bg-white text-slate-700 border border-slate-200 hover:border-slate-400 hover:bg-slate-50'
                               }`}
                             >
-                              {isSelected && <Check className="w-3.5 h-3.5 text-white" />}
+                              <div className={`w-2 h-2 rounded-full ${isSelected ? 'bg-white' : 'bg-slate-300'}`} />
                               <span>{esp}</span>
+                              {isSelected && <Check className="w-3.5 h-3.5 text-white stroke-[3]" />}
                             </button>
                           );
                         })}
                       </div>
+
+                      {/* Bloque Dinámico: Encargados de Área (Nombre y CI) */}
+                      <div className="space-y-3 pt-3">
+                        <div className="flex items-center justify-between pb-1.5 border-b border-slate-200">
+                          <div className="flex items-center space-x-2">
+                            <UserCheck className="w-4 h-4 text-[#005596]" />
+                            <h4 className="text-xs font-black text-slate-800 uppercase tracking-wide">
+                              Encargados Técnicos por Área Seleccionada (Obligatorio)
+                            </h4>
+                          </div>
+                          <span className="text-[11px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-md hidden sm:inline-block">
+                            * Campos obligatorios para habilitación
+                          </span>
+                        </div>
+
+                        <div className="space-y-3">
+                          {formNueva.servicios.map((esp) => {
+                            const estilo = ESPECIALIDAD_INFO[esp] || {
+                              badge: 'bg-blue-50 text-blue-700 border-blue-200',
+                              dot: 'bg-blue-500',
+                              iconColor: 'text-blue-600',
+                              descripcion: 'Área autorizada del establecimiento'
+                            };
+                            const enc = encargadosAreas[esp] || { nombre: '', ci: '' };
+
+                            return (
+                              <div
+                                key={esp}
+                                className="bg-slate-50/80 rounded-2xl p-4 sm:p-5 border border-slate-200 space-y-3 transition hover:border-slate-300"
+                              >
+                                {/* Cabecera de la especialidad */}
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
+                                  <div className="flex items-center space-x-2.5">
+                                    <span className={`w-2.5 h-2.5 rounded-full ${estilo.dot}`} />
+                                    <span className={`text-xs font-extrabold px-2.5 py-0.5 rounded-lg border ${estilo.badge}`}>
+                                      ÁREA: {esp.toUpperCase()}
+                                    </span>
+                                  </div>
+                                  <span className="text-[11px] text-slate-500 font-medium">
+                                    {estilo.descripcion}
+                                  </span>
+                                </div>
+
+                                {/* Inputs en grid responsivo (Nombre y CI) */}
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                                  
+                                  {/* Nombre Completo del Encargado */}
+                                  <div className="space-y-1.5">
+                                    <label className="text-xs font-bold text-slate-700 flex items-center justify-between">
+                                      <span>NOMBRE COMPLETO DEL RESPONSABLE <span className="text-rose-500">*</span></span>
+                                    </label>
+                                    <div className="relative flex items-center">
+                                      <User className="w-4 h-4 text-slate-400 absolute left-3 pointer-events-none" />
+                                      <input
+                                        type="text"
+                                        required
+                                        value={enc.nombre || ''}
+                                        onChange={(e) => handleEncargadoAreaChange(esp, 'nombre', e.target.value)}
+                                        placeholder="Ej: Dra. María Elena Vargas Rojas"
+                                        className="w-full bg-white border border-slate-200 text-slate-800 text-base sm:text-sm rounded-xl pl-9 pr-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#0077be] font-medium placeholder:text-slate-400"
+                                      />
+                                    </div>
+                                  </div>
+
+                                  {/* C.I. del Encargado */}
+                                  <div className="space-y-1.5">
+                                    <label className="text-xs font-bold text-slate-700 flex items-center justify-between">
+                                      <span>CÉDULA DE IDENTIDAD (C.I.) <span className="text-rose-500">*</span></span>
+                                    </label>
+                                    <div className="relative flex items-center">
+                                      <CreditCard className="w-4 h-4 text-slate-400 absolute left-3 pointer-events-none" />
+                                      <input
+                                        type="text"
+                                        required
+                                        value={enc.ci || ''}
+                                        onChange={(e) => handleEncargadoAreaChange(esp, 'ci', e.target.value)}
+                                        placeholder="Ej: 5489632 CBBA"
+                                        className="w-full bg-white border border-slate-200 text-slate-800 text-base sm:text-sm rounded-xl pl-9 pr-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#0077be] font-medium placeholder:text-slate-400"
+                                      />
+                                    </div>
+                                  </div>
+
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+
                     </div>
                   </div>
 
