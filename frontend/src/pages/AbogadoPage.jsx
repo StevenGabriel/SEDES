@@ -1322,36 +1322,17 @@ export default function AbogadoPage() {
                             </p>
                           </div>
 
-                          {/* Botones Rápidos de Acción */}
-                          <div className="flex items-center space-x-2 flex-wrap gap-y-2">
+                          {/* Botón Abrir en nueva pestaña */}
+                          <div className="flex items-center">
                             <button
                               type="button"
                               onClick={handleAbrirInformePDFNuevaPestana}
                               disabled={!pdfInformeBlobUrl}
-                              className="px-3.5 py-2 bg-slate-50 hover:bg-slate-100 text-slate-700 rounded-xl text-xs font-bold transition border border-slate-200 flex items-center space-x-1.5 shadow-2xs cursor-pointer disabled:opacity-50"
-                              title="Abrir en pestaña nueva"
+                              className="px-4 py-2 bg-white hover:bg-slate-50 text-slate-700 hover:text-[#0060a8] rounded-xl text-xs font-bold transition-all border border-slate-200 hover:border-[#0060a8]/40 flex items-center space-x-2 shadow-2xs hover:shadow-xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed group"
+                              title="Abrir en una nueva pestaña PDF"
                             >
-                              <ExternalLink className="w-3.5 h-3.5 text-slate-500" />
-                              <span className="hidden sm:inline">Abrir PDF</span>
-                            </button>
-
-                            <button
-                              type="button"
-                              onClick={handleDescargarInformePDF}
-                              className="px-3.5 py-2 bg-[#0073c6] hover:bg-[#005fa6] text-white rounded-xl text-xs font-bold transition flex items-center space-x-1.5 shadow-2xs cursor-pointer"
-                              title="Descargar documento oficial en PDF"
-                            >
-                              <Download className="w-3.5 h-3.5 text-white" />
-                              <span>Descargar PDF</span>
-                            </button>
-
-                            <button
-                              type="button"
-                              onClick={handleIrAGenerarResolucion}
-                              className="px-4 py-2 bg-[#0e533c] hover:bg-[#093d2b] text-white rounded-xl text-xs font-black transition shadow-sm flex items-center space-x-1.5 cursor-pointer"
-                            >
-                              <Award className="w-3.5 h-3.5 text-white" />
-                              <span>Emitir RA</span>
+                              <ExternalLink className="w-3.5 h-3.5 text-slate-500 group-hover:text-[#0060a8] transition-colors" />
+                              <span>Abrir en una nueva pestaña PDF</span>
                             </button>
                           </div>
                         </div>
@@ -1623,76 +1604,19 @@ export default function AbogadoPage() {
                                 </p>
                               </div>
 
-                              {/* Botones Rápidos de Acción */}
-                              <div className="flex items-center space-x-2 flex-wrap gap-y-2">
+                              {/* Botón Abrir en nueva pestaña */}
+                              <div className="flex items-center">
                                 <button
                                   type="button"
                                   onClick={handleAbrirResolucionPDFNuevaPestana}
                                   disabled={!pdfResolucionBlobUrl}
-                                  className="px-3.5 py-2 bg-slate-50 hover:bg-slate-100 text-slate-700 rounded-xl text-xs font-bold transition border border-slate-200 flex items-center space-x-1.5 shadow-2xs cursor-pointer disabled:opacity-50"
-                                  title="Abrir en pestaña nueva"
+                                  className="px-4 py-2 bg-white hover:bg-slate-50 text-slate-700 hover:text-[#0060a8] rounded-xl text-xs font-bold transition-all border border-slate-200 hover:border-[#0060a8]/40 flex items-center space-x-2 shadow-2xs hover:shadow-xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed group"
+                                  title="Abrir en una nueva pestaña PDF"
                                 >
-                                  <ExternalLink className="w-3.5 h-3.5 text-slate-500" />
-                                  <span className="hidden sm:inline">Abrir PDF</span>
-                                </button>
-
-                                <button
-                                  type="button"
-                                  onClick={handleGuardarBorrador}
-                                  disabled={guardandoResolucion || yaEnviadoCoordinador}
-                                  className={`px-3.5 py-2 bg-white text-slate-700 rounded-xl text-xs font-bold transition border border-slate-300 flex items-center space-x-1.5 shadow-2xs ${
-                                    yaEnviadoCoordinador ? 'opacity-50 cursor-not-allowed' : 'hover:bg-slate-50 cursor-pointer'
-                                  }`}
-                                  title={yaEnviadoCoordinador ? 'La resolución ya fue remitida a Coordinación.' : 'Guardar cambios en la base de datos'}
-                                >
-                                  {guardandoResolucion ? (
-                                    <RefreshCw className="w-3.5 h-3.5 animate-spin text-[#0060a8]" />
-                                  ) : (
-                                    <Edit3 className="w-3.5 h-3.5 text-slate-600" />
-                                  )}
-                                  <span>Guardar</span>
-                                </button>
-
-                                <button
-                                  type="button"
-                                  onClick={handleDescargarResolucionPDF}
-                                  className="px-3.5 py-2 bg-[#0073c6] hover:bg-[#005fa6] text-white rounded-xl text-xs font-bold transition flex items-center space-x-1.5 shadow-2xs cursor-pointer"
-                                  title="Descargar documento oficial en PDF"
-                                >
-                                  <Download className="w-3.5 h-3.5 text-white" />
-                                  <span>Descargar RA</span>
-                                </button>
-
-                                <button
-                                  type="button"
-                                  onClick={handleEnviarAlCoordinador}
-                                  disabled={enviandoCoordinador || yaEnviadoCoordinador}
-                                  className={`px-4 py-2 text-white rounded-xl text-xs font-black transition shadow-sm flex items-center space-x-1.5 ${
-                                    yaEnviadoCoordinador
-                                      ? 'bg-emerald-800 text-emerald-100 cursor-not-allowed opacity-90'
-                                      : 'bg-[#0e533c] hover:bg-[#093d2b] cursor-pointer'
-                                  }`}
-                                  title={yaEnviadoCoordinador ? 'La resolución ya fue enviada a Coordinación para firma oficial.' : 'Enviar resolución final al Coordinador para firma'}
-                                >
-                                  {yaEnviadoCoordinador ? (
-                                    <>
-                                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-300" />
-                                      <span>Enviado al Coordinador</span>
-                                    </>
-                                  ) : enviandoCoordinador ? (
-                                    <>
-                                      <RefreshCw className="w-3.5 h-3.5 animate-spin text-white" />
-                                      <span>Enviando...</span>
-                                    </>
-                                  ) : (
-                                    <>
-                                      <CheckCircle2 className="w-3.5 h-3.5 text-white" />
-                                      <span>Enviar al Coordinador</span>
-                                    </>
-                                  )}
+                                  <ExternalLink className="w-3.5 h-3.5 text-slate-500 group-hover:text-[#0060a8] transition-colors" />
+                                  <span>Abrir en una nueva pestaña PDF</span>
                                 </button>
                               </div>
-
                             </div>
 
                             {/* Selector de Pestañas: Documento PDF vs Formulario de Edición */}
