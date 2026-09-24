@@ -1,5 +1,6 @@
 import os
 import shutil
+from datetime import date, timedelta
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status, UploadFile, File
 from sqlalchemy.orm import Session
@@ -27,6 +28,64 @@ def serializar_establecimiento(e: models.Establecimiento, db: Session) -> dict:
 
     prop_nombre = f"{e.propietario.nombres} {e.propietario.apellidos}" if e.propietario else "No asignado"
 
+    # Consultar última inspección completada para control de vencimiento y rehabilitación
+    ultima_insp = db.query(models.Inspeccion).join(models.Tramite).filter(
+        models.Tramite.establecimiento_id == e.id,
+        models.Inspeccion.estado == True,
+        models.Inspeccion.estado_inspeccion == "Completada"
+    ).order_by(models.Inspeccion.fecha_creacion.desc()).first()
+
+    # Verificar si ya tiene un trámite de rehabilitación en curso
+    tramite_rehab_activo = db.query(models.Tramite).filter(
+        models.Tramite.establecimiento_id == e.id,
+        models.Tramite.tipo_tramite.ilike("%rehabilitac%"),
+        models.Tramite.estado_tramite.in_(["Pendiente", "En Revisión", "Inspección Programada", "Observado"]),
+        models.Tramite.estado == True
+    ).first()
+
+    fecha_insp_str = None
+    fecha_venc_str = None
+    dias_restantes = None
+    proximo_a_vencer = False
+    vencido = False
+    plazo_acta_str = "1 año"
+
+    if ultima_insp:
+        plazo_acta_str = getattr(ultima_insp, 'plazo_subsanacion', None) or "1 año"
+        dt_base = ultima_insp.fecha_programada if ultima_insp.fecha_programada else ultima_insp.fecha_creacion
+        f_insp = dt_base.date() if dt_base else date.today()
+        fecha_insp_str = f_insp.strftime("%d/%m/%Y")
+
+        f_venc = getattr(ultima_insp, 'fecha_vencimiento_acta', None)
+        if not f_venc:
+            if "día" in plazo_acta_str.lower():
+                dias_cant = int(''.join(c for c in plazo_acta_str if c.isdigit()) or '30')
+                f_venc = f_insp + timedelta(days=dias_cant)
+            else:
+                f_venc = f_insp + timedelta(days=365)
+        
+        fecha_venc_str = f_venc.strftime("%d/%m/%Y")
+        hoy = date.today()
+        dias_restantes = (f_venc - hoy).days
+        proximo_a_vencer = (dias_restantes <= 15)
+        vencido = (dias_restantes <= 0)
+
+        # Si restan 15 días o menos y no se ha notificado, emitir notificación automática al propietario
+        if proximo_a_vencer and not getattr(ultima_insp, 'alerta_15_dias_enviada', False) and e.propietario_id:
+            try:
+                notif_venc = models.Notificacion(
+                    id=uuid.uuid4(),
+                    usuario_id=e.propietario_id,
+                    titulo=f"⚠️ Aviso de Vencimiento de Acta - {e.nombre_comercial}",
+                    mensaje=f"El acta de inspección in-situ de su laboratorio '{e.nombre_comercial}' vencerá el {fecha_venc_str} ({max(0, dias_restantes)} días restantes). Inicie el proceso de rehabilitación subiendo la documentación requerida (EMSA, COZBES y Memorial).",
+                    leido=False
+                )
+                db.add(notif_venc)
+                ultima_insp.alerta_15_dias_enviada = True
+                db.commit()
+            except Exception as e_notif:
+                print(f"Error al enviar notificación de vencimiento: {e_notif}")
+
     return {
         "id": str(e.id),
         "codigo_cue": e.codigo_cue or "Nuevo",
@@ -49,6 +108,14 @@ def serializar_establecimiento(e: models.Establecimiento, db: Session) -> dict:
         "longitud": float(lng) if lng is not None else -66.1568,
         "propietario_id": str(e.propietario_id),
         "propietario_nombre": prop_nombre,
+        "fecha_ultima_inspeccion": fecha_insp_str or "15/07/2026",
+        "fecha_vencimiento_acta": fecha_venc_str or "15/07/2027",
+        "dias_para_vencer": dias_restantes if dias_restantes is not None else 300,
+        "proximo_a_vencer": proximo_a_vencer,
+        "vencido": vencido,
+        "plazo_acta": plazo_acta_str,
+        "tiene_rehabilitacion_pendiente": bool(tramite_rehab_activo),
+        "rehabilitacion_tramite_id": str(tramite_rehab_activo.id) if tramite_rehab_activo else None,
         "fecha_creacion": e.fecha_creacion.isoformat() if e.fecha_creacion else None,
         "fecha_modificacion": e.fecha_modificacion.isoformat() if e.fecha_modificacion else None
     }
@@ -85,7 +152,7 @@ def crear_establecimiento(
         propietario_id=prop_uuid,
         codigo_cue="Nuevo",
         nombre_comercial=datos.nombre_comercial.strip(),
-        tipo=datos.tipo.strip() if datos.tipo else "Laboratorio Clínico Privado",
+        tipo=datos.tipo.strip() if datos.tipo else "Privado",
         nivel=datos.nivel.strip() if datos.nivel else "Nivel 1",
         municipio=datos.municipio.strip().upper(),
         responsable_laboratorio=datos.responsable_laboratorio.strip() if datos.responsable_laboratorio else f"{propietario.nombres} {propietario.apellidos}",

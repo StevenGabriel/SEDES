@@ -201,12 +201,12 @@ export default function SupervisorPage() {
   };
 
   // Mostrar mensaje emergente Toast
-  const mostrarToast = (mensaje, tipo = 'success') => {
+  const mostrarToast = useCallback((mensaje, tipo = 'success') => {
     setToast({ mensaje, tipo });
     setTimeout(() => {
       setToast(null);
     }, 4500);
-  };
+  }, []);
 
   // 1. Cargar usuario logueado
   useEffect(() => {
@@ -225,11 +225,11 @@ export default function SupervisorPage() {
     navigate('/login');
   };
 
-  // 2. Cargar datos de la Agenda desde el Backend FastAPI
-  const cargarAgendaBackend = useCallback(async () => {
+  // 2. Cargar datos de la Agenda desde el Backend FastAPI (con soporte para refresco silencioso)
+  const cargarAgendaBackend = useCallback(async (silencioso = false) => {
     const supervisorId = usuario?.id || usuario?.email || (usuario?.nombres ? `${usuario.nombres} ${usuario.apellidos}` : '');
     if (!supervisorId) return;
-    setCargando(true);
+    if (!silencioso) setCargando(true);
     try {
       const url = `http://localhost:8000/api/supervisor/${encodeURIComponent(supervisorId)}/agenda?offset_semanas=${semanaActualOffset}`;
       const res = await fetch(url);
@@ -240,7 +240,7 @@ export default function SupervisorPage() {
         if (data.semana) {
           setSemanaInfo(data.semana);
           // Si no hay fecha seleccionada en formulario, seleccionar el lunes por defecto
-          if (data.semana.dias && data.semana.dias.length > 0) {
+          if (data.semana.dias && data.semana.dias.length > 0 && !formFecha) {
             setFormFecha(data.semana.dias[0].fecha_iso);
             setReprogramarFecha(data.semana.dias[0].fecha_iso);
           }
@@ -251,12 +251,31 @@ export default function SupervisorPage() {
     } catch (err) {
       console.warn('Error de red al cargar agenda:', err);
     } finally {
-      setCargando(false);
+      if (!silencioso) setCargando(false);
     }
-  }, [usuario, semanaActualOffset]);
+  }, [usuario, semanaActualOffset, formFecha]);
 
   useEffect(() => {
     cargarAgendaBackend();
+  }, [cargarAgendaBackend]);
+
+  // Polling silencioso en segundo plano y al recuperar foco de ventana
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        cargarAgendaBackend(true);
+      }
+    }, 20000);
+
+    const onFocus = () => {
+      cargarAgendaBackend(true);
+    };
+    window.addEventListener('focus', onFocus);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('focus', onFocus);
+    };
   }, [cargarAgendaBackend]);
 
   // Horas del calendario (08:00 a 17:00)

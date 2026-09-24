@@ -210,9 +210,9 @@ export default function CoordinadorPage() {
     setNotifNoLeidas(0);
   };
 
-  // Cargar datos reales desde el Backend FastAPI
-  const cargarDatosBackend = async () => {
-    setCargando(true);
+  // Cargar datos reales desde el Backend FastAPI (con soporte para refresco silencioso)
+  const cargarDatosBackend = async (silencioso = false) => {
+    if (!silencioso) setCargando(true);
     try {
       const [resTramites, resSupervisores, resAsignacion, resHistorial] = await Promise.allSettled([
         fetch('http://localhost:8000/api/coordinador/tramites').then(r => r.ok ? r.json() : null),
@@ -229,9 +229,14 @@ export default function CoordinadorPage() {
             const exists = trms.find(t => t.id === prev);
             return exists ? prev : trms[0].id;
           });
-          if (trms[0].documentos?.length > 0) {
-            setDocSeleccionadoId(trms[0].documentos[0].id);
-          }
+          setDocSeleccionadoId(prevDoc => {
+            if (prevDoc) {
+              const currentTramite = trms.find(t => t.id === tramiteSeleccionadoId) || trms[0];
+              const exists = currentTramite?.documentos?.some(d => d.id === prevDoc);
+              if (exists) return prevDoc;
+            }
+            return trms[0]?.documentos?.[0]?.id || null;
+          });
         }
       }
 
@@ -255,7 +260,7 @@ export default function CoordinadorPage() {
     } catch (err) {
       console.warn('Error al cargar datos desde backend:', err);
     } finally {
-      setCargando(false);
+      if (!silencioso) setCargando(false);
     }
   };
 
@@ -271,6 +276,25 @@ export default function CoordinadorPage() {
     }
 
     cargarDatosBackend();
+  }, []);
+
+  // Polling silencioso en segundo plano y al recuperar foco de ventana
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        cargarDatosBackend(true);
+      }
+    }, 20000);
+
+    const onFocus = () => {
+      cargarDatosBackend(true);
+    };
+    window.addEventListener('focus', onFocus);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('focus', onFocus);
+    };
   }, []);
 
   // Función para recargar historial desde backend
@@ -470,7 +494,7 @@ export default function CoordinadorPage() {
     }));
   };
 
-  // Asignar supervisor a trámite (Backend conectado a PostgreSQL)
+  // Asignar supervisor a trámite (Backend conectado a PostgreSQL con actualización reactiva inmediata)
   const handleAsignarSupervisor = async (codigoTramite) => {
     const tramite = tramitesAsignacion.find(t => t.codigo === codigoTramite);
     if (!tramite || !tramite.supervisorAsignado) {
@@ -497,7 +521,43 @@ export default function CoordinadorPage() {
 
       if (response.ok) {
         mostrarToast(`¡Trámite ${codigoTramite} (${tramite.establecimiento}) asignado con éxito a ${tramite.supervisorAsignado}!`, 'success');
-        cargarDatosBackend();
+
+        // 1. Actualización reactiva inmediata en la tabla de asignación
+        setTramitesAsignacion(prev => prev.map(t => {
+          if (t.codigo === codigoTramite || t.tramite_uuid === tramite.tramite_uuid) {
+            return {
+              ...t,
+              yaAsignado: true,
+              supervisorAsignado: tramite.supervisorAsignado
+            };
+          }
+          return t;
+        }));
+
+        // 2. Actualización reactiva inmediata en la lista general de trámites
+        setTramites(prev => prev.map(t => {
+          if (t.id === (tramite.tramite_uuid || codigoTramite) || t.tramite_uuid === (tramite.tramite_uuid || codigoTramite) || t.codigo === codigoTramite) {
+            return {
+              ...t,
+              supervisorAsignado: tramite.supervisorAsignado,
+              supervisor_id: supervisor?.id || 'asignado'
+            };
+          }
+          return t;
+        }));
+
+        // 3. Incrementar de inmediato el contador de carga del supervisor
+        if (supervisor) {
+          setSupervisoresDisponibles(prev => prev.map(s => {
+            if (s.id === supervisor.id || s.nombre === supervisor.nombre) {
+              return { ...s, asignados: Math.min(s.maxCapacidad, s.asignados + 1) };
+            }
+            return s;
+          }));
+        }
+
+        // 4. Sincronizar en segundo plano con la base de datos
+        await cargarDatosBackend(true);
         recargarHistorial();
       } else {
         const err = await response.json();

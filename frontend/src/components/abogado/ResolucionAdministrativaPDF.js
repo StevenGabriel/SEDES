@@ -43,9 +43,9 @@ let cachedLogos = null;
 export const precargarLogos = async () => {
   if (cachedLogos) return cachedLogos;
   const [imgChakana, imgCochabamba2, imgCochabamba3] = await Promise.all([
-    cargarImagenComoPng(logoChakana, 240, 240),
-    cargarImagenComoPng(logoCochabamba2, 240, 240),
-    cargarImagenComoPng(logoCochabamba3, 240, 240)
+    cargarImagenComoPng(logoChakana, 360, 360),
+    cargarImagenComoPng(logoCochabamba2, 360, 360),
+    cargarImagenComoPng(logoCochabamba3, 360, 360)
   ]);
   cachedLogos = { imgChakana, imgCochabamba2, imgCochabamba3 };
   return cachedLogos;
@@ -138,46 +138,26 @@ export async function generarResolucionAdministrativaPDF(datos = {}, opciones = 
 
   // Función para dibujar Cabecera Oficial
   const dibujarCabecera = (docInstance) => {
-    // 1. Logo Chakana / Bicentenario
+    // 1. Logo Chakana / Estado Plurinacional (Izquierda)
     if (imgChakana) {
       try {
-        docInstance.addImage(imgChakana, 'PNG', marginX, 9, 19, 19);
+        docInstance.addImage(imgChakana, 'PNG', marginX, 6.5, 26, 29);
       } catch (e) {}
     }
-    docInstance.setFont('helvetica', 'bold');
-    docInstance.setFontSize(6);
-    docInstance.setTextColor(60, 60, 60);
-    docInstance.text('ESTADO PLURINACIONAL DE', marginX - 1, 31);
-    docInstance.setFontSize(8);
-    docInstance.setTextColor(20, 20, 20);
-    docInstance.text('BOLIVIA', marginX + 2, 34.5);
 
-    // 2. Logo Cochabamba Escudo (Centro)
+    // 2. Logo Cochabamba Escudo Oficial (Centro)
     if (imgCochabamba2) {
       try {
-        docInstance.addImage(imgCochabamba2, 'PNG', (pageWidth / 2) - 10, 8, 20, 20);
+        docInstance.addImage(imgCochabamba2, 'PNG', (pageWidth / 2) - 13.5, 7, 27, 27);
       } catch (e) {}
     }
-    docInstance.setFont('helvetica', 'bold');
-    docInstance.setFontSize(7);
-    docInstance.setTextColor(40, 40, 40);
-    docInstance.text('GOBIERNO AUTÓNOMO', pageWidth / 2, 30.5, { align: 'center' });
-    docInstance.text('DEPARTAMENTAL DE', pageWidth / 2, 33.5, { align: 'center' });
-    docInstance.text('COCHABAMBA', pageWidth / 2, 36.5, { align: 'center' });
 
     // 3. Logo Cochabamba Lema (Derecha)
     if (imgCochabamba3) {
       try {
-        docInstance.addImage(imgCochabamba3, 'PNG', pageWidth - marginX - 22, 10, 22, 17);
+        docInstance.addImage(imgCochabamba3, 'PNG', pageWidth - marginX - 28, 7, 28, 28);
       } catch (e) {}
     }
-    docInstance.setFont('helvetica', 'bold');
-    docInstance.setFontSize(8.5);
-    docInstance.setTextColor(20, 20, 20);
-    docInstance.text('COCHABAMBA', pageWidth - marginX - 11, 31, { align: 'center' });
-    docInstance.setFontSize(5.5);
-    docInstance.setTextColor(90, 90, 90);
-    docInstance.text('UNIR, TRABAJAR Y CRECER', pageWidth - marginX - 11, 34, { align: 'center' });
   };
 
   // Función para dibujar Pie de Página Oficial

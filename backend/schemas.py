@@ -61,7 +61,7 @@ class EstablecimientoCreate(BaseModel):
     propietario_id: str
     nombre_comercial: str
     municipio: str
-    tipo: Optional[str] = "Laboratorio Clínico Privado"
+    tipo: Optional[str] = "Privado"
     nivel: Optional[str] = "Nivel 1"
     direccion: str
     telefono: Optional[str] = None

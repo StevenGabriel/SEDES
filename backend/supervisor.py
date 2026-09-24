@@ -1095,10 +1095,22 @@ def registrar_acta_inspeccion(
 
     pdf_o_codigo = payload.archivo_pdf_firmado_url or cod_acta
 
+    # Calcular fecha de vencimiento según plazo
+    f_insp_base = insp.fecha_programada.date() if (insp and insp.fecha_programada) else ahora_dt.date()
+    plazo_txt = (payload.plazo_subsanacion or "1 año").strip()
+    if "día" in plazo_txt.lower():
+        cant_dias = int(''.join(c for c in plazo_txt if c.isdigit()) or '30')
+        f_venc = f_insp_base + timedelta(days=cant_dias)
+    else:
+        f_venc = f_insp_base + timedelta(days=365)
+
     if insp:
         insp.estado_inspeccion = "Completada"
         insp.veredicto_final = veredicto_db
         insp.acta_pdf_url = pdf_o_codigo
+        insp.plazo_subsanacion = plazo_txt
+        insp.fecha_vencimiento_acta = f_venc
+        insp.alerta_15_dias_enviada = False
         insp.fecha_modificacion = ahora_dt
         if sup_usuario:
             insp.supervisor_id = sup_usuario.id
@@ -1150,6 +1162,9 @@ def registrar_acta_inspeccion(
             estado_inspeccion="Completada",
             veredicto_final=veredicto_db,
             acta_pdf_url=pdf_o_codigo,
+            plazo_subsanacion=plazo_txt,
+            fecha_vencimiento_acta=f_venc,
+            alerta_15_dias_enviada=False,
             estado=True,
             fecha_creacion=ahora_dt,
             fecha_modificacion=ahora_dt
@@ -1270,9 +1285,10 @@ def obtener_citaciones_supervisor(
 
     sup_nombre = f"{supervisor.nombres} {supervisor.apellidos}" if supervisor else "Supervisor Técnico"
 
-    # 1. Obtener citaciones directas de la tabla citaciones_infracciones
+    # 1. Obtener citaciones directas de la tabla citaciones_infracciones emitidas estrictamente por este supervisor
     query_cits = db.query(models.CitacionInfraccion).join(models.Establecimiento).filter(
-        models.CitacionInfraccion.estado == True
+        models.CitacionInfraccion.estado == True,
+        models.CitacionInfraccion.supervisor_id == supervisor.id
     )
 
     citaciones_db = query_cits.order_by(
@@ -1280,9 +1296,13 @@ def obtener_citaciones_supervisor(
         models.CitacionInfraccion.fecha_creacion.desc()
     ).all()
 
-    # 2. Obtener también inspecciones con veredicto Desfavorable / Rechazado si las hay
+    # 2. Obtener también inspecciones con veredicto Desfavorable / Rechazado realizadas por este supervisor si las hay
     inspecciones_rechazadas = db.query(models.Inspeccion).join(models.Tramite).join(models.Establecimiento).filter(
         models.Inspeccion.estado == True,
+        or_(
+            models.Inspeccion.supervisor_id == supervisor.id,
+            models.Tramite.supervisor_asignado_id == supervisor.id
+        ),
         or_(
             models.Inspeccion.veredicto_final.ilike("%desfavorable%"),
             models.Inspeccion.veredicto_final.ilike("%rechaz%"),
@@ -1458,23 +1478,55 @@ def obtener_citaciones_supervisor(
         "meses_disponibles": meses_disponibles
     }
 
-@router.get("/{supervisor_id}/establecimientos-citacion", summary="Obtener establecimientos registrados para emitir citación")
+@router.get("/{supervisor_id}/establecimientos-citacion", summary="Obtener establecimientos con acta de rechazo para emitir citación")
 def obtener_establecimientos_para_citacion(
     supervisor_id: str,
     db: Session = Depends(get_db)
 ):
     """
-    Retorna la lista de establecimientos reales registrados en la base de datos para cargar en el formulario de emisión de citación.
+    Retorna exclusivamente la lista de establecimientos que obtuvieron un acta con veredicto Desfavorable / Rechazado
+    asociados a las inspecciones de este supervisor técnico.
     """
-    establecimientos = db.query(models.Establecimiento).filter(models.Establecimiento.estado == True).order_by(models.Establecimiento.nombre_comercial.asc()).all()
+    supervisor = buscar_supervisor_por_id_o_nombre(supervisor_id, db)
+    if not supervisor:
+        # Fallback al primer supervisor si no coincide el identificador
+        supervisor = db.query(models.Usuario).join(models.Role).filter(models.Role.nombre.ilike("%Supervisor%")).first()
+        if not supervisor:
+            supervisor = db.query(models.Usuario).first()
+
+    if not supervisor:
+        return []
+
+    # Buscar inspecciones con veredicto Desfavorable / Rechazado pertenecientes a este supervisor
+    inspecciones_rechazadas = db.query(models.Inspeccion).join(models.Tramite).join(models.Establecimiento).filter(
+        models.Inspeccion.estado == True,
+        or_(
+            models.Inspeccion.supervisor_id == supervisor.id,
+            models.Tramite.supervisor_asignado_id == supervisor.id
+        ),
+        or_(
+            models.Inspeccion.veredicto_final.ilike("%desfavorable%"),
+            models.Inspeccion.veredicto_final.ilike("%rechaz%"),
+            models.Inspeccion.estado_inspeccion.ilike("%rechaz%"),
+            models.Tramite.estado_tramite.ilike("%rechaz%")
+        )
+    ).order_by(
+        models.Inspeccion.fecha_modificacion.desc(),
+        models.Inspeccion.fecha_creacion.desc()
+    ).all()
 
     data = []
-    for e in establecimientos:
+    estab_ids_vistos = set()
+
+    for insp in inspecciones_rechazadas:
+        trm = insp.tramite
+        e = trm.establecimiento if trm else None
+        if not e or str(e.id) in estab_ids_vistos:
+            continue
+
+        estab_ids_vistos.add(str(e.id))
         prop = e.propietario
         prop_nombre = f"{prop.nombres} {prop.apellidos}" if (prop and prop.nombres) else (e.responsable_laboratorio or "Propietario / Responsable")
-        
-        # Buscar último trámite o inspección si existe
-        ultimo_tramite = db.query(models.Tramite).filter(models.Tramite.establecimiento_id == e.id).order_by(models.Tramite.fecha_creacion.desc()).first()
 
         data.append({
             "id": str(e.id),
@@ -1484,8 +1536,11 @@ def obtener_establecimientos_para_citacion(
             "municipio": e.municipio or "CERCADO",
             "telefono": e.telefono or (prop.telefono if prop else "N/A"),
             "propietario": prop_nombre,
-            "tramite_id": str(ultimo_tramite.id) if ultimo_tramite else None,
-            "tipo_tramite": ultimo_tramite.tipo_tramite if ultimo_tramite else "Inspección Sanitaria"
+            "tramite_id": str(trm.id) if trm else None,
+            "inspeccion_id": str(insp.id),
+            "tipo_tramite": trm.tipo_tramite if (trm and trm.tipo_tramite) else "Inspección Sanitaria",
+            "motivo_rechazo": insp.veredicto_final or "Inspección con veredicto Desfavorable / Rechazado",
+            "fecha_inspeccion": (insp.fecha_programada or insp.fecha_creacion).isoformat() if (insp.fecha_programada or insp.fecha_creacion) else None
         })
 
     return data

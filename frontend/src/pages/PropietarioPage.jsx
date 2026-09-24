@@ -320,7 +320,7 @@ export default function PropietarioPage() {
   // =========================================================================
   const [formNueva, setFormNueva] = useState({
     municipio: 'CERCADO',
-    tipo: 'Laboratorio Clínico Privado',
+    tipo: 'Privado',
     nombre_comercial: '',
     nivel: 'Nivel 1',
     direccion: '',
@@ -353,6 +353,84 @@ export default function PropietarioPage() {
   const [archivosSubsanacion, setArchivosSubsanacion] = useState({}); // { [docKey]: File }
   const [subsanandoDocId, setSubsanandoDocId] = useState(null); // 'ALL' o docKey específico
   const [modalFeedback, setModalFeedback] = useState(null); // { tipo: 'success' | 'error' | 'info', titulo: string, mensaje: string }
+
+  // =========================================================================
+  // Estado para Modal de Rehabilitación de Acta (3 requisitos obligatorios)
+  // =========================================================================
+  const [modalRehabilitacionOpen, setModalRehabilitacionOpen] = useState(false);
+  const [labRehabilitando, setLabRehabilitando] = useState(null);
+  const [fileEmsa, setFileEmsa] = useState(null);
+  const [fileCozbes, setFileCozbes] = useState(null);
+  const [fileMemorial, setFileMemorial] = useState(null);
+  const [enviandoRehabilitacion, setEnviandoRehabilitacion] = useState(false);
+
+  const handleAbrirRehabilitacion = (lab) => {
+    setLabRehabilitando(lab);
+    setFileEmsa(null);
+    setFileCozbes(null);
+    setFileMemorial(null);
+    setModalRehabilitacionOpen(true);
+  };
+
+  const handleEnviarRehabilitacion = async (e) => {
+    e.preventDefault();
+    if (!labRehabilitando) return;
+
+    if (!fileEmsa) {
+      alert('Por favor adjunte el Contrato de recojo de residuos infecciosos (EMSA) en formato PDF.');
+      return;
+    }
+    if (!fileCozbes) {
+      alert('Por favor adjunte el Certificado de bioseguridad (COZBES) en formato PDF.');
+      return;
+    }
+    if (!fileMemorial) {
+      alert('Por favor adjunte el Memorial correspondiente en formato PDF.');
+      return;
+    }
+
+    setEnviandoRehabilitacion(true);
+    try {
+      const formData = new FormData();
+      formData.append('establecimiento_id', labRehabilitando.id);
+      if (usuario?.id) {
+        formData.append('propietario_id', usuario.id);
+      }
+      formData.append('file_emsa', fileEmsa);
+      formData.append('file_cozbes', fileCozbes);
+      formData.append('file_memorial', fileMemorial);
+
+      const res = await fetch('http://localhost:8000/api/tramites/rehabilitacion', {
+        method: 'POST',
+        body: formData
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.detail || 'Error al enviar solicitud de rehabilitación.');
+      }
+
+      const data = await res.json();
+      setModalRehabilitacionOpen(false);
+      setModalFeedback({
+        tipo: 'success',
+        titulo: '¡Solicitud de Rehabilitación Enviada!',
+        mensaje: `Su solicitud para '${labRehabilitando.nombre_comercial}' fue registrada exitosamente con código ${data.codigo_tramite}. Se ha enviado a la bandeja del Coordinador para su verificación y posterior asignación de inspección técnica.`
+      });
+
+      // Refrescar datos
+      if (usuario?.id) {
+        fetchMisEstablecimientos(usuario.id);
+        fetchTramitesUsuario(usuario.id);
+        fetchNotificaciones(usuario.id);
+      }
+    } catch (err) {
+      console.error('Error al enviar rehabilitación:', err);
+      alert(err.message || 'Error al enviar la solicitud de rehabilitación.');
+    } finally {
+      setEnviandoRehabilitacion(false);
+    }
+  };
 
   // Catálogo dinámico de requisitos gestionado por el Administrador
   const [seccionesRequisitos, setSeccionesRequisitos] = useState(DEFAULT_SECCIONES_REQUISITOS);
@@ -439,16 +517,41 @@ export default function PropietarioPage() {
     cargarRequisitosDesdeAPI();
   }, [seccionActiva]);
 
-  // 2. Cargar establecimientos del propietario desde el Backend
-  const fetchMisEstablecimientos = async (propietarioId) => {
-    setIsLoadingLabs(true);
+  // Polling silencioso en segundo plano y al recuperar foco de ventana
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'visible' && usuario?.id) {
+        fetchMisEstablecimientos(usuario.id, true);
+        fetchTramitesUsuario(usuario.id, true);
+        fetchNotificaciones(usuario.id);
+      }
+    }, 20000);
+
+    const onFocus = () => {
+      if (usuario?.id) {
+        fetchMisEstablecimientos(usuario.id, true);
+        fetchTramitesUsuario(usuario.id, true);
+        fetchNotificaciones(usuario.id);
+      }
+    };
+    window.addEventListener('focus', onFocus);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('focus', onFocus);
+    };
+  }, [usuario?.id]);
+
+  // 2. Cargar establecimientos del propietario desde el Backend (con soporte para refresco silencioso)
+  const fetchMisEstablecimientos = async (propietarioId, silencioso = false) => {
+    if (!silencioso) setIsLoadingLabs(true);
     try {
       if (propietarioId) {
         const res = await fetch(`http://localhost:8000/api/establecimientos/propietario/${propietarioId}`);
         if (res.ok) {
           const data = await res.json();
           setMisEstablecimientos(Array.isArray(data) ? data : []);
-          setIsLoadingLabs(false);
+          if (!silencioso) setIsLoadingLabs(false);
           return;
         }
       }
@@ -457,14 +560,14 @@ export default function PropietarioPage() {
       console.error('Error cargando establecimientos del propietario:', err);
       setMisEstablecimientos([]);
     } finally {
-      setIsLoadingLabs(false);
+      if (!silencioso) setIsLoadingLabs(false);
     }
   };
 
-  // 3. Cargar trámites y estado documental del propietario
-  const fetchTramitesUsuario = async (propietarioId) => {
+  // 3. Cargar trámites y estado documental del propietario (con soporte para refresco silencioso)
+  const fetchTramitesUsuario = async (propietarioId, silencioso = false) => {
     if (!propietarioId) return;
-    setCargandoTramites(true);
+    if (!silencioso) setCargandoTramites(true);
     try {
       const res = await fetch(`http://localhost:8000/api/tramites/propietario/${propietarioId}`);
       if (res.ok) {
@@ -480,7 +583,7 @@ export default function PropietarioPage() {
     } catch (err) {
       console.error('Error cargando trámites del propietario:', err);
     } finally {
-      setCargandoTramites(false);
+      if (!silencioso) setCargandoTramites(false);
     }
   };
 
@@ -1626,9 +1729,51 @@ export default function PropietarioPage() {
                               <span className="truncate">{lab.direccion}, {lab.municipio}</span>
                             </p>
 
-                            <p className="text-[11px] text-slate-400 font-medium pt-0.5">
-                              🕒 Última inspección SEDES: 15/07/2026 • CUE: <strong className="text-slate-700">{lab.codigo_cue}</strong>
-                            </p>
+                            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-slate-400 font-medium pt-0.5">
+                              <span>🕒 Última inspección: <strong className="text-slate-700">{lab.fecha_ultima_inspeccion || '15/07/2026'}</strong></span>
+                              <span>• Vencimiento Acta: <strong className={lab.proximo_a_vencer || lab.vencido ? 'text-rose-600 font-black' : 'text-slate-700'}>{lab.fecha_vencimiento_acta || '15/07/2027'}</strong></span>
+                              <span>• CUE: <strong className="text-slate-700">{lab.codigo_cue}</strong></span>
+                            </div>
+
+                            {/* Alerta de vencimiento y botón de rehabilitación */}
+                            <div className="pt-2 flex flex-wrap items-center gap-2">
+                              {lab.tiene_rehabilitacion_pendiente ? (
+                                <span className="inline-flex items-center space-x-1.5 bg-purple-50 text-purple-700 border border-purple-200 text-xs font-bold px-3 py-1.5 rounded-xl">
+                                  <Clock className="w-3.5 h-3.5 text-purple-600" />
+                                  <span>Trámite de Rehabilitación en Revisión</span>
+                                </span>
+                              ) : lab.proximo_a_vencer || lab.vencido || (lab.dias_para_vencer !== undefined && lab.dias_para_vencer <= 15) ? (
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <span className={`inline-flex items-center space-x-1.5 text-xs font-bold px-3 py-1.5 rounded-xl border ${
+                                    lab.vencido
+                                      ? 'bg-rose-50 text-rose-700 border-rose-200'
+                                      : 'bg-amber-50 text-amber-800 border-amber-200'
+                                  }`}>
+                                    <AlertTriangle className="w-3.5 h-3.5" />
+                                    <span>{lab.vencido ? 'Acta Vencida' : `Acta por vencer (${lab.dias_para_vencer} días)`}</span>
+                                  </span>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => handleAbrirRehabilitacion(lab)}
+                                    className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-4 py-1.5 rounded-xl transition flex items-center space-x-1.5 shadow-sm cursor-pointer active:scale-95 animate-pulse"
+                                  >
+                                    <UploadCloud className="w-4 h-4" />
+                                    <span>Subir papeles para rehabilitación</span>
+                                  </button>
+                                </div>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => handleAbrirRehabilitacion(lab)}
+                                  className="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold px-3 py-1.5 rounded-xl transition flex items-center space-x-1.5 cursor-pointer"
+                                  title="Iniciar renovación o rehabilitación de requisitos"
+                                >
+                                  <UploadCloud className="w-3.5 h-3.5 text-slate-500" />
+                                  <span>Rehabilitación / Renovación</span>
+                                </button>
+                              )}
+                            </div>
                           </div>
                         </div>
 
@@ -2238,10 +2383,11 @@ export default function PropietarioPage() {
                           onChange={(e) => setFormNueva({ ...formNueva, tipo: e.target.value })}
                           className="w-full bg-slate-50 border border-slate-200 text-slate-800 text-base sm:text-sm rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#0077be] font-medium cursor-pointer"
                         >
-                          <option value="Laboratorio Clínico Privado">Laboratorio Clínico Privado</option>
-                          <option value="Laboratorio Clínico Público">Laboratorio Clínico Público</option>
-                          <option value="Laboratorio de Referencia">Laboratorio de Referencia</option>
-                          <option value="Laboratorio de Seguridad Social a Corto Plazo">Laboratorio de Seguridad Social a Corto Plazo</option>
+                          <option value="Iglesia">Iglesia</option>
+                          <option value="ONG">ONG</option>
+                          <option value="Privado">Privado</option>
+                          <option value="Público">Público</option>
+                          <option value="De Seguro Social">De Seguro Social</option>
                         </select>
                       </div>
 
@@ -2273,7 +2419,6 @@ export default function PropietarioPage() {
                           <option value="Nivel 1">Nivel 1 (Baja Complejidad)</option>
                           <option value="Nivel 2">Nivel 2 (Mediana Complejidad)</option>
                           <option value="Nivel 3">Nivel 3 (Alta Complejidad)</option>
-                          <option value="Nivel 4">Nivel 4 (Referencia e Investigación)</option>
                         </select>
                       </div>
 
@@ -3086,6 +3231,166 @@ export default function PropietarioPage() {
                 Aceptar
               </button>
             </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* ===================================================================== */}
+      {/* MODAL: SUBIR PAPELES PARA REHABILITACIÓN DE LABORATORIO               */}
+      {/* ===================================================================== */}
+      {modalRehabilitacionOpen && labRehabilitando && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fadeIn overflow-y-auto">
+          <div className="bg-white w-full max-w-2xl rounded-3xl shadow-2xl border border-slate-100 overflow-hidden flex flex-col my-8">
+            
+            {/* Cabecera del Modal */}
+            <div className="p-6 bg-gradient-to-r from-[#005596] to-[#0077c8] text-white flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <div className="p-2.5 rounded-2xl bg-white/15 backdrop-blur-md">
+                  <UploadCloud className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <span className="text-[10px] font-black uppercase tracking-wider bg-white/20 text-cyan-100 px-2 py-0.5 rounded-full">
+                    Proceso de Rehabilitación Normativa
+                  </span>
+                  <h3 className="text-lg font-black tracking-tight mt-0.5">
+                    Subir Papeles para Rehabilitación
+                  </h3>
+                  <p className="text-xs text-cyan-100 font-medium truncate max-w-md">
+                    Establecimiento: {labRehabilitando.nombre_comercial} ({labRehabilitando.municipio})
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setModalRehabilitacionOpen(false)}
+                className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white transition cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Cuerpo del Formulario */}
+            <form onSubmit={handleEnviarRehabilitacion} className="p-6 space-y-5 text-xs text-slate-700">
+              
+              <div className="p-4 bg-blue-50/80 border border-blue-200 rounded-2xl text-blue-900 space-y-1">
+                <p className="font-bold flex items-center space-x-1.5">
+                  <AlertCircle className="w-4 h-4 text-[#0060a8] shrink-0" />
+                  <span>Documentación oficial requerida por SEDES:</span>
+                </p>
+                <p className="text-[11px] leading-relaxed text-blue-800">
+                  Para renovar y rehabilitar el acta de su laboratorio, debe adjuntar los siguientes 3 documentos reglamentarios en formato PDF. Al enviarlos, el Coordinador los revisará y programará la nueva inspección de campo.
+                </p>
+              </div>
+
+              {/* Documento 1: Contrato EMSA */}
+              <div className="space-y-1.5 p-4 rounded-2xl border border-slate-200 bg-slate-50/60">
+                <div className="flex items-center justify-between">
+                  <label className="font-black text-slate-800 text-xs flex items-center space-x-1.5">
+                    <FileText className="w-4 h-4 text-[#0060a8]" />
+                    <span>1. Contrato de recojo de residuos infecciosos (EMSA) *</span>
+                  </label>
+                  <span className="text-[10px] font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded-full border border-rose-200">
+                    Obligatorio (PDF)
+                  </span>
+                </div>
+                <input
+                  type="file"
+                  accept="application/pdf,.pdf"
+                  required
+                  onChange={(e) => setFileEmsa(e.target.files?.[0] || null)}
+                  className="w-full text-xs text-slate-600 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-[#005596] file:text-white hover:file:bg-[#003e6d] file:cursor-pointer cursor-pointer bg-white p-2 border border-slate-200 rounded-xl"
+                />
+                {fileEmsa && (
+                  <p className="text-[11px] text-emerald-700 font-bold flex items-center space-x-1">
+                    <Check className="w-3.5 h-3.5" />
+                    <span>Archivo seleccionado: {fileEmsa.name}</span>
+                  </p>
+                )}
+              </div>
+
+              {/* Documento 2: Certificado COZBES */}
+              <div className="space-y-1.5 p-4 rounded-2xl border border-slate-200 bg-slate-50/60">
+                <div className="flex items-center justify-between">
+                  <label className="font-black text-slate-800 text-xs flex items-center space-x-1.5">
+                    <ShieldCheck className="w-4 h-4 text-[#0060a8]" />
+                    <span>2. Certificado de bioseguridad (COZBES) *</span>
+                  </label>
+                  <span className="text-[10px] font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded-full border border-rose-200">
+                    Obligatorio (PDF)
+                  </span>
+                </div>
+                <input
+                  type="file"
+                  accept="application/pdf,.pdf"
+                  required
+                  onChange={(e) => setFileCozbes(e.target.files?.[0] || null)}
+                  className="w-full text-xs text-slate-600 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-[#005596] file:text-white hover:file:bg-[#003e6d] file:cursor-pointer cursor-pointer bg-white p-2 border border-slate-200 rounded-xl"
+                />
+                {fileCozbes && (
+                  <p className="text-[11px] text-emerald-700 font-bold flex items-center space-x-1">
+                    <Check className="w-3.5 h-3.5" />
+                    <span>Archivo seleccionado: {fileCozbes.name}</span>
+                  </p>
+                )}
+              </div>
+
+              {/* Documento 3: Memorial correspondiente */}
+              <div className="space-y-1.5 p-4 rounded-2xl border border-slate-200 bg-slate-50/60">
+                <div className="flex items-center justify-between">
+                  <label className="font-black text-slate-800 text-xs flex items-center space-x-1.5">
+                    <FileCheck2 className="w-4 h-4 text-[#0060a8]" />
+                    <span>3. Memorial correspondiente *</span>
+                  </label>
+                  <span className="text-[10px] font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded-full border border-rose-200">
+                    Obligatorio (PDF)
+                  </span>
+                </div>
+                <input
+                  type="file"
+                  accept="application/pdf,.pdf"
+                  required
+                  onChange={(e) => setFileMemorial(e.target.files?.[0] || null)}
+                  className="w-full text-xs text-slate-600 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-[#005596] file:text-white hover:file:bg-[#003e6d] file:cursor-pointer cursor-pointer bg-white p-2 border border-slate-200 rounded-xl"
+                />
+                {fileMemorial && (
+                  <p className="text-[11px] text-emerald-700 font-bold flex items-center space-x-1">
+                    <Check className="w-3.5 h-3.5" />
+                    <span>Archivo seleccionado: {fileMemorial.name}</span>
+                  </p>
+                )}
+              </div>
+
+              {/* Pie con Botones */}
+              <div className="pt-4 border-t border-slate-100 flex items-center justify-end space-x-3">
+                <button
+                  type="button"
+                  onClick={() => setModalRehabilitacionOpen(false)}
+                  className="px-5 py-2.5 rounded-xl border border-slate-200 text-slate-700 font-bold text-xs hover:bg-slate-50 transition cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={enviandoRehabilitacion || !fileEmsa || !fileCozbes || !fileMemorial}
+                  className="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs transition flex items-center space-x-2 shadow-md cursor-pointer disabled:opacity-50"
+                >
+                  {enviandoRehabilitacion ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Enviando Solicitud...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Send className="w-4 h-4" />
+                      <span>Enviar Solicitud de Rehabilitación</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
+            </form>
 
           </div>
         </div>

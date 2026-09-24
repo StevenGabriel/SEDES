@@ -65,10 +65,10 @@ export default function ActasEmitidasView({ usuario, mostrarToast }) {
   const [guardandoActa, setGuardandoActa] = useState(false);
 
   // Cargar lista de actas desde el backend
-  const cargarActas = useCallback(async (page = 1) => {
+  const cargarActas = useCallback(async (page = 1, silencioso = false) => {
     const supId = usuario?.id || usuario?.email || (usuario?.nombres ? `${usuario.nombres} ${usuario.apellidos}` : '');
     if (!supId) return;
-    setCargando(true);
+    if (!silencioso) setCargando(true);
     try {
       let url = `http://localhost:8000/api/supervisor/${encodeURIComponent(supId)}/actas?page=${page}&limit=6`;
 
@@ -87,20 +87,17 @@ export default function ActasEmitidasView({ usuario, mostrarToast }) {
         const data = await res.json();
         setDatosActas(data);
         setPaginaActual(data.paginacion?.pagina_actual || 1);
-      } else {
-        mostrarToast?.('Error al cargar el historial de actas.', 'warning');
       }
     } catch (err) {
       console.warn('Error al obtener actas:', err);
-      mostrarToast?.('Error de conexión al obtener actas.', 'warning');
     } finally {
-      setCargando(false);
+      if (!silencioso) setCargando(false);
     }
-  }, [usuario, busqueda, filtroResultado, filtroMes, mostrarToast]);
+  }, [usuario?.id, usuario?.email, busqueda, filtroResultado, filtroMes]);
 
   useEffect(() => {
     cargarActas(1);
-  }, [filtroResultado, filtroMes]);
+  }, [cargarActas]);
 
   // Cargar inspecciones disponibles para registrar acta
   const cargarInspeccionesParaActa = async () => {

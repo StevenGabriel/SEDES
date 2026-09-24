@@ -213,9 +213,9 @@ export default function AbogadoPage() {
     }
   }, []);
 
-  // Cargar historial de resoluciones y dictámenes reales
-  const cargarHistorial = useCallback(async (searchQuery = '', estado = 'Todos') => {
-    setCargandoHistorial(true);
+  // Cargar historial de resoluciones y dictámenes reales (con soporte para refresco silencioso)
+  const cargarHistorial = useCallback(async (searchQuery = '', estado = 'Todos', silencioso = false) => {
+    if (!silencioso) setCargandoHistorial(true);
     try {
       const params = new URLSearchParams();
       if (searchQuery && searchQuery.trim()) params.append('search', searchQuery.trim());
@@ -228,7 +228,7 @@ export default function AbogadoPage() {
     } catch (err) {
       console.warn('Error al cargar historial:', err);
     } finally {
-      setCargandoHistorial(false);
+      if (!silencioso) setCargandoHistorial(false);
     }
   }, []);
 
@@ -236,9 +236,9 @@ export default function AbogadoPage() {
     cargarHistorial(busquedaHistorial, filtroEstadoHistorial);
   }, [cargarHistorial, busquedaHistorial, filtroEstadoHistorial, seccionActiva]);
 
-  // 1. Cargar lista de informes reales desde el backend
-  const cargarInformes = useCallback(async () => {
-    setCargandoInformes(true);
+  // 1. Cargar lista de informes reales desde el backend (con soporte para refresco silencioso)
+  const cargarInformes = useCallback(async (silencioso = false) => {
+    if (!silencioso) setCargandoInformes(true);
     try {
       const res = await fetch('http://localhost:8000/api/abogado/informes');
       if (res.ok) {
@@ -259,13 +259,38 @@ export default function AbogadoPage() {
     } catch (err) {
       console.warn('Error al cargar informes:', err);
     } finally {
-      setCargandoInformes(false);
+      if (!silencioso) setCargandoInformes(false);
     }
   }, []);
 
   useEffect(() => {
     cargarInformes();
   }, [cargarInformes]);
+
+  // Polling silencioso en segundo plano y al recuperar foco de ventana
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        cargarInformes(true);
+        if (seccionActiva === 'historial') {
+          cargarHistorial(busquedaHistorial, filtroEstadoHistorial, true);
+        }
+      }
+    }, 20000);
+
+    const onFocus = () => {
+      cargarInformes(true);
+      if (seccionActiva === 'historial') {
+        cargarHistorial(busquedaHistorial, filtroEstadoHistorial, true);
+      }
+    };
+    window.addEventListener('focus', onFocus);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('focus', onFocus);
+    };
+  }, [cargarInformes, cargarHistorial, seccionActiva, busquedaHistorial, filtroEstadoHistorial]);
 
   // 2. Cargar detalle del informe seleccionado (para Vista 1 e inicializar Vista 2)
   const cargarDetalleInforme = useCallback(async (tId) => {
@@ -663,18 +688,26 @@ export default function AbogadoPage() {
         tramite_id: borradorResolucion.tramite_id,
         numero_resolucion: editNumeroResolucion,
         fecha_emision: editFechaEmision,
+        establecimiento_nombre: editEstablecimiento,
+        razon_social_propietario: editRazonSocial,
+        ci_nit_solicitante: editCiNit,
+        tipo_establecimiento: editTipoEstablecimiento,
+        direccion_registrada: editDireccion,
         regente: editRegente,
         ci_regente: editCiRegente,
         tipo_tramite: detalleInforme?.tipo_tramite || 'APERTURA Y HABILITACIÓN',
         cite_informe: borradorResolucion?.datos_establecimiento?.cite_informe || 'CODELAB/SEDES/71/2026',
         fecha_informe: borradorResolucion?.datos_establecimiento?.fecha_informe || editFechaEmision,
+        antecedentes: editAntecedentes,
         vistos: editAntecedentes,
         fundamento_legal: editFundamentoLegal,
         articulo_primero: editArticuloPrimero,
         articulo_segundo: editArticuloSegundo,
         articulo_tercero: editArticuloTercero,
         vigencia_rango: editVigenciaRango,
-        observaciones_legales: editObservacionesLegales
+        observaciones_legales: editObservacionesLegales,
+        observaciones_coordinador: observacionesCoordinadorEdicion,
+        dictamen_final: dictamenSeleccionado
       };
 
       const res = await fetch('http://localhost:8000/api/abogado/guardar-resolucion', {

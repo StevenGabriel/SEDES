@@ -176,9 +176,9 @@ export default function DirectorPage() {
     cargarOpcionesFiltros();
   }, [cargarOpcionesFiltros]);
 
-  // 2. Cargar métricas e indicadores con filtros dinámicos
-  const cargarMetricasIndicadores = useCallback(async () => {
-    setCargandoMetricas(true);
+  // 2. Cargar métricas e indicadores con filtros dinámicos (con soporte para refresco silencioso)
+  const cargarMetricasIndicadores = useCallback(async (silencioso = false) => {
+    if (!silencioso) setCargandoMetricas(true);
     try {
       const params = new URLSearchParams();
       if (filtros.periodo_anio) params.append('periodo_anio', filtros.periodo_anio);
@@ -201,12 +201,31 @@ export default function DirectorPage() {
     } catch (err) {
       console.warn('Error al cargar métricas e indicadores:', err);
     } finally {
-      setCargandoMetricas(false);
+      if (!silencioso) setCargandoMetricas(false);
     }
   }, [filtros]);
 
   useEffect(() => {
     cargarMetricasIndicadores();
+  }, [cargarMetricasIndicadores]);
+
+  // Polling silencioso en segundo plano y al recuperar foco de ventana
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        cargarMetricasIndicadores(true);
+      }
+    }, 5000);
+
+    const onFocus = () => {
+      cargarMetricasIndicadores(true);
+    };
+    window.addEventListener('focus', onFocus);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('focus', onFocus);
+    };
   }, [cargarMetricasIndicadores]);
 
   const handleFiltroChange = (campo, valor) => {

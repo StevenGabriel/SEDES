@@ -919,9 +919,9 @@ export default function AdminPage() {
     password: ''
   });
 
-  // Cargar usuarios desde la Base de Datos
-  const cargarUsuariosDesdeBD = async () => {
-    setCargando(true);
+  // Cargar usuarios desde la Base de Datos (con soporte para refresco silencioso)
+  const cargarUsuariosDesdeBD = async (silencioso = false) => {
+    if (!silencioso) setCargando(true);
     try {
       const res = await fetch('http://localhost:8000/api/admin/usuarios?solo_institucionales=true');
       if (res.ok) {
@@ -933,7 +933,7 @@ export default function AdminPage() {
     } catch (err) {
       console.warn('Backend offline, usando datos iniciales:', err);
     } finally {
-      setCargando(false);
+      if (!silencioso) setCargando(false);
     }
   };
 
@@ -948,6 +948,25 @@ export default function AdminPage() {
     }
     cargarUsuariosDesdeBD();
     cargarRequisitosDesdeBD();
+  }, []);
+
+  // Polling silencioso en segundo plano y al recuperar foco de ventana
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        cargarUsuariosDesdeBD(true);
+      }
+    }, 5000);
+
+    const onFocus = () => {
+      cargarUsuariosDesdeBD(true);
+    };
+    window.addEventListener('focus', onFocus);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('focus', onFocus);
+    };
   }, []);
 
   // Resetear página al buscar o cambiar filtros

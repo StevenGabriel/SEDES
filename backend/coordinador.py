@@ -80,6 +80,8 @@ def get_tipo_badge_color(tipo: str) -> str:
         return "bg-cyan-50 text-cyan-700 border-cyan-200"
     if "renovación" in t or "renovacion" in t:
         return "bg-sky-50 text-sky-700 border-sky-200"
+    if "rehabilitación" in t or "rehabilitacion" in t:
+        return "bg-purple-50 text-purple-700 border-purple-200"
     return "bg-indigo-50 text-indigo-700 border-indigo-200"
 
 def serializar_tramite_coordinador(tramite: models.Tramite, db: Session) -> dict:
@@ -802,6 +804,8 @@ def derivar_area_legal(
     estab_nombre = tramite.establecimiento.nombre_comercial if tramite.establecimiento else "Establecimiento"
     cod_trm = f"TRM-{str(tramite.id)[:8].upper()}"
     ahora_formato = datetime.now().strftime("%d %b %Y - %H:%M")
+    cite = payload.codigo_cite or f"CODELAB/SEDES/71/{datetime.now().year}"
+
     # Guardar/Actualizar expediente técnico en ResolucionAdministrativa para revisión del Asesor Legal
     estab = tramite.establecimiento
     prop = estab.propietario if estab else None
@@ -890,7 +894,11 @@ def derivar_area_legal(
 
 @router.get("/supervisores", summary="Listar supervisores de campo reales y carga operativa")
 def listar_supervisores_campo(db: Session = Depends(get_db)):
-    """Retorna los supervisores institucionales registrados en la base de datos con su carga real."""
+    """
+    Retorna los supervisores institucionales registrados en la base de datos con su carga operativa real activa.
+    La carga operativa cuenta exclusivamente los trámites asignados donde la inspección técnica o acta de campo
+    sigue pendiente. Al registrar y emitir el acta oficial (Completada), la carga se libera automáticamente.
+    """
     supervisores_db = db.query(models.Usuario).join(models.Role).filter(
         models.Role.nombre == "Supervisor",
         models.Usuario.estado == True
@@ -898,12 +906,24 @@ def listar_supervisores_campo(db: Session = Depends(get_db)):
 
     resultados = []
     for s in supervisores_db:
-        # Calcular trámites asignados activos
-        asignados_count = db.query(models.Tramite).filter(
+        # Trámites asignados que aún no concluyeron
+        tramites_asig = db.query(models.Tramite).filter(
             models.Tramite.supervisor_asignado_id == s.id,
             models.Tramite.estado == True,
-            models.Tramite.estado_tramite.notin_(["Aprobado", "Rechazado"])
-        ).count()
+            models.Tramite.estado_tramite.notin_(["Aprobado", "Rechazado", "Cancelado"])
+        ).all()
+
+        asignados_count = 0
+        for trm in tramites_asig:
+            # Verificar si ya cuenta con una inspección completada con acta oficial emitida
+            insp = db.query(models.Inspeccion).filter(
+                models.Inspeccion.tramite_id == trm.id,
+                models.Inspeccion.estado == True
+            ).first()
+
+            # Si no existe inspección o la inspección aún NO está completada/firmada, cuenta como carga operativa activa
+            if not insp or (insp.estado_inspeccion != "Completada" and not insp.acta_pdf_url):
+                asignados_count += 1
 
         # Extraer iniciales
         nombre_completo = f"{s.nombres} {s.apellidos}"

@@ -249,6 +249,13 @@ export default function InformeTecnicoView({
     observacionesCoordinador
   ]);
 
+  // Recargar datos desde el backend al montar la vista de Informe Técnico
+  useEffect(() => {
+    if (onRecargarDatos) {
+      onRecargarDatos();
+    }
+  }, []);
+
   // Generar la vista previa al cambiar de trámite, documento o parámetros clave
   useEffect(() => {
     actualizarVistaPreviaPDF();
@@ -260,6 +267,15 @@ export default function InformeTecnicoView({
   }, [
     actualizarVistaPreviaPDF
   ]);
+
+  // Manejar refresco manual completo (Backend + PDF)
+  const handleBotonActualizar = async () => {
+    if (onRecargarDatos) {
+      await onRecargarDatos();
+    }
+    actualizarVistaPreviaPDF();
+    mostrarToast('Expediente y PDF actualizados con los últimos datos del sistema.', 'info');
+  };
 
   // Manejar cambio de trámite seleccionado
   const handleSeleccionar = (item) => {
@@ -723,7 +739,7 @@ export default function InformeTecnicoView({
                   </span>
                   <button
                     type="button"
-                    onClick={actualizarVistaPreviaPDF}
+                    onClick={handleBotonActualizar}
                     disabled={generandoVistaPrevia}
                     className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition cursor-pointer flex items-center space-x-1 text-xs border border-slate-700"
                     title="Actualizar / Regenerar vista previa del PDF"

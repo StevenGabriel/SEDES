@@ -43,8 +43,11 @@ def init_database(reset_tables: bool = False, poblar_laboratorios_demo: bool = F
                 conn.execute(text("ALTER TABLE resoluciones_administrativas ADD COLUMN IF NOT EXISTS destinatario_informe VARCHAR(200);"))
                 conn.execute(text("ALTER TABLE resoluciones_administrativas ADD COLUMN IF NOT EXISTS coordinador_nombre VARCHAR(150);"))
                 conn.execute(text("ALTER TABLE resoluciones_administrativas ADD COLUMN IF NOT EXISTS fecha_informe DATE;"))
+                conn.execute(text("ALTER TABLE inspecciones ADD COLUMN IF NOT EXISTS plazo_subsanacion VARCHAR(100) DEFAULT '1 año';"))
+                conn.execute(text("ALTER TABLE inspecciones ADD COLUMN IF NOT EXISTS fecha_vencimiento_acta DATE;"))
+                conn.execute(text("ALTER TABLE inspecciones ADD COLUMN IF NOT EXISTS alerta_15_dias_enviada BOOLEAN DEFAULT FALSE;"))
                 conn.commit()
-                logger.info("✅ Esquema de catálogo de requisitos, establecimientos y resoluciones administrativas verificado.")
+                logger.info("✅ Esquema de catálogo de requisitos, establecimientos, inspecciones y resoluciones administrativas verificado.")
             except Exception as e_mig:
                 logger.warning(f"Aviso en migración de columnas: {e_mig}")
 
