@@ -331,3 +331,151 @@ async def subsanar_documento_tramite(
         "archivo_url": archivo_url,
         "estado_validacion": doc.estado_validacion
     }
+
+def obtener_o_crear_requisito(db: Session, nombre: str, seccion_codigo: str = "2.3", seccion_titulo: str = "REHABILITACIÓN Y BIOSEGURIDAD") -> models.CatalogoRequisito:
+    req = db.query(models.CatalogoRequisito).filter(
+        models.CatalogoRequisito.nombre_documento.ilike(f"%{nombre.strip()}%"),
+        models.CatalogoRequisito.estado == True
+    ).first()
+    if not req:
+        req = models.CatalogoRequisito(
+            seccion_codigo=seccion_codigo,
+            seccion_titulo=seccion_titulo,
+            nombre_documento=nombre.strip(),
+            categoria="Rehabilitación",
+            es_obligatorio=True,
+            es_subtitulo=False,
+            orden=1,
+            estado=True
+        )
+        db.add(req)
+        db.commit()
+        db.refresh(req)
+    return req
+
+@router.post("/rehabilitacion", summary="Crear trámite de rehabilitación de establecimiento con los 3 requisitos obligatorios")
+async def crear_tramite_rehabilitacion(
+    establecimiento_id: str = Form(...),
+    propietario_id: Optional[str] = Form(None),
+    file_emsa: UploadFile = File(...),
+    file_cozbes: UploadFile = File(...),
+    file_memorial: UploadFile = File(...),
+    db: Session = Depends(get_db)
+):
+    """
+    Registra una solicitud de rehabilitación para un laboratorio cuyo periodo de vigencia está por vencer o venció,
+    almacenando los 3 documentos requeridos:
+    1. Contrato de recojo de residuos infecciosos (EMSA)
+    2. Certificado de bioseguridad (COZBES)
+    3. Memorial correspondiente
+    """
+    from datetime import date, datetime
+    try:
+        estab_uuid = uuid.UUID(establecimiento_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="ID de establecimiento inválido.")
+
+    estab = db.query(models.Establecimiento).filter(models.Establecimiento.id == estab_uuid).first()
+    if not estab:
+        raise HTTPException(status_code=404, detail="Establecimiento no encontrado.")
+
+    # Validar archivos PDF
+    for f, nom in [(file_emsa, "Contrato EMSA"), (file_cozbes, "Certificado COZBES"), (file_memorial, "Memorial")]:
+        if not f.filename.lower().endswith(".pdf"):
+            raise HTTPException(status_code=400, detail=f"El documento '{nom}' debe estar en formato PDF.")
+
+    # Crear nuevo Trámite de Rehabilitación
+    nuevo_tramite = models.Tramite(
+        id=uuid.uuid4(),
+        establecimiento_id=estab.id,
+        tipo_tramite="Rehabilitación",
+        estado_tramite="Pendiente",
+        fecha_ingreso=date.today(),
+        estado=True
+    )
+    db.add(nuevo_tramite)
+    db.commit()
+    db.refresh(nuevo_tramite)
+
+    # Carpeta física
+    tramite_folder, web_prefix = obtener_ruta_almacenamiento_tramite(db, nuevo_tramite)
+
+    # Requisitos a guardar
+    docs_info = [
+        (file_emsa, "Contrato de recojo de residuos infecciosos (EMSA)", "emsa"),
+        (file_cozbes, "Certificado de bioseguridad (COZBES)", "cozbes"),
+        (file_memorial, "Memorial correspondiente", "memorial")
+    ]
+
+    docs_creados = []
+    for f, req_nombre, prefix in docs_info:
+        req_db = obtener_o_crear_requisito(db, req_nombre, "2.3", "REHABILITACIÓN Y BIOSEGURIDAD")
+        clean_name = "".join(c for c in f.filename if c.isalnum() or c in "._- ")
+        filename = f"{prefix}_{req_db.id}_{uuid.uuid4().hex[:8]}_{clean_name}"
+        file_path = os.path.join(tramite_folder, filename)
+
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(f.file, buffer)
+
+        archivo_url = f"{web_prefix}/{filename}"
+
+        nuevo_doc = models.TramiteDocumento(
+            id=uuid.uuid4(),
+            tramite_id=nuevo_tramite.id,
+            requisito_id=req_db.id,
+            archivo_url=archivo_url,
+            estado_validacion="En Revisión",
+            estado=True
+        )
+        db.add(nuevo_doc)
+        docs_creados.append(nuevo_doc)
+
+    estab.estado_operativo = "Renovación"
+
+    # Notificaciones
+    try:
+        from notificaciones import crear_notificacion_db, notificar_a_rol_db
+        cod_trm = f"TRM-{str(nuevo_tramite.id)[:8].upper()}"
+
+        notificar_a_rol_db(
+            db,
+            rol_nombre="Coordinador",
+            titulo=f"📄 Nueva Solicitud de Rehabilitación - {estab.nombre_comercial}",
+            mensaje=f"El establecimiento '{estab.nombre_comercial}' ha ingresado su solicitud de rehabilitación ({cod_trm}) con los 3 documentos requeridos (EMSA, COZBES y Memorial) para revisión y asignación de inspección."
+        )
+
+        if estab.propietario_id:
+            crear_notificacion_db(
+                db,
+                usuario_id=estab.propietario_id,
+                titulo=f"✅ Solicitud de Rehabilitación Ingresada ({cod_trm})",
+                mensaje=f"Su trámite de rehabilitación para '{estab.nombre_comercial}' fue registrado con éxito. Se encuentra en la bandeja del Coordinador para su verificación."
+            )
+    except Exception as e:
+        print(f"Error al enviar notificaciones de rehabilitación: {e}")
+
+    # Auditoría
+    try:
+        nuevo_log = models.HistorialActividad(
+            id=uuid.uuid4(),
+            codigo_tramite=f"TRM-{str(nuevo_tramite.id)[:8].upper()}",
+            establecimiento=estab.nombre_comercial,
+            accion="Ingreso de solicitud de rehabilitación con los 3 documentos reglamentarios (EMSA, COZBES y Memorial).",
+            responsable=f"{estab.propietario.nombres} {estab.propietario.apellidos}" if estab.propietario else "Propietario",
+            estado_resultado="Pendiente",
+            estado_badge="bg-purple-50 text-purple-700 border-purple-200",
+            fecha_hora_formato=datetime.now().strftime("%d %b %Y - %H:%M")
+        )
+        db.add(nuevo_log)
+    except Exception as e:
+        print(f"Error al registrar historial de rehabilitación: {e}")
+
+    db.commit()
+
+    return {
+        "mensaje": f"¡Solicitud de rehabilitación para '{estab.nombre_comercial}' ingresada con éxito!",
+        "tramite_id": str(nuevo_tramite.id),
+        "codigo_tramite": f"TRM-{str(nuevo_tramite.id)[:8].upper()}",
+        "documentos_subidos": len(docs_creados)
+    }
+

@@ -113,11 +113,21 @@ def obtener_metricas_consola(db: Session = Depends(get_db)):
             models.Inspeccion.estado_inspeccion.in_(["Completada", "Aprobada", "Finalizada"])
         ).count()
 
-        # Contar trámites asignados activos
-        tramites_asig = db.query(models.Tramite).filter(
+        # Contar trámites asignados activos con inspección de campo pendiente
+        tramites_asig_list = db.query(models.Tramite).filter(
             models.Tramite.supervisor_asignado_id == s.id,
-            models.Tramite.estado == True
-        ).count()
+            models.Tramite.estado == True,
+            models.Tramite.estado_tramite.notin_(["Aprobado", "Rechazado", "Cancelado"])
+        ).all()
+
+        tramites_asig = 0
+        for trm in tramites_asig_list:
+            insp = db.query(models.Inspeccion).filter(
+                models.Inspeccion.tramite_id == trm.id,
+                models.Inspeccion.estado == True
+            ).first()
+            if not insp or (insp.estado_inspeccion != "Completada" and not insp.acta_pdf_url):
+                tramites_asig += 1
 
         nombre_abrev = f"{s.nombres[0]}. {s.apellidos.split()[0]}" if s.nombres and s.apellidos else (s.nombres or "Supervisor")
         

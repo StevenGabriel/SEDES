@@ -3075,3 +3075,168 @@ Actualizar el formulario de registro de nuevos establecimientos ("Nueva Solicitu
 
 #### 2. `backend/schemas.py` y `backend/establecimientos.py` [MODIFICADO]
 * Se actualizó el valor por defecto de `tipo` a `"Privado"`.
+
+---
+
+## [2026-09-24] Implementación de Sincronización en Tiempo Real y Polling Silencioso en Todas las Vistas
+
+### 📌 Objetivo
+Permitir que las nuevas solicitudes de trámites, derivaciones, agendamientos de inspección, resoluciones y notificaciones se reflejen automáticamente en vivo en todas las vistas del sistema sin necesidad de recargar manualmente la página.
+
+---
+
+### 🛠️ Archivos Modificados
+
+#### 1. `frontend/src/pages/CoordinadorPage.jsx` [MODIFICADO]
+* Se añadió el modo `silencioso` a `cargarDatosBackend` para actualizar la lista de trámites, asignaciones, historial y notificaciones sin parpadeos ni bloqueos visuales.
+* Se configuró un intervalo de sondeo en segundo plano cada 4 segundos (condicionado a pestaña activa `document.visibilityState === 'visible'`) y actualización reactiva al recuperar el foco de la ventana (`window.focus`).
+* Se preserva el trámite y documento seleccionado por el usuario durante las actualizaciones automáticas.
+
+#### 2. `frontend/src/pages/SupervisorPage.jsx` [MODIFICADO]
+* Se añadió sondeo silencioso en segundo plano cada 4 segundos a `cargarAgendaBackend` y sincronización al enfocar la ventana para recibir asignaciones e inspecciones en tiempo real.
+
+#### 3. `frontend/src/pages/AbogadoPage.jsx` [MODIFICADO]
+* Se implementó polling silencioso cada 4 segundos para actualizar la lista de informes recibidos y el historial de resoluciones de forma transparente.
+
+#### 4. `frontend/src/pages/PropietarioPage.jsx` [MODIFICADO]
+* Se activó la sincronización periódica cada 4 segundos de `fetchMisEstablecimientos`, `fetchTramitesUsuario` y `fetchNotificaciones` para reflejar aprobaciones y observaciones al instante.
+
+#### 5. `frontend/src/pages/DirectorPage.jsx` y `frontend/src/pages/AdminPage.jsx` [MODIFICADO]
+* Se integró sondeo periódico silencioso cada 20 segundos para actualizar paneles de indicadores, métricas y usuarios sin recarga manual.
+
+---
+
+## [2026-09-24] Bloqueo de Fecha de Inspección In-Situ en Acta del Supervisor
+
+### 📌 Objetivo
+Garantizar la integridad normativa y trazabilidad del proceso de inspección, haciendo que el campo **"Fecha de Inspección In-Situ"** en el formulario de emisión de actas (`NuevaActaFormView.jsx`) sea de solo lectura oficial y se sincronice automáticamente con la fecha agendada en la base de datos, impidiendo que el supervisor modifique manualmente dicha fecha al momento de llenar el checklist.
+
+---
+
+### 🛠️ Archivos Modificados
+
+#### 1. `frontend/src/components/supervisor/NuevaActaFormView.jsx` [MODIFICADO]
+* Se extrae y sincroniza automáticamente la fecha programada (`first.fecha` o `first.fecha_programada`) al cargar el establecimiento o cambiar de trámite.
+* Se convirtió el campo de entrada `Fecha de Inspección In-Situ` a modo **solo lectura** (`readOnly`, `disabled`, con estilo visual `bg-slate-100/90 cursor-not-allowed select-none`) e insignia `[Oficial]`, homologándolo con los campos oficiales de Director Técnico y Dirección.
+
+---
+
+## [2026-09-24] Plazo de Subsanación Interactivo, Alertas de Vencimiento a 15 Días y Flujo de Rehabilitación
+
+### 📌 Objetivo
+1. Proveer al supervisor en el formulario de emisión de actas (`NuevaActaFormView.jsx`) de un selector interactivo entre la vigencia estándar de **1 año** y una opción **personalizada en días** (con accesos rápidos a 15, 30, 45, 60, 90, 180 días e input numérico) con cálculo en vivo de la fecha exacta de vencimiento.
+2. Alertar automáticamente al propietario cuando un acta esté a **15 días o menos de vencer** (o vencida) mediante notificación en tiempo real y badges de estado en sus establecimientos.
+3. Habilitar en la vista de Propietario (`PropietarioPage.jsx`) el botón y modal **"Subir papeles para rehabilitación"** para cargar los 3 requisitos obligatorios:
+   - *Contrato de recojo de residuos infecciosos (EMSA)*
+   - *Certificado de bioseguridad (COZBES)*
+   - *Memorial correspondiente*
+4. Registrar el trámite de tipo **"Rehabilitación"** en la bandeja del Coordinador (`CoordinadorPage.jsx`) para su validación documental y asignación de nueva inspección técnica en campo.
+
+---
+
+### 🛠️ Archivos Modificados y Creados
+
+#### 1. `frontend/src/components/supervisor/NuevaActaFormView.jsx` [MODIFICADO]
+* Selector interactivo con botones `"1 año (Vigencia Estándar)"` y `"Personalizado en días"`.
+* Cálculo dinámico y visualización de la fecha de vencimiento proyectada (`fechaVencimientoCalculada`).
+
+#### 2. `backend/models.py` e `init_db.py` [MODIFICADO]
+* Columnas `plazo_subsanacion`, `fecha_vencimiento_acta` y `alerta_15_dias_enviada` en la tabla `inspecciones` con migración SQL idempotente.
+
+#### 3. `backend/supervisor.py` [MODIFICADO]
+* Cálculo y almacenamiento de `fecha_vencimiento_acta` en base al plazo seleccionado (1 año o N días).
+
+#### 4. `backend/establecimientos.py` [MODIFICADO]
+* Monitoreo de vigencia de actas en `serializar_establecimiento`: emisión automática de notificación al propietario si restan $\le 15$ días.
+
+#### 5. `backend/tramites.py` [MODIFICADO]
+* Endpoint `POST /api/tramites/rehabilitacion` con soporte multipart para los 3 documentos obligatorios, creación de trámite, vinculación de archivos, notificaciones y auditoría.
+
+#### 6. `frontend/src/pages/PropietarioPage.jsx` [MODIFICADO]
+* Insignias de vencimiento y botón interactivo `"Subir papeles para rehabilitación"`.
+* Modal completo para subir los 3 PDFs (EMSA, COZBES y Memorial) y envío en un solo clic.
+
+#### 7. `backend/coordinador.py` [MODIFICADO]
+* Soporte para trámites de tipo `"Rehabilitación"` con badge púrpura en la bandeja de entrada.
+
+---
+
+## [2026-09-24] Estabilización del Historial de Citaciones y Actas del Supervisor
+
+### 📌 Objetivo
+Eliminar el parpadeo y la recarga en bucle que ocurría en las vistas de **"Citaciones Emitidas"** y **"Actas Emitidas"** del Supervisor debido a re-renderizados continuos disparados por callbacks inestables.
+
+---
+
+### 🛠️ Archivos Modificados
+
+#### 1. `frontend/src/pages/SupervisorPage.jsx` [MODIFICADO]
+* Se memorizó `mostrarToast` mediante `useCallback` para evitar recrear la referencia en cada ciclo de render.
+
+#### 2. `frontend/src/components/supervisor/CitacionesEmitidasView.jsx` y `ActasEmitidasView.jsx` [MODIFICADO]
+* Se estabilizó `cargarCitaciones` y `cargarActas` desacoplándolos de funciones auxiliares inestables y añadiendo soporte para modo silencioso (`silencioso = false`), garantizando que solo se ejecuten cuando realmente cambien los filtros (`búsqueda`, `filtroResultado`, `filtroMes`) o al cambiar de página.
+
+---
+
+## [2026-09-24] Aislamiento Estricto por Supervisor en Historial de Citaciones y Corrección de Textos
+
+### 📌 Objetivo
+1. Corregir la consulta del historial de citaciones (`obtener_citaciones_supervisor`) para que cada supervisor visualice únicamente las citaciones e inspecciones rechazadas que él mismo ha emitido, evitando que cuentas recién creadas o sin citaciones (como la de Carlos Ruiz Mendoza) visualicen las citaciones de otros supervisores (como Andrea Torrico o Marco Antonio Vargas).
+2. Ajustar textos en `CitacionesEmitidasView.jsx` para que reflejen fielmente "Citaciones Emitidas" en lugar de "Actas Emitidas" (subtítulo de encabezado, botón "Emitir Citación" y badge contador).
+
+---
+
+### 🛠️ Archivos Modificados
+
+#### 1. `backend/supervisor.py` [MODIFICADO]
+* Se agregó el filtro `models.CitacionInfraccion.supervisor_id == supervisor.id` en `query_cits`.
+* Se agregó el filtro `or_(models.Inspeccion.supervisor_id == supervisor.id, models.Tramite.supervisor_asignado_id == supervisor.id)` en `inspecciones_rechazadas`.
+
+#### 2. `frontend/src/components/supervisor/CitacionesEmitidasView.jsx` [MODIFICADO]
+* Se corrigió el texto del botón principal de acción a `"Emitir Citación"` (antes decía `"Registrar Acta"`).
+* Se corrigió el badge del encabezado de la tabla a `"{N} citaciones emitidas"` (antes decía `"{N} actas emitidas"`).
+* Se corrigió la descripción del encabezado para reflejar el registro de citaciones y notificaciones de infracción en campo.
+
+---
+
+## [2026-09-24] Filtrado Exclusivo de Establecimientos con Acta de Rechazo al Emitir Citación
+
+### 📌 Objetivo
+Restringir el selector de establecimientos en el formulario de emisión de citación (`+ Emitir Citación`) para que únicamente liste aquellos laboratorios que hayan obtenido un acta de inspección técnica con veredicto **Desfavorable / Rechazado** asignada a dicho supervisor, evitando que aparezcan todos los laboratorios registrados en la base de datos de manera indiscriminada.
+
+---
+
+### 🛠️ Archivos Modificados
+
+#### 1. `backend/supervisor.py` [MODIFICADO]
+* En el endpoint `GET /api/supervisor/{supervisor_id}/establecimientos-citacion`:
+  - Se modificó la consulta para obtener únicamente los establecimientos que cuenten con una inspección en estado `True`, vinculada al supervisor solicitante, cuyo veredicto sea `"Desfavorable"` o `"Rechazado"` (o trámite rechazado).
+  - Se retorna la información estructurada del establecimiento junto con el motivo del rechazo y el ID de la inspección.
+
+#### 2. `frontend/src/components/supervisor/CitacionesEmitidasView.jsx` [MODIFICADO]
+* Se actualizó la carga y selección de establecimientos para capturar el motivo del rechazo oficial y pre-completar la sugerencia en el campo de infracción/motivo.
+* Se agregó un banner informativo de advertencia (`bg-amber-50`) cuando el supervisor no tenga ningún laboratorio con acta de rechazo disponible para citar.
+* Se deshabilitó el selector y el botón *"Guardar citación"* cuando la lista de establecimientos rechazados esté vacía, impidiendo la emisión errónea de citaciones a establecimientos aprobados.
+
+---
+
+## [2026-09-24] Liberación Automática de Carga Operativa del Supervisor tras Emisión de Acta Oficial
+
+### 📌 Objetivo
+Garantizar que la métrica de carga operativa de los supervisores (`X/5 trámites`) en el panel del Coordinador (`/coordinador/asignar-supervisores`) y del Director se libere inmediatamente tan pronto como el supervisor concluya su labor de campo y registre el acta oficial de inspección (`estado_inspeccion == 'Completada'` o acta PDF adjunta), evitando que la carga quede retenida mientras el trámite pasa a fases posteriores (como informe técnico, revisión legal o firma de resolución).
+
+---
+
+### 🛠️ Archivos Modificados
+
+#### 1. `backend/coordinador.py` [MODIFICADO]
+* En el endpoint `GET /api/coordinador/supervisores`:
+  - Se modificó el cálculo de `asignados_count` para verificar la existencia y estado de la inspección técnica asociada a cada trámite activo.
+  - La carga operativa activa solo incrementa si la inspección técnica de campo sigue pendiente. Si el supervisor ya emitió el acta oficial firmada, la carga se descuenta automáticamente liberando el cupo del inspector (ej. vuelve a 0/5).
+
+#### 2. `backend/director.py` [MODIFICADO]
+* En el endpoint `GET /api/director/estadisticas-generales`:
+  - Se homologó el cálculo de trámites activos asignados al supervisor para considerar únicamente las inspecciones de campo pendientes de resolución, manteniendo consistencia absoluta entre la vista del Director y del Coordinador.
+
+
+

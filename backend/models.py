@@ -189,6 +189,9 @@ class Inspeccion(Base):
     estado_inspeccion = Column(String(50), default="Pendiente", nullable=False) # 'Pendiente', 'Completada', 'Cancelada', 'Reprogramada'
     veredicto_final = Column(String(50), nullable=True) # 'Favorable', 'Desfavorable', 'Con Observaciones'
     acta_pdf_url = Column(String(500), nullable=True)
+    plazo_subsanacion = Column(String(100), default="1 año", nullable=True)
+    fecha_vencimiento_acta = Column(Date, nullable=True)
+    alerta_15_dias_enviada = Column(Boolean, default=False, nullable=True)
 
     # Columnas de Auditoría
     estado = Column(Boolean, default=True, nullable=False)

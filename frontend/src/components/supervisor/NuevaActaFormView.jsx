@@ -24,6 +24,7 @@ import {
   Eye,
   Trash2,
   FileText,
+  Edit3,
   X
 } from 'lucide-react';
 import jsPDF from 'jspdf';
@@ -796,7 +797,38 @@ export default function NuevaActaFormView({ usuario, onVolver, onActaGuardada, m
 
   // Dictamen y Conclusiones Finales
   const [resultadoFinal, setResultadoFinal] = useState('Aprobado');
+  const [tipoPlazo, setTipoPlazo] = useState('1_anio'); // '1_anio' | 'personalizado'
+  const [diasPersonalizados, setDiasPersonalizados] = useState('30');
   const [plazoSubsanacion, setPlazoSubsanacion] = useState('1 año');
+
+  // Calcular la fecha de vencimiento proyectada
+  const fechaVencimientoCalculada = useMemo(() => {
+    try {
+      const base = fechaInspeccion ? new Date(fechaInspeccion + 'T00:00:00') : new Date();
+      if (tipoPlazo === '1_anio') {
+        const d = new Date(base);
+        d.setFullYear(d.getFullYear() + 1);
+        return d.toLocaleDateString('es-BO', { day: '2-digit', month: 'long', year: 'numeric' });
+      } else {
+        const cant = parseInt(diasPersonalizados, 10) || 30;
+        const d = new Date(base);
+        d.setDate(d.getDate() + cant);
+        return d.toLocaleDateString('es-BO', { day: '2-digit', month: 'long', year: 'numeric' });
+      }
+    } catch {
+      return '1 año a partir de la fecha de inspección';
+    }
+  }, [fechaInspeccion, tipoPlazo, diasPersonalizados]);
+
+  // Sincronizar plazoSubsanacion al cambiar modo o días
+  useEffect(() => {
+    if (tipoPlazo === '1_anio') {
+      setPlazoSubsanacion('1 año');
+    } else {
+      setPlazoSubsanacion(`${diasPersonalizados || 30} días`);
+    }
+  }, [tipoPlazo, diasPersonalizados]);
+
   const [conclusionesGenerales, setConclusionesGenerales] = useState(
     'El establecimiento cumple con los requerimientos técnicos y sanitarios establecidos en el Reglamento General de Habilitación de Laboratorios (R.M. 0202) del SEDES Cochabamba.'
   );
@@ -834,6 +866,13 @@ export default function NuevaActaFormView({ usuario, onVolver, onActaGuardada, m
             setDireccionTexto(first.direccion || 'Cochabamba');
             setMunicipioTexto(first.municipio || 'CERCADO');
             setCodigoTramite(first.codigo_tramite || first.codigo || 'TRM-001');
+            if (first.fecha) {
+              setFechaInspeccion(String(first.fecha).slice(0, 10));
+            } else if (first.fecha_programada) {
+              setFechaInspeccion(String(first.fecha_programada).slice(0, 10));
+            } else {
+              setFechaInspeccion(new Date().toISOString().slice(0, 10));
+            }
           } else {
             setInspeccionSeleccionadaId('');
             setEstablecimientoNombre('');
@@ -860,6 +899,13 @@ export default function NuevaActaFormView({ usuario, onVolver, onActaGuardada, m
       setDireccionTexto(item.direccion || 'Cochabamba');
       setMunicipioTexto(item.municipio || 'CERCADO');
       setCodigoTramite(item.codigo_tramite || item.codigo || 'TRM-001');
+      if (item.fecha) {
+        setFechaInspeccion(String(item.fecha).slice(0, 10));
+      } else if (item.fecha_programada) {
+        setFechaInspeccion(String(item.fecha_programada).slice(0, 10));
+      } else {
+        setFechaInspeccion(new Date().toISOString().slice(0, 10));
+      }
     }
   };
 
@@ -1443,14 +1489,19 @@ export default function NuevaActaFormView({ usuario, onVolver, onActaGuardada, m
 
           {/* Fecha Inspección */}
           <div className="space-y-1">
-            <label className="text-[11px] font-extrabold text-slate-600 block uppercase tracking-wider">
-              Fecha de Inspección In-Situ:
-            </label>
+            <div className="flex items-center justify-between">
+              <label className="text-[11px] font-extrabold text-slate-600 block uppercase tracking-wider">
+                Fecha de Inspección In-Situ:
+              </label>
+              <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">Oficial</span>
+            </div>
             <input
               type="date"
+              readOnly
+              disabled
               value={fechaInspeccion}
-              onChange={(e) => setFechaInspeccion(e.target.value)}
-              className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-slate-800 focus:bg-white focus:ring-2 focus:ring-[#0060a8] outline-none cursor-pointer"
+              title="Fecha oficial de la inspección programada (Solo lectura)"
+              className="w-full px-4 py-2.5 bg-slate-100/90 border border-slate-200 rounded-2xl font-bold text-slate-700 cursor-not-allowed select-none outline-none"
             />
           </div>
 
@@ -1922,29 +1973,85 @@ export default function NuevaActaFormView({ usuario, onVolver, onActaGuardada, m
         </div>
 
         {/* Campo Oficial: Plazo para Subsanación (Vencimiento del Acta) */}
-        <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-2 text-xs">
-          <div className="flex items-center justify-between">
+        <div className="p-5 bg-slate-50 rounded-2xl border border-slate-200 space-y-3.5 text-xs">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <label className="text-[11px] font-extrabold text-slate-800 uppercase tracking-wider flex items-center space-x-2">
               <Clock className="w-4 h-4 text-[#0060a8]" />
-              <span>Plazo para Subsanacion:</span>
+              <span>Plazo de Subsanación / Vigencia del Acta:</span>
             </label>
-            <span className="text-[10px] font-bold text-[#0060a8] bg-white px-2.5 py-0.5 rounded-full border border-slate-200 shadow-2xs">
-              Vencimiento del Acta: 1 año
+            <span className="text-[11px] font-bold text-[#0060a8] bg-white px-3 py-1 rounded-full border border-slate-200 shadow-2xs self-start sm:self-auto">
+              Vence el: <strong className="text-slate-900">{fechaVencimientoCalculada}</strong>
             </span>
           </div>
 
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
-            <input
-              type="text"
-              value={plazoSubsanacion}
-              onChange={(e) => setPlazoSubsanacion(e.target.value)}
-              placeholder="1 año"
-              className="w-full sm:w-64 px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-800 focus:ring-2 focus:ring-[#0060a8] focus:border-[#0060a8] outline-none shadow-2xs"
-            />
-            <p className="text-[11px] text-slate-500 font-medium leading-snug">
-              Plazo normativo y periodo de vigencia otorgado al establecimiento (cada acta cuenta con <b>1 año</b> como fecha de vencimiento).
-            </p>
+          {/* Botones de selección de modo de plazo */}
+          <div className="flex flex-wrap items-center gap-2 pt-1">
+            <button
+              type="button"
+              onClick={() => setTipoPlazo('1_anio')}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center space-x-2 cursor-pointer ${
+                tipoPlazo === '1_anio'
+                  ? 'bg-[#0060a8] text-white shadow-xs'
+                  : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-100'
+              }`}
+            >
+              <Check className={`w-4 h-4 ${tipoPlazo === '1_anio' ? 'opacity-100' : 'opacity-0'}`} />
+              <span>1 año (Vigencia Estándar)</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setTipoPlazo('personalizado')}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center space-x-2 cursor-pointer ${
+                tipoPlazo === 'personalizado'
+                  ? 'bg-[#0060a8] text-white shadow-xs'
+                  : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-100'
+              }`}
+            >
+              <Edit3 className={`w-3.5 h-3.5 ${tipoPlazo === 'personalizado' ? 'opacity-100' : 'opacity-60'}`} />
+              <span>Personalizado en días</span>
+            </button>
           </div>
+
+          {/* Selector de días si es personalizado */}
+          {tipoPlazo === 'personalizado' && (
+            <div className="p-3.5 bg-white rounded-xl border border-blue-200 space-y-2.5 animate-fadeIn">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-[11px] font-bold text-slate-600">Opciones rápidas:</span>
+                {[15, 30, 45, 60, 90, 180].map((d) => (
+                  <button
+                    key={d}
+                    type="button"
+                    onClick={() => setDiasPersonalizados(String(d))}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
+                      diasPersonalizados === String(d)
+                        ? 'bg-blue-100 text-[#0060a8] border border-blue-300'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    }`}
+                  >
+                    {d} días
+                  </button>
+                ))}
+              </div>
+
+              <div className="flex items-center space-x-2 pt-1">
+                <span className="text-[11px] font-bold text-slate-700">Cantidad de días:</span>
+                <input
+                  type="number"
+                  min={1}
+                  max={730}
+                  value={diasPersonalizados}
+                  onChange={(e) => setDiasPersonalizados(e.target.value)}
+                  className="w-24 px-3 py-1.5 bg-slate-50 border border-slate-300 rounded-lg font-bold text-slate-800 focus:bg-white focus:ring-2 focus:ring-[#0060a8] outline-none text-center"
+                />
+                <span className="text-xs font-semibold text-slate-500">días calendario</span>
+              </div>
+            </div>
+          )}
+
+          <p className="text-[11px] text-slate-500 font-medium leading-relaxed">
+            Plazo oficial concedido al establecimiento. Al llegar a los 15 días previos al vencimiento ({fechaVencimientoCalculada}), el sistema notificará automáticamente al propietario para la rehabilitación.
+          </p>
         </div>
 
         {/* Conclusiones Técnicas */}

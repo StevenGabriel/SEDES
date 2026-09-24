@@ -88,9 +88,9 @@ export default function CitacionesEmitidasView({ usuario, mostrarToast }) {
   };
 
   // Cargar lista de citaciones desde el backend
-  const cargarCitaciones = useCallback(async (page = 1) => {
+  const cargarCitaciones = useCallback(async (page = 1, silencioso = false) => {
     const supId = getSupervisorId();
-    setCargando(true);
+    if (!silencioso) setCargando(true);
     try {
       let url = `http://localhost:8000/api/supervisor/${encodeURIComponent(supId)}/citaciones?page=${page}&limit=6`;
 
@@ -109,22 +109,19 @@ export default function CitacionesEmitidasView({ usuario, mostrarToast }) {
         const data = await res.json();
         setDatosCitaciones(data);
         setPaginaActual(data.paginacion?.pagina_actual || 1);
-      } else {
-        mostrarToast?.('Error al cargar el historial de citaciones.', 'warning');
       }
     } catch (err) {
       console.warn('Error al obtener citaciones:', err);
-      mostrarToast?.('Error de conexión con el backend de citaciones.', 'warning');
     } finally {
-      setCargando(false);
+      if (!silencioso) setCargando(false);
     }
-  }, [usuario, busqueda, filtroResultado, filtroMes, mostrarToast]);
+  }, [usuario?.id, usuario?.email, busqueda, filtroResultado, filtroMes]);
 
   useEffect(() => {
     cargarCitaciones(1);
-  }, [cargarCitaciones, filtroResultado, filtroMes]);
+  }, [cargarCitaciones]);
 
-  // Cargar lista de establecimientos reales para el selector de emisión
+  // Cargar lista de establecimientos reales con acta de rechazo para el selector de emisión
   const cargarEstablecimientosParaCitacion = async () => {
     const supId = getSupervisorId();
     setCargandoEstablecimientos(true);
@@ -139,6 +136,14 @@ export default function CitacionesEmitidasView({ usuario, mostrarToast }) {
           setFormEstablecimientoNombre(primero.nombre_comercial || primero.nombre);
           setFormDireccion(primero.direccion || '');
           setFormMunicipio(primero.municipio || 'CERCADO');
+          if (primero.motivo_rechazo) {
+            setFormMotivoCitacion(`Infracción y rechazo detectado en inspección in-situ: ${primero.motivo_rechazo}`);
+          }
+        } else {
+          setFormEstablecimientoId('');
+          setFormEstablecimientoNombre('');
+          setFormDireccion('');
+          setFormMunicipio('');
         }
       }
     } catch (err) {
@@ -179,6 +184,13 @@ export default function CitacionesEmitidasView({ usuario, mostrarToast }) {
       setFormEstablecimientoNombre(est.nombre_comercial || est.nombre || '');
       setFormDireccion(est.direccion || '');
       setFormMunicipio(est.municipio || '');
+      if (est.motivo_rechazo) {
+        setFormMotivoCitacion(`Infracción y rechazo detectado en inspección in-situ: ${est.motivo_rechazo}`);
+      }
+    } else {
+      setFormEstablecimientoNombre('');
+      setFormDireccion('');
+      setFormMunicipio('');
     }
   };
 
@@ -379,31 +391,52 @@ export default function CitacionesEmitidasView({ usuario, mostrarToast }) {
         <form onSubmit={handleGuardarCitacion} className="bg-white rounded-3xl border border-slate-200/90 shadow-2xs p-6 sm:p-10 space-y-8 max-w-5xl">
           
           {/* ------------------------------------------------------------- */}
-          {/* SECCIÓN 1: ESTABLECIMIENTO                                    */}
+          {/* SECCIÓN 1: ESTABLECIMIENTO CON ACTA DE RECHAZO                */}
           {/* ------------------------------------------------------------- */}
           <div className="space-y-4">
-            <h3 className="text-base font-bold text-slate-900 tracking-tight">
-              Establecimiento
-            </h3>
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-bold text-slate-900 tracking-tight">
+                Establecimiento Infractor
+              </h3>
+              <span className="text-[11px] font-bold text-rose-700 bg-rose-50 px-2.5 py-1 rounded-full border border-rose-200">
+                Solo laboratorios con Acta de Rechazo
+              </span>
+            </div>
+
+            {establecimientosDb.length === 0 && !cargandoEstablecimientos && (
+              <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-start space-x-3">
+                <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <p className="font-bold">No tienes laboratorios con acta de rechazo pendientes de citación.</p>
+                  <p className="text-amber-700 font-medium leading-relaxed">
+                    Las citaciones sanitarias solo pueden emitirse a establecimientos cuya inspección técnica en campo haya obtenido un veredicto <strong>Desfavorable / Rechazado</strong>.
+                  </p>
+                </div>
+              </div>
+            )}
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
               {/* Dropdown Establecimiento */}
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-slate-700">
-                  Establecimiento <span className="text-rose-500">*</span>
+                  Establecimiento con Acta Rechazada <span className="text-rose-500">*</span>
                 </label>
                 <div className="relative">
                   <select
                     value={formEstablecimientoId}
                     onChange={handleSeleccionarEstablecimiento}
-                    disabled={cargandoEstablecimientos}
-                    className="w-full bg-slate-50/80 hover:bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-800 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-[#0073c6] cursor-pointer appearance-none pr-10"
+                    disabled={cargandoEstablecimientos || establecimientosDb.length === 0}
+                    className="w-full bg-slate-50/80 hover:bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-800 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-[#0073c6] cursor-pointer appearance-none pr-10 disabled:opacity-60 disabled:cursor-not-allowed"
                     required
                   >
-                    <option value="">Seleccione un establecimiento</option>
+                    <option value="">
+                      {cargandoEstablecimientos 
+                        ? 'Cargando establecimientos...' 
+                        : (establecimientosDb.length === 0 ? 'No hay establecimientos con acta de rechazo' : 'Seleccione un establecimiento rechazado')}
+                    </option>
                     {establecimientosDb.map(est => (
                       <option key={est.id} value={est.id}>
-                        {est.nombre_comercial || est.nombre}
+                        {est.nombre_comercial || est.nombre} ({est.tipo_tramite || 'Rechazado'})
                       </option>
                     ))}
                   </select>
@@ -739,8 +772,8 @@ export default function CitacionesEmitidasView({ usuario, mostrarToast }) {
 
               <button
                 type="submit"
-                disabled={guardandoCitacion}
-                className="w-full sm:w-auto px-7 py-2.5 bg-[#1b2533] hover:bg-[#111827] text-white rounded-xl text-xs font-bold transition shadow-md cursor-pointer flex items-center justify-center space-x-2 disabled:opacity-50"
+                disabled={guardandoCitacion || establecimientosDb.length === 0}
+                className="w-full sm:w-auto px-7 py-2.5 bg-[#1b2533] hover:bg-[#111827] text-white rounded-xl text-xs font-bold transition shadow-md cursor-pointer flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {guardandoCitacion ? (
                   <>
@@ -782,7 +815,7 @@ export default function CitacionesEmitidasView({ usuario, mostrarToast }) {
             Citaciones Emitidas
           </h2>
           <p className="text-xs sm:text-sm text-slate-500 font-medium">
-            Registro de todas las actas de inspección realizadas en campo.
+            Registro de citaciones formales y notificaciones sanitarias emitidas por infracción en campo.
           </p>
         </div>
 
@@ -797,14 +830,14 @@ export default function CitacionesEmitidasView({ usuario, mostrarToast }) {
             <span>Exportar Reporte</span>
           </button>
 
-          {/* Botón Registrar Acta / Citación */}
+          {/* Botón Emitir Citación */}
           <button
             type="button"
             onClick={handleAbrirRegistrarCitacion}
             className="px-5 py-2.5 bg-[#1b2533] hover:bg-[#111827] text-white rounded-xl text-xs font-bold transition shadow-md flex items-center space-x-2 cursor-pointer"
           >
             <Plus className="w-4 h-4 text-white" />
-            <span>Registrar Acta</span>
+            <span>Emitir Citación</span>
           </button>
         </div>
       </div>
@@ -884,7 +917,7 @@ export default function CitacionesEmitidasView({ usuario, mostrarToast }) {
             Historial de Citaciones
           </h3>
           <span className="px-3 py-1 bg-blue-50 text-[#005596] rounded-full text-xs font-extrabold">
-            {datosCitaciones?.total_emitidas || citacionesList.length} actas emitidas
+            {datosCitaciones?.total_emitidas || citacionesList.length} citaciones emitidas
           </span>
         </div>
 
