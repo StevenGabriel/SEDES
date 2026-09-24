@@ -320,7 +320,7 @@ export default function PropietarioPage() {
   // =========================================================================
   const [formNueva, setFormNueva] = useState({
     municipio: 'CERCADO',
-    tipo: 'Laboratorio Clínico Privado',
+    tipo: 'Privado',
     nombre_comercial: '',
     nivel: 'Nivel 1',
     direccion: '',
@@ -2238,10 +2238,11 @@ export default function PropietarioPage() {
                           onChange={(e) => setFormNueva({ ...formNueva, tipo: e.target.value })}
                           className="w-full bg-slate-50 border border-slate-200 text-slate-800 text-base sm:text-sm rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#0077be] font-medium cursor-pointer"
                         >
-                          <option value="Laboratorio Clínico Privado">Laboratorio Clínico Privado</option>
-                          <option value="Laboratorio Clínico Público">Laboratorio Clínico Público</option>
-                          <option value="Laboratorio de Referencia">Laboratorio de Referencia</option>
-                          <option value="Laboratorio de Seguridad Social a Corto Plazo">Laboratorio de Seguridad Social a Corto Plazo</option>
+                          <option value="Iglesia">Iglesia</option>
+                          <option value="ONG">ONG</option>
+                          <option value="Privado">Privado</option>
+                          <option value="Público">Público</option>
+                          <option value="De Seguro Social">De Seguro Social</option>
                         </select>
                       </div>
 
@@ -2273,7 +2274,6 @@ export default function PropietarioPage() {
                           <option value="Nivel 1">Nivel 1 (Baja Complejidad)</option>
                           <option value="Nivel 2">Nivel 2 (Mediana Complejidad)</option>
                           <option value="Nivel 3">Nivel 3 (Alta Complejidad)</option>
-                          <option value="Nivel 4">Nivel 4 (Referencia e Investigación)</option>
                         </select>
                       </div>
 

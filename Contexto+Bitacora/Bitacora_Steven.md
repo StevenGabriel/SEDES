@@ -3027,3 +3027,51 @@ Permitir que las ediciones y redacciones que el Asesor Legal (Abogado) realiza s
 * En `handleGuardarBorrador`, se incluyeron todos los campos editables (`establecimiento_nombre`, `razon_social_propietario`, `ci_nit_solicitante`, `tipo_establecimiento`, `direccion_registrada`, `antecedentes`, `fundamento_legal`, `articulo_primero`, etc.) en el payload JSON enviado a `/api/abogado/guardar-resolucion`.
 * En `backend/abogado.py`, se mejoró la resolución de IDs (UUID completo, prefijo y coincidencia de número de resolución) para asociar las modificaciones exactamente al expediente seleccionado.
 * En `InformeTecnicoView.jsx`, se agregó la recarga de datos al montar y en el botón de actualización del visor.
+
+---
+
+## [2026-09-24] Optimización de Cabecera Oficial en Documentos PDF (Comunicación Interna y Resolución Administrativa)
+
+### 📌 Objetivo
+Eliminar los textos redundantes debajo de cada uno de los 3 logos institucionales de la cabecera ("ESTADO PLURINACIONAL DE BOLIVIA", "GOBIERNO AUTÓNOMO DEPARTAMENTAL DE COCHABAMBA" y "COCHABAMBA UNIR, TRABAJAR Y CRECER") y ampliar el tamaño de los logos aprovechando su propia tipografía e imagen de alta resolución.
+
+---
+
+### 🛠️ Archivos Modificados
+
+#### 1. `frontend/src/components/coordinador/ComunicacionInternaPDF.js` [MODIFICADO]
+* Se eliminaron las líneas de texto manuales debajo de cada logotipo.
+* Se ampliaron las dimensiones de los tres logos oficiales en la cabecera:
+  - **Logo 1 (Chakana / Bolivia):** Ampliado a 26 x 29 mm.
+  - **Logo 2 (Escudo Cochabamba):** Ampliado a 27 x 27 mm centrado simétricamente.
+  - **Logo 3 (Lema Cochabamba):** Ampliado a 28 x 28 mm alineado a la derecha.
+* Se incrementó la resolución de rasterización en `cargarImagenComoPng` a 360x360 px para mayor nitidez.
+
+#### 2. `frontend/src/components/abogado/ResolucionAdministrativaPDF.js` [MODIFICADO]
+* Se homologó la cabecera institucional con los logos ampliados y sin textos redundantes para mantener coherencia visual entre ambos documentos.
+
+---
+
+## [2026-09-24] Actualización de Opciones en Nueva Solicitud de Apertura (Propietario)
+
+### 📌 Objetivo
+Actualizar el formulario de registro de nuevos establecimientos ("Nueva Solicitud") en la vista del Propietario:
+1. Eliminar la opción "Nivel 4" del selector de niveles de complejidad.
+2. Reemplazar las opciones del selector de tipo de laboratorio por: Iglesia, ONG, Privado, Público y De Seguro Social.
+
+---
+
+### 🛠️ Archivos Modificados
+
+#### 1. `frontend/src/pages/PropietarioPage.jsx` [MODIFICADO]
+* Se actualizaron las opciones del desplegable **TIPO DE LABORATORIO**:
+  - `Iglesia`
+  - `ONG`
+  - `Privado`
+  - `Público`
+  - `De Seguro Social`
+* Se eliminó la opción `Nivel 4 (Referencia e Investigación)` del desplegable **NIVEL DE COMPLEJIDAD**, manteniendo Nivel 1, Nivel 2 y Nivel 3.
+* Se ajustó el valor por defecto del estado inicial a `"Privado"`.
+
+#### 2. `backend/schemas.py` y `backend/establecimientos.py` [MODIFICADO]
+* Se actualizó el valor por defecto de `tipo` a `"Privado"`.

@@ -85,7 +85,7 @@ def crear_establecimiento(
         propietario_id=prop_uuid,
         codigo_cue="Nuevo",
         nombre_comercial=datos.nombre_comercial.strip(),
-        tipo=datos.tipo.strip() if datos.tipo else "Laboratorio Clínico Privado",
+        tipo=datos.tipo.strip() if datos.tipo else "Privado",
         nivel=datos.nivel.strip() if datos.nivel else "Nivel 1",
         municipio=datos.municipio.strip().upper(),
         responsable_laboratorio=datos.responsable_laboratorio.strip() if datos.responsable_laboratorio else f"{propietario.nombres} {propietario.apellidos}",
