@@ -96,6 +96,7 @@ export default function InformeTecnicoView({
         observacionesCampo: obsSupervisor,
         regente: t.resolucion?.regente_tecnico || t.regente || t.director_tecnico || t.responsable_laboratorio || 'DRA. NORMA VILLAVICENCIO SILES',
         ci_regente: t.resolucion?.ci_regente || t.regente_ci || t.ci_responsable || t.director_tecnico_ci || '',
+        responsables_areas: t.responsables_areas || t.establecimiento_responsables_areas || '',
         documentosAprobados: docsAprobadosNombres.length > 0 ? docsAprobadosNombres : [
           'Licencia Municipal (Vigente)',
           'Certificado Sanitario Previo',
@@ -143,6 +144,20 @@ export default function InformeTecnicoView({
       }
       if (tramiteActivo.resolucion?.cite_informe) {
         setCiteNumero(tramiteActivo.resolucion.cite_informe);
+      } else {
+        // Consultar el siguiente CITE dinámico correlativo al backend
+        const targetId = tramiteActivo.tramite_uuid || tramiteActivo.id;
+        fetch(`http://localhost:8000/api/coordinador/siguiente-cite?tramite_id=${targetId}`)
+          .then(res => res.json())
+          .then(data => {
+            if (data?.cite) {
+              setCiteNumero(data.cite);
+            }
+          })
+          .catch(err => {
+            console.warn('No se pudo obtener el siguiente CITE correlativo:', err);
+            setCiteNumero(`CODELAB/SEDES/1/${new Date().getFullYear()}`);
+          });
       }
     }
   }, [tramiteActivo?.id, tramiteActivo?.resolucion?.id]);
@@ -154,7 +169,7 @@ export default function InformeTecnicoView({
   const [dictamenFinal, setDictamenFinal] = useState('Favorabilidad Concedida (Favorable)');
   
   // Parámetros de CITE y Membrete Oficial (Comunicación Interna)
-  const [citeNumero, setCiteNumero] = useState(`CODELAB/SEDES/71/${new Date().getFullYear()}`);
+  const [citeNumero, setCiteNumero] = useState(`CODELAB/SEDES/1/${new Date().getFullYear()}`);
   const [destinatarioLegal, setDestinatarioLegal] = useState('Dra. Mery D. Loroño V.');
   const [destinatarioCargo, setDestinatarioCargo] = useState('ASESOR LEGAL - UNIDAD DE CALIDAD Y SERVICIOS');
   const [viaJefe, setViaJefe] = useState('Dra. Karina Soliz Villarroel');
@@ -221,6 +236,7 @@ export default function InformeTecnicoView({
           remitenteCargo: 'RESPONSABLE DEPARTAMENTAL DE LABORATORIOS CODELAB - SEDES',
           regente: tramiteActivo.regente,
           ciRegente: tramiteActivo.ci_regente || tramiteActivo.regente_ci || tramiteActivo.ci_responsable,
+          responsables_areas: tramiteActivo.responsables_areas,
           observaciones: observacionesCoordinador
         });
       }
@@ -339,6 +355,7 @@ export default function InformeTecnicoView({
           remitenteCargo: 'RESPONSABLE DEPARTAMENTAL DE LABORATORIOS CODELAB - SEDES',
           regente: tramiteActivo.regente,
           ciRegente: tramiteActivo.ci_regente || tramiteActivo.regente_ci || tramiteActivo.ci_responsable,
+          responsables_areas: tramiteActivo.responsables_areas,
           observaciones: observacionesCoordinador
         });
         filename = `Informe_Tecnico_${tramiteActivo.codigo || 'SEDES'}.pdf`;

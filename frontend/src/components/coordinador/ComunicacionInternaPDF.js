@@ -38,6 +38,89 @@ export const cargarImagenComoPng = (url, maxWidth = 300, maxHeight = 300) => {
   });
 };
 
+// Helper para parsear responsables de áreas de especialidad
+export const parsearResponsablesAreas = (rawRespAreas) => {
+  if (!rawRespAreas) return [];
+  if (Array.isArray(rawRespAreas)) return rawRespAreas;
+  if (typeof rawRespAreas !== 'string') return [];
+
+  const str = rawRespAreas.trim();
+  if (!str) return [];
+
+  // Si ya es un texto completo con "como responsable de..."
+  if (str.toLowerCase().startsWith('como responsable de') || str.toLowerCase().startsWith(', como responsable de')) {
+    const regex = /(?:como\s+responsable\s+de\s+)([^,y]+?)\s+(?:la\s+|el\s+|el\/la\s+)?(DRA\.|DR\.|LIC\.|SRA\.|SR\.|[A-ZÁÉÍÓÚÑa-záéíóúñ\s.]+?)(?:\s+con\s+C\.?I\.?\s*(?:Nro\.?)?\s*([^,y]+?))(?=(?:,\s*como\s+responsable|\s+y\s+como\s+responsable|$))/gi;
+    let match;
+    const items = [];
+    while ((match = regex.exec(str)) !== null) {
+      items.push({
+        area: match[1].trim(),
+        nombre: match[2].trim(),
+        ci: match[3] ? match[3].trim() : ''
+      });
+    }
+    if (items.length > 0) return items;
+  }
+
+  // Separar por ';' o saltos de línea
+  const items = str.split(/[;\n]+/).map(s => s.trim()).filter(Boolean);
+  const resultado = [];
+
+  for (const item of items) {
+    // Patrón típico: "Inmunología: DRA. MARIA ANGELICA RIVERA (CI: 1932727)"
+    const parts = item.split(':');
+    if (parts.length >= 2) {
+      const area = parts[0].trim();
+      const resto = parts.slice(1).join(':').trim();
+      const ciMatch = resto.match(/\((?:CI:?|C\.I\.?:?|Nro\.?:?)?\s*([^)]+)\)/i) || resto.match(/con C\.?I\.?\s*(?:Nro\.?)?\s*([0-9a-zA-Z\s]+)/i);
+      const ci = ciMatch ? ciMatch[1].trim() : '';
+      const nombre = resto.replace(/\((?:CI:?|C\.I\.?:?|Nro\.?:?)?\s*([^)]+)\)/i, '').replace(/con C\.?I\.?\s*(?:Nro\.?)?\s*([0-9a-zA-Z\s]+)/i, '').trim();
+      if (area && nombre) {
+        resultado.push({ area, nombre, ci });
+        continue;
+      }
+    }
+
+    // Si viene solo nombre del área sin encargado registrado aún
+    if (item && item.length > 2 && !item.includes('(')) {
+      resultado.push({ area: item, nombre: '', ci: '' });
+    }
+  }
+
+  return resultado;
+};
+
+// Helper para armar la redacción fluida de responsables de área en Párrafo 1 y 3
+export const formatearTextoResponsablesAreasP1 = (areasList, rawString = '') => {
+  const validAreas = (areasList || []).filter(a => a.nombre && a.nombre.trim());
+  if (validAreas.length === 0) {
+    if (rawString && rawString.trim()) {
+      const trimmed = rawString.trim();
+      if (trimmed.toLowerCase().startsWith('como responsable de')) {
+        return `, ${trimmed}`;
+      } else if (trimmed.toLowerCase().startsWith(', como responsable de')) {
+        return trimmed;
+      }
+    }
+    return '';
+  }
+
+  const fragmentos = validAreas.map(a => {
+    const ciTxt = a.ci ? ` con C.I. Nro. ${a.ci}` : '';
+    return `como responsable de ${a.area} ${a.nombre}${ciTxt}`;
+  });
+
+  if (fragmentos.length === 1) {
+    return `, ${fragmentos[0]}`;
+  } else if (fragmentos.length === 2) {
+    return `, ${fragmentos[0]} y ${fragmentos[1]}`;
+  } else {
+    const todosMenosUltimo = fragmentos.slice(0, -1).join(', ');
+    const ultimo = fragmentos[fragmentos.length - 1];
+    return `, ${todosMenosUltimo} y ${ultimo}`;
+  }
+};
+
 /**
  * Genera el documento oficial de 3 páginas de 'COMUNICACIÓN INTERNA'
  * Siguiendo la estructura fiel del documento oficial de SEDES Cochabamba.
@@ -72,7 +155,10 @@ export async function generarComunicacionInternaPDF(tramite, opciones = {}) {
   const fechaInspeccion = tramite?.fechaInspeccion || '19/03/2026';
   const regenteNombre = (opciones?.regente || tramite?.director_tecnico || tramite?.regente || tramite?.responsable_laboratorio || 'DRA. NORMA VILLAVICENCIO SILES').toUpperCase();
   const ciRegente = opciones?.ciRegente || tramite?.ci_regente || tramite?.ci_responsable || tramite?.regente_ci || tramite?.director_tecnico_ci || '3799203 CB.';
-  const citeNumero = opciones?.cite || `CODELAB/SEDES/71/${new Date().getFullYear()}`;
+  const rawRespAreas = opciones?.responsables_areas || tramite?.responsables_areas || '';
+  const listaRespAreas = parsearResponsablesAreas(rawRespAreas);
+  const textoRespAreasP1 = formatearTextoResponsablesAreasP1(listaRespAreas, rawRespAreas);
+  const citeNumero = opciones?.cite || tramite?.resolucion?.cite_informe || tramite?.cite_informe || `CODELAB/SEDES/1/${new Date().getFullYear()}`;
   const destinatario = opciones?.destinatario || 'Dra. Mery D. Loroño V.';
   const destinatarioCargo = opciones?.destinatarioCargo || 'ASESOR LEGAL - UNIDAD DE CALIDAD Y SERVICIOS';
   const via = opciones?.via || 'Dra. Karina Soliz Villarroel';
@@ -194,14 +280,14 @@ export async function generarComunicacionInternaPDF(tramite, opciones = {}) {
   curY += 5;
 
   // Párrafo 1
-  const textoP1 = `Mediante la presente y en cumplimiento a las funciones específicas de mi cargo dentro los alcances de los Art. 28 y Art. 38 de la Ley 1178, adjunto al presente informe para su conocimiento requisitos en general para la ${tipoTramite} del establecimiento "${estabNombre}" ubicado en ${direccion}, ${municipio}, siendo propiedad de D./Dña. ${propietarioNombre} con C.I. Nro. ${ciPropietario}, y regentado actualmente por el/la profesional ${regenteNombre} con C.I. Nro. ${ciRegente}. En el marco de la normativa actual vigente aprobada por R.M. 0202 de fecha 22 de marzo del 2010 donde están descritos los requisitos técnicos, administrativos, legales y técnicos, en la evaluación realizada se verificó los requisitos mínimos que deben cumplir los establecimientos de salud en cuanto a documentación, gestión de calidad, bioseguridad, competencia técnica, etc., pero principalmente se hace una trazabilidad de sus procesos y procedimientos técnicos para validar la calidad de los resultados que emiten. El proceso de habilitación es análogo al de acreditación (ISO 9001 y la 15189) y la norma señala que es de responsabilidad de los SEDES para garantizar la calidad de los resultados de diagnóstico laboratorial en beneficio de la población.`;
+  const textoP1 = `Mediante la presente y en cumplimiento a las funciones específicas de mi cargo dentro los alcances de los Art. 28 y Art. 38 de la Ley 1178, adjunto al presente informe para su conocimiento requisitos en general para la ${tipoTramite} del establecimiento "${estabNombre}" ubicado en ${direccion}, ${municipio}, siendo propiedad de ${propietarioNombre} con C.I. Nro. ${ciPropietario}, y regentado actualmente por el/la profesional ${regenteNombre} con C.I. Nro. ${ciRegente}${textoRespAreasP1}. En el marco de la normativa actual vigente aprobada por R.M. 0202 de fecha 22 de marzo del 2010 donde están descritos los requisitos técnicos, administrativos, legales y técnicos, en la evaluación realizada se verificó los requisitos mínimos que deben cumplir los establecimientos de salud en cuanto a documentación, gestión de calidad, bioseguridad, competencia técnica, etc., pero principalmente se hace una trazabilidad de sus procesos y procedimientos técnicos para validar la calidad de los resultados que emiten. El proceso de habilitación es análogo al de acreditación (ISO 9001 y la 15189) y la norma señala que es de responsabilidad de los SEDES para garantizar la calidad de los resultados de diagnóstico laboratorial en beneficio de la población.`;
 
   const splitP1 = doc.splitTextToSize(textoP1, contentWidth);
   doc.text(splitP1, marginX, curY, { align: 'justify', maxWidth: contentWidth });
   curY += splitP1.length * 3.8 + 3;
 
   // Párrafo 2
-  const textoP2 = `La Evaluación técnica IN SITU para la ${tipoTramite.toLowerCase()} fue realizada en fecha ${fechaInspeccion} por ${supervisorNombre} - Evaluador/Supervisor de CODELAB y personal técnico de esa repartición del Ministerio de Salud y Deportes de Bolivia.`;
+  const textoP2 = `La Evaluación técnica IN SITU para la ${tipoTramite.toLowerCase()} fue realizada en fecha ${fechaInspeccion} por el evaluador de campo ${supervisorNombre}, bajo la supervisión y conducción de ${remitente} - ${remitenteCargo} y personal técnico de esa repartición del Ministerio de Salud y Deportes de Bolivia.`;
   const splitP2 = doc.splitTextToSize(textoP2, contentWidth);
   doc.text(splitP2, marginX, curY, { align: 'justify', maxWidth: contentWidth });
   curY += splitP2.length * 3.8 + 3;
@@ -233,6 +319,15 @@ export async function generarComunicacionInternaPDF(tramite, opciones = {}) {
   curY += 4.5;
   doc.text(`REGENTE: ${regenteNombre} con C.I. Nro. ${ciRegente}`, marginX, curY);
   curY += 4.5;
+
+  // Responsables de Áreas de Especialidad
+  const validAreas = (listaRespAreas || []).filter(a => a.nombre && a.nombre.trim());
+  validAreas.forEach(a => {
+    const ciTxt = a.ci ? ` con C.I. Nro. ${a.ci}` : '';
+    doc.text(`RESPONSABLE DE ${a.area.toUpperCase()}: ${a.nombre.toUpperCase()}${ciTxt}`, marginX, curY);
+    curY += 4.5;
+  });
+
   doc.text(`UBICACIÓN ACTUAL DEL ESTABLECIMIENTO: ${direccion}, ${municipio}`, marginX, curY);
   curY += 6;
 
@@ -312,7 +407,7 @@ export async function generarComunicacionInternaPDF(tramite, opciones = {}) {
   doc.setFontSize(8.5);
   doc.setTextColor(30, 30, 30);
 
-  const textoP5 = `TRANSMITIDAS POR VECTORES (ETVs) Y OTRAS ENFERMEDADES EMERGENTES Y REEMERGENTES, ubicado en ${direccion}, ${municipio}, siendo propiedad de D./Dña. ${propietarioNombre}, regentado actualmente por el/la profesional ${regenteNombre} con C.I. Nro. ${ciRegente}, según normativa vigente establecida en el Código de Salud R.M. 0847/06 y R.M. 0202/10, habiéndose sometido a la evaluación documental y técnica INSITU, trazabilidad de sus procesos y procedimientos para la validación de localidad de sus resultados, realizada por los evaluadores conducida y liderada por CODELAB- SEDES, de acuerdo a las listas de verificación para la aplicación del reglamento de habilitación, por lo que corresponde la extensión de la R.A. en la que se declara PROCEDENTE LA ${tipoTramite} al ${estabNombre} ante el Ministerio de Salud y el Servicio Departamental de Salud.`;
+  const textoP5 = `TRANSMITIDAS POR VECTORES (ETVs) Y OTRAS ENFERMEDADES EMERGENTES Y REEMERGENTES, ubicado en ${direccion}, ${municipio}, siendo propiedad de ${propietarioNombre}, regentado actualmente por el/la profesional ${regenteNombre} con C.I. Nro. ${ciRegente}${textoRespAreasP1}, según normativa vigente establecida en el Código de Salud R.M. 0847/06 y R.M. 0202/10, habiéndose sometido a la evaluación documental y técnica INSITU, trazabilidad de sus procesos y procedimientos para la validación de localidad de sus resultados, realizada por los evaluadores conducida y liderada por CODELAB- SEDES, de acuerdo a las listas de verificación para la aplicación del reglamento de habilitación, por lo que corresponde la extensión de la R.A. en la que se declara PROCEDENTE LA ${tipoTramite} al ${estabNombre} ante el Ministerio de Salud y el Servicio Departamental de Salud.`;
   const splitP5 = doc.splitTextToSize(textoP5, contentWidth);
   doc.text(splitP5, marginX, curY, { align: 'justify', maxWidth: contentWidth });
   curY += splitP5.length * 3.8 + 4;
@@ -337,31 +432,15 @@ export async function generarComunicacionInternaPDF(tramite, opciones = {}) {
   const col1X = marginX + 10;
   const col2X = marginX + 90;
 
-  // Firma 1 (Izquierda): Responsable CODELAB
-  doc.setFont('helvetica', 'normal');
-  doc.text('1..................................................', col1X, curY);
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(8);
-  doc.text(remitente, col1X + 4, curY + 5);
-  doc.setFontSize(6.5);
-  doc.setTextColor(50, 50, 50);
-  doc.text('RESPONSABLE DE LA COORDINACIÓN', col1X + 4, curY + 8.5);
-  doc.text('DEPARTAMENTAL DE LABORATORIO', col1X + 4, curY + 11.5);
-  doc.text('SERVICIO DPTAL. DE SALUD COCHABAMBA', col1X + 4, curY + 14.5);
-
-  // Firma 2 (Derecha): Jefa Unidad Calidad y Servicios
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8.5);
   doc.setTextColor(30, 30, 30);
+
+  // Firma 1 (Izquierda)
+  doc.text('1..................................................', col1X, curY);
+
+  // Firma 2 (Derecha)
   doc.text('2..................................................', col2X, curY);
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(8);
-  doc.text(via, col2X + 4, curY + 5);
-  doc.setFontSize(6.5);
-  doc.setTextColor(50, 50, 50);
-  doc.text('JEFA DE LA UNIDAD DE', col2X + 4, curY + 8.5);
-  doc.text('CALIDAD Y SERVICIOS a.i.', col2X + 4, curY + 11.5);
-  doc.text('SERVICIO DPTAL. DE SALUD COCHABAMBA', col2X + 4, curY + 14.5);
 
   // Iniciales de Archivo
   doc.setFont('helvetica', 'normal');

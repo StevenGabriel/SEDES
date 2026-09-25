@@ -231,3 +231,39 @@ def marcar_todas_leidas(
     db.commit()
 
     return {"mensaje": "Todas las notificaciones fueron marcadas como leídas."}
+
+@router.delete("/usuario/{usuario_id}/limpiar", summary="Limpiar/eliminar todas las notificaciones de un usuario")
+def limpiar_todas_notificaciones(
+    usuario_id: str,
+    db: Session = Depends(get_db)
+):
+    try:
+        u_uuid = uuid.UUID(usuario_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="ID de usuario inválido.")
+
+    borradas = db.query(models.Notificacion).filter(
+        models.Notificacion.usuario_id == u_uuid
+    ).delete(synchronize_session=False)
+    db.commit()
+
+    return {"mensaje": f"Se eliminaron {borradas} notificaciones correctamente.", "total_eliminadas": borradas}
+
+@router.delete("/{notificacion_id}", summary="Eliminar una notificación individual")
+def eliminar_notificacion_individual(
+    notificacion_id: str,
+    db: Session = Depends(get_db)
+):
+    try:
+        n_uuid = uuid.UUID(notificacion_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="ID de notificación inválido.")
+
+    notif = db.query(models.Notificacion).filter(models.Notificacion.id == n_uuid).first()
+    if not notif:
+        raise HTTPException(status_code=404, detail="Notificación no encontrada.")
+
+    db.delete(notif)
+    db.commit()
+
+    return {"mensaje": "Notificación eliminada exitosamente.", "id": str(n_uuid)}

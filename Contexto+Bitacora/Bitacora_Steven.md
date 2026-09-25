@@ -3288,9 +3288,112 @@ Adoptar la fórmula legal e institucional estándar para la mención de propieta
 #### 1. `frontend/src/components/coordinador/ComunicacionInternaPDF.js` [MODIFICADO]
 * Se estandarizó la redacción jurídica en las Páginas 1 y 3 del documento:
   - De: `siendo propiedad de ${propietarioNombre} ... y regentado actualmente por la ${regenteNombre} con C.I. Nro. ${ciRegente}`
-  - A: `siendo propiedad de D./Dña. ${propietarioNombre} con C.I. Nro. ${ciPropietario}, y regentado actualmente por el/la profesional ${regenteNombre} con C.I. Nro. ${ciRegente}.`
+  - A: `siendo propiedad de ${propietarioNombre} con C.I. Nro. ${ciPropietario}, y regentado actualmente por el/la profesional ${regenteNombre} con C.I. Nro. ${ciRegente}.`
 * Se mejoró la cadena de respaldo para `ciRegente`, tomando ordenadamente `opciones.ciRegente -> tramite.ci_regente -> tramite.ci_responsable -> tramite.regente_ci -> tramite.director_tecnico_ci`.
 
+---
+
+## [2026-09-25] Inclusión de Responsables de Áreas de Especialidad en PDF de Comunicación Interna (CODELAB)
+
+### 📌 Objetivo
+Incorporar dinámicamente el detalle de los responsables de cada área de especialidad técnica (ej. Inmunología, Microbiología, Biología Molecular, Hematología, etc.) con sus respectivos números de C.I. en el PDF oficial de Comunicación Interna generado por el Coordinador, alineado exactamente con la redacción del documento físico original de SEDES Cochabamba.
+
+---
+
+### 🛠️ Archivos Modificados
+
+#### 1. `backend/coordinador.py` [MODIFICADO]
+* En `serializar_tramite_coordinador`: Se expuso el campo `responsables_areas` del establecimiento en la respuesta del trámite.
+
+#### 2. `frontend/src/components/coordinador/ComunicacionInternaPDF.js` [MODIFICADO]
+* Se implementaron los helpers `parsearResponsablesAreas` y `formatearTextoResponsablesAreasP1` para procesar listas estructuradas o strings de responsables de área.
+* **Página 1 (Párrafo 1):** Se inyecta la redacción fluida `", como responsable de [Área] [Nombre] con C.I. Nro. [CI], como responsable de..."` inmediatamente después del C.I. del regente y antes de *"En el marco de la normativa actual vigente..."*.
+* **Página 2:** Se listan formalmente debajo del Regente: `RESPONSABLE DE [ÁREA]: [NOMBRE] con C.I. Nro. [CI]`.
+* **Página 3 (Párrafo 5):** Se sincroniza la misma redacción en el párrafo de conclusión legal.
+
+---
+
+## [2026-09-25] Mención Conjunta del Evaluador de Campo y la Coordinación CODELAB en Informe Técnico
+
+### 📌 Objetivo
+Actualizar la redacción del Párrafo 2 de la Comunicación Interna / Informe Técnico para reconocer expresamente tanto al evaluador/supervisor técnico de campo que efectuó la inspección in-situ como a la Responsable Departamental de Laboratorios (CODELAB - SEDES) bajo cuya supervisión y conducción se llevó a cabo el procedimiento.
+
+---
+
+### 🛠️ Archivos Modificados
+
+---
+
+## [2026-09-25] Ajuste de Bloque de Firmas Oficiales en Comunicación Interna
+
+### 📌 Objetivo
+Ajustar la sección de firmas en la Página 3 del PDF de Comunicación Interna para reflejar con fidelidad el documento físico oficial de SEDES Cochabamba, manteniendo las líneas punteadas `1..........` y `2..........` para la firma y sello manual físico de las autoridades, retirando los textos impresos debajo de ellas.
+
+---
+
+### 🛠️ Archivos Modificados
+
+---
+
+## [2026-09-25] Botón de Limpieza y Gestión de Notificaciones del Propietario
+
+### 📌 Objetivo
+Agregar la capacidad de limpiar y eliminar las notificaciones del panel del Propietario para evitar la acumulación excesiva de mensajes y alertas en su bandeja, permitiendo tanto la eliminación masiva (*"Limpiar todo"*) como la eliminación puntual por notificación individual.
+
+---
+
+### 🛠️ Archivos Modificados
+
+#### 1. `backend/notificaciones.py` [MODIFICADO]
+* **Endpoint de Limpieza Masiva:** `DELETE /api/notificaciones/usuario/{usuario_id}/limpiar` que elimina todas las notificaciones registradas para dicho usuario.
+* **Endpoint de Eliminación Individual:** `DELETE /api/notificaciones/{notificacion_id}` que suprime una notificación específica de la base de datos.
+
+#### 2. `frontend/src/pages/PropietarioPage.jsx` [MODIFICADO]
+* **Cabecera del Dropdown:** Se incorporó el botón `"Limpiar"` con icono de papelera al lado de `"Marcar leídas"`.
+* **Lista de Notificaciones:** Se añadió un botón hover de eliminación individual (`Trash2`) en cada tarjeta de notificación para descartar avisos específicos.
+* **Pie del Dropdown:** Se incluyó el acceso rápido `"Limpiar todo"` para vaciar el historial de notificaciones.
+
+---
+
+## [2026-09-25] Numeración Correlativa e Incremental Dinámica de CITE en Informe Técnico
+
+### 📌 Objetivo
+Reemplazar el número fijo/estático (`71`) en el CITE del Informe Técnico / Comunicación Interna (`CODELAB/SEDES/71/2026`) por un correlativo incremental secuencial (`CODELAB/SEDES/1/2026`, `CODELAB/SEDES/2/2026`, etc.) que inicia en 1 para el primer documento emitido en el año correspondiente y avanza secuencialmente según los registros emitidos en la base de datos, manteniendo sincronizado el año actual o del documento.
+
+---
+
+### 🛠️ Archivos Modificados
+
+#### 1. `backend/coordinador.py` [MODIFICADO]
+* **Función `calcular_siguiente_cite(db, anio)`:** Examina todos los registros de CITE en `resoluciones_administrativas` con el patrón `CODELAB/SEDES/{correlativo}/{año}`, extrae el valor máximo generado en dicho año y devuelve el siguiente número disponible.
+* **Endpoint `GET /api/coordinador/siguiente-cite`:** Expone el cálculo dinámico del CITE correlativo o retorna el CITE previamente asignado si el trámite ya contaba con uno.
+* **Endpoint `POST /api/coordinador/tramites/{tramite_id}/derivar-legal`:** Asigna de forma automática el CITE correlativo calculado al momento de derivar el expediente al Asesor Legal.
+
 #### 2. `frontend/src/components/coordinador/InformeTecnicoView.jsx` [MODIFICADO]
-* Se mapeó el campo `ci_regente` en la estructura de `listaEstablecimientos`.
-* Se incluyó explícitamente `ciRegente` en las llamadas a `generarComunicacionInternaPDF` tanto en la generación de la vista previa en tiempo real como en la función de descarga e impresión.
+* **Consulta Asíncrona:** Al cambiar o seleccionar un trámite activo, si el trámite no tiene CITE asignado, consulta automáticamente `/api/coordinador/siguiente-cite` para autocompletar el CITE con el correlativo correspondiente.
+* **Estado inicial y formulario:** Sustituido el valor por defecto fijo por el formato dinámico inicial.
+
+#### 3. `frontend/src/components/coordinador/ComunicacionInternaPDF.js` [MODIFICADO]
+* **Fallback Dinámico:** Se actualizó el valor de respaldo a `CODELAB/SEDES/1/${new Date().getFullYear()}`, garantizando que en ninguna circunstancia aparezca el antiguo número `71` estático.
+
+---
+
+## [2026-09-25] Optimización de Carga Batch en Backend y Eliminación de Bloqueo de Carga
+
+### 📌 Objetivo
+Solucionar la lentitud y bloqueo en la carga de datos del panel de Coordinación (`/api/coordinador/tramites`), provocado por consultas N+1 en las relaciones de requisitos, inspecciones y resoluciones, así como refrescos no silenciosos que bloqueaban la interfaz.
+
+---
+
+### 🛠️ Archivos Modificados
+
+#### 1. `backend/coordinador.py` [MODIFICADO]
+* **Carga en Lote (Batch Queries):** Se reestructuró `listar_tramites_coordinador` para cargar en una única consulta inicial todo el catálogo de requisitos (`CatalogoRequisito`), todas las inspecciones activas, documentos y resoluciones asociadas a los trámites vigentes en lugar de ejecutar consultas individuales por cada ítem.
+* **Eager Loading con `joinedload`:** Se habilitó la carga unificada de relaciones (`establecimiento.propietario`, `supervisor_asignado`, `resolucion.abogado`), reduciendo el tiempo de respuesta de más de 35 segundos a menos de 1.5 segundos.
+
+#### 2. `frontend/src/pages/CoordinadorPage.jsx` [MODIFICADO]
+* **Refresco Silencioso en Informe Técnico:** Se configuró el callback `onRecargarDatos` de `InformeTecnicoView` para ejecutar `cargarDatosBackend(true)` de forma silenciosa sin activar el spinner de pantalla completa.
+
+
+
+

@@ -2345,7 +2345,7 @@ export default function CoordinadorPage() {
             tramites={tramites}
             tramiteSeleccionadoId={tramiteSeleccionadoId}
             onSeleccionarTramite={(id) => setTramiteSeleccionadoId(id)}
-            onRecargarDatos={cargarDatosBackend}
+            onRecargarDatos={() => cargarDatosBackend(true)}
             nombreCoordinador={nombreCoordinador}
             mostrarToast={mostrarToast}
             onAprobarFinal={(tramiteParaAprobar) => {

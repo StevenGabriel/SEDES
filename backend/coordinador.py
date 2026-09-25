@@ -1,9 +1,10 @@
 import uuid
+import re
 from datetime import datetime, date
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import desc, func
 
 from database import get_db
@@ -84,7 +85,15 @@ def get_tipo_badge_color(tipo: str) -> str:
         return "bg-purple-50 text-purple-700 border-purple-200"
     return "bg-indigo-50 text-indigo-700 border-indigo-200"
 
-def serializar_tramite_coordinador(tramite: models.Tramite, db: Session) -> dict:
+def serializar_tramite_coordinador(
+    tramite: models.Tramite,
+    db: Session,
+    req_map: Optional[dict] = None,
+    ultima_inspeccion: Optional[models.Inspeccion] = None,
+    docs_db: Optional[List[models.TramiteDocumento]] = None,
+    resol: Optional[models.ResolucionAdministrativa] = None,
+    usar_preloaded: bool = False
+) -> dict:
     estab = tramite.establecimiento
     propietario = estab.propietario if estab else None
     supervisor = tramite.supervisor_asignado
@@ -93,20 +102,32 @@ def serializar_tramite_coordinador(tramite: models.Tramite, db: Session) -> dict
     codigo_visual = f"TRM-{str(tramite.id)[:8].upper()}"
 
     # Última inspección si existe
-    ultima_inspeccion = db.query(models.Inspeccion).filter(
-        models.Inspeccion.tramite_id == tramite.id,
-        models.Inspeccion.estado == True
-    ).order_by(models.Inspeccion.fecha_creacion.desc()).first()
+    if not usar_preloaded:
+        ultima_inspeccion = db.query(models.Inspeccion).filter(
+            models.Inspeccion.tramite_id == tramite.id,
+            models.Inspeccion.estado == True
+        ).order_by(models.Inspeccion.fecha_creacion.desc()).first()
 
     # Documentos adjuntos
-    docs_db = db.query(models.TramiteDocumento).filter(
-        models.TramiteDocumento.tramite_id == tramite.id,
-        models.TramiteDocumento.estado == True
-    ).order_by(models.TramiteDocumento.fecha_creacion.asc()).all()
+    if not usar_preloaded:
+        if req_map is not None:
+            docs_db = db.query(models.TramiteDocumento).filter(
+                models.TramiteDocumento.tramite_id == tramite.id,
+                models.TramiteDocumento.estado == True
+            ).order_by(models.TramiteDocumento.fecha_creacion.asc()).all()
+        else:
+            docs_db = db.query(models.TramiteDocumento).options(
+                joinedload(models.TramiteDocumento.requisito)
+            ).filter(
+                models.TramiteDocumento.tramite_id == tramite.id,
+                models.TramiteDocumento.estado == True
+            ).order_by(models.TramiteDocumento.fecha_creacion.asc()).all()
+    elif docs_db is None:
+        docs_db = []
 
     docs_serializados = []
     for d in docs_db:
-        req = d.requisito
+        req = req_map.get(d.requisito_id) if (req_map and d.requisito_id in req_map) else d.requisito
         nombre_doc = req.nombre_documento if req else "Documento Requerido"
         seccion_cod = req.seccion_codigo if req else "2.1"
         seccion_tit = req.seccion_titulo if req else "Documentación Legal"
@@ -138,7 +159,9 @@ def serializar_tramite_coordinador(tramite: models.Tramite, db: Session) -> dict
     # Recoger observaciones de documentos observados
     for d in docs_db:
         if d.observaciones_supervisor:
-            observaciones.append(f"{d.requisito.nombre_documento if d.requisito else 'Doc'}: {d.observaciones_supervisor}")
+            req_item = req_map.get(d.requisito_id) if (req_map and d.requisito_id in req_map) else d.requisito
+            doc_nom = req_item.nombre_documento if req_item else 'Doc'
+            observaciones.append(f"{doc_nom}: {d.observaciones_supervisor}")
 
     if not observaciones:
         if supervisor:
@@ -193,10 +216,11 @@ def serializar_tramite_coordinador(tramite: models.Tramite, db: Session) -> dict
     puede_aprobar = (todos_docs_aprobados and (supervisor is not None) and es_acta_aprobada and not ya_en_etapa_posterior)
 
     # Consultar si el Asesor Legal ya emitió y elevó la Resolución Administrativa
-    resol = db.query(models.ResolucionAdministrativa).filter(
-        models.ResolucionAdministrativa.tramite_id == tramite.id,
-        models.ResolucionAdministrativa.estado == True
-    ).order_by(models.ResolucionAdministrativa.fecha_creacion.desc()).first()
+    if not usar_preloaded:
+        resol = db.query(models.ResolucionAdministrativa).filter(
+            models.ResolucionAdministrativa.tramite_id == tramite.id,
+            models.ResolucionAdministrativa.estado == True
+        ).order_by(models.ResolucionAdministrativa.fecha_creacion.desc()).first()
 
     resolucion_lista_para_firma = bool(
         (tramite.estado_tramite in ["Resolución Lista para Firma", "Aprobado por Legal", "Enviado a Coordinador"]) or
@@ -252,6 +276,7 @@ def serializar_tramite_coordinador(tramite: models.Tramite, db: Session) -> dict
         "director_tecnico_ci": resol.ci_regente if (resol and resol.ci_regente) else (estab.ci_responsable if estab else ""),
         "responsable_laboratorio": estab.responsable_laboratorio if estab else "",
         "ci_responsable": estab.ci_responsable if estab else "",
+        "responsables_areas": estab.responsables_areas if estab else "",
         "estado": tramite.estado_tramite or "Pendiente",
         "estadoColor": get_estado_color(tramite.estado_tramite),
         "supervisorAsignado": sup_nombre,
@@ -278,18 +303,128 @@ def serializar_tramite_coordinador(tramite: models.Tramite, db: Session) -> dict
     }
 
 
+def calcular_siguiente_cite(db: Session, anio: Optional[int] = None) -> str:
+    """Calcula dinámicamente el siguiente correlativo para el CITE CODELAB/SEDES/{correlativo}/{año}."""
+    if not anio:
+        anio = datetime.now().year
+
+    resoluciones = db.query(models.ResolucionAdministrativa.cite_informe).filter(
+        models.ResolucionAdministrativa.cite_informe.isnot(None)
+    ).all()
+
+    max_correlativo = 0
+    pattern = re.compile(rf"CODELAB/SEDES/(\d+)/{anio}", re.IGNORECASE)
+    for (cite,) in resoluciones:
+        if cite:
+            m = pattern.search(str(cite).strip())
+            if m:
+                try:
+                    num = int(m.group(1))
+                    if num > max_correlativo:
+                        max_correlativo = num
+                except ValueError:
+                    pass
+
+    return f"CODELAB/SEDES/{max_correlativo + 1}/{anio}"
+
+
 # ==============================================================================
 # 1. BANDEJA DE ENTRADA Y GESTIÓN DE TRÁMITES REALES
 # ==============================================================================
 
+@router.get("/siguiente-cite", summary="Obtener el siguiente número correlativo de CITE")
+def obtener_siguiente_cite(tramite_id: Optional[str] = None, db: Session = Depends(get_db)):
+    """Calcula el siguiente CITE correlativo o retorna el ya asignado al trámite."""
+    anio_actual = datetime.now().year
+    if tramite_id:
+        tramite = None
+        try:
+            t_uuid = uuid.UUID(tramite_id)
+            tramite = db.query(models.Tramite).filter(models.Tramite.id == t_uuid).first()
+        except ValueError:
+            pass
+
+        if not tramite:
+            clean_code = tramite_id.replace("TRM-", "").replace("REQ-", "").strip().lower()
+            tramites = db.query(models.Tramite).filter(models.Tramite.estado == True).all()
+            for t in tramites:
+                if str(t.id).lower().startswith(clean_code):
+                    tramite = t
+                    break
+
+        if tramite:
+            resol = db.query(models.ResolucionAdministrativa).filter(
+                models.ResolucionAdministrativa.tramite_id == tramite.id
+            ).first()
+            if resol and resol.cite_informe:
+                return {"cite": resol.cite_informe, "es_existente": True}
+
+    siguiente = calcular_siguiente_cite(db, anio_actual)
+    return {"cite": siguiente, "es_existente": False}
+
 @router.get("/tramites", summary="Listar trámites pendientes reales para el Coordinador")
 def listar_tramites_coordinador(db: Session = Depends(get_db)):
-    """Obtiene la lista completa de trámites reales registrados en la base de datos."""
-    tramites = db.query(models.Tramite).filter(
+    """Obtiene la lista completa de trámites reales registrados en la base de datos de manera altamente optimizada."""
+    reqs = db.query(models.CatalogoRequisito).all()
+    req_map = {r.id: r for r in reqs}
+
+    tramites = db.query(models.Tramite).options(
+        joinedload(models.Tramite.establecimiento).joinedload(models.Establecimiento.propietario),
+        joinedload(models.Tramite.supervisor_asignado)
+    ).filter(
         models.Tramite.estado == True
     ).order_by(models.Tramite.fecha_creacion.desc()).all()
 
-    tramites_serializados = [serializar_tramite_coordinador(t, db) for t in tramites]
+    if not tramites:
+        return {"total": 0, "tramites": []}
+
+    t_ids = [t.id for t in tramites]
+
+    # Pre-cargar todas las inspecciones en 1 sola consulta
+    todas_inspecciones = db.query(models.Inspeccion).filter(
+        models.Inspeccion.tramite_id.in_(t_ids),
+        models.Inspeccion.estado == True
+    ).order_by(models.Inspeccion.fecha_creacion.desc()).all()
+    
+    inspecciones_map = {}
+    for insp in todas_inspecciones:
+        if insp.tramite_id not in inspecciones_map:
+            inspecciones_map[insp.tramite_id] = insp
+
+    # Pre-cargar todos los documentos en 1 sola consulta
+    todos_docs = db.query(models.TramiteDocumento).filter(
+        models.TramiteDocumento.tramite_id.in_(t_ids),
+        models.TramiteDocumento.estado == True
+    ).order_by(models.TramiteDocumento.fecha_creacion.asc()).all()
+
+    docs_map = {}
+    for doc in todos_docs:
+        docs_map.setdefault(doc.tramite_id, []).append(doc)
+
+    # Pre-cargar todas las resoluciones con sus abogados en 1 sola consulta
+    todas_resoluciones = db.query(models.ResolucionAdministrativa).options(
+        joinedload(models.ResolucionAdministrativa.abogado)
+    ).filter(
+        models.ResolucionAdministrativa.tramite_id.in_(t_ids),
+        models.ResolucionAdministrativa.estado == True
+    ).order_by(models.ResolucionAdministrativa.fecha_creacion.desc()).all()
+
+    resoluciones_map = {}
+    for res in todas_resoluciones:
+        if res.tramite_id not in resoluciones_map:
+            resoluciones_map[res.tramite_id] = res
+
+    tramites_serializados = [
+        serializar_tramite_coordinador(
+            t, 
+            db, 
+            req_map=req_map,
+            ultima_inspeccion=inspecciones_map.get(t.id),
+            docs_db=docs_map.get(t.id, []),
+            resol=resoluciones_map.get(t.id),
+            usar_preloaded=True
+        ) for t in tramites
+    ]
 
     return {
         "total": len(tramites_serializados),
@@ -810,7 +945,18 @@ def derivar_area_legal(
     estab_nombre = tramite.establecimiento.nombre_comercial if tramite.establecimiento else "Establecimiento"
     cod_trm = f"TRM-{str(tramite.id)[:8].upper()}"
     ahora_formato = datetime.now().strftime("%d %b %Y - %H:%M")
-    cite = payload.codigo_cite or f"CODELAB/SEDES/71/{datetime.now().year}"
+    # Calcular o preservar CITE correlativo
+    cite = payload.codigo_cite
+    if not cite or "71" in cite:
+        resol_existente = db.query(models.ResolucionAdministrativa).filter(
+            models.ResolucionAdministrativa.tramite_id == tramite.id
+        ).first()
+        if resol_existente and resol_existente.cite_informe:
+            cite = resol_existente.cite_informe
+        else:
+            cite = calcular_siguiente_cite(db, datetime.now().year)
+    elif not cite:
+        cite = calcular_siguiente_cite(db, datetime.now().year)
 
     # Guardar/Actualizar expediente técnico en ResolucionAdministrativa para revisión del Asesor Legal
     estab = tramite.establecimiento

@@ -481,6 +481,33 @@ export default function PropietarioPage() {
     setNotifNoLeidas(0);
   };
 
+  const handleLimpiarTodasNotificaciones = async () => {
+    if (!usuario?.id) return;
+    try {
+      await fetch(`http://localhost:8000/api/notificaciones/usuario/${usuario.id}/limpiar`, { method: 'DELETE' });
+      setNotificaciones([]);
+      setNotifNoLeidas(0);
+    } catch (e) {
+      console.warn('Error al limpiar todas las notificaciones:', e);
+    }
+  };
+
+  const handleEliminarNotificacion = async (notifId, e) => {
+    if (e) e.stopPropagation();
+    try {
+      await fetch(`http://localhost:8000/api/notificaciones/${notifId}`, { method: 'DELETE' });
+      setNotificaciones(prev => {
+        const item = prev.find(n => n.id === notifId);
+        if (item && !item.leido) {
+          setNotifNoLeidas(c => Math.max(0, c - 1));
+        }
+        return prev.filter(n => n.id !== notifId);
+      });
+    } catch (err) {
+      console.warn('Error al eliminar notificación:', err);
+    }
+  };
+
   // Cargar catálogo de requisitos en vivo desde el Backend
   const cargarRequisitosDesdeAPI = async () => {
     setCargandoRequisitos(true);
@@ -1455,14 +1482,25 @@ export default function PropietarioPage() {
                           </div>
                         </div>
                         {notificaciones.length > 0 && (
-                          <button
-                            onClick={handleMarcarTodasNotifsLeidas}
-                            className="text-[11px] text-sky-300 hover:text-white hover:bg-white/10 px-2.5 py-1.5 rounded-lg transition font-semibold flex items-center space-x-1 cursor-pointer"
-                            title="Marcar todas como leídas"
-                          >
-                            <CheckCircle2 className="w-3.5 h-3.5" />
-                            <span>Marcar leídas</span>
-                          </button>
+                          <div className="flex items-center space-x-1.5">
+                            <button
+                              onClick={handleMarcarTodasNotifsLeidas}
+                              className="text-[11px] text-sky-300 hover:text-white hover:bg-white/10 px-2 py-1 rounded-lg transition font-semibold flex items-center space-x-1 cursor-pointer"
+                              title="Marcar todas como leídas"
+                            >
+                              <CheckCircle2 className="w-3.5 h-3.5" />
+                              <span className="hidden sm:inline">Marcar leídas</span>
+                            </button>
+
+                            <button
+                              onClick={handleLimpiarTodasNotificaciones}
+                              className="text-[11px] text-rose-300 hover:text-white hover:bg-rose-600/30 px-2 py-1 rounded-lg transition font-semibold flex items-center space-x-1 cursor-pointer border border-rose-500/30"
+                              title="Limpiar todas las notificaciones"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                              <span>Limpiar</span>
+                            </button>
+                          </div>
                         )}
                       </div>
 
@@ -1496,7 +1534,7 @@ export default function PropietarioPage() {
                                     navigate('/propietario/tramites');
                                   }
                                 }}
-                                className={`p-4 transition cursor-pointer flex items-start gap-3.5 ${
+                                className={`group p-4 transition cursor-pointer flex items-start gap-3.5 relative ${
                                   notif.leido 
                                     ? 'bg-white hover:bg-slate-50 opacity-80 hover:opacity-100' 
                                     : esObs
@@ -1529,9 +1567,18 @@ export default function PropietarioPage() {
                                     <p className={`text-xs sm:text-sm text-slate-900 leading-snug break-words ${notif.leido ? 'font-semibold' : 'font-extrabold'}`}>
                                       {notif.titulo}
                                     </p>
-                                    {!notif.leido && (
-                                      <span className={`w-2 h-2 rounded-full shrink-0 mt-1 ${esObs ? 'bg-rose-500 ring-2 ring-rose-200' : 'bg-[#0077c8] ring-2 ring-sky-200'}`} />
-                                    )}
+                                    <div className="flex items-center space-x-1 shrink-0">
+                                      {!notif.leido && (
+                                        <span className={`w-2 h-2 rounded-full mt-1 ${esObs ? 'bg-rose-500 ring-2 ring-rose-200' : 'bg-[#0077c8] ring-2 ring-sky-200'}`} />
+                                      )}
+                                      <button
+                                        onClick={(e) => handleEliminarNotificacion(notif.id, e)}
+                                        className="opacity-0 group-hover:opacity-100 hover:text-rose-600 hover:bg-rose-50 p-1 rounded-md transition text-slate-400 cursor-pointer"
+                                        title="Eliminar esta notificación"
+                                      >
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                      </button>
+                                    </div>
                                   </div>
 
                                   <p className="text-xs text-slate-600 mt-1 leading-relaxed break-words font-normal">
@@ -1560,13 +1607,25 @@ export default function PropietarioPage() {
                       {/* Pie del Dropdown */}
                       <div className="px-4 py-2.5 bg-slate-50 border-t border-slate-200 text-center text-[11px] text-slate-500 font-medium flex items-center justify-between">
                         <span>Total: <strong>{notificaciones.length}</strong> {notificaciones.length === 1 ? 'notificación' : 'notificaciones'}</span>
-                        <button
-                          onClick={() => usuario?.id && fetchNotificaciones(usuario.id)}
-                          className="text-[#0077c8] hover:underline font-bold text-[11px] flex items-center space-x-1 cursor-pointer"
-                        >
-                          <RefreshCw className="w-3 h-3" />
-                          <span>Actualizar</span>
-                        </button>
+                        <div className="flex items-center space-x-3">
+                          {notificaciones.length > 0 && (
+                            <button
+                              onClick={handleLimpiarTodasNotificaciones}
+                              className="text-rose-600 hover:text-rose-800 hover:underline font-bold text-[11px] flex items-center space-x-1 cursor-pointer"
+                              title="Eliminar todas las notificaciones"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                              <span>Limpiar todo</span>
+                            </button>
+                          )}
+                          <button
+                            onClick={() => usuario?.id && fetchNotificaciones(usuario.id)}
+                            className="text-[#0077c8] hover:underline font-bold text-[11px] flex items-center space-x-1 cursor-pointer"
+                          >
+                            <RefreshCw className="w-3 h-3" />
+                            <span>Actualizar</span>
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </>
