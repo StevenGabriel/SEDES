@@ -21,7 +21,7 @@ const pinIcon = L.divIcon({
   iconAnchor: [0, 0]
 });
 
-export default function RealMapPicker({ latitud, longitud, onChange, onChangeCoordenadas, height = "240px" }) {
+export default function RealMapPicker({ latitud, longitud, onChange, onChangeCoordenadas, height = "240px", readOnly = false }) {
   const mapContainerRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const markerRef = useRef(null);
@@ -30,6 +30,7 @@ export default function RealMapPicker({ latitud, longitud, onChange, onChangeCoo
   const initialLng = longitud || -66.1568;
 
   const emitChange = (latVal, lngVal) => {
+    if (readOnly) return;
     const latNum = parseFloat(latVal.toFixed(6));
     const lngNum = parseFloat(lngVal.toFixed(6));
     if (onChange) {
@@ -58,24 +59,26 @@ export default function RealMapPicker({ latitud, longitud, onChange, onChangeCoo
         maxZoom: 19
       }).addTo(map);
 
-      // Añadir marcador arrastrable
+      // Añadir marcador (arrastrable sólo si no es readOnly)
       const marker = L.marker([initialLat, initialLng], {
         icon: pinIcon,
-        draggable: true
+        draggable: !readOnly
       }).addTo(map);
 
-      // Evento: Al arrastrar marcador
-      marker.on('dragend', (e) => {
-        const pos = e.target.getLatLng();
-        emitChange(pos.lat, pos.lng);
-      });
+      if (!readOnly) {
+        // Evento: Al arrastrar marcador
+        marker.on('dragend', (e) => {
+          const pos = e.target.getLatLng();
+          emitChange(pos.lat, pos.lng);
+        });
 
-      // Evento: Al hacer clic en cualquier lugar del mapa
-      map.on('click', (e) => {
-        const { lat, lng } = e.latlng;
-        marker.setLatLng([lat, lng]);
-        emitChange(lat, lng);
-      });
+        // Evento: Al hacer clic en cualquier lugar del mapa
+        map.on('click', (e) => {
+          const { lat, lng } = e.latlng;
+          marker.setLatLng([lat, lng]);
+          emitChange(lat, lng);
+        });
+      }
 
       mapInstanceRef.current = map;
       markerRef.current = marker;
@@ -97,17 +100,18 @@ export default function RealMapPicker({ latitud, longitud, onChange, onChangeCoo
     return () => {
       // Cleanup al desmontar
     };
-  }, [latitud, longitud]);
+  }, [latitud, longitud, readOnly]);
 
   return (
     <div className="relative w-full rounded-2xl overflow-hidden border border-slate-300 shadow-inner group">
       <div 
         ref={mapContainerRef} 
         style={{ height: height, width: '100%', zIndex: 10 }}
-        className="cursor-crosshair"
+        className={readOnly ? "cursor-default" : "cursor-crosshair"}
       />
-      <div className="absolute top-2 right-2 z-20 bg-white/90 backdrop-blur-md px-2.5 py-1 rounded-xl text-[10px] font-bold text-slate-700 shadow-sm border border-slate-200 pointer-events-none">
-        OpenStreetMap • Clic o arrastre para ubicar
+      <div className="absolute top-2 right-2 z-20 bg-white/90 backdrop-blur-md px-2.5 py-1 rounded-xl text-[10px] font-bold text-slate-700 shadow-sm border border-slate-200 pointer-events-none flex items-center space-x-1.5">
+        <span className={`w-2 h-2 rounded-full ${readOnly ? 'bg-emerald-500' : 'bg-[#0077c8] animate-pulse'}`} />
+        <span>{readOnly ? 'Ubicación Registrada (Solo Lectura)' : 'OpenStreetMap • Clic o arrastre para ubicar'}</span>
       </div>
     </div>
   );

@@ -23,6 +23,11 @@ class ValidarDocumentoRequest(BaseModel):
     observacion: Optional[str] = None
     responsable: Optional[str] = "Dra. Claudia Morales V."
 
+class ValidarDatosEstablecimientoRequest(BaseModel):
+    estado: str = Field(..., description="Nuevo estado: 'Aprobado' o 'Observado'")
+    observacion: Optional[str] = None
+    responsable: Optional[str] = "Dra. Claudia Morales V."
+
 class AgendarReinspeccionRequest(BaseModel):
     supervisor: str
     fecha: str
@@ -190,7 +195,27 @@ def serializar_tramite_coordinador(tramite: models.Tramite, db: Session) -> dict
     )
 
     ya_en_etapa_posterior = (tramite.estado_tramite or "") in ["En Informe Técnico", "Derivado a Asesoría Legal", "Resolución Lista para Firma", "Aprobado", "Rechazado - Requiere Reingreso", "Rechazado"]
-    puede_aprobar = (todos_docs_aprobados and (supervisor is not None) and es_acta_aprobada and not ya_en_etapa_posterior)
+
+    # Validación de Datos del Establecimiento
+    obs_estab = estab.observaciones if (estab and estab.observaciones) else ""
+    if obs_estab.startswith("OBSERVADO"):
+        estado_datos_estab = "Observado"
+        datos_estab_obs_texto = obs_estab.replace("OBSERVADO:", "").strip()
+        datos_estab_aprobado = False
+    elif "APROBADO" in obs_estab:
+        estado_datos_estab = "Aprobado"
+        datos_estab_obs_texto = None
+        datos_estab_aprobado = True
+    elif ya_en_etapa_posterior:
+        estado_datos_estab = "Aprobado"
+        datos_estab_obs_texto = None
+        datos_estab_aprobado = True
+    else:
+        estado_datos_estab = "Pendiente de Validación"
+        datos_estab_obs_texto = None
+        datos_estab_aprobado = False
+
+    puede_aprobar = (datos_estab_aprobado and todos_docs_aprobados and (supervisor is not None) and es_acta_aprobada and not ya_en_etapa_posterior)
 
     # Consultar si el Asesor Legal ya emitió y elevó la Resolución Administrativa
     resol = db.query(models.ResolucionAdministrativa).filter(
@@ -230,6 +255,18 @@ def serializar_tramite_coordinador(tramite: models.Tramite, db: Session) -> dict
             "abogado_nombre": f"{resol.abogado.nombres} {resol.abogado.apellidos}" if resol.abogado else "Dr. Marco Villanueva"
         }
 
+    # Extraer coordenadas geográficas PostGIS si existen
+    lat = None
+    lng = None
+    if estab and estab.coordenadas is not None:
+        try:
+            from geoalchemy2.functions import ST_X, ST_Y
+            coords = db.query(ST_X(estab.coordenadas), ST_Y(estab.coordenadas)).filter(models.Establecimiento.id == estab.id).first()
+            if coords:
+                lng, lat = coords
+        except Exception:
+            pass
+
     return {
         "id": codigo_visual,
         "tramite_uuid": str(tramite.id),
@@ -238,14 +275,34 @@ def serializar_tramite_coordinador(tramite: models.Tramite, db: Session) -> dict
         "fecha": fecha_formateada,
         "fechaISO": fecha_iso,
         "establecimiento": resol.establecimiento_nombre if (resol and resol.establecimiento_nombre) else (estab.nombre_comercial if estab else "Establecimiento"),
+        "nombre_comercial": estab.nombre_comercial if estab else (resol.establecimiento_nombre if resol else "Establecimiento"),
         "categoria": f"{estab.tipo if estab else 'Laboratorio Clínico'} ({estab.nivel if estab else 'Nivel 1'})",
+        "tipo_establecimiento": estab.tipo if estab else "Privado",
+        "nivel": estab.nivel if estab else "Nivel 1",
         "municipio": estab.municipio if estab else "CERCADO",
         "direccion": resol.direccion_registrada if (resol and resol.direccion_registrada) else (estab.direccion if estab else "Cochabamba"),
         "telefono": estab.telefono if estab else (propietario.telefono if propietario else ""),
         "email": estab.email_contacto if estab else (propietario.email if propietario else ""),
+        "email_contacto": estab.email_contacto if estab else "",
+        "horario": estab.horario if (estab and estab.horario) else "Lun-Vie 7:00 - 19:00, Sáb 8:00 - 13:00",
+        "descripcion": estab.descripcion if (estab and estab.descripcion) else "",
+        "imagen_url": estab.imagen_url if (estab and estab.imagen_url) else None,
+        "servicios": estab.servicios if (estab and estab.servicios) else "Clínico General",
+        "responsables_areas": estab.responsables_areas if (estab and estab.responsables_areas) else None,
+        "latitud": float(lat) if lat is not None else -17.3895,
+        "longitud": float(lng) if lng is not None else -66.1568,
+        "codigo_cue": estab.codigo_cue if (estab and estab.codigo_cue) else "Nuevo",
+        "estado_operativo": estab.estado_operativo if estab else "En Trámite",
+        "datos_establecimiento_estado": estado_datos_estab,
+        "datos_establecimiento_aprobado": datos_estab_aprobado,
+        "datos_establecimiento_observacion": datos_estab_obs_texto,
+        "datos_establecimiento_validador": obs_estab if "APROBADO" in obs_estab else None,
         "propietario": resol.razon_social_propietario if (resol and resol.razon_social_propietario) else prop_nombre,
+        "propietario_nombres": propietario.nombres if propietario else "",
+        "propietario_apellidos": propietario.apellidos if propietario else "",
         "propietario_ci": resol.ci_nit_solicitante if (resol and resol.ci_nit_solicitante) else (propietario.ci_nit if propietario else ""),
         "propietario_email": propietario.email if propietario else "",
+        "propietario_telefono": propietario.telefono if propietario else "",
         "regente": resol.regente_tecnico if (resol and resol.regente_tecnico) else (estab.responsable_laboratorio if estab else ""),
         "regente_ci": resol.ci_regente if (resol and resol.ci_regente) else (estab.ci_responsable if estab else ""),
         "director_tecnico": resol.regente_tecnico if (resol and resol.regente_tecnico) else (estab.responsable_laboratorio if estab else ""),
@@ -294,6 +351,89 @@ def listar_tramites_coordinador(db: Session = Depends(get_db)):
     return {
         "total": len(tramites_serializados),
         "tramites": tramites_serializados
+    }
+
+@router.post("/tramites/{tramite_id}/validar-datos", summary="Validar u Observar los Datos del Establecimiento")
+def validar_datos_establecimiento(
+    tramite_id: str,
+    payload: ValidarDatosEstablecimientoRequest,
+    db: Session = Depends(get_db)
+):
+    """Permite al Coordinador aprobar u observar los datos iniciales registrados del establecimiento."""
+    tramite = None
+    try:
+        t_uuid = uuid.UUID(tramite_id)
+        tramite = db.query(models.Tramite).filter(models.Tramite.id == t_uuid).first()
+    except ValueError:
+        pass
+
+    if not tramite:
+        clean_code = tramite_id.replace("TRM-", "").replace("REQ-", "").strip().lower()
+        tramites = db.query(models.Tramite).filter(models.Tramite.estado == True).all()
+        for t in tramites:
+            if str(t.id).lower().startswith(clean_code):
+                tramite = t
+                break
+
+    if not tramite or not tramite.establecimiento:
+        raise HTTPException(status_code=404, detail="Trámite o establecimiento no encontrado.")
+
+    estab = tramite.establecimiento
+    responsable_str = payload.responsable or "Dra. Claudia Morales V."
+
+    if payload.estado == "Aprobado":
+        estab.observaciones = f"APROBADO por {responsable_str} el {datetime.now().strftime('%d/%m/%Y %H:%M')}"
+    else:
+        obs_texto = payload.observacion.strip() if (payload.observacion and payload.observacion.strip()) else "Datos de registro observados para corrección."
+        estab.observaciones = f"OBSERVADO: {obs_texto}"
+
+    db.commit()
+    db.refresh(estab)
+
+    # Registrar en auditoría
+    cod_trm = f"TRM-{str(tramite.id)[:8].upper()}"
+    badge = "bg-emerald-50 text-emerald-700 border-emerald-200" if payload.estado == "Aprobado" else "bg-rose-50 text-rose-700 border-rose-200"
+    ahora_formato = datetime.now().strftime("%d %b %Y - %H:%M")
+    
+    nuevo_log = models.HistorialActividad(
+        id=uuid.uuid4(),
+        codigo_tramite=cod_trm,
+        establecimiento=estab.nombre_comercial,
+        accion=f"Validación de datos del establecimiento: {payload.estado}." + (f" Obs: {payload.observacion}" if (payload.observacion and payload.estado != 'Aprobado') else ""),
+        responsable=responsable_str,
+        estado_resultado=payload.estado,
+        estado_badge=badge,
+        fecha_hora_formato=ahora_formato
+    )
+    db.add(nuevo_log)
+
+    # Notificar al propietario
+    try:
+        from notificaciones import crear_notificacion_db
+        if estab.propietario_id:
+            if payload.estado == "Observado":
+                crear_notificacion_db(
+                    db,
+                    usuario_id=estab.propietario_id,
+                    titulo=f"⚠️ Datos del Establecimiento Observados - {estab.nombre_comercial}",
+                    mensaje=f"Los datos de registro de su establecimiento '{estab.nombre_comercial}' han sido observados: '{payload.observacion or 'Revise los datos de registro'}'. Por favor póngase en contacto con Coordinación o subsane los datos."
+                )
+            elif payload.estado == "Aprobado":
+                crear_notificacion_db(
+                    db,
+                    usuario_id=estab.propietario_id,
+                    titulo=f"✓ Datos del Establecimiento Validados - {estab.nombre_comercial}",
+                    mensaje=f"Los datos de registro de su establecimiento '{estab.nombre_comercial}' han sido revisados y aprobados por Coordinación."
+                )
+    except Exception as e:
+        print(f"Error al notificar validación de datos: {e}")
+
+    db.commit()
+
+    return {
+        "mensaje": f"Datos del establecimiento {payload.estado.lower()}s exitosamente.",
+        "estado": payload.estado,
+        "observaciones": estab.observaciones
     }
 
 @router.get("/tramites/{tramite_id}", summary="Obtener expediente completo de un trámite")
