@@ -3238,5 +3238,59 @@ Garantizar que la métrica de carga operativa de los supervisores (`X/5 trámite
 * En el endpoint `GET /api/director/estadisticas-generales`:
   - Se homologó el cálculo de trámites activos asignados al supervisor para considerar únicamente las inspecciones de campo pendientes de resolución, manteniendo consistencia absoluta entre la vista del Director y del Coordinador.
 
+---
 
+## [2026-09-25] Ajuste de Margen y Envoltura de Texto en PDF de Informe Técnico (Comunicación Interna)
 
+### 📌 Objetivo
+Corregir el desbordamiento del texto del cargo remitente (`"RESPONSABLE DEPARTAMENTAL DE LABORATORIOS CODELAB - SEDES"`) y del membrete en la primera página del PDF oficial de Comunicación Interna / Informe Técnico generado por el Coordinador, evitando que sobresalga del margen derecho de la hoja.
+
+---
+
+### 🛠️ Archivos Modificados
+
+#### 1. `frontend/src/components/coordinador/ComunicacionInternaPDF.js` [MODIFICADO]
+* Se ajustaron las coordenadas horizontales de las columnas de la tabla de membrete oficial (`A:`, `VIA:`, `DE:`, `MOTIVO:`, `FECHA:`):
+  - Columna 1 (Campo): $X = \text{marginX} = 22\text{ mm}$.
+  - Columna 2 (Nombres / Valores): $X = \text{marginX} + 14\text{ mm}$ con límite de ancho responsivo (`maxVal1W = 48 mm`).
+  - Columna 3 (Cargos institucionales): $X = \text{marginX} + 64\text{ mm}$ con ancho disponible ampliado (`maxVal2W = 107.9 mm`) y tamaño de fuente ajustado a $7.5\text{ pt}$ en negrita.
+* Se implementó `doc.splitTextToSize` dinámico para las columnas 2 y 3, garantizando que textos extensos como el cargo de CODELAB o motivos con nombres largos de establecimientos se envuelvan automáticamente en múltiples líneas calculando la altura de fila sin salirse jamás del margen derecho ($193.9\text{ mm}$).---
+
+## [2026-09-25] Incorporación del Campo C.I. del Responsable Técnico / Bioquímico Regente en Nueva Solicitud
+
+### 📌 Objetivo
+Incorporar un campo dedicado y obligatorio para la Cédula de Identidad (`ci_responsable`) del Responsable Técnico / Bioquímico Regente en el formulario de **Nueva Solicitud de Apertura / Habilitación** del portal de Propietario, persistiendo este dato en la base de datos y propagándolo en las APIs de establecimientos y trámites para su posterior uso en informes técnicos y resoluciones administrativas.
+
+---
+
+### 🛠️ Archivos Creados y Modificados
+
+#### 1. Base de Datos & Backend (`backend/models.py`, `backend/init_db.py`, `backend/schemas.py`, `backend/establecimientos.py`, `backend/coordinador.py`) [MODIFICADO]
+* **Migración SQL y Modelo:** Se agregó la columna `ci_responsable VARCHAR(50)` a la tabla `establecimientos` con migración idempotente en `init_db.py`.
+* **Esquemas Pydantic:** Se actualizaron `EstablecimientoCreate` y `EstablecimientoUpdate` para validar y recibir `ci_responsable`.
+* **Controladores y Serializadores:**
+  - `serializar_establecimiento`, `crear_establecimiento` y `actualizar_establecimiento` persisten y retornan el nuevo campo `ci_responsable`.
+  - `serializar_tramite_coordinador` expone `ci_responsable`, `regente_ci` y `director_tecnico_ci` en la vista del Coordinador.
+
+#### 2. Frontend (`frontend/src/pages/PropietarioPage.jsx`) [MODIFICADO]
+* **Estado y Validación:** Se incluyó `ci_responsable` en el estado inicial `formNueva`, la validación de obligatoriedad en `handleEnviarNuevaSolicitud` y en la estructura del payload enviado al backend.
+---
+
+## [2026-09-25] Estandarización de Redacción Legal y Sincronización de C.I. del Regente en Informe Técnico (CODELAB)
+
+### 📌 Objetivo
+Adoptar la fórmula legal e institucional estándar para la mención de propietarios y regentes en el PDF de Comunicación Interna / Informe Técnico generado por el Coordinador, eliminando ambigüedades de género (*"por la LUIS JOSE FUENTES"*) y garantizando la inyección del número de C.I. real del regente técnico.
+
+---
+
+### 🛠️ Archivos Modificados
+
+#### 1. `frontend/src/components/coordinador/ComunicacionInternaPDF.js` [MODIFICADO]
+* Se estandarizó la redacción jurídica en las Páginas 1 y 3 del documento:
+  - De: `siendo propiedad de ${propietarioNombre} ... y regentado actualmente por la ${regenteNombre} con C.I. Nro. ${ciRegente}`
+  - A: `siendo propiedad de D./Dña. ${propietarioNombre} con C.I. Nro. ${ciPropietario}, y regentado actualmente por el/la profesional ${regenteNombre} con C.I. Nro. ${ciRegente}.`
+* Se mejoró la cadena de respaldo para `ciRegente`, tomando ordenadamente `opciones.ciRegente -> tramite.ci_regente -> tramite.ci_responsable -> tramite.regente_ci -> tramite.director_tecnico_ci`.
+
+#### 2. `frontend/src/components/coordinador/InformeTecnicoView.jsx` [MODIFICADO]
+* Se mapeó el campo `ci_regente` en la estructura de `listaEstablecimientos`.
+* Se incluyó explícitamente `ciRegente` en las llamadas a `generarComunicacionInternaPDF` tanto en la generación de la vista previa en tiempo real como en la función de descarga e impresión.

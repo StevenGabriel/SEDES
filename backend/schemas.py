@@ -67,6 +67,7 @@ class EstablecimientoCreate(BaseModel):
     telefono: Optional[str] = None
     email_contacto: Optional[str] = None
     responsable_laboratorio: Optional[str] = None
+    ci_responsable: Optional[str] = None
     responsables_areas: Optional[str] = None
     horario: Optional[str] = "Lun-Vie 7:00 - 19:00, Sáb 8:00 - 13:00"
     descripcion: Optional[str] = None
@@ -83,6 +84,7 @@ class EstablecimientoUpdate(BaseModel):
     servicios: Optional[str] = None
     direccion: Optional[str] = None
     responsable_laboratorio: Optional[str] = None
+    ci_responsable: Optional[str] = None
     responsables_areas: Optional[str] = None
     latitud: Optional[float] = None
     longitud: Optional[float] = None

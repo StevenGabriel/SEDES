@@ -70,8 +70,8 @@ export async function generarComunicacionInternaPDF(tramite, opciones = {}) {
   const municipio = tramite?.municipio || 'Cochabamba';
   const supervisorNombre = tramite?.supervisorAsignado || tramite?.supervisor_nombre || 'Dra. Fabiola Montesinos';
   const fechaInspeccion = tramite?.fechaInspeccion || '19/03/2026';
-  const regenteNombre = (opciones?.regente || tramite?.director_tecnico || tramite?.regente || 'DRA. NORMA VILLAVICENCIO SILES').toUpperCase();
-  const ciRegente = opciones?.ciRegente || '3799203 CB.';
+  const regenteNombre = (opciones?.regente || tramite?.director_tecnico || tramite?.regente || tramite?.responsable_laboratorio || 'DRA. NORMA VILLAVICENCIO SILES').toUpperCase();
+  const ciRegente = opciones?.ciRegente || tramite?.ci_regente || tramite?.ci_responsable || tramite?.regente_ci || tramite?.director_tecnico_ci || '3799203 CB.';
   const citeNumero = opciones?.cite || `CODELAB/SEDES/71/${new Date().getFullYear()}`;
   const destinatario = opciones?.destinatario || 'Dra. Mery D. Loroño V.';
   const destinatarioCargo = opciones?.destinatarioCargo || 'ASESOR LEGAL - UNIDAD DE CALIDAD Y SERVICIOS';
@@ -88,21 +88,21 @@ export async function generarComunicacionInternaPDF(tramite, opciones = {}) {
     if (imgChakana) {
       try {
         docInstance.addImage(imgChakana, 'PNG', marginX, 6.5, 26, 29);
-      } catch (e) {}
+      } catch (e) { }
     }
 
     // 2. Logo Cochabamba Escudo Oficial (Centro)
     if (imgCochabamba2) {
       try {
         docInstance.addImage(imgCochabamba2, 'PNG', (pageWidth / 2) - 13.5, 7, 27, 27);
-      } catch (e) {}
+      } catch (e) { }
     }
 
     // 3. Logo Cochabamba Lema (Derecha)
     if (imgCochabamba3) {
       try {
         docInstance.addImage(imgCochabamba3, 'PNG', pageWidth - marginX - 28, 7, 28, 28);
-      } catch (e) {}
+      } catch (e) { }
     }
   };
 
@@ -151,19 +151,32 @@ export async function generarComunicacionInternaPDF(tramite, opciones = {}) {
     { campo: 'FECHA:', val1: fechaDoc, val2: '' }
   ];
 
-  doc.setFontSize(8.5);
+  const colVal1X = marginX + 14;
+  const colVal2X = marginX + 64;
+  const maxVal1W = 48;
+  const maxVal2W = contentWidth - 64;
+
   memoRows.forEach(row => {
     doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8.5);
     doc.text(row.campo, marginX, curY);
-    
-    doc.setFont('helvetica', 'normal');
-    doc.text(row.val1, marginX + 16, curY);
 
+    const linesVal1 = doc.splitTextToSize(row.val1, row.val2 ? maxVal1W : (contentWidth - 14));
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8.5);
+    doc.text(linesVal1, colVal1X, curY);
+
+    let linesVal2 = [];
     if (row.val2) {
       doc.setFont('helvetica', 'bold');
-      doc.text(row.val2, marginX + 80, curY);
+      doc.setFontSize(7.5);
+      linesVal2 = doc.splitTextToSize(row.val2, maxVal2W);
+      doc.text(linesVal2, colVal2X, curY);
     }
-    curY += 6;
+
+    const numLines = Math.max(linesVal1.length, linesVal2.length, 1);
+    const rowHeight = numLines > 1 ? (numLines * 3.6 + 1.2) : 5.5;
+    curY += rowHeight;
   });
 
   // Línea divisoria
@@ -181,8 +194,8 @@ export async function generarComunicacionInternaPDF(tramite, opciones = {}) {
   curY += 5;
 
   // Párrafo 1
-  const textoP1 = `Mediante la presente y en cumplimiento a las funciones específicas de mi cargo dentro los alcances de los Art. 28 y Art. 38 de la Ley 1178, adjunto al presente informe para su conocimiento requisitos en general para la ${tipoTramite} del establecimiento "${estabNombre}" ubicado en ${direccion}, ${municipio}, siendo propiedad de ${propietarioNombre} con C.I. Nro. ${ciPropietario}, y regentado actualmente por la ${regenteNombre} con C.I. Nro. ${ciRegente}. En el marco de la normativa actual vigente aprobada por R.M. 0202 de fecha 22 de marzo del 2010 donde están descritos los requisitos técnicos, administrativos, legales y técnicos, en la evaluación realizada se verificó los requisitos mínimos que deben cumplir los establecimientos de salud en cuanto a documentación, gestión de calidad, bioseguridad, competencia técnica, etc., pero principalmente se hace una trazabilidad de sus procesos y procedimientos técnicos para validar la calidad de los resultados que emiten. El proceso de habilitación es análogo al de acreditación (ISO 9001 y la 15189) y la norma señala que es de responsabilidad de los SEDES para garantizar la calidad de los resultados de diagnóstico laboratorial en beneficio de la población.`;
-  
+  const textoP1 = `Mediante la presente y en cumplimiento a las funciones específicas de mi cargo dentro los alcances de los Art. 28 y Art. 38 de la Ley 1178, adjunto al presente informe para su conocimiento requisitos en general para la ${tipoTramite} del establecimiento "${estabNombre}" ubicado en ${direccion}, ${municipio}, siendo propiedad de D./Dña. ${propietarioNombre} con C.I. Nro. ${ciPropietario}, y regentado actualmente por el/la profesional ${regenteNombre} con C.I. Nro. ${ciRegente}. En el marco de la normativa actual vigente aprobada por R.M. 0202 de fecha 22 de marzo del 2010 donde están descritos los requisitos técnicos, administrativos, legales y técnicos, en la evaluación realizada se verificó los requisitos mínimos que deben cumplir los establecimientos de salud en cuanto a documentación, gestión de calidad, bioseguridad, competencia técnica, etc., pero principalmente se hace una trazabilidad de sus procesos y procedimientos técnicos para validar la calidad de los resultados que emiten. El proceso de habilitación es análogo al de acreditación (ISO 9001 y la 15189) y la norma señala que es de responsabilidad de los SEDES para garantizar la calidad de los resultados de diagnóstico laboratorial en beneficio de la población.`;
+
   const splitP1 = doc.splitTextToSize(textoP1, contentWidth);
   doc.text(splitP1, marginX, curY, { align: 'justify', maxWidth: contentWidth });
   curY += splitP1.length * 3.8 + 3;
@@ -299,7 +312,7 @@ export async function generarComunicacionInternaPDF(tramite, opciones = {}) {
   doc.setFontSize(8.5);
   doc.setTextColor(30, 30, 30);
 
-  const textoP5 = `TRANSMITIDAS POR VECTORES (ETVs) Y OTRAS ENFERMEDADES EMERGENTES Y REEMERGENTES, ubicado en ${direccion}, ${municipio}, siendo propiedad de ${propietarioNombre}, regentado actualmente por la ${regenteNombre} con C.I. Nro. ${ciRegente}, según normativa vigente establecida en el Código de Salud R.M. 0847/06 y R.M. 0202/10, habiéndose sometido a la evaluación documental y técnica INSITU, trazabilidad de sus procesos y procedimientos para la validación de localidad de sus resultados, realizada por los evaluadores conducida y liderada por CODELAB- SEDES, de acuerdo a las listas de verificación para la aplicación del reglamento de habilitación, por lo que corresponde la extensión de la R.A. en la que se declara PROCEDENTE LA ${tipoTramite} al ${estabNombre} ante el Ministerio de Salud y el Servicio Departamental de Salud.`;
+  const textoP5 = `TRANSMITIDAS POR VECTORES (ETVs) Y OTRAS ENFERMEDADES EMERGENTES Y REEMERGENTES, ubicado en ${direccion}, ${municipio}, siendo propiedad de D./Dña. ${propietarioNombre}, regentado actualmente por el/la profesional ${regenteNombre} con C.I. Nro. ${ciRegente}, según normativa vigente establecida en el Código de Salud R.M. 0847/06 y R.M. 0202/10, habiéndose sometido a la evaluación documental y técnica INSITU, trazabilidad de sus procesos y procedimientos para la validación de localidad de sus resultados, realizada por los evaluadores conducida y liderada por CODELAB- SEDES, de acuerdo a las listas de verificación para la aplicación del reglamento de habilitación, por lo que corresponde la extensión de la R.A. en la que se declara PROCEDENTE LA ${tipoTramite} al ${estabNombre} ante el Ministerio de Salud y el Servicio Departamental de Salud.`;
   const splitP5 = doc.splitTextToSize(textoP5, contentWidth);
   doc.text(splitP5, marginX, curY, { align: 'justify', maxWidth: contentWidth });
   curY += splitP5.length * 3.8 + 4;
