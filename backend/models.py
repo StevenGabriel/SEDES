@@ -78,6 +78,7 @@ class Establecimiento(Base):
     nivel = Column(String(50), nullable=False)  # Ej: 'Nivel 1', 'Nivel 2'
     municipio = Column(String(100), nullable=False) # Ej: 'CERCADO', 'QUILLACOLLO', 'PUNATA'
     responsable_laboratorio = Column(String(200), nullable=True) # Responsable técnico
+    ci_responsable = Column(String(50), nullable=True) # C.I. del Responsable Técnico / Regente
     responsables_areas = Column(Text, nullable=True) # Especialidades/Áreas
     direccion = Column(Text, nullable=False)
     coordenadas = Column(Geometry(geometry_type='POINT', srid=4326), nullable=True)  # PostGIS Point (Lat/Lng)

@@ -304,6 +304,7 @@ export default function PropietarioPage() {
     servicios: [],
     direccion: '',
     responsable_laboratorio: '',
+    ci_responsable: '',
     responsables_areas: '',
     latitud: -17.38975,
     longitud: -66.15951,
@@ -326,6 +327,7 @@ export default function PropietarioPage() {
     direccion: '',
     telefono: '',
     responsable_laboratorio: '',
+    ci_responsable: '',
     horario: 'Lun-Vie 7:00 - 19:00, Sáb 8:00 - 13:00',
     email_contacto: '',
     descripcion: '',
@@ -818,6 +820,7 @@ export default function PropietarioPage() {
       servicios: servList,
       direccion: lab.direccion || '',
       responsable_laboratorio: lab.responsable_laboratorio || '',
+      ci_responsable: lab.ci_responsable || '',
       responsables_areas: lab.responsables_areas || '',
       latitud: lab.latitud || -17.38975,
       longitud: lab.longitud || -66.15951,
@@ -952,6 +955,7 @@ export default function PropietarioPage() {
         servicios: formEdit.servicios.join(', '),
         direccion: formEdit.direccion,
         responsable_laboratorio: formEdit.responsable_laboratorio,
+        ci_responsable: formEdit.ci_responsable,
         responsables_areas: formEdit.responsables_areas,
         latitud: formEdit.latitud,
         longitud: formEdit.longitud,
@@ -1100,6 +1104,10 @@ export default function PropietarioPage() {
       alert('Por favor ingrese el Responsable Técnico / Bioquímico Regente general del establecimiento.');
       return;
     }
+    if (!formNueva.ci_responsable.trim()) {
+      alert('Por favor ingrese el C.I. del Responsable Técnico / Bioquímico Regente.');
+      return;
+    }
 
     // 1. Validar que todas las especialidades seleccionadas cuenten con Nombre y CI de sus encargados
     if (formNueva.servicios.length === 0) {
@@ -1171,6 +1179,7 @@ export default function PropietarioPage() {
         telefono: formNueva.telefono.trim(),
         email_contacto: formNueva.email_contacto.trim(),
         responsable_laboratorio: formNueva.responsable_laboratorio.trim(),
+        ci_responsable: formNueva.ci_responsable.trim(),
         responsables_areas: responsablesAreasStr,
         horario: formNueva.horario.trim(),
         descripcion: formNueva.descripcion.trim(),
@@ -2458,9 +2467,25 @@ export default function PropietarioPage() {
                         </label>
                         <input
                           type="text"
+                          required
                           value={formNueva.responsable_laboratorio}
                           onChange={(e) => setFormNueva({ ...formNueva, responsable_laboratorio: e.target.value })}
-                          placeholder="Ej: DRA. MARIA ELENA VARGAS ROJAS - 5489632 CBBA"
+                          placeholder="Ej: DRA. MARIA ELENA VARGAS ROJAS"
+                          className="w-full bg-slate-50 border border-slate-200 text-slate-800 text-base sm:text-sm rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#0077be] font-medium"
+                        />
+                      </div>
+
+                      {/* C.I. del Responsable Técnico */}
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-bold text-slate-700">
+                          C.I. DEL RESPONSABLE TÉCNICO / REGENTE <span className="text-rose-500">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          value={formNueva.ci_responsable}
+                          onChange={(e) => setFormNueva({ ...formNueva, ci_responsable: e.target.value })}
+                          placeholder="Ej: 5489632 CBBA"
                           className="w-full bg-slate-50 border border-slate-200 text-slate-800 text-base sm:text-sm rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#0077be] font-medium"
                         />
                       </div>

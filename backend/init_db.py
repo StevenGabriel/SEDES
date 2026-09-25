@@ -46,6 +46,7 @@ def init_database(reset_tables: bool = False, poblar_laboratorios_demo: bool = F
                 conn.execute(text("ALTER TABLE inspecciones ADD COLUMN IF NOT EXISTS plazo_subsanacion VARCHAR(100) DEFAULT '1 año';"))
                 conn.execute(text("ALTER TABLE inspecciones ADD COLUMN IF NOT EXISTS fecha_vencimiento_acta DATE;"))
                 conn.execute(text("ALTER TABLE inspecciones ADD COLUMN IF NOT EXISTS alerta_15_dias_enviada BOOLEAN DEFAULT FALSE;"))
+                conn.execute(text("ALTER TABLE establecimientos ADD COLUMN IF NOT EXISTS ci_responsable VARCHAR(50);"))
                 conn.commit()
                 logger.info("✅ Esquema de catálogo de requisitos, establecimientos, inspecciones y resoluciones administrativas verificado.")
             except Exception as e_mig:

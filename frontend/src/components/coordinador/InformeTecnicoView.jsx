@@ -94,7 +94,8 @@ export default function InformeTecnicoView({
           ? 'Favorable (Cumple con estándares vigentes de bioseguridad)'
           : veredicto,
         observacionesCampo: obsSupervisor,
-        regente: t.resolucion?.regente_tecnico || t.regente || t.director_tecnico || 'DRA. NORMA VILLAVICENCIO SILES',
+        regente: t.resolucion?.regente_tecnico || t.regente || t.director_tecnico || t.responsable_laboratorio || 'DRA. NORMA VILLAVICENCIO SILES',
+        ci_regente: t.resolucion?.ci_regente || t.regente_ci || t.ci_responsable || t.director_tecnico_ci || '',
         documentosAprobados: docsAprobadosNombres.length > 0 ? docsAprobadosNombres : [
           'Licencia Municipal (Vigente)',
           'Certificado Sanitario Previo',
@@ -219,6 +220,7 @@ export default function InformeTecnicoView({
           remitente: nombreCoordinador,
           remitenteCargo: 'RESPONSABLE DEPARTAMENTAL DE LABORATORIOS CODELAB - SEDES',
           regente: tramiteActivo.regente,
+          ciRegente: tramiteActivo.ci_regente || tramiteActivo.regente_ci || tramiteActivo.ci_responsable,
           observaciones: observacionesCoordinador
         });
       }
@@ -336,6 +338,7 @@ export default function InformeTecnicoView({
           remitente: nombreCoordinador,
           remitenteCargo: 'RESPONSABLE DEPARTAMENTAL DE LABORATORIOS CODELAB - SEDES',
           regente: tramiteActivo.regente,
+          ciRegente: tramiteActivo.ci_regente || tramiteActivo.regente_ci || tramiteActivo.ci_responsable,
           observaciones: observacionesCoordinador
         });
         filename = `Informe_Tecnico_${tramiteActivo.codigo || 'SEDES'}.pdf`;

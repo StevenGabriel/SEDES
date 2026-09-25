@@ -94,6 +94,7 @@ def serializar_establecimiento(e: models.Establecimiento, db: Session) -> dict:
         "nivel": e.nivel,
         "municipio": e.municipio,
         "responsable_laboratorio": e.responsable_laboratorio,
+        "ci_responsable": e.ci_responsable,
         "responsables_areas": e.responsables_areas,
         "direccion": e.direccion,
         "horario": e.horario or "Lun-Vie 7:00 - 19:00, Sáb 8:00 - 13:00",
@@ -156,6 +157,7 @@ def crear_establecimiento(
         nivel=datos.nivel.strip() if datos.nivel else "Nivel 1",
         municipio=datos.municipio.strip().upper(),
         responsable_laboratorio=datos.responsable_laboratorio.strip() if datos.responsable_laboratorio else f"{propietario.nombres} {propietario.apellidos}",
+        ci_responsable=datos.ci_responsable.strip() if datos.ci_responsable else None,
         responsables_areas=datos.responsables_areas.strip() if datos.responsables_areas else datos.servicios,
         direccion=datos.direccion.strip(),
         coordenadas=f"SRID=4326;POINT({lng} {lat})",
@@ -360,6 +362,8 @@ def actualizar_establecimiento(
         estab.direccion = datos.direccion.strip()
     if datos.responsable_laboratorio is not None:
         estab.responsable_laboratorio = datos.responsable_laboratorio.strip()
+    if datos.ci_responsable is not None:
+        estab.ci_responsable = datos.ci_responsable.strip()
     if datos.responsables_areas is not None:
         estab.responsables_areas = datos.responsables_areas.strip()
     if datos.latitud is not None and datos.longitud is not None:
