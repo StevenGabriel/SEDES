@@ -3447,3 +3447,12 @@ Permitir a la Dirección General del SEDES actualizar, personalizar y guardar pe
     * Dichos trámites quedan archivados de la bandeja activa y su trazabilidad completa, bitácora de eventos, supervisor asignado, dictamen y resoluciones continúan consultándose de forma íntegra en la vista de **"Historial y Trazabilidad"** (`/coordinador/historial-trazabilidad`) y en la auditoría del sistema.
     * El contador del encabezado de la bandeja refleja con precisión el número de trámites activos (`{tramitesBandeja.length} en bandeja`).
     * **Corrección de Import de Hooks (`useMemo`):** Se añadió `useMemo` a los imports de React en `CoordinadorPage.jsx`, solucionando el `ReferenceError` que ocasionaba la pantalla en blanco en el navegador.
+
+#### 8. `frontend/src/components/common/EditarPlantillasView.jsx` [NUEVO] & `AdminPage.jsx` / `DirectorPage.jsx` [MODIFICADOS]
+* **Rediseño del Editor de Documentos Oficiales por Páginas Enteras:**
+  * Se sustituyó la anterior lista disgregada de 8 tarjetas individuales de párrafos por un visualizador y editor estructurado **página por página entera** (`Página 1`, `Página 2`, `Página 3` y modo desplegado `Ver las 3 Páginas`).
+  * Cada página se presenta visualmente como una hoja de documento formal tamaño carta con simulación de membrete y sellos institucionales SEDES, integrando los campos editables dentro del contexto de cada hoja:
+    * **Página 1 (Marco Legal e Inspección):** Membrete A/VIA/DE/MOTIVO, Párrafo 1 (Ley 1178 e ISO), Párrafo 2 (Inspección In Situ) y Párrafo 3 (Normativa Ministerial Red de Laboratorios).
+    * **Página 2 (Requisitos y Conclusiones):** Datos de Titulares, Requisitos Técnicos y Bioseguridad, Requisitos Financieros y Aranceles, y Conclusiones con solicitud de Resolución Administrativa.
+    * **Página 3 (Procedencia y Firmas):** Párrafo Superior de Declaratoria de Procedencia, Leyenda de Documentación Adjunta, Iniciales de Archivo (`CC/Arch`) y Espacio Oficial de Firmas.
+  * Botones de navegación intuitiva entre páginas (`Página Anterior` / `Página Siguiente`), chips interactivos de copiado de variables dinámicas (`{ESTABLECIMIENTO}`, `{PROPIETARIO}`, etc.), botón de **"Vista Previa PDF"** en tiempo real y persistencia en base de datos (`PUT /api/plantillas-documentos/{codigo}`).
