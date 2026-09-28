@@ -77,6 +77,10 @@ class EstablecimientoCreate(BaseModel):
     longitud: Optional[float] = -66.1568
 
 class EstablecimientoUpdate(BaseModel):
+    nombre_comercial: Optional[str] = None
+    municipio: Optional[str] = None
+    tipo: Optional[str] = None
+    nivel: Optional[str] = None
     horario: Optional[str] = None
     telefono: Optional[str] = None
     email_contacto: Optional[str] = None
@@ -89,6 +93,7 @@ class EstablecimientoUpdate(BaseModel):
     latitud: Optional[float] = None
     longitud: Optional[float] = None
     imagen_url: Optional[str] = None
+    es_subsanacion: Optional[bool] = False
 
 # --- Respuestas Generales ---
 

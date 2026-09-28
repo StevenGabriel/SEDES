@@ -293,10 +293,15 @@ export default function PropietarioPage() {
   const [misEstablecimientos, setMisEstablecimientos] = useState([]);
   const [isLoadingLabs, setIsLoadingLabs] = useState(true);
 
-  // Estado del Modal de "Editar Página"
+  // Estado del Modal de "Editar Página" / "Subsanar Datos Observados"
   const [modalEditarOpen, setModalEditarOpen] = useState(false);
   const [labEditando, setLabEditando] = useState(null);
+  const [esModoSubsanacion, setEsModoSubsanacion] = useState(false);
   const [formEdit, setFormEdit] = useState({
+    nombre_comercial: '',
+    municipio: 'CERCADO',
+    tipo: 'Privado',
+    nivel: 'Nivel 1',
     horario: '',
     telefono: '',
     email_contacto: '',
@@ -305,7 +310,7 @@ export default function PropietarioPage() {
     direccion: '',
     responsable_laboratorio: '',
     ci_responsable: '',
-    responsables_areas: '',
+    responsables_areas: {},
     latitud: -17.38975,
     longitud: -66.15951,
     imagen_url: ''
@@ -790,9 +795,14 @@ export default function PropietarioPage() {
     navigate('/login');
   };
 
-  // Abrir modal de edición para un establecimiento
-  const handleAbrirEditar = (lab) => {
+  // Abrir modal de edición para un establecimiento (modo estándar o modo subsanación)
+  const handleAbrirEditar = (lab, forzarSubsanacion = false) => {
+    if (!lab) return;
     setLabEditando(lab);
+
+    const tieneObs = Boolean(lab.observaciones && lab.observaciones.startsWith('OBSERVADO'));
+    const esSubsan = forzarSubsanacion || tieneObs;
+    setEsModoSubsanacion(esSubsan);
 
     // Normalizar servicios como lista seleccionada que coincida con las píldoras
     let servList = [];
@@ -804,26 +814,50 @@ export default function PropietarioPage() {
 
     // Filtrar duplicados y verificar que pertenezcan al catálogo
     servList = [...new Set(servList)].filter(s => ESPECIALIDADES_OFICIALES.includes(s));
-
     if (servList.length === 0) {
       servList = ['Clínico General'];
     }
+
+    // Parsear encargados de áreas
+    let encAreas = {};
+    if (lab.responsables_areas) {
+      if (typeof lab.responsables_areas === 'object' && !Array.isArray(lab.responsables_areas)) {
+        encAreas = { ...lab.responsables_areas };
+      } else {
+        try {
+          const parsed = JSON.parse(lab.responsables_areas);
+          if (typeof parsed === 'object' && parsed !== null) encAreas = parsed;
+        } catch (e) {}
+      }
+    }
+    servList.forEach(esp => {
+      if (!encAreas[esp]) {
+        encAreas[esp] = {
+          nombre: lab.responsable_laboratorio || (usuario ? `${usuario.nombres || ''} ${usuario.apellidos || ''}`.trim() : 'Dra. María Elena Vargas Rojas'),
+          ci: lab.ci_responsable || usuario?.ci_nit || '5489632 CBBA'
+        };
+      }
+    });
 
     setArchivoImagen(null);
     setPreviewImagen(lab.imagen_url || null);
 
     setFormEdit({
+      nombre_comercial: lab.nombre_comercial || '',
+      municipio: lab.municipio || 'CERCADO',
+      tipo: lab.tipo || 'Privado',
+      nivel: lab.nivel || 'Nivel 1',
       horario: lab.horario || 'Lun-Vie 7:00 - 19:00, Sáb 8:00 - 13:00',
       telefono: lab.telefono || '+591 4 4251890',
-      email_contacto: lab.email_contacto || 'contacto@laboratorio.bo',
+      email_contacto: lab.email_contacto || usuario?.email || 'contacto@laboratorio.bo',
       descripcion: lab.descripcion || 'Establecimiento de salud acreditado para la toma de muestras, diagnóstico clínico y análisis microbiológicos bajo normativa sanitaria vigente del Departamento de Cochabamba.',
       servicios: servList,
       direccion: lab.direccion || '',
       responsable_laboratorio: lab.responsable_laboratorio || '',
       ci_responsable: lab.ci_responsable || '',
-      responsables_areas: lab.responsables_areas || '',
-      latitud: lab.latitud || -17.38975,
-      longitud: lab.longitud || -66.15951,
+      responsables_areas: encAreas,
+      latitud: typeof lab.latitud === 'number' ? lab.latitud : -17.38975,
+      longitud: typeof lab.longitud === 'number' ? lab.longitud : -66.15951,
       imagen_url: lab.imagen_url || ''
     });
     setSaveSuccess('');
@@ -856,17 +890,27 @@ export default function PropietarioPage() {
   const toggleEspecialidad = (esp) => {
     setFormEdit((prev) => {
       const existe = prev.servicios.some(s => s.toLowerCase() === esp.toLowerCase());
+      let nuevosServicios;
       if (existe) {
-        return {
-          ...prev,
-          servicios: prev.servicios.filter(s => s.toLowerCase() !== esp.toLowerCase())
-        };
+        nuevosServicios = prev.servicios.filter(s => s.toLowerCase() !== esp.toLowerCase());
+        if (nuevosServicios.length === 0) nuevosServicios = [esp];
       } else {
-        return {
-          ...prev,
-          servicios: [...prev.servicios, esp]
+        nuevosServicios = [...prev.servicios, esp];
+      }
+
+      const nuevosEnc = { ...prev.responsables_areas };
+      if (!existe && !nuevosEnc[esp]) {
+        nuevosEnc[esp] = {
+          nombre: formEdit.responsable_laboratorio || (usuario ? `${usuario.nombres || ''} ${usuario.apellidos || ''}`.trim() : ''),
+          ci: formEdit.ci_responsable || usuario?.ci_nit || ''
         };
       }
+
+      return {
+        ...prev,
+        servicios: nuevosServicios,
+        responsables_areas: nuevosEnc
+      };
     });
   };
 
@@ -891,11 +935,9 @@ export default function PropietarioPage() {
   // Selección de coordenadas haciendo clic en el mapa interactivo
   const handleMapClick = (e) => {
     const rect = e.currentTarget.getBoundingClientRect();
-    const clickX = (e.clientX - rect.left) / rect.width; // 0.0 a 1.0
-    const clickY = (e.clientY - rect.top) / rect.height;  // 0.0 a 1.0
+    const clickX = (e.clientX - rect.left) / rect.width;
+    const clickY = (e.clientY - rect.top) / rect.height;
 
-    // Mapeo proporcional para el área metropolitana de Cochabamba
-    // Longitud: [-66.35 a -66.05] | Latitud: [-17.32 a -17.48]
     const minLng = -66.32;
     const maxLng = -66.08;
     const minLat = -17.46;
@@ -948,6 +990,10 @@ export default function PropietarioPage() {
       }
 
       const payload = {
+        nombre_comercial: formEdit.nombre_comercial,
+        municipio: formEdit.municipio,
+        tipo: formEdit.tipo,
+        nivel: formEdit.nivel,
         horario: formEdit.horario,
         telefono: formEdit.telefono,
         email_contacto: formEdit.email_contacto,
@@ -956,10 +1002,11 @@ export default function PropietarioPage() {
         direccion: formEdit.direccion,
         responsable_laboratorio: formEdit.responsable_laboratorio,
         ci_responsable: formEdit.ci_responsable,
-        responsables_areas: formEdit.responsables_areas,
+        responsables_areas: JSON.stringify(formEdit.responsables_areas),
         latitud: formEdit.latitud,
         longitud: formEdit.longitud,
-        imagen_url: finalImageUrl
+        imagen_url: finalImageUrl,
+        es_subsanacion: esModoSubsanacion
       };
 
       const response = await fetch(`http://localhost:8000/api/establecimientos/${labEditando.id}`, {
@@ -976,17 +1023,21 @@ export default function PropietarioPage() {
         throw new Error(resData.detail || 'No se pudieron guardar los cambios.');
       }
 
-      setSaveSuccess('¡Información pública y fotografía actualizadas exitosamente!');
+      setSaveSuccess(
+        esModoSubsanacion
+          ? '¡Datos corregidos y enviados exitosamente al Coordinador para su validación!'
+          : '¡Información pública y fotografía actualizadas exitosamente!'
+      );
       
-      // Actualizar estado local
-      setMisEstablecimientos(prev => prev.map(item => 
-        item.id === labEditando.id 
-          ? { ...item, ...payload, imagen_url: finalImageUrl, latitud: formEdit.latitud, longitud: formEdit.longitud }
-          : item
-      ));
+      // Actualizar estado local y sincronizar
+      if (usuario?.id) {
+        await fetchMisEstablecimientos(usuario.id, true);
+        await fetchNotificaciones(usuario.id);
+      }
 
       setTimeout(() => {
         setModalEditarOpen(false);
+        setEsModoSubsanacion(false);
       }, 1500);
 
     } catch (err) {
@@ -1492,7 +1543,28 @@ export default function PropietarioPage() {
                                 onClick={() => {
                                   handleMarcarNotifLeida(notif.id);
                                   setNotifDropdownOpen(false);
-                                  if (seccionActiva !== 'tramites') {
+
+                                  const tituloLower = (notif.titulo || '').toLowerCase();
+                                  const mensajeLower = (notif.mensaje || '').toLowerCase();
+                                  const esObsDatos = (tituloLower.includes('datos') && (tituloLower.includes('observad') || tituloLower.includes('rechaz'))) ||
+                                                     (mensajeLower.includes('datos de registro') && (mensajeLower.includes('observad') || tituloLower.includes('observad')));
+
+                                  if (esObsDatos) {
+                                    if (seccionActiva !== 'mis-establecimientos') {
+                                      navigate('/propietario/mis-establecimientos');
+                                    }
+                                    // Buscar establecimiento observado por nombre o el primero observado
+                                    const labObs = misEstablecimientos.find(l => 
+                                      (notif.titulo && notif.titulo.includes(l.nombre_comercial)) ||
+                                      (l.observaciones && l.observaciones.startsWith('OBSERVADO'))
+                                    ) || misEstablecimientos[0];
+
+                                    if (labObs) {
+                                      setTimeout(() => {
+                                        handleAbrirEditar(labObs, true);
+                                      }, 150);
+                                    }
+                                  } else if (seccionActiva !== 'tramites') {
                                     navigate('/propietario/tramites');
                                   }
                                 }}
@@ -1744,6 +1816,39 @@ export default function PropietarioPage() {
                               <span>• CUE: <strong className="text-slate-700">{lab.codigo_cue}</strong></span>
                             </div>
 
+                            {/* Alerta de Datos Observados con botón de subsanación directa */}
+                            {lab.observaciones && lab.observaciones.startsWith('OBSERVADO') && (
+                              <div className="mt-2.5 p-3.5 bg-rose-50 border border-rose-200 rounded-xl space-y-2">
+                                <div className="flex items-start space-x-2 text-rose-950">
+                                  <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                                  <div>
+                                    <span className="font-black text-xs block">⚠️ Datos del Establecimiento Observados por Coordinación:</span>
+                                    <p className="text-xs text-rose-800 mt-0.5 font-medium">
+                                      {lab.observaciones.replace('OBSERVADO:', '').trim()}
+                                    </p>
+                                  </div>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => handleAbrirEditar(lab, true)}
+                                  className="w-full sm:w-auto bg-rose-600 hover:bg-rose-700 text-white text-xs font-black px-4 py-2 rounded-xl transition flex items-center justify-center space-x-2 shadow-sm cursor-pointer active:scale-98 animate-pulse"
+                                >
+                                  <Edit3 className="w-3.5 h-3.5" />
+                                  <span>Subsanar y Corregir Datos Observados</span>
+                                </button>
+                              </div>
+                            )}
+
+                            {/* Alerta de Datos Subsanados / Corregidos */}
+                            {lab.observaciones && (lab.observaciones.startsWith('CORREGIDO') || lab.observaciones.startsWith('SUBSANADO')) && (
+                              <div className="mt-2.5 p-2.5 bg-amber-50 border border-amber-200 rounded-xl flex items-center space-x-2 text-amber-900 text-xs">
+                                <Clock className="w-4 h-4 text-amber-600 shrink-0" />
+                                <span>
+                                  <strong>Corrección Enviada:</strong> Los datos modificados están en revisión por el Coordinador Departamental.
+                                </span>
+                              </div>
+                            )}
+
                             {/* Alerta de vencimiento y botón de rehabilitación */}
                             <div className="pt-2 flex flex-wrap items-center gap-2">
                               {lab.tiene_rehabilitacion_pendiente ? (
@@ -1786,7 +1891,7 @@ export default function PropietarioPage() {
                           </div>
                         </div>
 
-                        {/* Botones de Acción (Figma + Editar Página) */}
+                        {/* Botones de Acción (Figma + Editar Página / Subsanar) */}
                         <div className="flex flex-wrap items-center gap-2 self-stretch sm:self-auto justify-end sm:justify-start pt-3 lg:pt-0 border-t lg:border-t-0 border-slate-100">
                           
                           {/* Botón 1: Documentos */}
@@ -1815,16 +1920,28 @@ export default function PropietarioPage() {
                             <span>Ver Detalle</span>
                           </Link>
 
-                          {/* Botón 3: Editar Página (Nuevo) */}
-                          <button
-                            type="button"
-                            onClick={() => handleAbrirEditar(lab)}
-                            className="w-full sm:w-auto bg-[#0073c6] hover:bg-[#005da3] text-white text-xs font-bold px-4 py-2.5 rounded-xl transition flex items-center justify-center space-x-1.5 shadow-sm cursor-pointer"
-                            title="Editar la información pública mostrada en su página"
-                          >
-                            <Edit3 className="w-3.5 h-3.5 text-white" />
-                            <span>Editar Página</span>
-                          </button>
+                          {/* Botón 3: Editar Página / Subsanar Datos */}
+                          {lab.observaciones && lab.observaciones.startsWith('OBSERVADO') ? (
+                            <button
+                              type="button"
+                              onClick={() => handleAbrirEditar(lab, true)}
+                              className="w-full sm:w-auto bg-rose-600 hover:bg-rose-700 text-white text-xs font-black px-4 py-2.5 rounded-xl transition flex items-center justify-center space-x-1.5 shadow-sm cursor-pointer active:scale-98 animate-pulse"
+                              title="Subsanar los datos observados por el Coordinador"
+                            >
+                              <Edit3 className="w-3.5 h-3.5 text-white" />
+                              <span>Subsanar Datos</span>
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => handleAbrirEditar(lab, false)}
+                              className="w-full sm:w-auto bg-[#0073c6] hover:bg-[#005da3] text-white text-xs font-bold px-4 py-2.5 rounded-xl transition flex items-center justify-center space-x-1.5 shadow-sm cursor-pointer"
+                              title="Editar la información pública mostrada en su página"
+                            >
+                              <Edit3 className="w-3.5 h-3.5 text-white" />
+                              <span>Editar Página</span>
+                            </button>
+                          )}
 
                         </div>
 
@@ -2922,7 +3039,7 @@ export default function PropietarioPage() {
       </div>
 
       {/* ===================================================================== */}
-      {/* 4. MODAL INTERACTIVO: EDITAR PÁGINA DEL LABORATORIO                   */}
+      {/* 4. MODAL INTERACTIVO: EDITAR PÁGINA O SUBSANAR DATOS OBSERVADOS        */}
       {/* ===================================================================== */}
       {modalEditarOpen && labEditando && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-fadeIn">
@@ -2931,11 +3048,15 @@ export default function PropietarioPage() {
             {/* Header del Modal */}
             <div className="flex items-center justify-between border-b border-slate-100 pb-4">
               <div className="flex items-center space-x-3">
-                <div className="w-11 h-11 rounded-2xl bg-blue-50 text-[#0073c6] flex items-center justify-center shrink-0">
-                  <Edit3 className="w-5 h-5" />
+                <div className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 ${
+                  esModoSubsanacion ? 'bg-rose-100 text-rose-700' : 'bg-blue-50 text-[#0073c6]'
+                }`}>
+                  {esModoSubsanacion ? <AlertTriangle className="w-5 h-5" /> : <Edit3 className="w-5 h-5" />}
                 </div>
                 <div>
-                  <h2 className="text-lg sm:text-xl font-black text-slate-900">Editar Información Pública</h2>
+                  <h2 className="text-lg sm:text-xl font-black text-slate-900">
+                    {esModoSubsanacion ? 'Subsanar y Corregir Datos Observados' : 'Editar Información Pública'}
+                  </h2>
                   <p className="text-xs text-slate-500">
                     Establecimiento: <strong>{labEditando.nombre_comercial}</strong> (CUE: {labEditando.codigo_cue})
                   </p>
@@ -2949,6 +3070,22 @@ export default function PropietarioPage() {
                 <X className="w-5 h-5" />
               </button>
             </div>
+
+            {/* Banner de Observación del Coordinador si está en modo Subsanación */}
+            {esModoSubsanacion && (
+              <div className="p-4 bg-rose-50 border-l-4 border-rose-600 rounded-r-2xl space-y-2">
+                <div className="flex items-center space-x-2 text-rose-950">
+                  <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0" />
+                  <span className="font-black text-xs uppercase tracking-tight">Observación Emitida por Coordinación SEDES:</span>
+                </div>
+                <p className="text-xs text-rose-900 font-bold bg-white p-3 rounded-xl border border-rose-200 shadow-2xs">
+                  {labEditando.observaciones ? labEditando.observaciones.replace('OBSERVADO:', '').trim() : 'Los datos de registro han sido observados para corrección.'}
+                </p>
+                <p className="text-[11px] text-rose-700 leading-relaxed font-medium">
+                  Modifique los campos correspondientes a continuación. Al presionar <strong>"Actualizar y Enviar al Coordinador"</strong>, los datos quedarán fijados y enviados a nueva revisión.
+                </p>
+              </div>
+            )}
 
             {/* Mensajes de feedback */}
             {saveSuccess && (
@@ -2968,10 +3105,285 @@ export default function PropietarioPage() {
             {/* Formulario de Edición */}
             <form onSubmit={handleGuardarCambios} className="space-y-6">
               
+              {/* SECCIÓN 1: DATOS INSTITUCIONALES (Editable solo en modo subsanación, de lo contrario informativo) */}
+              {esModoSubsanacion ? (
+                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-4">
+                  <span className="text-xs font-black uppercase text-slate-800 tracking-tight flex items-center space-x-1.5">
+                    <Building2 className="w-4 h-4 text-[#0073c6]" />
+                    <span>Datos Institucionales del Establecimiento</span>
+                  </span>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {/* Municipio */}
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
+                        Municipio <span className="text-rose-500">*</span>
+                      </label>
+                      <select
+                        value={formEdit.municipio}
+                        onChange={(e) => setFormEdit({ ...formEdit, municipio: e.target.value })}
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm text-slate-800 bg-white font-bold focus:outline-none focus:ring-2 focus:ring-[#0073c6]"
+                      >
+                        <option value="CERCADO">Cochabamba (Cercado)</option>
+                        <option value="QUILLACOLLO">Quillacollo</option>
+                        <option value="SACABA">Sacaba</option>
+                        <option value="TIQUIPAYA">Tiquipaya</option>
+                        <option value="COLCAPIRHUA">Colcapirhua</option>
+                        <option value="SIPE SIPE">Sipe Sipe</option>
+                        <option value="PUNATA">Punata</option>
+                        <option value="CLIZA">Cliza</option>
+                        <option value="TARATA">Tarata</option>
+                        <option value="ARANI">Arani</option>
+                      </select>
+                    </div>
+
+                    {/* Tipo de Laboratorio */}
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
+                        Tipo de Laboratorio <span className="text-rose-500">*</span>
+                      </label>
+                      <select
+                        value={formEdit.tipo}
+                        onChange={(e) => setFormEdit({ ...formEdit, tipo: e.target.value })}
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm text-slate-800 bg-white font-bold focus:outline-none focus:ring-2 focus:ring-[#0073c6]"
+                      >
+                        <option value="Privado">Laboratorio Clínico Privado</option>
+                        <option value="Público">Laboratorio Público / Institucional</option>
+                        <option value="Seguro Social">Seguridad Social de Corto Plazo</option>
+                        <option value="Investigación">Centro de Investigación y Docencia</option>
+                      </select>
+                    </div>
+
+                    {/* Nombre Comercial */}
+                    <div className="sm:col-span-2">
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
+                        Nombre Comercial del Laboratorio <span className="text-rose-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={formEdit.nombre_comercial}
+                        onChange={(e) => setFormEdit({ ...formEdit, nombre_comercial: e.target.value })}
+                        placeholder="Ej. Laboratorio Clínico Central"
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm text-slate-900 font-bold focus:outline-none focus:ring-2 focus:ring-[#0073c6]"
+                      />
+                    </div>
+
+                    {/* Nivel de Complejidad */}
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
+                        Nivel de Complejidad <span className="text-rose-500">*</span>
+                      </label>
+                      <select
+                        value={formEdit.nivel}
+                        onChange={(e) => setFormEdit({ ...formEdit, nivel: e.target.value })}
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm text-slate-800 bg-white font-bold focus:outline-none focus:ring-2 focus:ring-[#0073c6]"
+                      >
+                        <option value="Nivel 1">Nivel 1 (Básico)</option>
+                        <option value="Nivel 2">Nivel 2 (Mediana Complejidad)</option>
+                        <option value="Nivel 3">Nivel 3 (Alta Complejidad)</option>
+                      </select>
+                    </div>
+
+                    {/* Dirección */}
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
+                        Dirección del Establecimiento <span className="text-rose-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={formEdit.direccion}
+                        onChange={(e) => setFormEdit({ ...formEdit, direccion: e.target.value })}
+                        placeholder="Ej. Av. Heroínas #456 entre San Martín"
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-[#0073c6]"
+                      />
+                    </div>
+
+                    {/* Responsable / Regente Técnico */}
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
+                        Responsable / Regente Técnico <span className="text-rose-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={formEdit.responsable_laboratorio}
+                        onChange={(e) => setFormEdit({ ...formEdit, responsable_laboratorio: e.target.value })}
+                        placeholder="Ej. Dra. María Elena Vargas Rojas"
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-[#0073c6]"
+                      />
+                    </div>
+
+                    {/* Cédula de Identidad del Regente */}
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
+                        C.I. del Responsable <span className="text-rose-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={formEdit.ci_responsable}
+                        onChange={(e) => setFormEdit({ ...formEdit, ci_responsable: e.target.value })}
+                        placeholder="Ej. 5489632 CBBA"
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm text-slate-800 font-mono font-bold focus:outline-none focus:ring-2 focus:ring-[#0073c6]"
+                      />
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                  <div>
+                    <span className="text-[10px] font-bold text-slate-400 block uppercase">Municipio:</span>
+                    <span className="font-bold text-slate-800">{labEditando.municipio}</span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-bold text-slate-400 block uppercase">Tipo:</span>
+                    <span className="font-bold text-slate-800">{labEditando.tipo}</span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-bold text-slate-400 block uppercase">Nivel:</span>
+                    <span className="font-bold text-slate-800">{labEditando.nivel}</span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-bold text-slate-400 block uppercase">Código CUE:</span>
+                    <span className="font-mono font-bold text-slate-800">{labEditando.codigo_cue}</span>
+                  </div>
+                </div>
+              )}
+
+              {/* SECCIÓN 2: ESPECIALIDADES Y ENCARGADOS (En modo subsanación permite modificar todo) */}
+              {esModoSubsanacion && (
+                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-black uppercase text-slate-800 tracking-tight flex items-center space-x-1.5">
+                      <FlaskConical className="w-4 h-4 text-emerald-600" />
+                      <span>Especialidades Autorizadas y Encargados de Área</span>
+                    </span>
+                    <span className="text-[11px] font-bold text-slate-500">
+                      {formEdit.servicios.length} especialidad(es) seleccionada(s)
+                    </span>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2">
+                    {ESPECIALIDADES_OFICIALES.map((esp) => {
+                      const seleccionada = formEdit.servicios.some(s => s.toLowerCase() === esp.toLowerCase());
+                      return (
+                        <button
+                          key={esp}
+                          type="button"
+                          onClick={() => toggleEspecialidad(esp)}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center space-x-1.5 cursor-pointer ${
+                            seleccionada
+                              ? 'bg-emerald-600 text-white shadow-xs'
+                              : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
+                          }`}
+                        >
+                          {seleccionada && <Check className="w-3.5 h-3.5 stroke-[3]" />}
+                          <span>{esp}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Detalle de encargados por especialidad */}
+                  <div className="space-y-3 pt-2 border-t border-slate-200">
+                    <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
+                      Responsables Técnicos por Especialidad:
+                    </span>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {formEdit.servicios.map((esp) => {
+                        const enc = formEdit.responsables_areas?.[esp] || { nombre: '', ci: '' };
+                        return (
+                          <div key={esp} className="p-3 bg-white border border-slate-200 rounded-xl space-y-2 text-xs">
+                            <span className="font-extrabold text-[#0073c6] block">{esp}</span>
+                            <div className="space-y-1">
+                              <input
+                                type="text"
+                                placeholder="Nombre completo del responsable"
+                                value={enc.nombre}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  setFormEdit(prev => ({
+                                    ...prev,
+                                    responsables_areas: {
+                                      ...prev.responsables_areas,
+                                      [esp]: { ...(prev.responsables_areas[esp] || {}), nombre: val }
+                                    }
+                                  }));
+                                }}
+                                className="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                              />
+                              <input
+                                type="text"
+                                placeholder="C.I. del responsable"
+                                value={enc.ci}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  setFormEdit(prev => ({
+                                    ...prev,
+                                    responsables_areas: {
+                                      ...prev.responsables_areas,
+                                      [esp]: { ...(prev.responsables_areas[esp] || {}), ci: val }
+                                    }
+                                  }));
+                                }}
+                                className="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs font-mono focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                              />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* SECCIÓN 3: UBICACIÓN EN MAPA GPS (En modo subsanación) */}
+              {esModoSubsanacion && (
+                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-black uppercase text-slate-800 tracking-tight flex items-center space-x-1.5">
+                      <MapPin className="w-4 h-4 text-rose-600" />
+                      <span>Ubicación Georreferenciada (Mapa GPS)</span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={handleObtenerUbicacionActual}
+                      className="text-[11px] font-bold text-sky-700 hover:text-sky-900 bg-sky-100 hover:bg-sky-200 px-2.5 py-1 rounded-lg transition flex items-center space-x-1 cursor-pointer"
+                    >
+                      <Crosshair className="w-3 h-3" />
+                      <span>Usar GPS Actual</span>
+                    </button>
+                  </div>
+
+                  <div className="rounded-xl overflow-hidden border border-slate-300 shadow-sm">
+                    <RealMapPicker
+                      latitud={formEdit.latitud}
+                      longitud={formEdit.longitud}
+                      onChange={({ latitud, longitud }) => setFormEdit(prev => ({ ...prev, latitud, longitud }))}
+                      height="260px"
+                      readOnly={false}
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3 text-xs font-mono">
+                    <div className="p-2 bg-white rounded-lg border border-slate-200">
+                      <span className="text-slate-400 block text-[10px]">Latitud:</span>
+                      <span className="font-bold text-slate-800">{formEdit.latitud}</span>
+                    </div>
+                    <div className="p-2 bg-white rounded-lg border border-slate-200">
+                      <span className="text-slate-400 block text-[10px]">Longitud:</span>
+                      <span className="font-bold text-slate-800">{formEdit.longitud}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Horario de Atención Asistido */}
               <div className="space-y-1.5">
                 <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
-                  Horario de Atención al Público
+                  Horario de Atención al Público <span className="text-rose-500">*</span>
                 </label>
                 <HorarioPicker
                   value={formEdit.horario}
@@ -2983,7 +3395,7 @@ export default function PropietarioPage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Teléfono / Celular de Contacto
+                    Teléfono / Celular de Contacto <span className="text-rose-500">*</span>
                   </label>
                   <div className="relative flex items-center">
                     <Phone className="w-4 h-4 text-slate-400 absolute left-3 pointer-events-none" />
@@ -3000,7 +3412,7 @@ export default function PropietarioPage() {
 
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Correo Electrónico de Contacto
+                    Correo Electrónico de Contacto <span className="text-rose-500">*</span>
                   </label>
                   <div className="relative flex items-center">
                     <Mail className="w-4 h-4 text-slate-400 absolute left-3 pointer-events-none" />
@@ -3106,10 +3518,17 @@ export default function PropietarioPage() {
                 <button
                   type="submit"
                   disabled={isSaving}
-                  className="px-6 py-2.5 rounded-xl bg-[#0073c6] hover:bg-[#005da3] text-white text-xs sm:text-sm font-bold shadow-md flex items-center space-x-2 cursor-pointer disabled:opacity-75"
+                  className={`px-6 py-2.5 rounded-xl text-white text-xs sm:text-sm font-bold shadow-md flex items-center space-x-2 cursor-pointer disabled:opacity-75 ${
+                    esModoSubsanacion ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-[#0073c6] hover:bg-[#005da3]'
+                  }`}
                 >
                   {isSaving ? (
-                    <span>Guardando cambios...</span>
+                    <span>{esModoSubsanacion ? 'Enviando corrección...' : 'Guardando cambios...'}</span>
+                  ) : esModoSubsanacion ? (
+                    <>
+                      <Send className="w-4 h-4" />
+                      <span>Actualizar y Enviar al Coordinador</span>
+                    </>
                   ) : (
                     <>
                       <Save className="w-4 h-4" />
