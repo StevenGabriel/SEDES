@@ -3456,3 +3456,7 @@ Permitir a la Dirección General del SEDES actualizar, personalizar y guardar pe
     * **Página 2 (Requisitos y Conclusiones):** Datos de Titulares, Requisitos Técnicos y Bioseguridad, Requisitos Financieros y Aranceles, y Conclusiones con solicitud de Resolución Administrativa.
     * **Página 3 (Procedencia y Firmas):** Párrafo Superior de Declaratoria de Procedencia, Leyenda de Documentación Adjunta, Iniciales de Archivo (`CC/Arch`) y Espacio Oficial de Firmas.
   * Botones de navegación intuitiva entre páginas (`Página Anterior` / `Página Siguiente`), chips interactivos de copiado de variables dinámicas (`{ESTABLECIMIENTO}`, `{PROPIETARIO}`, etc.), botón de **"Vista Previa PDF"** en tiempo real y persistencia en base de datos (`PUT /api/plantillas-documentos/{codigo}`).
+
+#### 9. Integración y Merge de Rama `origin/JuanMV` en `StevenCT`
+* Se integraron exitosamente los cambios visuales y ajustes de componentes aportados por JuanMV (`RealMapPicker.jsx`, `AbogadoPage.jsx`, pestaña de datos del establecimiento en `CoordinadorPage.jsx` y coordenadas PostGIS en `backend/coordinador.py`).
+* Se resolvieron los conflictos de merge preservando las reglas de validación de documentos al 100%, estados visuales de bandeja de entrada y compilación limpia de Vite.
