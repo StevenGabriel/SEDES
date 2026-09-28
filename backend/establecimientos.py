@@ -1,6 +1,6 @@
 import os
 import shutil
-from datetime import date, timedelta
+from datetime import date, timedelta, datetime
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status, UploadFile, File
 from sqlalchemy.orm import Session
@@ -347,7 +347,17 @@ def actualizar_establecimiento(
             detail="Establecimiento no encontrado."
         )
 
-    # Actualizar campos permitidos
+    # Actualizar campos de registro institucional (en caso de subsanación o actualización)
+    if datos.nombre_comercial is not None and datos.nombre_comercial.strip():
+        estab.nombre_comercial = datos.nombre_comercial.strip()
+    if datos.municipio is not None and datos.municipio.strip():
+        estab.municipio = datos.municipio.strip().upper()
+    if datos.tipo is not None and datos.tipo.strip():
+        estab.tipo = datos.tipo.strip()
+    if datos.nivel is not None and datos.nivel.strip():
+        estab.nivel = datos.nivel.strip()
+
+    # Actualizar campos operativos y públicos
     if datos.horario is not None:
         estab.horario = datos.horario.strip()
     if datos.telefono is not None:
@@ -371,11 +381,47 @@ def actualizar_establecimiento(
     if datos.imagen_url is not None:
         estab.imagen_url = datos.imagen_url.strip()
 
+    # Si el establecimiento estaba observado o se marca explícitamente como subsanación
+    estaba_observado = bool(estab.observaciones and "OBSERVADO" in estab.observaciones.upper())
+    if datos.es_subsanacion or estaba_observado:
+        ahora_dt = datetime.now()
+        estab.observaciones = f"CORREGIDO por el propietario el {ahora_dt.strftime('%d/%m/%Y %H:%M')} (Pendiente de nueva revisión del Coordinador)"
+        
+        # Registrar en HistorialActividad y notificar al Coordinador
+        try:
+            from notificaciones import notificar_a_rol_db
+            prop_nombre = f"{estab.propietario.nombres} {estab.propietario.apellidos}" if estab.propietario else "Solicitante"
+            
+            # Buscar trámite relacionado para el código
+            tramite_rel = db.query(models.Tramite).filter(models.Tramite.establecimiento_id == estab.id, models.Tramite.estado == True).first()
+            cod_trm = f"TRM-{str(tramite_rel.id)[:8].upper()}" if tramite_rel else f"LAB-{str(estab.id)[:8].upper()}"
+
+            nuevo_log = models.HistorialActividad(
+                id=uuid.uuid4(),
+                codigo_tramite=cod_trm,
+                establecimiento=estab.nombre_comercial,
+                accion=f"Subsanación de datos del establecimiento: El propietario {prop_nombre} ha corregido y reenviado la información para revisión.",
+                responsable=prop_nombre,
+                estado_resultado="Subsanado",
+                estado_badge="bg-amber-50 text-amber-800 border-amber-200",
+                fecha_hora_formato=ahora_dt.strftime("%d %b %Y - %H:%M")
+            )
+            db.add(nuevo_log)
+
+            notificar_a_rol_db(
+                db,
+                "Coordinador",
+                f"✓ Datos Corregidos por Solicitante - {estab.nombre_comercial}",
+                f"El propietario {prop_nombre} ha subsanado y actualizado los datos observados de '{estab.nombre_comercial}'. Ya puede revisarlos y validarlos en la bandeja de trámites."
+            )
+        except Exception as e_notif:
+            print(f"Error al registrar historial o notificar al coordinador: {e_notif}")
+
     db.commit()
     db.refresh(estab)
 
     return {
-        "mensaje": "Información del establecimiento actualizada exitosamente.",
+        "mensaje": "Información del establecimiento actualizada y enviada exitosamente.",
         "establecimiento": serializar_establecimiento(estab, db)
     }
 

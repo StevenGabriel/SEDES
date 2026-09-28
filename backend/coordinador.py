@@ -229,6 +229,10 @@ def serializar_tramite_coordinador(
         estado_datos_estab = "Observado"
         datos_estab_obs_texto = obs_estab.replace("OBSERVADO:", "").strip()
         datos_estab_aprobado = False
+    elif "CORREGIDO" in obs_estab or "SUBSANADO" in obs_estab:
+        estado_datos_estab = "Subsanado"
+        datos_estab_obs_texto = obs_estab
+        datos_estab_aprobado = False
     elif "APROBADO" in obs_estab:
         estado_datos_estab = "Aprobado"
         datos_estab_obs_texto = None

@@ -2044,9 +2044,6 @@ export default function CoordinadorPage() {
                           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
                             <div className="space-y-1">
                               <div className="flex items-center space-x-2">
-                                <span className="text-xs font-black uppercase tracking-wider bg-slate-100 text-slate-700 px-2.5 py-1 rounded-md border border-slate-200">
-                                  Paso 1 de 3
-                                </span>
                                 <h3 className="text-base sm:text-lg font-black text-slate-900 tracking-tight">
                                   Dictamen de Datos del Establecimiento
                                 </h3>
@@ -2109,7 +2106,7 @@ export default function CoordinadorPage() {
                           <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-3">
                             <div className="text-xs text-slate-500 font-medium">
                               {tramiteActual.datos_establecimiento_estado === 'Aprobado'
-                                ? 'Paso 1 completado. Continúe con la revisión de requisitos.'
+                                ? 'Datos del establecimiento verificados. Continúe con la revisión de requisitos.'
                                 : 'Debe emitir su dictamen (Aprobar o Rechazar/Observar) para continuar.'}
                             </div>
 
