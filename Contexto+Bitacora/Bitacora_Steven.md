@@ -3460,3 +3460,64 @@ Permitir a la Dirección General del SEDES actualizar, personalizar y guardar pe
 #### 9. Integración y Merge de Rama `origin/JuanMV` en `StevenCT`
 * Se integraron exitosamente los cambios visuales y ajustes de componentes aportados por JuanMV (`RealMapPicker.jsx`, `AbogadoPage.jsx`, pestaña de datos del establecimiento en `CoordinadorPage.jsx` y coordenadas PostGIS en `backend/coordinador.py`).
 * Se resolvieron los conflictos de merge preservando las reglas de validación de documentos al 100%, estados visuales de bandeja de entrada y compilación limpia de Vite.
+
+---
+
+## [2026-09-28] Corrección en la Carga de Informes y Visor de Documentos del Abogado (Consola Asesor Legal)
+
+### 📌 Objetivo
+Solucionar el problema en la vista del **Abogado / Asesor Legal** (`/abogado/informes-recibidos`), donde al seleccionar un establecimiento o laboratorio (por ejemplo, `lab 6` o `TRM-426873EB`) se cargaba o mostraba el documento de otro establecimiento en lugar del correspondiente.
+
+---
+
+### 🛠️ Archivos Modificados y Soluciones Aplicadas
+
+#### 1. `backend/abogado.py` [MODIFICADO]
+* **Estandarización de Identificadores y Códigos:** Se unificó el código visual al formato estándar del sistema `TRM-XXXXXXXX` (en lugar de truncados `REQ-XXXX`).
+* **Búsqueda Estricta de Trámites e Informes:** En `GET /api/abogado/informe/{tramite_id}`, se corrigió la lógica de consulta para que busque prioritariamente por UUID exacto y prefijo de trámite. Se eliminó el fallback que devolvía silenciosamente el último trámite creado cuando se proporcionaba un identificador de trámite específico, garantizando que cada petición devuelva con exactitud los datos del laboratorio seleccionado.
+
+#### 2. `frontend/src/pages/AbogadoPage.jsx` [MODIFICADO]
+* **Limpieza de Estado y Evitación de Condición de Carrera:** Se implementó `handleSeleccionarTramite(id)` para limpiar de inmediato los Blob URLs (`pdfInformeBlobUrl`, `pdfResolucionBlobUrl`) y los estados previos de `detalleInforme` y `borradorResolucion` al hacer clic en cualquier tarjeta de la lista.
+* **Actualización Reactiva del Iframe:** Se añadió la propiedad `key={pdfInformeBlobUrl}` al iframe visor del PDF para forzar su recarga inmediata con el nuevo documento generado al seleccionar otro laboratorio.
+* **Mapeo Correcto de Datos para el Generador PDF y Sincronización de Membrete:**
+  * Se corrigió la asignación de `regente`, pasando `detalleInforme.regente_tecnico` en lugar de sobreescribirlo con el nombre del propietario.
+  * Se corrigió el parseo del membrete oficial (`A:` y `Cargo:`), extrayendo fielmente la cadena completa (e.g., `Dra. Mery D. Loroño V.` y `ASESOR LEGAL - UNIDAD DE CALIDAD Y SERVICIOS`), `DE: Claudia Morales Valenzuela` y `VIA: Dra. Karina Soliz Villarroel`.
+  * Se integró la carga de `plantillaOficial` desde el backend (`/api/plantillas-documentos/COMUNICACION_INTERNA_CODELAB`) en [`AbogadoPage.jsx`](file:///c:/Users/ASUS/Music/SEDES/frontend/src/pages/AbogadoPage.jsx), garantizando que el PDF generado en la consola del abogado sea 100% idéntico e íntegro al que deriva el coordinador.
+  * Se incluyeron `municipio`, `ci_regente`, `direccion`, `responsables_areas` y el código CITE oficial limpio correspondiente al trámite seleccionado tanto en la generación de vista previa como en la descarga en PDF (`handleDescargarInformePDF`).
+* **Estabilización de Referencias con `useMemo`:** Se envolvió `listaCardsMostrada` en `useMemo` y se importó `useMemo` desde React en [`AbogadoPage.jsx`](file:///c:/Users/ASUS/Music/SEDES/frontend/src/pages/AbogadoPage.jsx), solucionando el `ReferenceError` que ocasionaba la pantalla en blanco en el navegador.
+
+---
+
+## [2026-09-28] Ajuste del Menú Lateral a "Resoluciones" y Segregación del Flujo de Informes Recibidos
+
+### 📌 Objetivo
+1. Corregir el texto del menú lateral en la consola del Asesor Legal (`AbogadoPage.jsx`), cambiando la etiqueta truncada `"Resolución Administrativa"` por **`"Resoluciones"`**.
+2. Restructurar el flujo y visibilidad entre las vistas **"Informes Recibidos"** (`/abogado/informes-recibidos`) y **"Resoluciones"** (`/abogado/resoluciones`):
+   - Los informes técnicos derivados por el Coordinador aparecen en `"Informes Recibidos"`.
+   - Ningún trámite debe mostrarse anticipadamente en la vista de `"Resoluciones"`.
+   - Únicamente cuando el abogado revisa el informe técnico y presiona el botón **`"Generar Resolución Administrativa"`**, el trámite se inicia formalmente (`estado_resolucion = "En edición final"`), se agrega a la lista de `"Resoluciones"` y se redirige al abogado para su redacción y posterior envío al Coordinador.
+
+---
+
+### 🛠️ Archivos Modificados y Soluciones Aplicadas
+
+#### 1. `backend/abogado.py` [MODIFICADO]
+* **Endpoint de Inicio de Resolución (`POST /api/abogado/iniciar-resolucion/{tramite_id}`):**
+  * Crea o actualiza el registro en `ResolucionAdministrativa` con estado `"En edición final"` y asigna el trámite a estado `"En Asesoría Legal"`.
+* **Identificador de Estado de Inicio en Listado (`GET /api/abogado/informes`):**
+  * Se agregó la propiedad booleana `resolucion_iniciada` en el objeto serializado de cada trámite para distinguir qué expedientes ya han sido formalmente puestos en elaboración de resolución frente a los que se encuentran en espera inicial de revisión.
+
+#### 2. `frontend/src/pages/AbogadoPage.jsx` [MODIFICADO]
+* **Renombrado del Menú Lateral:**
+  * Se actualizó `menuItems` con `id: 'resoluciones'`, `path: '/abogado/resoluciones'`, `label: 'Resoluciones'`.
+  * Se admiten y normalizan las rutas `/abogado/resoluciones` y `/abogado/resolucion-administrativa`.
+  * Se actualizó la miga de pan (*breadcrumb*) del encabezado superior a `"Resoluciones"`.
+* **Segregación de Listas en Columna Izquierda (`listaCardsMostrada`):**
+  * En **`informes-recibidos`**: Despliega los informes técnicos recibidos pendientes de atención.
+  * En **`resoluciones`**: Filtra estrictamente y muestra **únicamente** los trámites cuya resolución haya sido iniciada por el abogado (`resolucion_iniciada || estado_proceso === 'En edición final' || idsEnResolucion.includes(id)`).
+  * Mensajes de estado vacío diferenciados para cada sección.
+* **Acción de Generación (`handleIrAGenerarResolucion`):**
+  * Al hacer clic en **`"Generar Resolución Administrativa"`**, se invoca el endpoint `POST /api/abogado/iniciar-resolucion/{tramite_id}`, se actualiza la lista local en silencio, se transfiere el trámite seleccionado y se navega de forma fluida a `/abogado/resoluciones`.
+
+---
+

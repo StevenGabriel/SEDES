@@ -140,22 +140,30 @@ def listar_informes_recibidos(db: Session = Depends(get_db)):
         prop = estab.propietario if estab else None
         t_id_str = str(t.id)
         
-        # Correlativo institucional
-        cod_tramite = f"REQ-{str(t.id)[:4].upper()}" if len(str(t.id)) >= 4 else f"REQ-00{idx:02d}"
+        # Correlativo institucional estandarizado TRM-XXXXXXXX
+        cod_tramite = f"TRM-{str(t.id)[:8].upper()}"
         
         # Verificar si ya existe resolución guardada
         resol = resoluciones_db.get(t_id_str)
         
         if resol:
             estado_proceso = resol.estado_resolucion
+            resolucion_iniciada = (resol.estado_resolucion in ["En edición final", "Enviado a Coordinador", "Emitido", "Aprobado"])
         elif t.estado_tramite == "Derivado a Asesoría Legal":
             estado_proceso = "Pendiente de Revisión"
+            resolucion_iniciada = False
         elif t.estado_tramite == "Aprobado":
             estado_proceso = "Aprobado"
+            resolucion_iniciada = True
         elif t.estado_tramite == "En Informe Técnico":
             estado_proceso = "En Informe Técnico"
+            resolucion_iniciada = False
+        elif t.estado_tramite == "En Asesoría Legal":
+            estado_proceso = "En Asesoría Legal"
+            resolucion_iniciada = (resol is not None and resol.estado_resolucion == "En edición final")
         else:
             estado_proceso = t.estado_tramite or "Pendiente de Revisión"
+            resolucion_iniciada = False
         
         estab_nombre = estab.nombre_comercial if estab else f"Establecimiento #{idx}"
         f_ingreso = t.fecha_ingreso or (t.fecha_creacion.date() if t.fecha_creacion else date.today())
@@ -172,7 +180,8 @@ def listar_informes_recibidos(db: Session = Depends(get_db)):
             "fecha_iso": f_ingreso.isoformat() if hasattr(f_ingreso, 'isoformat') else str(f_ingreso),
             "estado_proceso": estado_proceso,
             "tiene_resolucion": resol is not None,
-            "numero_resolucion": resol.numero_resolucion if resol else f"RA-2026-{cod_tramite.replace('REQ-', '')}"
+            "resolucion_iniciada": resolucion_iniciada,
+            "numero_resolucion": resol.numero_resolucion if resol else f"RA-2026-{str(t.id)[:4].upper()}"
         })
 
     # Conteo de pendientes
@@ -195,22 +204,24 @@ def obtener_detalle_informe(tramite_id: str, db: Session = Depends(get_db)):
     resumen de carpeta legal, dictamen de inspección de campo y observaciones del coordinador.
     """
     tramite = None
-    try:
-        t_uuid = uuid.UUID(tramite_id)
-        tramite = db.query(models.Tramite).filter(models.Tramite.id == t_uuid).first()
-    except Exception:
-        pass
+    if tramite_id and tramite_id.lower() not in ["null", "undefined", "default", "first"]:
+        try:
+            t_uuid = uuid.UUID(tramite_id)
+            tramite = db.query(models.Tramite).filter(models.Tramite.id == t_uuid).first()
+        except Exception:
+            pass
+
+        if not tramite:
+            clean_code = tramite_id.replace("TRM-", "").replace("REQ-", "").strip().lower()
+            tramites = db.query(models.Tramite).filter(models.Tramite.estado == True).all()
+            for t in tramites:
+                t_str = str(t.id).lower()
+                if t_str.startswith(clean_code) or clean_code in t_str:
+                    tramite = t
+                    break
 
     if not tramite:
-        clean_code = tramite_id.replace("TRM-", "").replace("REQ-", "").strip().lower()
-        tramites = db.query(models.Tramite).filter(models.Tramite.estado == True).all()
-        for t in tramites:
-            if str(t.id).lower().startswith(clean_code) or str(t.id).lower() == clean_code:
-                tramite = t
-                break
-
-    if not tramite:
-        # Fallback al primer trámite derivado a asesoría legal o con informe técnico
+        # Fallback al primer trámite derivado a asesoría legal o con informe técnico solo si no se pasó un ID específico válido
         estados_validos = ["Derivado a Asesoría Legal", "En Asesoría Legal", "En Informe Técnico", "Aprobado"]
         tramite = db.query(models.Tramite).filter(
             models.Tramite.estado == True,
@@ -236,7 +247,7 @@ def obtener_detalle_informe(tramite_id: str, db: Session = Depends(get_db)):
     estab_dir = estab.direccion if (estab and estab.direccion) else "Cochabamba, Bolivia"
     estab_tipo = estab.tipo or "Laboratorio de Diagnóstico Clínico"
     
-    cod_trm = f"REQ-{str(tramite.id)[:4].upper()}"
+    cod_trm = f"TRM-{str(tramite.id)[:8].upper()}"
     
     f_insp = getattr(insp, 'fecha_programada', None) or getattr(insp, 'fecha_creacion', None) if insp else (tramite.fecha_ingreso or date.today())
     f_insp_txt = formatear_fecha_larga(f_insp)
@@ -314,15 +325,17 @@ def obtener_detalle_informe(tramite_id: str, db: Session = Depends(get_db)):
                     obs_coordinador_real = texto_accion
 
     if not cite_informe_real:
-        cite_informe_real = f"CODELAB/SEDES/{cod_trm.replace('REQ-', '')}/{date.today().year}"
+        cite_informe_real = f"CODELAB/SEDES/{cod_trm.replace('TRM-', '').replace('REQ-', '')}/{date.today().year}"
     if not coord_nombre_real:
-        coord_nombre_real = "Dra. Claudia Morales Valenzuela"
+        coord_nombre_real = "Claudia Morales Valenzuela"
     if not dest_informe_real:
-        dest_informe_real = "Dr. Marco Villanueva - ASESOR LEGAL"
+        dest_informe_real = "Dra. Mery D. Loroño V. - ASESOR LEGAL - UNIDAD DE CALIDAD Y SERVICIOS"
     if not dictamen_real:
         dictamen_real = "Favorabilidad Concedida (Favorable)"
     if not obs_coordinador_real:
         obs_coordinador_real = "Habiéndose verificado tanto el cumplimiento estricto de la carpeta legal como la conformidad en el informe de campo emitido por el supervisor de área, se concluye que el establecimiento cuenta con las garantías técnicas requeridas para su normal funcionamiento."
+
+    resp_areas_str = getattr(estab, 'responsables_areas', '') or ''
 
     return {
         "tramite_id": str(tramite.id),
@@ -332,6 +345,7 @@ def obtener_detalle_informe(tramite_id: str, db: Session = Depends(get_db)):
         "ci_nit_solicitante": prop_ci,
         "regente_tecnico": regente_real,
         "ci_regente": ci_regente_real,
+        "responsables_areas": resp_areas_str,
         "direccion": estab_dir,
         "municipio": estab.municipio if estab else "Cochabamba",
         "tipo_establecimiento": estab_tipo,
@@ -594,6 +608,83 @@ def guardar_resolucion(payload: GuardarResolucionRequest, db: Session = Depends(
         "status": "success",
         "mensaje": f"Borrador de {num_res} guardado correctamente en la base de datos.",
         "numero_resolucion": num_res
+    }
+
+
+# ==============================================================================
+# 4.5. INICIAR RESOLUCIÓN ADMINISTRATIVA (TRANSICIÓN DE VISTA 1 A VISTA 2)
+# ==============================================================================
+@router.post("/iniciar-resolucion/{tramite_id}", summary="Iniciar formalmente la elaboración de Resolución Administrativa")
+def iniciar_resolucion(tramite_id: str, db: Session = Depends(get_db)):
+    """
+    Marca formalmente el trámite como en elaboración de Resolución Administrativa ('En edición final')
+    para que aparezca en la vista de Resoluciones del Asesor Legal.
+    """
+    tramite = None
+    clean_id = (tramite_id or "").replace("REQ-", "").replace("TRM-", "").strip()
+
+    if clean_id:
+        try:
+            t_uuid = uuid.UUID(clean_id)
+            tramite = db.query(models.Tramite).filter(models.Tramite.id == t_uuid).first()
+        except Exception:
+            pass
+
+    if not tramite and clean_id:
+        tramites_all = db.query(models.Tramite).filter(models.Tramite.estado == True).all()
+        for t in tramites_all:
+            if str(t.id).lower().startswith(clean_id.lower()) or str(t.id).lower() == clean_id.lower():
+                tramite = t
+                break
+
+    if not tramite:
+        raise HTTPException(status_code=404, detail="Trámite no encontrado.")
+
+    t_id = tramite.id
+    estab = tramite.establecimiento
+    estab_id = estab.id if estab else None
+    
+    abogado = db.query(models.Usuario).join(models.Role).filter(models.Role.nombre.ilike("%Abogado%")).first()
+    abogado_id = abogado.id if abogado else None
+
+    cod_clean = str(t_id)[:4].upper()
+    num_res = f"RA-2026-{cod_clean}"
+
+    resol = db.query(models.ResolucionAdministrativa).filter(
+        models.ResolucionAdministrativa.tramite_id == t_id
+    ).first()
+
+    if not resol:
+        resol = models.ResolucionAdministrativa(
+            numero_resolucion=num_res,
+            tramite_id=t_id,
+            establecimiento_id=estab_id,
+            abogado_id=abogado_id,
+            establecimiento_nombre=estab.nombre_comercial if estab else "Establecimiento",
+            razon_social_propietario=(estab.propietario.nombres + " " + estab.propietario.apellidos) if estab and estab.propietario else None,
+            ci_nit_solicitante=estab.propietario.ci_nit if estab and estab.propietario else None,
+            tipo_establecimiento=estab.tipo if estab else None,
+            direccion_registrada=estab.direccion if estab else None,
+            regente_tecnico=estab.responsable_laboratorio if estab else None,
+            ci_regente=estab.propietario.ci_nit if estab and estab.propietario else None,
+            estado_resolucion="En edición final"
+        )
+        db.add(resol)
+    else:
+        if resol.estado_resolucion not in ["Enviado a Coordinador", "Emitido", "Aprobado"]:
+            resol.estado_resolucion = "En edición final"
+
+    if tramite.estado_tramite not in ["Resolución Lista para Firma", "Emitido", "Aprobado"]:
+        tramite.estado_tramite = "En Asesoría Legal"
+
+    db.commit()
+
+    return {
+        "status": "success",
+        "mensaje": f"Resolución Administrativa iniciada para {estab.nombre_comercial if estab else 'el trámite'}.",
+        "tramite_id": str(t_id),
+        "numero_resolucion": resol.numero_resolucion,
+        "estado_resolucion": resol.estado_resolucion
     }
 
 

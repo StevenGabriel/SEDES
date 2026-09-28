@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import {
   FileText,
@@ -91,8 +91,9 @@ export default function AbogadoPage() {
   const navigate = useNavigate();
   const { seccion } = useParams();
 
-  const SECCIONES_VALIDAS = ['informes-recibidos', 'resolucion-administrativa', 'historial'];
-  const seccionActiva = SECCIONES_VALIDAS.includes(seccion) ? seccion : 'informes-recibidos';
+  const SECCIONES_VALIDAS = ['informes-recibidos', 'resoluciones', 'resolucion-administrativa', 'historial'];
+  const seccionNormalizada = (seccion === 'resolucion-administrativa') ? 'resoluciones' : seccion;
+  const seccionActiva = SECCIONES_VALIDAS.includes(seccionNormalizada) ? seccionNormalizada : 'informes-recibidos';
 
   const menuItems = [
     {
@@ -102,9 +103,9 @@ export default function AbogadoPage() {
       icon: FileText
     },
     {
-      id: 'resolucion-administrativa',
-      path: '/abogado/resolucion-administrativa',
-      label: 'Resolución Administrativa',
+      id: 'resoluciones',
+      path: '/abogado/resoluciones',
+      label: 'Resoluciones',
       icon: Award
     },
     {
@@ -124,6 +125,7 @@ export default function AbogadoPage() {
   const [informes, setInformes] = useState([]);
   const [cargandoInformes, setCargandoInformes] = useState(true);
   const [tramiteSeleccionadoId, setTramiteSeleccionadoId] = useState(null);
+  const [idsEnResolucion, setIdsEnResolucion] = useState([]);
 
   // Detalle del Informe Técnico (Vista 1)
   const [detalleInforme, setDetalleInforme] = useState(null);
@@ -182,6 +184,23 @@ export default function AbogadoPage() {
   const [cargandoHistorial, setCargandoHistorial] = useState(false);
   const [busquedaHistorial, setBusquedaHistorial] = useState('');
   const [filtroEstadoHistorial, setFiltroEstadoHistorial] = useState('Todos');
+
+  // Plantilla oficial configurada por Dirección General
+  const [plantillaOficial, setPlantillaOficial] = useState(null);
+
+  useEffect(() => {
+    fetch('http://localhost:8000/api/plantillas-documentos/COMUNICACION_INTERNA_CODELAB')
+      .then(res => res.json())
+      .then(data => {
+        if (data?.contenido) {
+          setPlantillaOficial(data.contenido);
+          localStorage.setItem('sedes_plantilla_comunicacion', JSON.stringify(data.contenido));
+        }
+      })
+      .catch(err => {
+        console.warn('No se pudo cargar la plantilla oficial en Abogado:', err);
+      });
+  }, []);
 
   // Helper Toast
   const mostrarToast = (mensaje, tipo = 'info') => {
@@ -453,6 +472,24 @@ export default function AbogadoPage() {
     }
   }, [tramiteSeleccionadoId, cargarDetalleInforme, cargarBorradorResolucion]);
 
+  // Handler para seleccionar trámite asegurando limpieza inmediata del visor PDF
+  const handleSeleccionarTramite = (id) => {
+    if (id === tramiteSeleccionadoId) return;
+    if (pdfInformeUrlRef.current) {
+      URL.revokeObjectURL(pdfInformeUrlRef.current);
+      pdfInformeUrlRef.current = null;
+    }
+    if (pdfResolucionUrlRef.current) {
+      URL.revokeObjectURL(pdfResolucionUrlRef.current);
+      pdfResolucionUrlRef.current = null;
+    }
+    setPdfInformeBlobUrl(null);
+    setPdfResolucionBlobUrl(null);
+    setDetalleInforme(null);
+    setBorradorResolucion(null);
+    setTramiteSeleccionadoId(id);
+  };
+
   // Generar dinámicamente la vista previa en PDF del Informe Técnico (Comunicación Interna)
   useEffect(() => {
     let activo = true;
@@ -469,6 +506,19 @@ export default function AbogadoPage() {
 
       setGenerandoPdfInforme(true);
       try {
+        let destNombre = 'Dra. Mery D. Loroño V.';
+        let destCargo = 'ASESOR LEGAL - UNIDAD DE CALIDAD Y SERVICIOS';
+
+        if (detalleInforme.destinatario_informe) {
+          const parts = detalleInforme.destinatario_informe.split(' - ');
+          if (parts.length >= 2) {
+            destNombre = parts[0].trim();
+            destCargo = parts.slice(1).join(' - ').trim();
+          } else if (parts.length === 1 && parts[0].trim()) {
+            destNombre = parts[0].trim();
+          }
+        }
+
         const tramiteParaPdf = {
           id: detalleInforme.tramite_id,
           codigo: detalleInforme.codigo,
@@ -479,6 +529,7 @@ export default function AbogadoPage() {
           ci_nit: detalleInforme.ci_nit_solicitante,
           tipo: detalleInforme.tipo_tramite,
           direccion: detalleInforme.direccion,
+          municipio: detalleInforme.municipio || 'Cochabamba',
           supervisorAsignado: detalleInforme.inspeccion_campo?.supervisor || 'Supervisor de Área SEDES',
           fechaInspeccion: detalleInforme.inspeccion_campo?.fecha || '18/09/2026',
           documentosAprobados: (detalleInforme.documentacion_legal || [])
@@ -486,21 +537,25 @@ export default function AbogadoPage() {
             .map(d => d.nombre),
           resultadoGeneral: detalleInforme.inspeccion_campo?.resultado || 'Favorable (Cumple con estándares vigentes de bioseguridad)',
           observacionesCampo: detalleInforme.inspeccion_campo?.observaciones || 'Infraestructura adecuada, manejo de residuos patógenos correcto y señalización de seguridad implementada.',
-          regente: detalleInforme.razon_social_propietario,
+          regente: detalleInforme.regente_tecnico || detalleInforme.razon_social_propietario,
+          ci_regente: detalleInforme.ci_regente || detalleInforme.ci_nit_solicitante,
+          responsables_areas: detalleInforme.responsables_areas || '',
           observaciones_coordinador: observacionesCoordinadorEdicion || detalleInforme.observaciones_coordinador
         };
 
         const doc = await generarComunicacionInternaPDF(tramiteParaPdf, {
-          cite: detalleInforme.cite_informe || `CODELAB/SEDES/${(detalleInforme.codigo || '71').replace('REQ-', '')}/2026`,
-          destinatario: detalleInforme.destinatario_informe ? detalleInforme.destinatario_informe.split(' - ')[0] : (usuario?.nombres ? `${usuario.nombres} ${usuario.apellidos || ''}`.trim() : 'Dr. Marco Villanueva'),
-          destinatarioCargo: detalleInforme.destinatario_informe && detalleInforme.destinatario_informe.includes(' - ') ? detalleInforme.destinatario_informe.split(' - ')[1] : 'ASESOR LEGAL - UNIDAD DE HABILITACIÓN SEDES',
+          cite: detalleInforme.cite_informe || `CODELAB/SEDES/${(detalleInforme.codigo || '71').replace('TRM-', '').replace('REQ-', '')}/2026`,
+          destinatario: destNombre,
+          destinatarioCargo: destCargo,
           via: 'Dra. Karina Soliz Villarroel',
           viaCargo: 'JEFE DE LA UNIDAD DE CALIDAD Y SERVICIOS a.i.',
-          remitente: detalleInforme.coordinador_nombre || 'Dra. Claudia Morales Valenzuela',
+          remitente: detalleInforme.coordinador_nombre || 'Claudia Morales Valenzuela',
           remitenteCargo: 'RESPONSABLE DEPARTAMENTAL DE LABORATORIOS CODELAB - SEDES',
           regente: detalleInforme.regente_tecnico || detalleInforme.razon_social_propietario,
           ciRegente: detalleInforme.ci_regente || detalleInforme.ci_nit_solicitante,
-          observaciones: observacionesCoordinadorEdicion || detalleInforme.observaciones_coordinador
+          responsables_areas: detalleInforme.responsables_areas || '',
+          observaciones: observacionesCoordinadorEdicion || detalleInforme.observaciones_coordinador,
+          plantilla: plantillaOficial
         });
 
         if (!activo) return;
@@ -523,7 +578,7 @@ export default function AbogadoPage() {
     return () => {
       activo = false;
     };
-  }, [detalleInforme, observacionesCoordinadorEdicion, usuario]);
+  }, [detalleInforme, observacionesCoordinadorEdicion, usuario, plantillaOficial]);
 
   // Generar dinámicamente la vista previa en PDF de la Resolución Administrativa Oficial con Debounce
   useEffect(() => {
@@ -622,6 +677,19 @@ export default function AbogadoPage() {
   const handleDescargarInformePDF = async () => {
     if (!detalleInforme) return;
     try {
+      let destNombre = 'Dra. Mery D. Loroño V.';
+      let destCargo = 'ASESOR LEGAL - UNIDAD DE CALIDAD Y SERVICIOS';
+
+      if (detalleInforme.destinatario_informe) {
+        const parts = detalleInforme.destinatario_informe.split(' - ');
+        if (parts.length >= 2) {
+          destNombre = parts[0].trim();
+          destCargo = parts.slice(1).join(' - ').trim();
+        } else if (parts.length === 1 && parts[0].trim()) {
+          destNombre = parts[0].trim();
+        }
+      }
+
       const tramiteParaPdf = {
         id: detalleInforme.tramite_id,
         codigo: detalleInforme.codigo,
@@ -632,6 +700,7 @@ export default function AbogadoPage() {
         ci_nit: detalleInforme.ci_nit_solicitante,
         tipo: detalleInforme.tipo_tramite,
         direccion: detalleInforme.direccion,
+        municipio: detalleInforme.municipio || 'Cochabamba',
         supervisorAsignado: detalleInforme.inspeccion_campo?.supervisor || 'Supervisor de Área SEDES',
         fechaInspeccion: detalleInforme.inspeccion_campo?.fecha || '18/09/2026',
         documentosAprobados: (detalleInforme.documentacion_legal || [])
@@ -639,21 +708,25 @@ export default function AbogadoPage() {
           .map(d => d.nombre),
         resultadoGeneral: detalleInforme.inspeccion_campo?.resultado || 'Favorable (Cumple con estándares vigentes de bioseguridad)',
         observacionesCampo: detalleInforme.inspeccion_campo?.observaciones || 'Infraestructura adecuada, manejo de residuos patógenos correcto y señalización de seguridad implementada.',
-        regente: detalleInforme.razon_social_propietario,
+        regente: detalleInforme.regente_tecnico || detalleInforme.razon_social_propietario,
+        ci_regente: detalleInforme.ci_regente || detalleInforme.ci_nit_solicitante,
+        responsables_areas: detalleInforme.responsables_areas || '',
         observaciones_coordinador: observacionesCoordinadorEdicion || detalleInforme.observaciones_coordinador
       };
 
       const doc = await generarComunicacionInternaPDF(tramiteParaPdf, {
-        cite: detalleInforme.cite_informe || `CODELAB/SEDES/${(detalleInforme.codigo || '71').replace('REQ-', '')}/2026`,
-        destinatario: detalleInforme.destinatario_informe ? detalleInforme.destinatario_informe.split(' - ')[0] : (usuario?.nombres ? `${usuario.nombres} ${usuario.apellidos || ''}`.trim() : 'Dr. Marco Villanueva'),
-        destinatarioCargo: detalleInforme.destinatario_informe && detalleInforme.destinatario_informe.includes(' - ') ? detalleInforme.destinatario_informe.split(' - ')[1] : 'ASESOR LEGAL - UNIDAD DE HABILITACIÓN SEDES',
+        cite: detalleInforme.cite_informe || `CODELAB/SEDES/${(detalleInforme.codigo || '71').replace('TRM-', '').replace('REQ-', '')}/2026`,
+        destinatario: destNombre,
+        destinatarioCargo: destCargo,
         via: 'Dra. Karina Soliz Villarroel',
         viaCargo: 'JEFE DE LA UNIDAD DE CALIDAD Y SERVICIOS a.i.',
-        remitente: detalleInforme.coordinador_nombre || 'Dra. Claudia Morales Valenzuela',
+        remitente: detalleInforme.coordinador_nombre || 'Claudia Morales Valenzuela',
         remitenteCargo: 'RESPONSABLE DEPARTAMENTAL DE LABORATORIOS CODELAB - SEDES',
         regente: detalleInforme.regente_tecnico || detalleInforme.razon_social_propietario,
         ciRegente: detalleInforme.ci_regente || detalleInforme.ci_nit_solicitante,
-        observaciones: observacionesCoordinadorEdicion || detalleInforme.observaciones_coordinador
+        responsables_areas: detalleInforme.responsables_areas || '',
+        observaciones: observacionesCoordinadorEdicion || detalleInforme.observaciones_coordinador,
+        plantilla: plantillaOficial
       });
 
       doc.save(`Informe_Tecnico_${detalleInforme.codigo || 'SEDES'}.pdf`);
@@ -671,8 +744,22 @@ export default function AbogadoPage() {
   };
 
   // Transicionar de Vista 1 a Vista 2 (Generar Resolución Administrativa)
-  const handleIrAGenerarResolucion = () => {
-    navigate('/abogado/resolucion-administrativa');
+  const handleIrAGenerarResolucion = async () => {
+    if (!tramiteSeleccionadoId) return;
+    const tId = tramiteSeleccionadoId;
+
+    try {
+      await fetch(`http://localhost:8000/api/abogado/iniciar-resolucion/${encodeURIComponent(tId)}`, {
+        method: 'POST'
+      });
+    } catch (err) {
+      console.warn('Error al iniciar resolución:', err);
+    }
+
+    setIdsEnResolucion(prev => [...new Set([...prev, tId])]);
+    await cargarInformes(true);
+    handleSeleccionarTramite(tId);
+    navigate('/abogado/resoluciones');
     mostrarToast('Listo para editar y generar la Resolución Administrativa.', 'info');
   };
 
@@ -898,20 +985,26 @@ export default function AbogadoPage() {
   };
 
   // Conteo de pendientes y filtrado según sección activa:
-  // - En 'informes-recibidos': solo los que están pendientes de procesar/emitir RA (no enviados ni aprobados)
-  // - En 'resolucion-administrativa': los pendientes de resolución y en edición final
-  const informesPendientes = (informes || []).filter(x => x.estado_proceso !== 'Emitido' && x.estado_proceso !== 'Aprobado' && x.estado_proceso !== 'Enviado a Coordinador');
-  const totalPendientes = informesPendientes.length;
-
-  const listaCardsMostrada = informesPendientes;
+  // - En 'informes-recibidos': solo los informes pendientes recibidos de Coordinación
+  // - En 'resoluciones' / 'resolucion-administrativa': EXCLUSIVAMENTE los trámites en los que se ha hecho clic en "Generar Resolución Administrativa"
+  const listaCardsMostrada = useMemo(() => {
+    const list = (informes || []).filter(x => x.estado_proceso !== 'Emitido' && x.estado_proceso !== 'Aprobado' && x.estado_proceso !== 'Enviado a Coordinador');
+    if (seccionActiva === 'resoluciones' || seccionActiva === 'resolucion-administrativa') {
+      return list.filter(x => x.resolucion_iniciada || x.estado_proceso === 'En edición final' || idsEnResolucion.includes(x.id));
+    }
+    return list;
+  }, [informes, seccionActiva, idsEnResolucion]);
+  const totalPendientes = listaCardsMostrada.length;
 
   useEffect(() => {
     if (listaCardsMostrada.length > 0) {
       if (!tramiteSeleccionadoId || !listaCardsMostrada.some(x => x.id === tramiteSeleccionadoId)) {
-        setTramiteSeleccionadoId(listaCardsMostrada[0].id);
+        handleSeleccionarTramite(listaCardsMostrada[0].id);
       }
-    } else {
+    } else if (tramiteSeleccionadoId !== null) {
       setTramiteSeleccionadoId(null);
+      setDetalleInforme(null);
+      setBorradorResolucion(null);
     }
   }, [listaCardsMostrada, tramiteSeleccionadoId]);
 
@@ -1027,8 +1120,8 @@ export default function AbogadoPage() {
               <span className="font-bold text-slate-800">
                 {seccionActiva === 'informes-recibidos'
                   ? 'Informes Recibidos'
-                  : seccionActiva === 'resolucion-administrativa'
-                    ? 'Resolución Administrativa'
+                  : seccionActiva === 'resoluciones' || seccionActiva === 'resolucion-administrativa'
+                    ? 'Resoluciones'
                     : 'Historial y Trazabilidad'}
               </span>
             </div>
@@ -1224,7 +1317,9 @@ export default function AbogadoPage() {
                 {/* Cabecera Columna Izquierda */}
                 <div className="flex items-center justify-between">
                   <h3 className="text-xs sm:text-sm font-black text-slate-900 tracking-tight leading-tight">
-                    Informes convertidos en resoluciones administrativas
+                    {seccionActiva === 'informes-recibidos'
+                      ? 'Informes Técnicos Recibidos'
+                      : 'Resoluciones en Elaboración'}
                   </h3>
                   <span className="px-2.5 py-0.5 rounded-full text-[11px] font-black bg-amber-100 text-amber-900 border border-amber-200 shrink-0">
                     {totalPendientes} pendientes
@@ -1241,11 +1336,15 @@ export default function AbogadoPage() {
                   ) : listaCardsMostrada.length === 0 ? (
                     <div className="p-6 text-center bg-white rounded-2xl border border-slate-200/90 shadow-2xs space-y-2">
                       <FileText className="w-8 h-8 text-slate-300 mx-auto" />
-                      <p className="text-xs font-bold text-slate-700">Sin informes técnicos pendientes</p>
+                      <p className="text-xs font-bold text-slate-700">
+                        {seccionActiva === 'informes-recibidos'
+                          ? 'Sin informes técnicos pendientes'
+                          : 'Sin resoluciones en elaboración'}
+                      </p>
                       <p className="text-[11px] text-slate-400 leading-relaxed">
                         {seccionActiva === 'informes-recibidos'
                           ? 'Todos los informes recibidos han sido convertidos en resoluciones y remitidos a Coordinación.'
-                          : 'No hay resoluciones pendientes de revisión en este momento.'}
+                          : 'No hay resoluciones en curso. Vaya a "Informes Recibidos" y haga clic en "Generar Resolución Administrativa" para iniciar una.'}
                       </p>
                     </div>
                   ) : (
@@ -1254,7 +1353,7 @@ export default function AbogadoPage() {
                       return (
                         <div
                           key={item.id}
-                          onClick={() => setTramiteSeleccionadoId(item.id)}
+                          onClick={() => handleSeleccionarTramite(item.id)}
                           className={`
                             p-4 rounded-2xl border transition-all duration-200 cursor-pointer text-left relative group
                             ${isSelected
@@ -1338,7 +1437,7 @@ export default function AbogadoPage() {
                           <div className="space-y-1">
                             <div className="flex items-center space-x-2 flex-wrap gap-y-1">
                               <span className="px-2.5 py-1 bg-sky-100 text-[#0060a8] font-black rounded-lg border border-sky-200 text-xs">
-                                {detalleInforme.cite_informe ? `CITE: ${detalleInforme.cite_informe}` : (detalleInforme.numero_resolucion ? `CITE: CODELAB/SEDES/${detalleInforme.codigo.replace('REQ-', '')}/2026` : 'CITE: CODELAB/SEDES/71/2026')}
+                                {detalleInforme.cite_informe ? `CITE: ${detalleInforme.cite_informe}` : `CITE: CODELAB/SEDES/${(detalleInforme.codigo || '71').replace('TRM-', '').replace('REQ-', '')}/2026`}
                               </span>
                               <span className="px-2.5 py-1 bg-emerald-100 text-emerald-900 font-bold rounded-lg border border-emerald-200 text-xs">
                                 {detalleInforme.tipo_tramite || 'Apertura'}
@@ -1434,6 +1533,7 @@ export default function AbogadoPage() {
                               </div>
                             ) : pdfInformeBlobUrl ? (
                               <iframe
+                                key={pdfInformeBlobUrl}
                                 src={pdfInformeBlobUrl}
                                 title={`Informe Técnico Oficial — ${detalleInforme.codigo}`}
                                 className="w-full h-[780px] rounded-xl border border-slate-300 bg-white shadow-md"
@@ -1579,7 +1679,7 @@ export default function AbogadoPage() {
                           onClick={handleIrAGenerarResolucion}
                           className="w-full sm:w-auto px-7 py-3 bg-[#0e533c] hover:bg-[#093d2b] text-white rounded-xl text-xs font-extrabold transition shadow-md flex items-center justify-center space-x-2 cursor-pointer"
                         >
-                          <span>Genera Resolucion administrativa</span>
+                          <span>Generar Resolución Administrativa</span>
                           <ChevronRight className="w-4 h-4" />
                         </button>
                       </div>
