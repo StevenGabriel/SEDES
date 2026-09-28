@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
   Inbox,
@@ -87,6 +87,53 @@ const getAvatarColor = (nombre) => {
   }
   const index = Math.abs(hash) % colors.length;
   return colors[index];
+};
+
+export const getTramiteEstadoVisual = (item) => {
+  if (!item) return { texto: 'En Revisión', color: 'bg-amber-50 text-amber-700 border-amber-200' };
+
+  // 1. Estados legales avanzados
+  if (item.resolucion_lista_para_firma) {
+    return { texto: 'Resolución Lista para Firma', color: 'bg-sky-50 text-sky-700 border-sky-200' };
+  }
+  const estLower = (item.estado || '').toLowerCase();
+  if (estLower === 'derivado a asesoría legal' || estLower === 'derivado a asesoria legal') {
+    return { texto: 'Derivado a Legal', color: 'bg-indigo-50 text-indigo-700 border-indigo-200' };
+  }
+  if (estLower === 'en informe técnico' || estLower === 'en informe tecnico') {
+    return { texto: 'En Informe Técnico', color: 'bg-sky-50 text-sky-700 border-sky-200' };
+  }
+  if (estLower.includes('rechazad') || item.inspeccion_rechazada) {
+    return { texto: 'Rechazado', color: 'bg-rose-50 text-rose-700 border-rose-200' };
+  }
+  if (estLower.includes('observad') || item.inspeccion_con_observaciones) {
+    return { texto: 'Observado', color: 'bg-amber-50 text-amber-700 border-amber-200' };
+  }
+
+  // 2. Comprobar documentos
+  const docs = item.documentos || [];
+  const totalDocs = docs.length;
+  const docsAprobadosCount = docs.filter(d => (d.estado || '').toLowerCase() === 'aprobado').length;
+  const docsObservados = docs.some(d => ['observado', 'rechazado'].includes((d.estado || '').toLowerCase()));
+  const todosDocsAprobados = totalDocs > 0 && docsAprobadosCount === totalDocs;
+
+  // 3. Comprobar inspección técnica
+  const veredicto = (item.veredicto_supervisor_raw || item.veredictoSupervisor || '').toLowerCase();
+  const esActaFavorable = Boolean(item.inspeccion_aprobada || veredicto.includes('favorable') || veredicto.includes('aprobado'));
+  const esActaObservada = Boolean(item.inspeccion_con_observaciones || veredicto.includes('observa'));
+
+  // 4. SOLO "Aprobado" cuando ambos (100% documentos + acta favorable) se cumplen
+  if (todosDocsAprobados && esActaFavorable) {
+    return { texto: 'Aprobado', color: 'bg-emerald-50 text-emerald-700 border-emerald-200' };
+  }
+
+  // Si hay observaciones
+  if (docsObservados || esActaObservada) {
+    return { texto: 'Observado', color: 'bg-amber-50 text-amber-700 border-amber-200' };
+  }
+
+  // En cualquier otro caso mientras esté en proceso -> "En Revisión"
+  return { texto: 'En Revisión', color: 'bg-amber-50 text-amber-700 border-amber-200' };
 };
 
 export default function CoordinadorPage() {
@@ -356,8 +403,27 @@ export default function CoordinadorPage() {
     ? `${usuario.nombres} ${usuario.apellidos}`
     : 'Dra. Claudia Morales Valenzuela';
 
-  // Trámite seleccionado actualmente
-  const tramiteActual = tramites.find(t => t.id === tramiteSeleccionadoId) || (tramites.length > 0 ? tramites[0] : null);
+  // Trámites activos en la Bandeja de Entrada (se excluyen los que ya tienen Resolución Lista para Firma o emitida)
+  const tramitesBandeja = useMemo(() => {
+    return tramites.filter(t => {
+      const estVisual = getTramiteEstadoVisual(t);
+      const estRaw = (t.estado || '').toLowerCase();
+      const yaEnResolucionFirma = Boolean(
+        t.resolucion_lista_para_firma ||
+        t.resolucion_numero ||
+        t.resolucion?.numero_resolucion ||
+        estVisual.texto === 'Resolución Lista para Firma' ||
+        estRaw.includes('resolución') ||
+        estRaw.includes('resolucion') ||
+        estRaw === 'aprobado por legal' ||
+        estRaw === 'enviado a coordinador'
+      );
+      return !yaEnResolucionFirma;
+    });
+  }, [tramites]);
+
+  // Trámite seleccionado actualmente en la Bandeja de Entrada
+  const tramiteActual = tramitesBandeja.find(t => t.id === tramiteSeleccionadoId) || (tramitesBandeja.length > 0 ? tramitesBandeja[0] : null);
 
   // Lógica y reglas de habilitación para Aprobación del Trámite
   const docsList = tramiteActual?.documentos || [];
@@ -384,21 +450,21 @@ export default function CoordinadorPage() {
   const estadoTramiteNorm = (tramiteActual?.estado || '').toLowerCase();
   const yaEnInformeTecnico = estadoTramiteNorm.includes('informe');
   const yaDerivadoLegal = estadoTramiteNorm.includes('legal') || estadoTramiteNorm.includes('derivado');
-  const yaAprobadoFinal = estadoTramiteNorm === 'aprobado';
-  const estaEnEtapaPosterior = yaEnInformeTecnico || yaDerivadoLegal || yaAprobadoFinal;
+  const yaConResolucionEmitida = Boolean(
+    tramiteActual?.resolucion_lista_para_firma ||
+    tramiteActual?.resolucion_numero ||
+    tramiteActual?.resolucion?.numero_resolucion
+  );
+  const estaEnEtapaPosterior = yaEnInformeTecnico || yaDerivadoLegal || yaConResolucionEmitida;
 
   const puedeAprobarTramite = Boolean(
-    !estaEnEtapaPosterior && (
-      tramiteActual?.puede_aprobar !== undefined
-        ? tramiteActual.puede_aprobar
-        : (todosDocsAprobados && tieneSupervisorAsignado && esActaFavorable)
-    )
+    !estaEnEtapaPosterior && todosDocsAprobados && tieneSupervisorAsignado && esActaFavorable
   );
 
   // Motivo descriptivo del bloqueo si no se puede aprobar
   let motivoBloqueoAprobacion = '';
-  if (yaAprobadoFinal) {
-    motivoBloqueoAprobacion = 'Trámite APROBADO: Cuenta con Resolución Administrativa emitida.';
+  if (yaConResolucionEmitida) {
+    motivoBloqueoAprobacion = 'Trámite con Resolución Administrativa emitida.';
   } else if (yaDerivadoLegal) {
     motivoBloqueoAprobacion = 'Trámite derivado a Asesoría Legal para la emisión de Resolución.';
   } else if (yaEnInformeTecnico) {
@@ -449,8 +515,8 @@ export default function CoordinadorPage() {
   const docsDisponibles = tramiteActual?.documentos || [];
   const docActual = docsDisponibles.find(d => d.id === docSeleccionadoId) || (docsDisponibles.length > 0 ? docsDisponibles[0] : null);
 
-  // Trámites filtrados
-  const tramitesFiltrados = tramites.filter(t => {
+  // Trámites filtrados en Bandeja de Entrada
+  const tramitesFiltrados = tramitesBandeja.filter(t => {
     const matchTexto = (t.id || '').toLowerCase().includes(filtroTexto.toLowerCase()) ||
       (t.establecimiento || '').toLowerCase().includes(filtroTexto.toLowerCase()) ||
       (t.propietario || '').toLowerCase().includes(filtroTexto.toLowerCase()) ||
@@ -1124,7 +1190,7 @@ export default function CoordinadorPage() {
               <div className="p-4 border-b border-slate-100 flex items-center justify-between">
                 <h2 className="font-black text-slate-800 text-base tracking-tight">Solicitudes y Trámites</h2>
                 <span className="bg-sky-100 text-sky-800 text-xs font-bold px-2.5 py-1 rounded-full border border-sky-200">
-                  {tramites.length} en sistema
+                  {tramitesBandeja.length} en bandeja
                 </span>
               </div>
 
@@ -1191,15 +1257,20 @@ export default function CoordinadorPage() {
                       </p>
 
                       {/* Estado Tag & Documentos conteo */}
-                      <div className="flex items-center justify-between">
-                        <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-md border ${item.estadoColor}`}>
-                          {item.estado}
-                        </span>
-                        <span className="text-[10px] text-slate-400 font-medium flex items-center">
-                          <FileText className="w-3 h-3 mr-1 text-slate-400" />
-                          {item.documentos?.length || 0} docs
-                        </span>
-                      </div>
+                      {(() => {
+                        const estCard = getTramiteEstadoVisual(item);
+                        return (
+                          <div className="flex items-center justify-between">
+                            <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-md border ${estCard.color}`}>
+                              {estCard.texto}
+                            </span>
+                            <span className="text-[10px] text-slate-400 font-medium flex items-center">
+                              <FileText className="w-3 h-3 mr-1 text-slate-400" />
+                              {item.documentos?.length || 0} docs
+                            </span>
+                          </div>
+                        );
+                      })()}
                     </div>
                   );
                 })}
@@ -1238,11 +1309,16 @@ export default function CoordinadorPage() {
                       </p>
                     </div>
 
-                    <div className="flex items-center space-x-2 self-start sm:self-center">
-                      <span className={`text-xs font-bold px-3 py-1 rounded-lg border ${tramiteActual.estadoColor}`}>
-                        {tramiteActual.estado}
-                      </span>
-                    </div>
+                    {(() => {
+                      const estHeader = getTramiteEstadoVisual(tramiteActual);
+                      return (
+                        <div className="flex items-center space-x-2 self-start sm:self-center">
+                          <span className={`text-xs font-bold px-3 py-1 rounded-lg border ${estHeader.color}`}>
+                            {estHeader.texto}
+                          </span>
+                        </div>
+                      );
+                    })()}
                   </div>
 
                   {/* Pestañas de Navegación: Bitácora Legal vs Inspección de Campo */}

@@ -38,26 +38,48 @@ export default function InformeTecnicoView({
 }) {
   const navigate = useNavigate();
 
-  // Filtrar ÚNICAMENTE los trámites reales de la Base de Datos que han sido pasados a Informe Técnico o etapas legales
+  // Filtrar ÚNICAMENTE los trámites reales de la Base de Datos que han sido formalmente pasados a Informe Técnico o etapas legales
   const tramitesEnInforme = useMemo(() => {
     return tramites.filter(t => {
       const est = (t.estado || '').toLowerCase();
+
+      // Estados iniciales o en proceso documental/inspección que NUNCA deben figurar en Informe Técnico
+      const esEstadoInicialOInspeccion = (
+        est.includes('pendiente') ||
+        est.includes('esperando') ||
+        est.includes('en revisión') ||
+        est.includes('en revision') ||
+        est.includes('programada') ||
+        est.includes('en inspección') ||
+        est.includes('en inspeccion') ||
+        est.includes('observado') ||
+        est.includes('rechazado') ||
+        est.includes('cancelado')
+      );
+
+      // Si está en estado inicial/inspección y no tiene una resolución formal lista, se excluye
+      if (esEstadoInicialOInspeccion && !t.resolucion_lista_para_firma && !t.resolucion?.numero_resolucion) {
+        return false;
+      }
+
+      // Estados válidos que han completado la carpeta legal y la inspección de campo
       const esEstadoValido = (
+        est === 'en informe técnico' ||
+        est === 'en informe tecnico' ||
         est.includes('informe') ||
         est.includes('legal') ||
         est.includes('derivado') ||
         est.includes('resolución') ||
         est.includes('resolucion') ||
         est.includes('firma') ||
-        est.includes('aprobado') ||
-        t.resolucion_lista_para_firma ||
-        t.resolucion ||
-        est === 'en informe técnico'
+        est === 'aprobado' ||
+        Boolean(t.resolucion_lista_para_firma) ||
+        Boolean(t.resolucion?.numero_resolucion)
       );
-      const esSeleccionado = tramiteSeleccionadoId && (t.id === tramiteSeleccionadoId || t.tramite_uuid === tramiteSeleccionadoId);
-      return esEstadoValido || esSeleccionado;
+
+      return esEstadoValido;
     });
-  }, [tramites, tramiteSeleccionadoId]);
+  }, [tramites]);
 
   // Mapear los trámites reales de la Base de Datos al formato estructurado
   const listaEstablecimientos = useMemo(() => {
@@ -108,33 +130,60 @@ export default function InformeTecnicoView({
   }, [tramitesEnInforme]);
 
   // Trámite seleccionado actualmente
-  const [tramiteActivoId, setTramiteActivoId] = useState(
-    tramiteSeleccionadoId || (listaEstablecimientos.length > 0 ? listaEstablecimientos[0].id : null)
-  );
+  const [tramiteActivoId, setTramiteActivoId] = useState(() => {
+    if (tramiteSeleccionadoId && listaEstablecimientos.some(t => t.id === tramiteSeleccionadoId || t.tramite_uuid === tramiteSeleccionadoId)) {
+      return tramiteSeleccionadoId;
+    }
+    return listaEstablecimientos.length > 0 ? listaEstablecimientos[0].id : null;
+  });
 
   useEffect(() => {
-    if (tramiteSeleccionadoId && tramiteSeleccionadoId !== tramiteActivoId) {
-      setTramiteActivoId(tramiteSeleccionadoId);
-    } else if (listaEstablecimientos.length > 0 && !tramiteActivoId) {
+    const existeEnLista = tramiteSeleccionadoId && listaEstablecimientos.some(t => t.id === tramiteSeleccionadoId || t.tramite_uuid === tramiteSeleccionadoId);
+    if (existeEnLista) {
+      if (tramiteSeleccionadoId !== tramiteActivoId) {
+        setTramiteActivoId(tramiteSeleccionadoId);
+      }
+    } else if (listaEstablecimientos.length > 0 && (!tramiteActivoId || !listaEstablecimientos.some(t => t.id === tramiteActivoId))) {
       setTramiteActivoId(listaEstablecimientos[0].id);
+    } else if (listaEstablecimientos.length === 0 && tramiteActivoId !== null) {
+      setTramiteActivoId(null);
     }
-  }, [tramiteSeleccionadoId, listaEstablecimientos.length]);
+  }, [tramiteSeleccionadoId, listaEstablecimientos]);
 
   const tramiteActivo = useMemo(() => {
-    return listaEstablecimientos.find(t => t.id === tramiteActivoId || t.tramite_uuid === tramiteActivoId) || (listaEstablecimientos.length > 0 ? listaEstablecimientos[0] : null);
+    if (listaEstablecimientos.length === 0) return null;
+    return listaEstablecimientos.find(t => t.id === tramiteActivoId || t.tramite_uuid === tramiteActivoId) || listaEstablecimientos[0];
   }, [listaEstablecimientos, tramiteActivoId]);
 
   // Documento visualizado: 'informe' (Comunicación Interna) | 'resolucion' (Resolución Administrativa Legal)
   const [tipoDocumentoVisor, setTipoDocumentoVisor] = useState('informe');
 
-  // Sincronizar selección de documento y datos al cambiar de trámite activo
+  // Estado del formulario de Informe Técnico
+  const [observacionesCoordinador, setObservacionesCoordinador] = useState(
+    'Habiéndose verificado tanto el cumplimiento estricto de la carpeta legal como la conformidad en el informe de campo emitido por el supervisor de área, se concluye que el establecimiento cuenta con las garantías técnicas requeridas para su normal funcionamiento.'
+  );
+  const [dictamenFinal, setDictamenFinal] = useState('Favorabilidad Concedida (Favorable)');
+  
+  // Parámetros de CITE y Membrete Oficial (Comunicación Interna)
+  const [citeNumero, setCiteNumero] = useState(`CODELAB/SEDES/1/${new Date().getFullYear()}`);
+  const [destinatarioLegal, setDestinatarioLegal] = useState('Dra. Mery D. Loroño V.');
+  const [destinatarioCargo, setDestinatarioCargo] = useState('ASESOR LEGAL - UNIDAD DE CALIDAD Y SERVICIOS');
+  const [viaJefe, setViaJefe] = useState('Dra. Karina Soliz Villarroel');
+  const [viaCargo, setViaCargo] = useState('JEFE DE LA UNIDAD DE CALIDAD Y SERVICIOS a.i.');
+  const [mostrarConfigMemo, setMostrarConfigMemo] = useState(false);
+
+  // Plantilla oficial configurada por Dirección General
+  const [plantillaOficial, setPlantillaOficial] = useState(null);
+
+  const previoTramiteIdRef = useRef(null);
+
+  // Sincronizar selección de documento y datos ÚNICAMENTE cuando cambia el trámite seleccionado
   useEffect(() => {
-    if (tramiteActivo) {
-      if (tramiteActivo.resolucion_lista_para_firma || tramiteActivo.resolucion) {
-        setTipoDocumentoVisor('resolucion');
-      } else {
-        setTipoDocumentoVisor('informe');
-      }
+    if (tramiteActivo && tramiteActivo.id !== previoTramiteIdRef.current) {
+      previoTramiteIdRef.current = tramiteActivo.id;
+      
+      // Siempre mostrar por defecto el Informe Técnico (Comunicación Interna) para el nuevo trámite
+      setTipoDocumentoVisor('informe');
 
       if (tramiteActivo.resolucion?.observaciones_coordinador) {
         setObservacionesCoordinador(tramiteActivo.resolucion.observaciones_coordinador);
@@ -160,21 +209,21 @@ export default function InformeTecnicoView({
           });
       }
     }
-  }, [tramiteActivo?.id, tramiteActivo?.resolucion?.id]);
+  }, [tramiteActivo?.id]);
 
-  // Estado del formulario de Informe Técnico
-  const [observacionesCoordinador, setObservacionesCoordinador] = useState(
-    'Habiéndose verificado tanto el cumplimiento estricto de la carpeta legal como la conformidad en el informe de campo emitido por el supervisor de área, se concluye que el establecimiento cuenta con las garantías técnicas requeridas para su normal funcionamiento.'
-  );
-  const [dictamenFinal, setDictamenFinal] = useState('Favorabilidad Concedida (Favorable)');
-  
-  // Parámetros de CITE y Membrete Oficial (Comunicación Interna)
-  const [citeNumero, setCiteNumero] = useState(`CODELAB/SEDES/1/${new Date().getFullYear()}`);
-  const [destinatarioLegal, setDestinatarioLegal] = useState('Dra. Mery D. Loroño V.');
-  const [destinatarioCargo, setDestinatarioCargo] = useState('ASESOR LEGAL - UNIDAD DE CALIDAD Y SERVICIOS');
-  const [viaJefe, setViaJefe] = useState('Dra. Karina Soliz Villarroel');
-  const [viaCargo, setViaCargo] = useState('JEFE DE LA UNIDAD DE CALIDAD Y SERVICIOS a.i.');
-  const [mostrarConfigMemo, setMostrarConfigMemo] = useState(false);
+  useEffect(() => {
+    fetch('http://localhost:8000/api/plantillas-documentos/COMUNICACION_INTERNA_CODELAB')
+      .then(res => res.json())
+      .then(data => {
+        if (data?.contenido) {
+          setPlantillaOficial(data.contenido);
+          localStorage.setItem('sedes_plantilla_comunicacion', JSON.stringify(data.contenido));
+        }
+      })
+      .catch(err => {
+        console.warn('No se pudo cargar la plantilla oficial del backend:', err);
+      });
+  }, []);
 
   // Estados de carga y acciones
   const [generandoPdf, setGenerandoPdf] = useState(false);
@@ -185,10 +234,12 @@ export default function InformeTecnicoView({
   const [pdfBlobUrl, setPdfBlobUrl] = useState(null);
   const [generandoVistaPrevia, setGenerandoVistaPrevia] = useState(false);
   const urlAnteriorRef = useRef(null);
+  const generandoRef = useRef(false);
 
   // Actualizar en tiempo real la vista previa del PDF oficial (Informe Técnico o Resolución Administrativa)
   const actualizarVistaPreviaPDF = useCallback(async () => {
-    if (!tramiteActivo) return;
+    if (!tramiteActivo || generandoRef.current) return;
+    generandoRef.current = true;
     setGenerandoVistaPrevia(true);
     try {
       let doc;
@@ -237,7 +288,8 @@ export default function InformeTecnicoView({
           regente: tramiteActivo.regente,
           ciRegente: tramiteActivo.ci_regente || tramiteActivo.regente_ci || tramiteActivo.ci_responsable,
           responsables_areas: tramiteActivo.responsables_areas,
-          observaciones: observacionesCoordinador
+          observaciones: observacionesCoordinador,
+          plantilla: plantillaOficial
         });
       }
       const blob = doc.output('blob');
@@ -250,13 +302,15 @@ export default function InformeTecnicoView({
     } catch (err) {
       console.warn('Error al generar vista previa del PDF:', err);
     } finally {
+      generandoRef.current = false;
       setGenerandoVistaPrevia(false);
     }
   }, [
     tramiteActivo?.id,
     tramiteActivo?.establecimiento,
     tramiteActivo?.regente,
-    tramiteActivo?.resolucion,
+    tramiteActivo?.resolucion_numero,
+    tramiteActivo?.resolucion?.numero_resolucion,
     tipoDocumentoVisor,
     citeNumero,
     destinatarioLegal,
@@ -264,15 +318,9 @@ export default function InformeTecnicoView({
     viaJefe,
     viaCargo,
     nombreCoordinador,
-    observacionesCoordinador
+    observacionesCoordinador,
+    plantillaOficial
   ]);
-
-  // Recargar datos desde el backend al montar la vista de Informe Técnico
-  useEffect(() => {
-    if (onRecargarDatos) {
-      onRecargarDatos();
-    }
-  }, []);
 
   // Generar la vista previa al cambiar de trámite, documento o parámetros clave
   useEffect(() => {
@@ -298,6 +346,7 @@ export default function InformeTecnicoView({
   // Manejar cambio de trámite seleccionado
   const handleSeleccionar = (item) => {
     setTramiteActivoId(item.id);
+    setTipoDocumentoVisor('informe');
     if (onSeleccionarTramite) {
       onSeleccionarTramite(item.id);
     }
@@ -356,7 +405,8 @@ export default function InformeTecnicoView({
           regente: tramiteActivo.regente,
           ciRegente: tramiteActivo.ci_regente || tramiteActivo.regente_ci || tramiteActivo.ci_responsable,
           responsables_areas: tramiteActivo.responsables_areas,
-          observaciones: observacionesCoordinador
+          observaciones: observacionesCoordinador,
+          plantilla: plantillaOficial
         });
         filename = `Informe_Tecnico_${tramiteActivo.codigo || 'SEDES'}.pdf`;
       }
@@ -733,7 +783,7 @@ export default function InformeTecnicoView({
                       <span>1. Informe Técnico (3 Páginas)</span>
                     </button>
 
-                    {(tramiteActivo?.resolucion || tramiteActivo?.resolucion_lista_para_firma || tramiteActivo?.resolucion_numero) && (
+                    {(tramiteActivo?.resolucion_lista_para_firma || (tramiteActivo?.resolucion?.numero_resolucion && ['Enviado a Coordinador', 'Aprobado por Legal', 'Emitida', 'Firmada'].includes(tramiteActivo?.resolucion?.estado_resolucion))) && (
                       <button
                         type="button"
                         onClick={() => setTipoDocumentoVisor('resolucion')}

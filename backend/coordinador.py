@@ -63,17 +63,21 @@ class PasarInformeTecnicoRequest(BaseModel):
 
 def get_estado_color(estado: str) -> str:
     est = (estado or "").lower()
+    if "firma" in est or "resolución" in est or "resolucion" in est:
+        return "bg-sky-50 text-sky-700 border-sky-200"
+    if "legal" in est or "derivado" in est:
+        return "bg-indigo-50 text-indigo-700 border-indigo-200"
     if "informe" in est:
-        return "bg-sky-100 text-sky-800 border-sky-300"
+        return "bg-sky-50 text-sky-700 border-sky-200"
     if "aprobado" in est:
-        return "bg-emerald-100 text-emerald-800 border-emerald-300"
-    if "observado" in est or "rechazado" in est:
-        return "bg-rose-100 text-rose-800 border-rose-300"
-    if "inspección" in est or "re-inspección" in est:
-        return "bg-purple-100 text-purple-800 border-purple-300"
-    if "revisión" in est:
-        return "bg-amber-100 text-amber-800 border-amber-300"
-    return "bg-sky-100 text-sky-800 border-sky-300"
+        return "bg-emerald-50 text-emerald-700 border-emerald-200"
+    if "observado" in est:
+        return "bg-amber-50 text-amber-700 border-amber-200"
+    if "rechazado" in est:
+        return "bg-rose-50 text-rose-700 border-rose-200"
+    if "inspección" in est or "programada" in est:
+        return "bg-purple-50 text-purple-700 border-purple-200"
+    return "bg-amber-50 text-amber-700 border-amber-200"
 
 def get_tipo_badge_color(tipo: str) -> str:
     t = (tipo or "").lower()
@@ -254,6 +258,23 @@ def serializar_tramite_coordinador(
             "abogado_nombre": f"{resol.abogado.nombres} {resol.abogado.apellidos}" if resol.abogado else "Dr. Marco Villanueva"
         }
 
+    # Determinar el estado visual oficial para la tarjeta en la bandeja de entrada
+    if resolucion_lista_para_firma:
+        estado_visual = "Resolución Lista para Firma"
+    elif tramite.estado_tramite == "Derivado a Asesoría Legal":
+        estado_visual = "Derivado a Asesoría Legal"
+    elif tramite.estado_tramite == "En Informe Técnico":
+        estado_visual = "En Informe Técnico"
+    elif tramite.estado_tramite in ["Rechazado - Requiere Reingreso", "Rechazado"] or es_acta_rechazada:
+        estado_visual = "Rechazado"
+    elif any((d.estado_validacion or "").lower() in ["observado", "rechazado"] for d in docs_db) or es_acta_con_observaciones:
+        estado_visual = "Observado"
+    elif todos_docs_aprobados and es_acta_aprobada:
+        # SOLO cuando el coordinador apruebe todos los documentos (100%) Y el supervisor emita acta favorable
+        estado_visual = "Aprobado"
+    else:
+        estado_visual = "En Revisión"
+
     return {
         "id": codigo_visual,
         "tramite_uuid": str(tramite.id),
@@ -277,8 +298,8 @@ def serializar_tramite_coordinador(
         "responsable_laboratorio": estab.responsable_laboratorio if estab else "",
         "ci_responsable": estab.ci_responsable if estab else "",
         "responsables_areas": estab.responsables_areas if estab else "",
-        "estado": tramite.estado_tramite or "Pendiente",
-        "estadoColor": get_estado_color(tramite.estado_tramite),
+        "estado": estado_visual,
+        "estadoColor": get_estado_color(estado_visual),
         "supervisorAsignado": sup_nombre,
         "supervisor_id": str(supervisor.id) if supervisor else None,
         "fechaInspeccion": f_insp,

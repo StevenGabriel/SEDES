@@ -334,3 +334,23 @@ class ResolucionAdministrativa(Base):
     establecimiento = relationship("Establecimiento")
     abogado = relationship("Usuario", foreign_keys=[abogado_id])
 
+
+# ==============================================================================
+# 11. TABLA: PLANTILLAS DE DOCUMENTOS OFICIALES
+# ==============================================================================
+class PlantillaDocumento(Base):
+    __tablename__ = "plantillas_documentos"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    codigo = Column(String(100), unique=True, nullable=False, index=True) # Ej: 'COMUNICACION_INTERNA_CODELAB'
+    nombre = Column(String(200), nullable=False) # Ej: 'Comunicación Interna / Informe Técnico CODELAB'
+    descripcion = Column(Text, nullable=True)
+    contenido = Column(Text, nullable=False) # JSON serializado con los párrafos y configuración
+    actualizado_por = Column(String(150), nullable=True)
+
+    # Columnas de Auditoría
+    estado = Column(Boolean, default=True, nullable=False)
+    fecha_creacion = Column(DateTime, default=func.now(), nullable=False)
+    fecha_modificacion = Column(DateTime, default=func.now(), onupdate=func.now(), nullable=False)
+
+

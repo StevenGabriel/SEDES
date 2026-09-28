@@ -2,7 +2,8 @@ import logging
 from sqlalchemy import text
 from geoalchemy2 import WKTElement
 from database import engine, Base, SessionLocal
-from models import Role, Usuario, Establecimiento, CatalogoRequisito
+from models import Role, Usuario, Establecimiento, CatalogoRequisito, PlantillaDocumento
+import json
 from security import hash_password
 
 logging.basicConfig(level=logging.INFO)
@@ -200,8 +201,19 @@ def init_database(reset_tables: bool = False, poblar_laboratorios_demo: bool = F
                 usuario_existente.telefono = p["telefono"]
                 usuario_existente.estado = p.get("estado", True)
 
-        db.commit()
-        logger.info("✅ Cuentas de Personal SEDES (Coordinador, Administrador, Supervisores Oficiales) inicializadas con correos únicos.")
+        # 4. Inicializar Plantilla Oficial de Comunicación Interna
+        plantilla_codelab = db.query(PlantillaDocumento).filter(PlantillaDocumento.codigo == "COMUNICACION_INTERNA_CODELAB").first()
+        if not plantilla_codelab:
+            from plantillas_documentos import PLANTILLA_DEFAULT_CODELAB
+            db.add(PlantillaDocumento(
+                codigo="COMUNICACION_INTERNA_CODELAB",
+                nombre="Comunicación Interna / Informe Técnico CODELAB",
+                descripcion="Plantilla oficial de 3 páginas para la remisión del informe técnico y evaluación in situ a Asesoría Legal.",
+                contenido=json.dumps(PLANTILLA_DEFAULT_CODELAB, ensure_ascii=False),
+                actualizado_por="Sistema (Predeterminado)"
+            ))
+            db.commit()
+            logger.info("✅ Plantilla oficial de Comunicación Interna CODELAB inicializada.")
 
         if poblar_laboratorios_demo:
             poblar_laboratorios_y_tramites_demo(db)

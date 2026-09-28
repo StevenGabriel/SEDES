@@ -17,6 +17,7 @@ import notificaciones
 import supervisor
 import director
 import abogado
+import plantillas_documentos
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -61,6 +62,7 @@ app.include_router(notificaciones.router)
 app.include_router(supervisor.router)
 app.include_router(director.router)
 app.include_router(abogado.router)
+app.include_router(plantillas_documentos.router)
 
 @app.get("/", tags=["Diagnóstico"])
 def leer_raiz():

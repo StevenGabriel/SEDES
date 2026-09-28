@@ -165,8 +165,53 @@ export async function generarComunicacionInternaPDF(tramite, opciones = {}) {
   const viaCargo = opciones?.viaCargo || 'JEFE DE LA UNIDAD DE CALIDAD Y SERVICIOS a.i.';
   const remitente = opciones?.remitente || 'Dra. Claudia Morales Valenzuela';
   const remitenteCargo = opciones?.remitenteCargo || 'RESPONSABLE DEPARTAMENTAL DE LABORATORIOS CODELAB - SEDES';
-  const fechaDoc = opciones?.fechaDoc || `Cochabamba, ${new Date().toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })}`;
+  const fechaDoc = opciones?.fechaDoc || new Date().toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
   const observacionesExtra = opciones?.observaciones || tramite?.observaciones_coordinador || 'Habiéndose verificado tanto el cumplimiento estricto de la carpeta legal como la conformidad en el informe de campo emitido por el supervisor de área, se concluye que el establecimiento cuenta con las garantías técnicas requeridas para su normal funcionamiento.';
+
+  // Cargar plantilla personalizada (desde opciones, o localStorage, o defaults)
+  let plantillaActiva = opciones?.plantilla;
+  if (!plantillaActiva) {
+    try {
+      const saved = localStorage.getItem('sedes_plantilla_comunicacion');
+      if (saved) {
+        plantillaActiva = JSON.parse(saved);
+      }
+    } catch (e) { }
+  }
+
+  // Diccionario de variables para interpolación de placeholders
+  const vars = {
+    ESTABLECIMIENTO: estabNombre,
+    PROPIETARIO: propietarioNombre,
+    CI_PROPIETARIO: ciPropietario,
+    REGENTE: regenteNombre,
+    CI_REGENTE: ciRegente,
+    RESPONSABLES_AREAS: textoRespAreasP1,
+    DIRECCION: direccion,
+    MUNICIPIO: municipio,
+    SUPERVISOR: supervisorNombre,
+    FECHA_INSPECCION: fechaInspeccion,
+    CITE: citeNumero,
+    DESTINATARIO: destinatario,
+    DESTINATARIO_CARGO: destinatarioCargo,
+    VIA: via,
+    VIA_CARGO: viaCargo,
+    REMITENTE: remitente,
+    REMITENTE_CARGO: remitenteCargo,
+    FECHA_DOC: fechaDoc,
+    TIPO_TRAMITE: tipoTramite,
+    TIPO_TRAMITE_MIN: tipoTramite.toLowerCase()
+  };
+
+  const interpolar = (txt, fallback) => {
+    const raw = (txt && txt.trim()) ? txt : fallback;
+    if (!raw) return '';
+    let res = raw;
+    Object.entries(vars).forEach(([k, v]) => {
+      res = res.replaceAll(`{${k}}`, v ?? '');
+    });
+    return res;
+  };
 
   // Función para dibujar Cabecera Oficial con los 3 Logos ampliados
   const dibujarCabecera = (docInstance) => {
@@ -280,20 +325,23 @@ export async function generarComunicacionInternaPDF(tramite, opciones = {}) {
   curY += 5;
 
   // Párrafo 1
-  const textoP1 = `Mediante la presente y en cumplimiento a las funciones específicas de mi cargo dentro los alcances de los Art. 28 y Art. 38 de la Ley 1178, adjunto al presente informe para su conocimiento requisitos en general para la ${tipoTramite} del establecimiento "${estabNombre}" ubicado en ${direccion}, ${municipio}, siendo propiedad de ${propietarioNombre} con C.I. Nro. ${ciPropietario}, y regentado actualmente por el/la profesional ${regenteNombre} con C.I. Nro. ${ciRegente}${textoRespAreasP1}. En el marco de la normativa actual vigente aprobada por R.M. 0202 de fecha 22 de marzo del 2010 donde están descritos los requisitos técnicos, administrativos, legales y técnicos, en la evaluación realizada se verificó los requisitos mínimos que deben cumplir los establecimientos de salud en cuanto a documentación, gestión de calidad, bioseguridad, competencia técnica, etc., pero principalmente se hace una trazabilidad de sus procesos y procedimientos técnicos para validar la calidad de los resultados que emiten. El proceso de habilitación es análogo al de acreditación (ISO 9001 y la 15189) y la norma señala que es de responsabilidad de los SEDES para garantizar la calidad de los resultados de diagnóstico laboratorial en beneficio de la población.`;
+  const textoP1Default = `Mediante la presente y en cumplimiento a las funciones específicas de mi cargo dentro los alcances de los Art. 28 y Art. 38 de la Ley 1178, adjunto al presente informe para su conocimiento requisitos en general para la ${tipoTramite} del establecimiento "${estabNombre}" ubicado en ${direccion}, ${municipio}, siendo propiedad de ${propietarioNombre} con C.I. Nro. ${ciPropietario}, y regentado actualmente por el/la profesional ${regenteNombre} con C.I. Nro. ${ciRegente}${textoRespAreasP1}. En el marco de la normativa actual vigente aprobada por R.M. 0202 de fecha 22 de marzo del 2010 donde están descritos los requisitos técnicos, administrativos, legales y técnicos, en la evaluación realizada se verificó los requisitos mínimos que deben cumplir los establecimientos de salud en cuanto a documentación, gestión de calidad, bioseguridad, competencia técnica, etc., pero principalmente se hace una trazabilidad de sus procesos y procedimientos técnicos para validar la calidad de los resultados que emiten. El proceso de habilitación es análogo al de acreditación (ISO 9001 y la 15189) y la norma señala que es de responsabilidad de los SEDES para garantizar la calidad de los resultados de diagnóstico laboratorial en beneficio de la población.`;
+  const textoP1 = interpolar(plantillaActiva?.parrafo1, textoP1Default);
 
   const splitP1 = doc.splitTextToSize(textoP1, contentWidth);
   doc.text(splitP1, marginX, curY, { align: 'justify', maxWidth: contentWidth });
   curY += splitP1.length * 3.8 + 3;
 
   // Párrafo 2
-  const textoP2 = `La Evaluación técnica IN SITU para la ${tipoTramite.toLowerCase()} fue realizada en fecha ${fechaInspeccion} por el evaluador de campo ${supervisorNombre}, bajo la supervisión y conducción de ${remitente} - ${remitenteCargo} y personal técnico de esa repartición del Ministerio de Salud y Deportes de Bolivia.`;
+  const textoP2Default = `La Evaluación técnica IN SITU para la ${tipoTramite.toLowerCase()} fue realizada en fecha ${fechaInspeccion} por el evaluador de campo ${supervisorNombre}, bajo la supervisión y conducción de ${remitente} - ${remitenteCargo} y personal técnico de esa repartición del Ministerio de Salud y Deportes de Bolivia.`;
+  const textoP2 = interpolar(plantillaActiva?.parrafo2, textoP2Default);
   const splitP2 = doc.splitTextToSize(textoP2, contentWidth);
   doc.text(splitP2, marginX, curY, { align: 'justify', maxWidth: contentWidth });
   curY += splitP2.length * 3.8 + 3;
 
   // Párrafo 3
-  const textoP3 = `Según Resolución Ministerial N° 847 de fecha 30 de noviembre donde indica que el ente regulador y coordinador de la Red Departamental de Laboratorios será la Coordinación Departamental de Laboratorios (CODELAB) dependientes de los Servicios Departamentales de Salud; de esta red dependerán los laboratorios de servicio público, de los seguros de salud a corto plazo y privados con y sin fines de lucro, así mismo en aplicación a la Resolución Ministerial N° 0936 de fecha 16 de diciembre del 2005 que en el Artículo Quinto designa en el nivel departamental como responsable de coordinar la Red Departamental de Laboratorios de Salud en el departamento de Cochabamba al Laboratorio de SEDES Cochabamba.`;
+  const textoP3Default = `Según Resolución Ministerial N° 847 de fecha 30 de noviembre donde indica que el ente regulador y coordinador de la Red Departamental de Laboratorios será la Coordinación Departamental de Laboratorios (CODELAB) dependientes de los Servicios Departamentales de Salud; de esta red dependerán los laboratorios de servicio público, de los seguros de salud a corto plazo y privados con y sin fines de lucro, así mismo en aplicación a la Resolución Ministerial N° 0936 de fecha 16 de diciembre del 2005 que en el Artículo Quinto designa en el nivel departamental como responsable de coordinar la Red Departamental de Laboratorios de Salud en el departamento de Cochabamba al Laboratorio de SEDES Cochabamba.`;
+  const textoP3 = interpolar(plantillaActiva?.parrafo3, textoP3Default);
   const splitP3 = doc.splitTextToSize(textoP3, contentWidth);
   doc.text(splitP3, marginX, curY, { align: 'justify', maxWidth: contentWidth });
   curY += splitP3.length * 3.8 + 4;
@@ -359,7 +407,8 @@ export async function generarComunicacionInternaPDF(tramite, opciones = {}) {
   doc.setFont('helvetica', 'bold');
   doc.text('3. REQUISITOS TECNICOS.', marginX, curY);
   curY += 4.5;
-  const textoP4 = `- EN APLICACIÓN DEL REGLAMENTO DE HABILITACIÓN DE LABORATORIOS Y ESTABLECIMIENTOS DE SALUD (La Habilitación y/o Renovación de habilitación es extendida a los establecimientos solicitantes que cumplen con estos requisitos mínimos), por lo que la Evaluación del establecimiento IN SITU FUE REALIZADA POR LOS EVALUADORES, LIDERIZADA Y CONDUCIDA POR CODELAB SEDES y donde el establecimiento cuenta con una gestión de calidad en cuanto a bioseguridad en el proceso de evaluación en la presente gestión. Se adjunta Lista de verificación de requisitos técnicos con el que fue evaluado y el acta de evaluación in situ para la habilitación del establecimiento.`;
+  const textoP4Default = `- EN APLICACIÓN DEL REGLAMENTO DE HABILITACIÓN DE LABORATORIOS Y ESTABLECIMIENTOS DE SALUD (La Habilitación y/o Renovación de habilitación es extendida a los establecimientos solicitantes que cumplen con estos requisitos mínimos), por lo que la Evaluación del establecimiento IN SITU FUE REALIZADA POR LOS EVALUADORES, LIDERIZADA Y CONDUCIDA POR CODELAB SEDES y donde el establecimiento cuenta con una gestión de calidad en cuanto a bioseguridad en el proceso de evaluación en la presente gestión. Se adjunta Lista de verificación de requisitos técnicos con el que fue evaluado y el acta de evaluación in situ para la habilitación del establecimiento.`;
+  const textoP4 = interpolar(plantillaActiva?.parrafo_requisitos_tecnicos, textoP4Default);
   const splitP4 = doc.splitTextToSize(textoP4, contentWidth - 4);
   doc.setFont('helvetica', 'normal');
   doc.text(splitP4, marginX + 2, curY, { align: 'justify', maxWidth: contentWidth - 4 });
@@ -380,7 +429,8 @@ export async function generarComunicacionInternaPDF(tramite, opciones = {}) {
   doc.text('b. Verificación de liquidación arancelaria emitida por la Unidad Administrativa Financiera.', marginX + 6, curY);
   curY += 5;
 
-  const textoFinanciero = `En los mismos se concluye autorizando la habilitación respectiva habiendo cumplido con el depósito de aranceles de Ley, toda vez que la principal función del SEDES no es recaudar fondos sino velar porque todos los Establecimientos de Salud estén debidamente normados y reglamentados velando la calidad y calidez de atención a la población usuaria.`;
+  const textoFinancieroDefault = `En los mismos se concluye autorizando la habilitación respectiva habiendo cumplido con el depósito de aranceles de Ley, toda vez que la principal función del SEDES no es recaudar fondos sino velar porque todos los Establecimientos de Salud estén debidamente normados y reglamentados velando la calidad y calidez de atención a la población usuaria.`;
+  const textoFinanciero = interpolar(plantillaActiva?.parrafo_financiero, textoFinancieroDefault);
   const splitFinanciero = doc.splitTextToSize(textoFinanciero, contentWidth);
   doc.text(splitFinanciero, marginX, curY, { align: 'justify', maxWidth: contentWidth });
   curY += splitFinanciero.length * 3.8 + 4;
@@ -389,7 +439,8 @@ export async function generarComunicacionInternaPDF(tramite, opciones = {}) {
   doc.setFont('helvetica', 'bold');
   doc.text('CONCLUSIONES De lo referido anteriormente se concluye:', marginX, curY);
   curY += 4.5;
-  const textoConcl = `Que siendo la habilitación según la R.M. N° 0202 de fecha 22/03/2010, en actual vigencia, la Sub Unidad de CODELAB, solicita la emisión de la resolución administrativa que realiza Asesoría Legal, de tal forma se determina, concluye y autoriza al establecimiento la ${tipoTramite} - "${estabNombre}", en aplicación a la normativa ministerial vigente.`;
+  const textoConclDefault = `Que siendo la habilitación según la R.M. N° 0202 de fecha 22/03/2010, en actual vigencia, la Sub Unidad de CODELAB, solicita la emisión de la resolución administrativa que realiza Asesoría Legal, de tal forma se determina, concluye y autoriza al establecimiento la ${tipoTramite} - "${estabNombre}", en aplicación a la normativa ministerial vigente.`;
+  const textoConcl = interpolar(plantillaActiva?.parrafo_conclusion, textoConclDefault);
   const splitConcl = doc.splitTextToSize(textoConcl, contentWidth);
   doc.setFont('helvetica', 'normal');
   doc.text(splitConcl, marginX, curY, { align: 'justify', maxWidth: contentWidth });
@@ -407,7 +458,8 @@ export async function generarComunicacionInternaPDF(tramite, opciones = {}) {
   doc.setFontSize(8.5);
   doc.setTextColor(30, 30, 30);
 
-  const textoP5 = `TRANSMITIDAS POR VECTORES (ETVs) Y OTRAS ENFERMEDADES EMERGENTES Y REEMERGENTES, ubicado en ${direccion}, ${municipio}, siendo propiedad de ${propietarioNombre}, regentado actualmente por el/la profesional ${regenteNombre} con C.I. Nro. ${ciRegente}${textoRespAreasP1}, según normativa vigente establecida en el Código de Salud R.M. 0847/06 y R.M. 0202/10, habiéndose sometido a la evaluación documental y técnica INSITU, trazabilidad de sus procesos y procedimientos para la validación de localidad de sus resultados, realizada por los evaluadores conducida y liderada por CODELAB- SEDES, de acuerdo a las listas de verificación para la aplicación del reglamento de habilitación, por lo que corresponde la extensión de la R.A. en la que se declara PROCEDENTE LA ${tipoTramite} al ${estabNombre} ante el Ministerio de Salud y el Servicio Departamental de Salud.`;
+  const textoP5Default = `TRANSMITIDAS POR VECTORES (ETVs) Y OTRAS ENFERMEDADES EMERGENTES Y REEMERGENTES, ubicado en ${direccion}, ${municipio}, siendo propiedad de ${propietarioNombre}, regentado actualmente por el/la profesional ${regenteNombre} con C.I. Nro. ${ciRegente}${textoRespAreasP1}, según normativa vigente establecida en el Código de Salud R.M. 0847/06 y R.M. 0202/10, habiéndose sometido a la evaluación documental y técnica INSITU, trazabilidad de sus procesos y procedimientos para la validación de localidad de sus resultados, realizada por los evaluadores conducida y liderada por CODELAB- SEDES, de acuerdo a las listas de verificación para la aplicación del reglamento de habilitación, por lo que corresponde la extensión de la R.A. en la que se declara PROCEDENTE LA ${tipoTramite} al ${estabNombre} ante el Ministerio de Salud y el Servicio Departamental de Salud.`;
+  const textoP5 = interpolar(plantillaActiva?.parrafo5_pagina3, textoP5Default);
   const splitP5 = doc.splitTextToSize(textoP5, contentWidth);
   doc.text(splitP5, marginX, curY, { align: 'justify', maxWidth: contentWidth });
   curY += splitP5.length * 3.8 + 4;
@@ -425,7 +477,8 @@ export async function generarComunicacionInternaPDF(tramite, opciones = {}) {
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8.5);
-  doc.text('Se adjunta toda la documentación que cursa en la Sub Unidad de CODELAB Para la revisión y firma correspondiente.', marginX, curY);
+  const leyendaAdj = interpolar(plantillaActiva?.leyenda_adjunto, 'Se adjunta toda la documentación que cursa en la Sub Unidad de CODELAB Para la revisión y firma correspondiente.');
+  doc.text(leyendaAdj, marginX, curY);
   curY += 28;
 
   // Espacio para Firmas Oficiales
@@ -446,7 +499,8 @@ export async function generarComunicacionInternaPDF(tramite, opciones = {}) {
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(6.5);
   doc.setTextColor(80, 80, 80);
-  doc.text('I.F.R./J.P.I.S./K.S.V.', marginX, pageHeight - 24);
+  const inicialesArch = plantillaActiva?.iniciales_archivo || 'I.F.R./J.P.I.S./K.S.V.';
+  doc.text(inicialesArch, marginX, pageHeight - 24);
   doc.text('CC/Arch', marginX, pageHeight - 21);
 
   dibujarPiePagina(doc);

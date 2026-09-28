@@ -3394,6 +3394,56 @@ Solucionar la lentitud y bloqueo en la carga de datos del panel de Coordinación
 #### 2. `frontend/src/pages/CoordinadorPage.jsx` [MODIFICADO]
 * **Refresco Silencioso en Informe Técnico:** Se configuró el callback `onRecargarDatos` de `InformeTecnicoView` para ejecutar `cargarDatosBackend(true)` de forma silenciosa sin activar el spinner de pantalla completa.
 
+---
 
+## [2026-09-28] Módulo "Editar Documentos" en Vista de Dirección General y Plantillas Dinámicas
 
+### 📌 Objetivo
+Permitir a la Dirección General del SEDES actualizar, personalizar y guardar permanentemente los textos normativos, párrafos y fundamentos legales del documento oficial de **Comunicación Interna / Informe Técnico (CODELAB a Asesoría Legal)** sin requerir cambios en código, asegurando que el Coordinador utilice siempre la versión oficial más reciente.
 
+---
+
+### 🛠️ Archivos Modificados y Creados
+
+#### 1. `backend/models.py` [MODIFICADO]
+* **Modelo `PlantillaDocumento`:** Creación de la tabla `plantillas_documentos` con columnas `codigo`, `nombre`, `descripcion`, `contenido` (JSON), `actualizado_por`, `estado` y timestamps de auditoría.
+
+#### 2. `backend/plantillas_documentos.py` [NUEVO]
+* **Endpoints API REST:**
+  * `GET /api/plantillas-documentos/{codigo}`: Retorna la plantilla oficial configurada o los valores predeterminados de fábrica.
+  * `PUT /api/plantillas-documentos/{codigo}`: Permite a la Dirección guardar y versionar las actualizaciones de los textos.
+  * `POST /api/plantillas-documentos/{codigo}/restablecer`: Restablece la plantilla a la redacción oficial original de fábrica.
+
+#### 3. `backend/init_db.py` & `backend/main.py` [MODIFICADOS]
+* **Inicialización y Registro:** Se incluyó el router en la aplicación principal y se implementó la creación idempotente y precarga de la plantilla predeterminada `COMUNICACION_INTERNA_CODELAB`.
+
+#### 4. `frontend/src/pages/DirectorPage.jsx` & `frontend/src/pages/AdminPage.jsx` [MODIFICADOS]
+* **Sección "Editar Documentos":** Habilitada en el menú lateral y rutas `/director/editar-documentos` y `/admin/editar-documentos`.
+* **Interfaz de Edición Modular:** Editor dividido en 8 secciones/tarjetas con soporte para variables dinámicas (`{ESTABLECIMIENTO}`, `{PROPIETARIO}`, `{REGENTE}`, `{SUPERVISOR}`, `{FECHA_INSPECCION}`, `{RESPONSABLES_AREAS}`, etc.).
+* **Botonera de Control:** Chips interactivos para copiar etiquetas, botón de generación de "Vista Previa en PDF" con datos de prueba, botón de "Restablecer a Fábrica" con confirmación modal y guardado sincronizado con el backend.
+
+#### 5. `frontend/src/components/coordinador/ComunicacionInternaPDF.js` [MODIFICADO]
+* **Motor de Interpolación Dinámica:** Función `interpolar()` que reemplaza dinámicamente los placeholders `{...}` con los datos de cada trámite específico sobre la plantilla personalizada o default.
+
+#### 6. `frontend/src/components/coordinador/InformeTecnicoView.jsx` [MODIFICADO]
+* **Consumo Automático:** Consulta y sincroniza la plantilla oficial activa de la base de datos al renderizar el informe técnico para enviarlo a Asesoría Legal.
+* **Corrección de Visor por Defecto y Sincronización de Pestañas:**
+  * Se corrigió la condición de selección del visor para que siempre muestre por defecto la **Comunicación Interna / Informe Técnico (3 Páginas)** al seleccionar cualquier trámite.
+  * Se eliminó el reseteo involuntario del visor a "Resolución Legal" que ocurría por evaluación reactiva cíclica.
+  * Se implementó un semáforo de generación concurrente `generandoRef` y estabilización de dependencias en `actualizarVistaPreviaPDF` para erradicar por completo los parpadeos y bucles infinitos de re-renderizado (`"se está actualizando a cada rato"`).
+  * **Filtrado Estricto de Elegibilidad:** Se eliminó la inclusión accidental de trámites recién llegados o en revisión inicial. Ahora únicamente figuran en el módulo de Informe Técnico los laboratorios que han cumplido con el 100% de requisitos documentales aprobados y cuentan con el acta de inspección técnica favorable emitida por el supervisor.
+
+#### 7. `frontend/src/pages/CoordinadorPage.jsx` & `backend/coordinador.py` [MODIFICADOS]
+* **Regla Estricta del Badge "Aprobado" en Bandeja de Entrada:**
+  * Se implementó el evaluador `getTramiteEstadoVisual()` tanto en frontend como backend para las tarjetas de la lista `"Solicitudes y Trámites"`.
+  * La etiqueta `"Aprobado"` (en verde esmeralda) solo se muestra **cuando se cumplen simultáneamente las dos condiciones normativas**:
+    1. El Coordinador ha revisado y marcado como **Aprobados el 100% de los requisitos documentales**.
+    2. El Supervisor ha completado la fiscalización in situ y emitido el **acta técnica con dictamen Favorable**.
+  * Si alguna de las dos condiciones no se cumple, la tarjeta se mantiene en su estado simplificado de **`"En Revisión"`** (o `"Observado"` / `"Rechazado"` si tiene fallas técnicas), actualizándose de forma reactiva e instantánea al aprobar documentos.
+  * **Habilitación de Botón "Aprobar Trámite y Emitir Resolución":** Se aseguró que al cumplirse ambas condiciones (100% de requisitos documentales aprobados + acta favorable del supervisor), el botón de acción principal se habilite en verde esmeralda. Al presionarlo, el trámite cambia formalmente a estado `"En Informe Técnico"`, redirige a la vista del Informe Técnico y compila el documento oficial de 3 páginas (Comunicación Interna SEDES).
+  * **Corrección en Generador de PDF (`fechaDoc`):** Se definió la variable `fechaDoc` en `ComunicacionInternaPDF.js` para resolver el error en tiempo de ejecución (`ReferenceError: fechaDoc is not defined`) que impedía la renderización de la vista previa del PDF de 3 páginas en el visor interactivo.
+  * **Depuración de Bandeja de Entrada y Archivo en Historial y Trazabilidad:**
+    * Se actualizó `tramitesFiltrados` en `CoordinadorPage.jsx` para que filtre a partir de `tramitesBandeja`, excluyendo automáticamente de la lista activa de la Bandeja de Entrada (`"Solicitudes y Trámites"`) a todos los laboratorios cuyo trámite haya alcanzado la etapa de `"Resolución Lista para Firma"`, `"Aprobado por Legal"` o resolución administrativa emitida.
+    * Dichos trámites quedan archivados de la bandeja activa y su trazabilidad completa, bitácora de eventos, supervisor asignado, dictamen y resoluciones continúan consultándose de forma íntegra en la vista de **"Historial y Trazabilidad"** (`/coordinador/historial-trazabilidad`) y en la auditoría del sistema.
+    * El contador del encabezado de la bandeja refleja con precisión el número de trámites activos (`{tramitesBandeja.length} en bandeja`).
+    * **Corrección de Import de Hooks (`useMemo`):** Se añadió `useMemo` a los imports de React en `CoordinadorPage.jsx`, solucionando el `ReferenceError` que ocasionaba la pantalla en blanco en el navegador.
