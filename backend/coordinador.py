@@ -902,6 +902,8 @@ def aprobar_tramite(
     tramite.estado_tramite = "Aprobado"
     if tramite.establecimiento:
         tramite.establecimiento.estado_operativo = "Habilitado"
+        if not tramite.establecimiento.codigo_cue or str(tramite.establecimiento.codigo_cue).strip().lower() in ["nuevo", ""]:
+            tramite.establecimiento.codigo_cue = f"3L{str(tramite.establecimiento.id)[:4].upper()}"
 
     resol = db.query(models.ResolucionAdministrativa).filter(
         models.ResolucionAdministrativa.tramite_id == tramite.id,

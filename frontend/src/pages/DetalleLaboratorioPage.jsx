@@ -111,7 +111,8 @@ export default function DetalleLaboratorioPage() {
         const response = await fetch(`http://localhost:8000/api/establecimientos/${encodeURIComponent(searchParam)}`);
         
         if (!response.ok) {
-          throw new Error('No se encontró la información del laboratorio.');
+          const errData = await response.json().catch(() => null);
+          throw new Error(errData?.detail || 'No se encontró la información del laboratorio.');
         }
 
         const data = await response.json();
@@ -141,21 +142,32 @@ export default function DetalleLaboratorioPage() {
   }
 
   if (error || !laboratorio) {
+    const esEnProceso = error.toLowerCase().includes('proceso') || error.toLowerCase().includes('trámite') || error.toLowerCase().includes('tramite') || error.toLowerCase().includes('revisión');
+
     return (
       <div className="min-h-screen bg-slate-50 flex flex-col font-sans">
         <Navbar />
-        <div className="flex-1 flex flex-col items-center justify-center p-8 text-center max-w-md mx-auto space-y-4">
-          <div className="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto">
-            <Building2 className="w-8 h-8" />
+        <div className="flex-1 flex flex-col items-center justify-center p-8 text-center max-w-lg mx-auto space-y-4">
+          <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mx-auto shadow-inner ${
+            esEnProceso ? 'bg-amber-50 text-amber-600 border border-amber-200' : 'bg-red-50 text-red-600 border border-red-200'
+          }`}>
+            {esEnProceso ? <Clock className="w-8 h-8" /> : <Building2 className="w-8 h-8" />}
           </div>
-          <h2 className="text-2xl font-black text-slate-800">Laboratorio No Encontrado</h2>
-          <p className="text-sm text-slate-500">No pudimos obtener los datos solicitados. Puede volver a la página principal o explorar otros laboratorios.</p>
+          
+          <h2 className="text-2xl font-black text-slate-800">
+            {esEnProceso ? 'Establecimiento en Proceso de Habilitación' : 'Laboratorio No Encontrado'}
+          </h2>
+          
+          <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
+            {error || 'No pudimos obtener los datos solicitados. Puede volver a la página principal o explorar otros laboratorios autorizados.'}
+          </p>
+
           <Link
             to="/"
-            className="inline-flex items-center space-x-2 bg-[#005596] hover:bg-[#003e6d] text-white px-5 py-2.5 rounded-xl font-bold text-sm shadow transition"
+            className="inline-flex items-center space-x-2 bg-[#005596] hover:bg-[#003e6d] text-white px-5 py-2.5 rounded-xl font-bold text-xs sm:text-sm shadow-md transition"
           >
             <ArrowLeft className="w-4 h-4" />
-            <span>Volver a la Lista de Laboratorios</span>
+            <span>Volver a la Página Principal</span>
           </Link>
         </div>
         <Footer />

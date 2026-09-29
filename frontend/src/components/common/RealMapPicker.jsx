@@ -46,9 +46,18 @@ export default function RealMapPicker({ latitud, longitud, onChange, onChangeCoo
 
     // Inicializar mapa si no existe
     if (!mapInstanceRef.current) {
+      const boliviaBounds = [
+        [-24.0, -71.5],
+        [-8.5, -56.0]
+      ];
+
       const map = L.map(mapContainerRef.current, {
         center: [initialLat, initialLng],
         zoom: 15,
+        minZoom: 7,
+        maxZoom: 19,
+        maxBounds: boliviaBounds,
+        maxBoundsViscosity: 0.9,
         zoomControl: true,
         scrollWheelZoom: true
       });
@@ -56,7 +65,10 @@ export default function RealMapPicker({ latitud, longitud, onChange, onChangeCoo
       // Añadir capa de azulejos OpenStreetMap
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> colaboradores',
-        maxZoom: 19
+        minZoom: 7,
+        maxZoom: 19,
+        noWrap: true,
+        bounds: boliviaBounds
       }).addTo(map);
 
       // Añadir marcador (arrastrable sólo si no es readOnly)

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { 
   MapPin, 
@@ -14,9 +14,50 @@ import {
   Stethoscope,
   Eye,
   Clock,
-  X
+  X,
+  Search,
+  Check,
+  Building2,
+  Sparkles
 } from 'lucide-react';
 import RealMultiMapView, { getLabSpecialty, getLabSpecialties, checkEstaAbierto, ESPECIALIDADES_MAPA } from '../common/RealMultiMapView';
+
+// Catálogo estructurado de las 5 regiones oficiales de Cochabamba y sus 47 municipios
+export const REGIONES_MUNICIPIOS = [
+  {
+    region: 'Región Metropolitana',
+    icono: '🏙️',
+    municipios: ['Cercado', 'Sacaba', 'Quillacollo', 'Colcapirhua', 'Tiquipaya', 'Vinto', 'Sipe Sipe']
+  },
+  {
+    region: 'Valle Alto',
+    icono: '🌾',
+    municipios: ['Punata', 'Cliza', 'Tarata', 'Arani', 'Arbieto', 'Tolata', 'San Benito', 'Toco', 'Villa Rivero', 'Tacachi', 'Cuchumuela', 'Anzaldo', 'Santiváñez']
+  },
+  {
+    region: 'Trópico de Cochabamba',
+    icono: '🌴',
+    municipios: ['Villa Tunari', 'Shinahota', 'Chimoré', 'Puerto Villarroel', 'Entre Ríos']
+  },
+  {
+    region: 'Cono Sur',
+    icono: '⛰️',
+    municipios: ['Aiquile', 'Mizque', 'Totora', 'Pasorapa', 'Omereque', 'Pocona', 'Pojo', 'Vacas', 'Alalay', 'Vila Vila']
+  },
+  {
+    region: 'Zona Andina y Valles',
+    icono: '🏔️',
+    municipios: ['Capinota', 'Arque', 'Tapacarí', 'Bolívar', 'Independencia', 'Morochata', 'Cocapata', 'Sicaya', 'Tacopaya']
+  }
+];
+
+export const CATALOGO_MUNICIPIOS = [
+  'Todos',
+  ...REGIONES_MUNICIPIOS.flatMap(r => r.municipios)
+];
+
+// Municipios principales para chips de acceso ultrarrápido
+const CHIPS_DESTACADOS = ['Todos', 'Cercado', 'Quillacollo', 'Sacaba', 'Punata', 'Villa Tunari'];
 
 export default function MapSection() {
   const [selectedMunicipio, setSelectedMunicipio] = useState('Todos');
@@ -24,6 +65,22 @@ export default function MapSection() {
   const [laboratorios, setLaboratorios] = useState([]);
   const [selectedLab, setSelectedLab] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Estados para el selector inteligente de municipios
+  const [isMunOpen, setIsMunOpen] = useState(false);
+  const [munSearch, setMunSearch] = useState('');
+  const munDropdownRef = useRef(null);
+
+  // Cerrar el menú desplegable al hacer clic fuera
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (munDropdownRef.current && !munDropdownRef.current.contains(event.target)) {
+        setIsMunOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   // 1. Cargar todos los laboratorios registrados desde el Backend
   useEffect(() => {
@@ -55,9 +112,18 @@ export default function MapSection() {
     { id: 8, key: 'TOXICOLOGIA', name: 'LABORATORIO DE TOXICOLOGÍA', shortName: 'Toxicología', icon: TestTube2, color: 'bg-amber-600', hex: '#d97706' },
   ];
 
+  // Función auxiliar para normalizar nombres de municipios al comparar
+  const normalizeMun = (name) => {
+    return (name || '')
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toUpperCase()
+      .trim();
+  };
+
   // Filtrado combinado por municipio y especialidad (reconoce múltiples especialidades por laboratorio)
   const filteredLabs = laboratorios.filter(lab => {
-    const matchMunicipio = selectedMunicipio === 'Todos' || (lab.municipio || '').toUpperCase() === selectedMunicipio.toUpperCase();
+    const matchMunicipio = selectedMunicipio === 'Todos' || normalizeMun(lab.municipio) === normalizeMun(selectedMunicipio);
     
     if (!matchMunicipio) return false;
     if (!selectedEspecialidad) return true;
@@ -67,8 +133,35 @@ export default function MapSection() {
     return specialties.some(esp => esp.id === selectedEspecialidad.id || esp.key === selectedEspecialidad.key);
   });
 
-  // Extraer lista de municipios únicos presentes en los datos
-  const municipiosDisponibles = ['Todos', ...new Set(laboratorios.map(l => l.municipio).filter(Boolean))];
+  // Conteo de laboratorios por municipio para enriquecer el selector
+  const labCountByMun = laboratorios.reduce((acc, lab) => {
+    const norm = normalizeMun(lab.municipio);
+    if (norm) {
+      acc[norm] = (acc[norm] || 0) + 1;
+    }
+    return acc;
+  }, {});
+
+  // Filtrado en vivo de regiones y municipios para el buscador inteligente
+  const searchNorm = normalizeMun(munSearch);
+  const regionesFiltradas = REGIONES_MUNICIPIOS.map(reg => {
+    const matchingMuns = reg.municipios.filter(m => {
+      if (!searchNorm) return true;
+      return normalizeMun(m).includes(searchNorm) || normalizeMun(reg.region).includes(searchNorm);
+    });
+    return { ...reg, municipios: matchingMuns };
+  }).filter(reg => reg.municipios.length > 0);
+
+  const handleSelectMunicipio = (mun) => {
+    setSelectedMunicipio(mun);
+    setSelectedLab(null);
+    setIsMunOpen(false);
+    setMunSearch('');
+  };
+
+  const selectedCount = selectedMunicipio === 'Todos'
+    ? laboratorios.length
+    : (labCountByMun[normalizeMun(selectedMunicipio)] || 0);
 
   return (
     <section className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-6 sm:py-10 space-y-6 sm:space-y-8">
@@ -86,7 +179,7 @@ export default function MapSection() {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 sm:gap-6 items-stretch">
         
         {/* Mapa Real Georreferenciado con Leaflet + OpenStreetMap */}
-        <div className="lg:col-span-8 h-[360px] sm:h-[460px] lg:h-[520px] rounded-2xl overflow-hidden shadow-sm border border-slate-200 relative">
+        <div className="lg:col-span-8 h-[380px] sm:h-[480px] lg:h-[540px] rounded-2xl overflow-hidden shadow-sm border border-slate-200 relative">
           <RealMultiMapView
             laboratorios={filteredLabs}
             selectedLab={selectedLab}
@@ -98,34 +191,175 @@ export default function MapSection() {
         </div>
 
         {/* Sidebar Filters & Results Panel */}
-        <div className="lg:col-span-4 bg-white rounded-2xl p-4 sm:p-5 border border-slate-200 shadow-sm flex flex-col justify-between space-y-4 max-h-[460px] lg:max-h-[520px]">
-          <div className="space-y-3 sm:space-y-4">
+        <div className="lg:col-span-4 bg-white rounded-2xl p-4 sm:p-5 border border-slate-200 shadow-sm flex flex-col justify-between space-y-4 max-h-[480px] lg:max-h-[540px]">
+          <div className="space-y-3 sm:space-y-3.5">
             <div>
               <h3 className="text-base sm:text-lg font-bold text-slate-900">Filtros Espaciales</h3>
-              <p className="text-xs text-slate-500">Consulte por municipio y tipo de especialidad.</p>
+              <p className="text-xs text-slate-500">Búsqueda inteligente por municipio y especialidad.</p>
             </div>
 
-            {/* Selector de Municipio */}
-            <div className="space-y-1.5">
-              <label className="text-[11px] font-bold tracking-wider text-slate-400 uppercase">
-                MUNICIPIO
-              </label>
-              <div className="relative">
-                <select
-                  value={selectedMunicipio}
-                  onChange={(e) => {
-                    setSelectedMunicipio(e.target.value);
-                    setSelectedLab(null);
-                  }}
-                  className="w-full bg-slate-50 border border-slate-200 text-slate-800 text-sm rounded-xl px-3.5 py-2.5 appearance-none focus:outline-none focus:ring-2 focus:ring-[#0077be] cursor-pointer font-medium"
-                >
-                  <option value="Todos">Todos los Municipios</option>
-                  {municipiosDisponibles.filter(m => m !== 'Todos').map((mun) => (
-                    <option key={mun} value={mun}>{mun}</option>
-                  ))}
-                </select>
-                <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-3.5 pointer-events-none" />
+            {/* Chips de Acceso Rápido */}
+            <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+              {CHIPS_DESTACADOS.map((chip) => {
+                const isChipSelected = selectedMunicipio === chip;
+                const count = chip === 'Todos' ? laboratorios.length : (labCountByMun[normalizeMun(chip)] || 0);
+                return (
+                  <button
+                    key={chip}
+                    type="button"
+                    onClick={() => handleSelectMunicipio(chip)}
+                    className={`text-[11px] font-bold px-2.5 py-1 rounded-lg border transition-all cursor-pointer flex items-center gap-1 ${
+                      isChipSelected
+                        ? 'bg-[#005596] text-white border-[#005596] shadow-xs'
+                        : 'bg-slate-50 text-slate-600 hover:bg-slate-100 border-slate-200'
+                    }`}
+                  >
+                    <span>{chip === 'Todos' ? '🌐 Todos' : chip}</span>
+                    <span className={`text-[9px] px-1.5 py-0.2 rounded-full ${
+                      isChipSelected ? 'bg-white/20 text-white' : 'bg-slate-200/80 text-slate-700'
+                    }`}>
+                      {count}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Selector Inteligente con Buscador y Regiones */}
+            <div className="space-y-1.5 relative" ref={munDropdownRef}>
+              <div className="flex items-center justify-between">
+                <label className="text-[11px] font-bold tracking-wider text-slate-400 uppercase">
+                  MUNICIPIO (47 OFICIALES)
+                </label>
+                {selectedMunicipio !== 'Todos' && (
+                  <button
+                    type="button"
+                    onClick={() => handleSelectMunicipio('Todos')}
+                    className="text-[10px] font-bold text-[#005596] hover:underline cursor-pointer"
+                  >
+                    Ver todo Cochabamba
+                  </button>
+                )}
               </div>
+
+              {/* Botón Disparador del Menú */}
+              <button
+                type="button"
+                onClick={() => setIsMunOpen(!isMunOpen)}
+                className={`w-full bg-slate-50 hover:bg-slate-100/80 border text-slate-800 text-sm rounded-xl px-3.5 py-2.5 flex items-center justify-between transition cursor-pointer font-medium ${
+                  isMunOpen ? 'ring-2 ring-[#0077be] border-[#0077be] bg-white' : 'border-slate-200'
+                }`}
+              >
+                <div className="flex items-center space-x-2 truncate">
+                  <MapPin className="w-4 h-4 text-[#005596] shrink-0" />
+                  <span className="font-bold text-slate-900 truncate">
+                    {selectedMunicipio === 'Todos' ? 'Todos los Municipios' : selectedMunicipio}
+                  </span>
+                  <span className="text-xs text-[#005596] bg-blue-50 font-bold px-2 py-0.5 rounded-full border border-blue-100 shrink-0">
+                    {selectedCount} lab{selectedCount === 1 ? '' : 's'}
+                  </span>
+                </div>
+                <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${isMunOpen ? 'rotate-180 text-[#0077be]' : ''}`} />
+              </button>
+
+              {/* Menú Desplegable Flotante con Buscador */}
+              {isMunOpen && (
+                <div className="absolute left-0 right-0 top-full mt-1.5 bg-white rounded-2xl shadow-xl border border-slate-200 z-50 overflow-hidden flex flex-col max-h-72 animate-in fade-in zoom-in-95 duration-150">
+                  {/* Barra de Búsqueda Integrada */}
+                  <div className="p-2.5 border-b border-slate-100 bg-slate-50/80 flex items-center gap-2">
+                    <Search className="w-4 h-4 text-slate-400 shrink-0 ml-1" />
+                    <input
+                      type="text"
+                      value={munSearch}
+                      onChange={(e) => setMunSearch(e.target.value)}
+                      placeholder="Buscar municipio (ej: Quillacollo, Punata...)"
+                      className="w-full bg-transparent text-xs text-slate-800 focus:outline-none placeholder-slate-400 font-medium"
+                      autoFocus
+                    />
+                    {munSearch && (
+                      <button
+                        type="button"
+                        onClick={() => setMunSearch('')}
+                        className="p-1 text-slate-400 hover:text-slate-600 rounded-md cursor-pointer"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Lista Scrollable por Regiones */}
+                  <div className="overflow-y-auto p-2 space-y-3 flex-1">
+                    {/* Opción Todos */}
+                    {(!searchNorm || 'todos'.includes(searchNorm)) && (
+                      <button
+                        type="button"
+                        onClick={() => handleSelectMunicipio('Todos')}
+                        className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
+                          selectedMunicipio === 'Todos'
+                            ? 'bg-blue-50 text-[#005596] ring-1 ring-[#005596]/30 font-extrabold'
+                            : 'text-slate-700 hover:bg-slate-100'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <span>🌐</span>
+                          <span>Todos los Municipios de Cochabamba</span>
+                        </div>
+                        <span className="text-[10px] bg-slate-200/80 px-2 py-0.5 rounded-full text-slate-700">
+                          {laboratorios.length}
+                        </span>
+                      </button>
+                    )}
+
+                    {regionesFiltradas.length === 0 ? (
+                      <div className="text-center py-6 text-xs text-slate-400">
+                        No se encontró ningún municipio con "<strong>{munSearch}</strong>"
+                      </div>
+                    ) : (
+                      regionesFiltradas.map((reg) => (
+                        <div key={reg.region} className="space-y-1">
+                          {/* Cabecera de Región */}
+                          <div className="flex items-center gap-1.5 px-2 py-1 text-[10px] font-extrabold tracking-wider text-slate-400 uppercase bg-slate-100/60 rounded-lg">
+                            <span>{reg.icono}</span>
+                            <span>{reg.region}</span>
+                          </div>
+
+                          {/* Municipios de la Región */}
+                          <div className="grid grid-cols-1 gap-0.5 pt-0.5">
+                            {reg.municipios.map((mun) => {
+                              const isSelected = selectedMunicipio === mun;
+                              const count = labCountByMun[normalizeMun(mun)] || 0;
+                              return (
+                                <button
+                                  key={mun}
+                                  type="button"
+                                  onClick={() => handleSelectMunicipio(mun)}
+                                  className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs transition cursor-pointer ${
+                                    isSelected
+                                      ? 'bg-blue-50 text-[#005596] font-extrabold ring-1 ring-[#005596]/30'
+                                      : 'text-slate-700 hover:bg-slate-50 font-medium'
+                                  }`}
+                                >
+                                  <div className="flex items-center gap-2">
+                                    {isSelected && <Check className="w-3.5 h-3.5 text-[#005596] shrink-0" />}
+                                    <span className={isSelected ? 'text-[#005596]' : ''}>{mun}</span>
+                                  </div>
+                                  <span className={`text-[10px] px-2 py-0.2 rounded-full font-bold ${
+                                    count > 0 
+                                      ? 'bg-blue-100/80 text-[#005596]' 
+                                      : 'bg-slate-100 text-slate-400'
+                                  }`}>
+                                    {count} {count === 1 ? 'lab' : 'labs'}
+                                  </span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Filtro de Especialidad Activo */}
@@ -147,7 +381,7 @@ export default function MapSection() {
             )}
 
             {/* Contador de Laboratorios */}
-            <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-xs">
+            <div className="flex items-center justify-between pt-1.5 border-t border-slate-100 text-xs">
               <span className="font-bold tracking-wide text-slate-400 uppercase">LABORATORIOS OFICIALES</span>
               <span className="font-bold text-[#005596] bg-blue-50 px-2.5 py-0.5 rounded-full border border-blue-100">
                 {filteredLabs.length} registrados
@@ -163,12 +397,26 @@ export default function MapSection() {
                 <p className="text-xs">Cargando laboratorios en el mapa...</p>
               </div>
             ) : filteredLabs.length === 0 ? (
-              <div className="text-center py-6 space-y-2">
-                <p className="text-xs text-slate-500">No se encontraron laboratorios con estos filtros.</p>
+              <div className="text-center py-6 px-3 space-y-3 bg-slate-50/60 rounded-xl border border-dashed border-slate-200">
+                <div className="w-10 h-10 mx-auto bg-blue-50 text-[#005596] rounded-full flex items-center justify-center">
+                  <MapPin className="w-5 h-5" />
+                </div>
+                <div className="space-y-1">
+                  <p className="text-xs font-bold text-slate-700">
+                    {selectedMunicipio !== 'Todos' 
+                      ? `No hay laboratorios en ${selectedMunicipio}` 
+                      : 'No se encontraron laboratorios'}
+                  </p>
+                  <p className="text-[11px] text-slate-500 leading-relaxed">
+                    {selectedMunicipio !== 'Todos'
+                      ? 'Consulte los requisitos ante el SEDES Cochabamba para tramitar la apertura y habilitación de un laboratorio en este municipio.'
+                      : 'Pruebe seleccionando otro filtro o municipio.'}
+                  </p>
+                </div>
                 {selectedEspecialidad && (
                   <button
                     onClick={() => setSelectedEspecialidad(null)}
-                    className="text-xs font-bold text-[#005596] hover:underline"
+                    className="text-xs font-bold text-[#005596] hover:underline block mx-auto pt-1 cursor-pointer"
                   >
                     Ver todas las especialidades
                   </button>

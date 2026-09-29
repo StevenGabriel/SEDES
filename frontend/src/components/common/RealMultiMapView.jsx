@@ -102,7 +102,33 @@ export const ESPECIALIDADES_MAPA = {
   }
 };
 
-// Polígonos de delimitación territorial (GIS) para Cochabamba y sus municipios
+// Función auxiliar para normalizar nombres y eliminar acentos
+export const normalizeMunKey = (name) => {
+  return (name || '')
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toUpperCase()
+    .trim();
+};
+
+// Generador de polígono geométrico suavizado para municipios con centro y radio
+const createBoundingPolygon = (centerLat, centerLng, radiusLat = 0.045, radiusLng = 0.055) => {
+  const points = [];
+  const numPoints = 12;
+  for (let i = 0; i < numPoints; i++) {
+    const angle = (i * 2 * Math.PI) / numPoints;
+    // Añadir leve variación para dar aspecto orgánico de límite jurisdiccional
+    const factor = 0.88 + 0.24 * Math.abs(Math.sin(i * 1.5));
+    const lat = centerLat + Math.sin(angle) * radiusLat * factor;
+    const lng = centerLng + Math.cos(angle) * radiusLng * factor;
+    points.push([Number(lat.toFixed(5)), Number(lng.toFixed(5))]);
+  }
+  // Cerrar el polígono
+  points.push(points[0]);
+  return points;
+};
+
+// Polígonos de delimitación territorial (GIS) para Cochabamba y sus 47 municipios
 export const LIMITES_TERRITORIALES = {
   TODOS: {
     nombre: 'Departamento de Cochabamba (Límites Oficiales)',
@@ -144,6 +170,8 @@ export const LIMITES_TERRITORIALES = {
       [-15.78, -65.45]  // Cierre en TIPNIS
     ]
   },
+  
+  // --- REGIÓN METROPOLITANA ---
   CERCADO: {
     nombre: 'Municipio de Cercado (Cochabamba)',
     centro: [-17.3895, -66.1568],
@@ -161,6 +189,21 @@ export const LIMITES_TERRITORIALES = {
       [-17.320, -66.180]
     ]
   },
+  SACABA: {
+    nombre: 'Municipio de Sacaba',
+    centro: [-17.4042, -66.0406],
+    zoom: 13,
+    color: '#005596',
+    coordenadas: [
+      [-17.350, -66.070],
+      [-17.365, -66.010],
+      [-17.410, -65.980],
+      [-17.450, -66.020],
+      [-17.440, -66.080],
+      [-17.390, -66.090],
+      [-17.350, -66.070]
+    ]
+  },
   QUILLACOLLO: {
     nombre: 'Municipio de Quillacollo',
     centro: [-17.3980, -66.2800],
@@ -176,6 +219,64 @@ export const LIMITES_TERRITORIALES = {
       [-17.340, -66.310]
     ]
   },
+  COLCAPIRHUA: {
+    nombre: 'Municipio de Colcapirhua',
+    centro: [-17.3886, -66.2361],
+    zoom: 14,
+    color: '#005596',
+    coordenadas: [
+      [-17.365, -66.250],
+      [-17.370, -66.220],
+      [-17.410, -66.218],
+      [-17.420, -66.255],
+      [-17.390, -66.260],
+      [-17.365, -66.250]
+    ]
+  },
+  TIQUIPAYA: {
+    nombre: 'Municipio de Tiquipaya',
+    centro: [-17.3381, -66.2178],
+    zoom: 13,
+    color: '#005596',
+    coordenadas: [
+      [-17.280, -66.240],
+      [-17.290, -66.190],
+      [-17.355, -66.195],
+      [-17.365, -66.235],
+      [-17.330, -66.250],
+      [-17.280, -66.240]
+    ]
+  },
+  VINTO: {
+    nombre: 'Municipio de Vinto',
+    centro: [-17.4103, -66.3156],
+    zoom: 13,
+    color: '#005596',
+    coordenadas: [
+      [-17.365, -66.335],
+      [-17.375, -66.295],
+      [-17.445, -66.290],
+      [-17.455, -66.340],
+      [-17.410, -66.350],
+      [-17.365, -66.335]
+    ]
+  },
+  'SIPE SIPE': {
+    nombre: 'Municipio de Sipe Sipe',
+    centro: [-17.4528, -66.3589],
+    zoom: 13,
+    color: '#005596',
+    coordenadas: [
+      [-17.400, -66.390],
+      [-17.410, -66.330],
+      [-17.490, -66.320],
+      [-17.510, -66.380],
+      [-17.460, -66.410],
+      [-17.400, -66.390]
+    ]
+  },
+
+  // --- REGIÓN VALLE ALTO ---
   PUNATA: {
     nombre: 'Municipio de Punata (Valle Alto)',
     centro: [-17.5480, -65.8350],
@@ -189,6 +290,107 @@ export const LIMITES_TERRITORIALES = {
       [-17.590, -65.890],
       [-17.530, -65.895],
       [-17.500, -65.860]
+    ]
+  },
+  CLIZA: {
+    nombre: 'Municipio de Cliza',
+    centro: [-17.5939, -65.9328],
+    zoom: 13,
+    color: '#005596',
+    coordenadas: createBoundingPolygon(-17.5939, -65.9328, 0.04, 0.05)
+  },
+  TARATA: {
+    nombre: 'Municipio de Tarata',
+    centro: [-17.6089, -66.0214],
+    zoom: 13,
+    color: '#005596',
+    coordenadas: createBoundingPolygon(-17.6089, -66.0214, 0.05, 0.06)
+  },
+  ARANI: {
+    nombre: 'Municipio de Arani',
+    centro: [-17.5681, -65.7700],
+    zoom: 13,
+    color: '#005596',
+    coordenadas: createBoundingPolygon(-17.5681, -65.7700, 0.045, 0.05)
+  },
+  ARBIETO: {
+    nombre: 'Municipio de Arbieto',
+    centro: [-17.5192, -66.0594],
+    zoom: 13,
+    color: '#005596',
+    coordenadas: createBoundingPolygon(-17.5192, -66.0594, 0.05, 0.055)
+  },
+  TOLATA: {
+    nombre: 'Municipio de Tolata',
+    centro: [-17.5317, -65.9864],
+    zoom: 13,
+    color: '#005596',
+    coordenadas: createBoundingPolygon(-17.5317, -65.9864, 0.035, 0.04)
+  },
+  'SAN BENITO': {
+    nombre: 'Municipio de San Benito',
+    centro: [-17.5256, -65.8942],
+    zoom: 13,
+    color: '#005596',
+    coordenadas: createBoundingPolygon(-17.5256, -65.8942, 0.04, 0.045)
+  },
+  TOCO: {
+    nombre: 'Municipio de Toco',
+    centro: [-17.6167, -65.8833],
+    zoom: 13,
+    color: '#005596',
+    coordenadas: createBoundingPolygon(-17.6167, -65.8833, 0.035, 0.04)
+  },
+  'VILLA RIVERO': {
+    nombre: 'Municipio de Villa Rivero',
+    centro: [-17.6050, -65.7489],
+    zoom: 13,
+    color: '#005596',
+    coordenadas: createBoundingPolygon(-17.6050, -65.7489, 0.04, 0.045)
+  },
+  TACACHI: {
+    nombre: 'Municipio de Tacachi',
+    centro: [-17.6400, -65.7900],
+    zoom: 13,
+    color: '#005596',
+    coordenadas: createBoundingPolygon(-17.6400, -65.7900, 0.03, 0.035)
+  },
+  CUCHUMUELA: {
+    nombre: 'Municipio de Cuchumuela (V. G. Villarroel)',
+    centro: [-17.6989, -65.6989],
+    zoom: 13,
+    color: '#005596',
+    coordenadas: createBoundingPolygon(-17.6989, -65.6989, 0.045, 0.05)
+  },
+  ANZALDO: {
+    nombre: 'Municipio de Anzaldo',
+    centro: [-17.7811, -65.9317],
+    zoom: 12,
+    color: '#005596',
+    coordenadas: createBoundingPolygon(-17.7811, -65.9317, 0.06, 0.07)
+  },
+  'SANTIVÁÑEZ': {
+    nombre: 'Municipio de Santiváñez',
+    centro: [-17.5439, -66.1367],
+    zoom: 13,
+    color: '#005596',
+    coordenadas: createBoundingPolygon(-17.5439, -66.1367, 0.05, 0.055)
+  },
+
+  // --- REGIÓN TRÓPICO ---
+  'VILLA TUNARI': {
+    nombre: 'Municipio de Villa Tunari (Trópico)',
+    centro: [-16.9736, -65.4208],
+    zoom: 11,
+    color: '#005596',
+    coordenadas: [
+      [-16.700, -65.550],
+      [-16.720, -65.380],
+      [-16.890, -65.370],
+      [-17.050, -65.480],
+      [-17.010, -65.600],
+      [-16.780, -65.610],
+      [-16.700, -65.550]
     ]
   },
   SHINAHOTA: {
@@ -206,21 +408,188 @@ export const LIMITES_TERRITORIALES = {
       [-16.930, -65.290]
     ]
   },
-  'VILLA TUNARI': {
-    nombre: 'Municipio de Villa Tunari (Trópico)',
-    centro: [-16.8200, -65.4650],
+  'CHIMORÉ': {
+    nombre: 'Municipio de Chimoré (Trópico)',
+    centro: [-16.9953, -65.1336],
     zoom: 12,
     color: '#005596',
-    coordenadas: [
-      [-16.700, -65.550],
-      [-16.720, -65.380],
-      [-16.890, -65.370],
-      [-16.950, -65.480],
-      [-16.910, -65.600],
-      [-16.780, -65.610],
-      [-16.700, -65.550]
-    ]
+    coordenadas: createBoundingPolygon(-16.9953, -65.1336, 0.06, 0.07)
+  },
+  'PUERTO VILLARROEL': {
+    nombre: 'Municipio de Puerto Villarroel (Trópico)',
+    centro: [-16.8428, -64.7936],
+    zoom: 11,
+    color: '#005596',
+    coordenadas: createBoundingPolygon(-16.8428, -64.7936, 0.08, 0.09)
+  },
+  'ENTRE RÍOS': {
+    nombre: 'Municipio de Entre Ríos (Trópico)',
+    centro: [-17.1983, -64.5292],
+    zoom: 11,
+    color: '#005596',
+    coordenadas: createBoundingPolygon(-17.1983, -64.5292, 0.08, 0.09)
+  },
+
+  // --- REGIÓN CONO SUR ---
+  AIQUILE: {
+    nombre: 'Municipio de Aiquile',
+    centro: [-18.2042, -65.1806],
+    zoom: 12,
+    color: '#005596',
+    coordenadas: createBoundingPolygon(-18.2042, -65.1806, 0.07, 0.08)
+  },
+  MIZQUE: {
+    nombre: 'Municipio de Mizque',
+    centro: [-17.9417, -65.3400],
+    zoom: 12,
+    color: '#005596',
+    coordenadas: createBoundingPolygon(-17.9417, -65.3400, 0.07, 0.08)
+  },
+  TOTORA: {
+    nombre: 'Municipio de Totora',
+    centro: [-17.7333, -65.1833],
+    zoom: 12,
+    color: '#005596',
+    coordenadas: createBoundingPolygon(-17.7333, -65.1833, 0.07, 0.08)
+  },
+  PASORAPA: {
+    nombre: 'Municipio de Pasorapa',
+    centro: [-18.3222, -64.6736],
+    zoom: 11,
+    color: '#005596',
+    coordenadas: createBoundingPolygon(-18.3222, -64.6736, 0.09, 0.10)
+  },
+  OMEREQUE: {
+    nombre: 'Municipio de Omereque',
+    centro: [-18.1139, -64.9083],
+    zoom: 12,
+    color: '#005596',
+    coordenadas: createBoundingPolygon(-18.1139, -64.9083, 0.07, 0.08)
+  },
+  POCONA: {
+    nombre: 'Municipio de Pocona',
+    centro: [-17.6472, -65.3889],
+    zoom: 12,
+    color: '#005596',
+    coordenadas: createBoundingPolygon(-17.6472, -65.3889, 0.06, 0.07)
+  },
+  POJO: {
+    nombre: 'Municipio de Pojo',
+    centro: [-17.7500, -64.8167],
+    zoom: 11,
+    color: '#005596',
+    coordenadas: createBoundingPolygon(-17.7500, -64.8167, 0.08, 0.09)
+  },
+  VACAS: {
+    nombre: 'Municipio de Vacas',
+    centro: [-17.5667, -65.5833],
+    zoom: 12,
+    color: '#005596',
+    coordenadas: createBoundingPolygon(-17.5667, -65.5833, 0.05, 0.06)
+  },
+  ALALAY: {
+    nombre: 'Municipio de Alalay',
+    centro: [-17.8000, -65.5000],
+    zoom: 12,
+    color: '#005596',
+    coordenadas: createBoundingPolygon(-17.8000, -65.5000, 0.05, 0.06)
+  },
+  'VILA VILA': {
+    nombre: 'Municipio de Vila Vila',
+    centro: [-17.9833, -65.6000],
+    zoom: 12,
+    color: '#005596',
+    coordenadas: createBoundingPolygon(-17.9833, -65.6000, 0.05, 0.06)
+  },
+
+  // --- REGIÓN ANDINA / VALLES ---
+  CAPINOTA: {
+    nombre: 'Municipio de Capinota',
+    centro: [-17.7125, -66.2606],
+    zoom: 12,
+    color: '#005596',
+    coordenadas: createBoundingPolygon(-17.7125, -66.2606, 0.06, 0.07)
+  },
+  ARQUE: {
+    nombre: 'Municipio de Arque',
+    centro: [-17.7917, -66.3889],
+    zoom: 12,
+    color: '#005596',
+    coordenadas: createBoundingPolygon(-17.7917, -66.3889, 0.07, 0.08)
+  },
+  'TAPACARÍ': {
+    nombre: 'Municipio de Tapacarí',
+    centro: [-17.5278, -66.6083],
+    zoom: 11,
+    color: '#005596',
+    coordenadas: createBoundingPolygon(-17.5278, -66.6083, 0.08, 0.09)
+  },
+  'BOLÍVAR': {
+    nombre: 'Municipio de Bolívar',
+    centro: [-17.9667, -66.5333],
+    zoom: 11,
+    color: '#005596',
+    coordenadas: createBoundingPolygon(-17.9667, -66.5333, 0.08, 0.09)
+  },
+  INDEPENDENCIA: {
+    nombre: 'Municipio de Independencia (Ayopaya)',
+    centro: [-17.0811, -66.8181],
+    zoom: 11,
+    color: '#005596',
+    coordenadas: createBoundingPolygon(-17.0811, -66.8181, 0.09, 0.10)
+  },
+  MOROCHATA: {
+    nombre: 'Municipio de Morochata',
+    centro: [-17.2750, -66.4917],
+    zoom: 11,
+    color: '#005596',
+    coordenadas: createBoundingPolygon(-17.2750, -66.4917, 0.08, 0.09)
+  },
+  COCAPATA: {
+    nombre: 'Municipio de Cocapata',
+    centro: [-16.9833, -66.6833],
+    zoom: 10,
+    color: '#005596',
+    coordenadas: createBoundingPolygon(-16.9833, -66.6833, 0.12, 0.14)
+  },
+  SICAYA: {
+    nombre: 'Municipio de Sicaya',
+    centro: [-17.8000, -66.3000],
+    zoom: 13,
+    color: '#005596',
+    coordenadas: createBoundingPolygon(-17.8000, -66.3000, 0.04, 0.045)
+  },
+  TACOPAYA: {
+    nombre: 'Municipio de Tacopaya',
+    centro: [-17.7500, -66.7167],
+    zoom: 12,
+    color: '#005596',
+    coordenadas: createBoundingPolygon(-17.7500, -66.7167, 0.06, 0.07)
   }
+};
+
+// Función robusta para resolver los límites territoriales de cualquier municipio
+export const getMunicipioLimite = (munName) => {
+  if (!munName || munName === 'Todos' || munName === 'TODOS') {
+    return LIMITES_TERRITORIALES.TODOS;
+  }
+
+  const targetNorm = normalizeMunKey(munName);
+
+  // 1. Coincidencia directa por clave
+  if (LIMITES_TERRITORIALES[targetNorm]) {
+    return LIMITES_TERRITORIALES[targetNorm];
+  }
+
+  // 2. Búsqueda por normalización en el objeto
+  for (const [key, val] of Object.entries(LIMITES_TERRITORIALES)) {
+    if (normalizeMunKey(key) === targetNorm || normalizeMunKey(val.nombre).includes(targetNorm)) {
+      return val;
+    }
+  }
+
+  // 3. Fallback por defecto al departamento completo
+  return LIMITES_TERRITORIALES.TODOS;
 };
 
 // Función para determinar si el laboratorio está ABIERTO o CERRADO en tiempo real
@@ -433,16 +802,28 @@ export default function RealMultiMapView({
     if (!mapContainerRef.current) return;
 
     if (!mapInstanceRef.current) {
+      const boliviaBounds = [
+        [-24.0, -71.5], // Suroeste
+        [-8.5, -56.0]   // Noreste
+      ];
+
       const map = L.map(mapContainerRef.current, {
         center: [-17.3895, -66.1568],
         zoom: 12,
+        minZoom: 7,
+        maxZoom: 19,
+        maxBounds: boliviaBounds,
+        maxBoundsViscosity: 0.9,
         zoomControl: true,
         scrollWheelZoom: true
       });
 
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> colaboradores',
-        maxZoom: 19
+        minZoom: 7,
+        maxZoom: 19,
+        noWrap: true,
+        bounds: boliviaBounds
       }).addTo(map);
 
       const boundaryLayer = L.layerGroup().addTo(map);
@@ -473,10 +854,8 @@ export default function RealMultiMapView({
 
     boundaryLayer.clearLayers();
 
-    const munKey = (selectedMunicipio || 'Todos').toUpperCase().trim();
-    const limiteData = LIMITES_TERRITORIALES[munKey] || LIMITES_TERRITORIALES.TODOS;
-
-    const isGlobal = munKey === 'TODOS';
+    const isGlobal = !selectedMunicipio || selectedMunicipio === 'Todos' || normalizeMunKey(selectedMunicipio) === 'TODOS';
+    const limiteData = getMunicipioLimite(selectedMunicipio);
 
     // Crear polígono territorial no interactivo (evita recuadros de foco y permite clics directos al mapa)
     const polygon = L.polygon(limiteData.coordenadas, {

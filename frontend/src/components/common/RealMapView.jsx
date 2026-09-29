@@ -33,16 +33,28 @@ export default function RealMapView({ latitud, longitud, nombre, direccion, heig
     if (!mapContainerRef.current) return;
 
     if (!mapInstanceRef.current) {
+      const boliviaBounds = [
+        [-24.0, -71.5],
+        [-8.5, -56.0]
+      ];
+
       const map = L.map(mapContainerRef.current, {
         center: [lat, lng],
         zoom: 16,
+        minZoom: 7,
+        maxZoom: 19,
+        maxBounds: boliviaBounds,
+        maxBoundsViscosity: 0.9,
         zoomControl: true,
         scrollWheelZoom: true
       });
 
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> colaboradores',
-        maxZoom: 19
+        minZoom: 7,
+        maxZoom: 19,
+        noWrap: true,
+        bounds: boliviaBounds
       }).addTo(map);
 
       const marker = L.marker([lat, lng], {

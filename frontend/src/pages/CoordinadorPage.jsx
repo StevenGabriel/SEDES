@@ -45,7 +45,8 @@ import {
   Store,
   BadgeCheck,
   UploadCloud,
-  CheckSquare
+  CheckSquare,
+  Trash2
 } from 'lucide-react';
 
 import logoL1 from '../assets/L1.png';
@@ -380,15 +381,49 @@ export default function CoordinadorPage() {
 
   // Marcar todas como leídas
   const handleMarcarTodasNotifsLeidas = async () => {
-    if (usuario?.id) {
-      try {
+    try {
+      if (usuario?.id) {
         await fetch(`http://localhost:8000/api/notificaciones/usuario/${usuario.id}/leer-todas`, { method: 'PATCH' });
-      } catch (e) {
-        console.warn('Error al marcar todas leídas:', e);
+      } else {
+        await fetch('http://localhost:8000/api/notificaciones/rol/Coordinador/leer-todas', { method: 'PATCH' });
       }
+    } catch (e) {
+      console.warn('Error al marcar todas leídas:', e);
     }
     setNotificaciones(prev => prev.map(n => ({ ...n, leido: true })));
     setNotifNoLeidas(0);
+  };
+
+  // Limpiar / eliminar todas las notificaciones
+  const handleLimpiarTodasNotificaciones = async () => {
+    try {
+      if (usuario?.id) {
+        await fetch(`http://localhost:8000/api/notificaciones/usuario/${usuario.id}/limpiar`, { method: 'DELETE' });
+      } else {
+        await fetch('http://localhost:8000/api/notificaciones/rol/Coordinador/limpiar', { method: 'DELETE' });
+      }
+      setNotificaciones([]);
+      setNotifNoLeidas(0);
+    } catch (e) {
+      console.warn('Error al limpiar todas las notificaciones:', e);
+    }
+  };
+
+  // Eliminar una notificación individual
+  const handleEliminarNotificacion = async (notifId, e) => {
+    if (e) e.stopPropagation();
+    try {
+      await fetch(`http://localhost:8000/api/notificaciones/${notifId}`, { method: 'DELETE' });
+      setNotificaciones(prev => {
+        const item = prev.find(n => n.id === notifId);
+        if (item && !item.leido) {
+          setNotifNoLeidas(c => Math.max(0, c - 1));
+        }
+        return prev.filter(n => n.id !== notifId);
+      });
+    } catch (err) {
+      console.warn('Error al eliminar notificación:', err);
+    }
   };
 
   // Cargar datos reales desde el Backend FastAPI (con soporte para refresco silencioso)
@@ -1455,14 +1490,26 @@ export default function CoordinadorPage() {
                         </div>
                       </div>
                       {notificaciones.length > 0 && (
-                        <button
-                          onClick={handleMarcarTodasNotifsLeidas}
-                          className="text-[11px] text-sky-300 hover:text-white hover:bg-white/10 px-2.5 py-1.5 rounded-lg transition font-semibold flex items-center space-x-1 cursor-pointer"
-                          title="Marcar todas como leídas"
-                        >
-                          <CheckCircle2 className="w-3.5 h-3.5" />
-                          <span>Marcar leídas</span>
-                        </button>
+                        <div className="flex items-center space-x-1.5">
+                          {notifNoLeidas > 0 && (
+                            <button
+                              onClick={handleMarcarTodasNotifsLeidas}
+                              className="text-[11px] text-sky-300 hover:text-white hover:bg-white/10 px-2.5 py-1.5 rounded-lg transition font-semibold flex items-center space-x-1 cursor-pointer"
+                              title="Marcar todas como leídas"
+                            >
+                              <CheckCircle2 className="w-3.5 h-3.5" />
+                              <span className="hidden sm:inline">Marcar leídas</span>
+                            </button>
+                          )}
+                          <button
+                            onClick={handleLimpiarTodasNotificaciones}
+                            className="text-[11px] text-rose-300 hover:text-rose-100 hover:bg-rose-500/20 px-2.5 py-1.5 rounded-lg transition font-semibold flex items-center space-x-1 cursor-pointer border border-rose-500/30"
+                            title="Limpiar todas las notificaciones"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            <span>Limpiar</span>
+                          </button>
+                        </div>
                       )}
                     </div>
 
@@ -1490,7 +1537,7 @@ export default function CoordinadorPage() {
                             <div
                               key={notif.id}
                               onClick={() => handleMarcarNotifLeida(notif.id)}
-                              className={`p-4 transition cursor-pointer flex items-start gap-3.5 ${
+                              className={`group p-4 transition cursor-pointer flex items-start gap-3.5 relative ${
                                 notif.leido 
                                   ? 'bg-white hover:bg-slate-50 opacity-80 hover:opacity-100' 
                                   : 'bg-sky-50/70 hover:bg-sky-50/90 border-l-4 border-l-[#0077c8]'
@@ -1521,9 +1568,19 @@ export default function CoordinadorPage() {
                                   <p className={`text-xs sm:text-sm text-slate-900 leading-snug break-words ${notif.leido ? 'font-semibold' : 'font-extrabold'}`}>
                                     {notif.titulo}
                                   </p>
-                                  {!notif.leido && (
-                                    <span className="w-2 h-2 rounded-full bg-[#0077c8] ring-2 ring-sky-200 shrink-0 mt-1" />
-                                  )}
+                                  <div className="flex items-center space-x-1 shrink-0">
+                                    {!notif.leido && (
+                                      <span className="w-2 h-2 rounded-full bg-[#0077c8] ring-2 ring-sky-200 shrink-0 mt-1" />
+                                    )}
+                                    <button
+                                      type="button"
+                                      onClick={(e) => handleEliminarNotificacion(notif.id, e)}
+                                      className="opacity-0 group-hover:opacity-100 hover:text-rose-600 hover:bg-rose-50 p-1 rounded-md transition text-slate-400 cursor-pointer"
+                                      title="Eliminar esta notificación"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                  </div>
                                 </div>
 
                                 <p className="text-xs text-slate-600 mt-1 leading-relaxed break-words font-normal">
@@ -1552,13 +1609,27 @@ export default function CoordinadorPage() {
                     {/* Pie del Dropdown */}
                     <div className="px-4 py-2.5 bg-slate-50 border-t border-slate-200 text-center text-[11px] text-slate-500 font-medium flex items-center justify-between">
                       <span>Total: <strong>{notificaciones.length}</strong> {notificaciones.length === 1 ? 'notificación' : 'notificaciones'}</span>
-                      <button
-                        onClick={cargarNotificaciones}
-                        className="text-[#0077c8] hover:underline font-bold text-[11px] flex items-center space-x-1 cursor-pointer"
-                      >
-                        <RefreshCw className="w-3 h-3" />
-                        <span>Actualizar</span>
-                      </button>
+                      <div className="flex items-center space-x-3">
+                        {notificaciones.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={handleLimpiarTodasNotificaciones}
+                            className="text-rose-600 hover:text-rose-800 hover:underline font-bold text-[11px] flex items-center space-x-1 cursor-pointer"
+                            title="Eliminar todas las notificaciones"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                            <span>Limpiar todo</span>
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={cargarNotificaciones}
+                          className="text-[#0077c8] hover:underline font-bold text-[11px] flex items-center space-x-1 cursor-pointer"
+                        >
+                          <RefreshCw className="w-3 h-3" />
+                          <span>Actualizar</span>
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </>
@@ -3842,176 +3913,295 @@ export default function CoordinadorPage() {
               ) : (
                 <>
                   {/* ========================================================= */}
+                  {/* ========================================================= */}
                   {/* TAB 1: DOCUMENTOS EMITIDOS OFICIALES                      */}
                   {/* ========================================================= */}
-                  {tabModalHistorial === 'documentos' && (
-                    <div className="space-y-4">
-                      <div className="bg-sky-50/60 border border-sky-200/80 rounded-2xl p-4 flex items-start space-x-3">
-                        <AlertCircle className="w-5 h-5 text-[#0077c8] shrink-0 mt-0.5" />
-                        <div className="text-xs text-sky-950 leading-relaxed font-medium">
-                          <strong>Repositorio Oficial de Documentos Emitidos:</strong> Desde aquí puede previsualizar o volver a descargar copias oficiales de las Resoluciones Administrativas e Informes Técnicos generados durante la tramitación.
-                        </div>
-                      </div>
+                  {tabModalHistorial === 'documentos' && (() => {
+                    const estNorm = (tramiteHistorialSeleccionado.estado_tramite_raw || tramiteHistorialSeleccionado.estado || '').toLowerCase();
+                    const esAprobadoFinal = Boolean(
+                      tramiteHistorialSeleccionado.es_aprobado_final ||
+                      estNorm === 'aprobado' ||
+                      (tramiteHistorialSeleccionado.estado_operativo || '').toLowerCase() === 'habilitado'
+                    );
 
-                      {/* 1. Tarjeta: Resolución Administrativa Oficial */}
-                      <div className="bg-white rounded-2xl border border-slate-200/90 shadow-xs p-5 hover:border-emerald-300 transition-all">
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                          <div className="flex items-start space-x-4">
-                            <div className="w-12 h-12 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-600 shrink-0 shadow-2xs">
-                              <Award className="w-6 h-6" />
+                    // 1. Condición para Resolución Administrativa
+                    const tieneResolucionEmitida = Boolean(
+                      esAprobadoFinal ||
+                      tramiteHistorialSeleccionado.resolucion_lista_para_firma ||
+                      tramiteHistorialSeleccionado.resolucion?.numero_resolucion ||
+                      tramiteHistorialSeleccionado.resolucion_numero
+                    );
+
+                    // 2. Condición para Informe Técnico / Comunicación Interna
+                    const tieneInformeEmitido = Boolean(
+                      tieneResolucionEmitida ||
+                      tramiteHistorialSeleccionado.informe_tecnico_aprobado ||
+                      tramiteHistorialSeleccionado.derivado_a_legal ||
+                      estNorm.includes('legal') ||
+                      estNorm.includes('informe') ||
+                      estNorm.includes('derivado') ||
+                      tramiteHistorialSeleccionado.resolucion?.cite_informe
+                    );
+
+                    // 3. Condición para Inspección In-Situ
+                    const veredictoSupRaw = (tramiteHistorialSeleccionado.veredicto_supervisor_raw || tramiteHistorialSeleccionado.veredictoSupervisor || '').toLowerCase();
+                    const tieneInspeccionRealizada = Boolean(
+                      tramiteHistorialSeleccionado.inspeccion_aprobada ||
+                      tramiteHistorialSeleccionado.inspeccion_rechazada ||
+                      tramiteHistorialSeleccionado.inspeccion_con_observaciones ||
+                      tramiteHistorialSeleccionado.acta_pdf_url ||
+                      (veredictoSupRaw && !veredictoSupRaw.includes('pendiente') && !veredictoSupRaw.includes('sin asignar') && !veredictoSupRaw.includes('no asignado'))
+                    );
+
+                    return (
+                      <div className="space-y-4">
+                        {/* Mensaje de Cabecera Informativo */}
+                        <div className={`rounded-2xl p-4 flex items-start space-x-3 border ${
+                          tieneResolucionEmitida
+                            ? 'bg-emerald-50/60 border-emerald-200/80 text-emerald-950'
+                            : tieneInformeEmitido
+                            ? 'bg-sky-50/60 border-sky-200/80 text-sky-950'
+                            : 'bg-amber-50/60 border-amber-200/80 text-amber-950'
+                        }`}>
+                          <AlertCircle className={`w-5 h-5 shrink-0 mt-0.5 ${
+                            tieneResolucionEmitida ? 'text-emerald-600' : tieneInformeEmitido ? 'text-[#0077c8]' : 'text-amber-600'
+                          }`} />
+                          <div className="text-xs leading-relaxed font-medium">
+                            <strong>Repositorio Oficial de Documentos:</strong> {tieneResolucionEmitida 
+                              ? 'Este trámite ha completado satisfactoriamente el circuito administrativo. Puede visualizar y descargar las copias oficiales de los documentos emitidos.'
+                              : tieneInformeEmitido
+                              ? 'El Informe Técnico fue emitido y remitido a Asesoría Legal. La Resolución Administrativa se habilitará una vez aprobada por el área legal y el Coordinador.'
+                              : 'Este trámite se encuentra en etapa inicial de revisión documental. Los documentos oficiales (Informe Técnico y Resolución Administrativa) se habilitarán a medida que se cumplan las inspecciones y dictámenes correspondientes.'}
+                          </div>
+                        </div>
+
+                        {/* 1. Tarjeta: Resolución Administrativa Oficial */}
+                        <div className={`rounded-2xl border p-5 transition-all ${
+                          tieneResolucionEmitida
+                            ? 'bg-white border-slate-200/90 shadow-xs hover:border-emerald-300'
+                            : 'bg-slate-50/60 border-slate-200/70 opacity-90'
+                        }`}>
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                            <div className="flex items-start space-x-4">
+                              <div className={`w-12 h-12 rounded-2xl border flex items-center justify-center shrink-0 shadow-2xs ${
+                                tieneResolucionEmitida
+                                  ? 'bg-emerald-50 border-emerald-200 text-emerald-600'
+                                  : 'bg-slate-100 border-slate-200 text-slate-400'
+                              }`}>
+                                <Award className="w-6 h-6" />
+                              </div>
+                              <div>
+                                <div className="flex items-center space-x-2">
+                                  <h3 className={`text-sm font-black ${tieneResolucionEmitida ? 'text-slate-900' : 'text-slate-700'}`}>
+                                    Resolución Administrativa SEDES
+                                  </h3>
+                                  <span className={`px-2 py-0.5 text-[10px] font-extrabold rounded-md border ${
+                                    tieneResolucionEmitida
+                                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                      : 'bg-slate-100 text-slate-500 border-slate-200'
+                                  }`}>
+                                    {tieneResolucionEmitida ? 'Documento Legal Oficial' : 'Pendiente de Emisión'}
+                                  </span>
+                                </div>
+                                <p className="text-xs text-slate-500 font-medium mt-1">
+                                  {tieneResolucionEmitida
+                                    ? (tramiteHistorialSeleccionado.resolucion?.numero_resolucion || tramiteHistorialSeleccionado.resolucion_numero
+                                        ? `Resolución N° ${tramiteHistorialSeleccionado.resolucion?.numero_resolucion || tramiteHistorialSeleccionado.resolucion_numero} • Vigencia: ${tramiteHistorialSeleccionado.resolucion?.vigencia_anios || 5} años`
+                                        : 'Resolución Administrativa Oficial de Habilitación y Funcionamiento')
+                                    : 'La Resolución Administrativa será emitida por Asesoría Legal tras aprobar el Informe Técnico.'}
+                                </p>
+                                <div className="flex flex-wrap items-center gap-3 text-[11px] text-slate-400 font-medium mt-2">
+                                  <span>Asesor Legal: <strong className={tieneResolucionEmitida ? 'text-slate-700' : 'text-slate-500'}>{tramiteHistorialSeleccionado.resolucion?.abogado_nombre || 'Asesoría Jurídica SEDES'}</strong></span>
+                                  <span>&bull;</span>
+                                  <span>Estado: <strong className={tieneResolucionEmitida ? 'text-emerald-700' : 'text-slate-500'}>{tieneResolucionEmitida ? (tramiteHistorialSeleccionado.resolucion?.fecha_emision || 'Emitida / Oficial') : 'En Espera de Informe Técnico'}</strong></span>
+                                </div>
+                              </div>
                             </div>
-                            <div>
-                              <div className="flex items-center space-x-2">
-                                <h3 className="text-sm font-black text-slate-900">
-                                  Resolución Administrativa SEDES
-                                </h3>
-                                <span className="px-2 py-0.5 text-[10px] font-extrabold rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                  Documento Legal Oficial
+
+                            {/* Acciones de Resolución */}
+                            <div className="flex items-center space-x-2 self-end sm:self-center shrink-0">
+                              {tieneResolucionEmitida ? (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() => handlePrevisualizarPdfHistorial('resolucion', tramiteHistorialSeleccionado)}
+                                    disabled={generandoPdfHistorial}
+                                    className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold flex items-center space-x-1.5 transition cursor-pointer disabled:opacity-50"
+                                    title="Ver vista previa de la Resolución"
+                                  >
+                                    <Eye className="w-3.5 h-3.5 text-slate-600" />
+                                    <span>Vista Previa</span>
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDescargarResolucionHistorial(tramiteHistorialSeleccionado)}
+                                    disabled={generandoPdfHistorial}
+                                    className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-extrabold flex items-center space-x-1.5 shadow-xs transition cursor-pointer disabled:opacity-50 active:scale-95"
+                                    title="Descargar Resolución Administrativa en PDF"
+                                  >
+                                    <Download className="w-3.5 h-3.5" />
+                                    <span>Descargar (PDF)</span>
+                                  </button>
+                                </>
+                              ) : (
+                                <span className="inline-flex items-center space-x-1.5 text-slate-500 bg-slate-100 border border-slate-200 text-xs font-bold px-3 py-2 rounded-xl">
+                                  <Clock className="w-3.5 h-3.5 text-slate-400" />
+                                  <span>No Emitido Aún</span>
                                 </span>
-                              </div>
-                              <p className="text-xs text-slate-500 font-medium mt-1">
-                                {tramiteHistorialSeleccionado.resolucion?.numero_resolucion || tramiteHistorialSeleccionado.resolucion_numero
-                                  ? `Resolución N° ${tramiteHistorialSeleccionado.resolucion?.numero_resolucion || tramiteHistorialSeleccionado.resolucion_numero} • Vigencia: ${tramiteHistorialSeleccionado.resolucion?.vigencia_anios || 5} años`
-                                  : 'Resolución Administrativa Oficial de Habilitación y Funcionamiento'}
-                              </p>
-                              <div className="flex flex-wrap items-center gap-3 text-[11px] text-slate-400 font-medium mt-2">
-                                <span>Asesor Legal: <strong className="text-slate-700">{tramiteHistorialSeleccionado.resolucion?.abogado_nombre || 'Dr. Marco Villanueva'}</strong></span>
-                                <span>&bull;</span>
-                                <span>Fecha: <strong className="text-slate-700">{tramiteHistorialSeleccionado.resolucion?.fecha_emision || tramiteHistorialSeleccionado.fecha || 'Oficial'}</strong></span>
-                              </div>
+                              )}
                             </div>
-                          </div>
-
-                          {/* Acciones de Resolución */}
-                          <div className="flex items-center space-x-2 self-end sm:self-center shrink-0">
-                            <button
-                              type="button"
-                              onClick={() => handlePrevisualizarPdfHistorial('resolucion', tramiteHistorialSeleccionado)}
-                              disabled={generandoPdfHistorial}
-                              className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold flex items-center space-x-1.5 transition cursor-pointer disabled:opacity-50"
-                              title="Ver vista previa de la Resolución"
-                            >
-                              <Eye className="w-3.5 h-3.5 text-slate-600" />
-                              <span>Vista Previa</span>
-                            </button>
-
-                            <button
-                              type="button"
-                              onClick={() => handleDescargarResolucionHistorial(tramiteHistorialSeleccionado)}
-                              disabled={generandoPdfHistorial}
-                              className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-extrabold flex items-center space-x-1.5 shadow-xs transition cursor-pointer disabled:opacity-50 active:scale-95"
-                              title="Descargar Resolución Administrativa en PDF"
-                            >
-                              <Download className="w-3.5 h-3.5" />
-                              <span>Descargar (PDF)</span>
-                            </button>
                           </div>
                         </div>
-                      </div>
 
-                      {/* 2. Tarjeta: Informe Técnico / Comunicación Interna */}
-                      <div className="bg-white rounded-2xl border border-slate-200/90 shadow-xs p-5 hover:border-sky-300 transition-all">
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                          <div className="flex items-start space-x-4">
-                            <div className="w-12 h-12 rounded-2xl bg-sky-50 border border-sky-200 flex items-center justify-center text-[#0077c8] shrink-0 shadow-2xs">
-                              <FileText className="w-6 h-6" />
+                        {/* 2. Tarjeta: Informe Técnico / Comunicación Interna */}
+                        <div className={`rounded-2xl border p-5 transition-all ${
+                          tieneInformeEmitido
+                            ? 'bg-white border-slate-200/90 shadow-xs hover:border-sky-300'
+                            : 'bg-slate-50/60 border-slate-200/70 opacity-90'
+                        }`}>
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                            <div className="flex items-start space-x-4">
+                              <div className={`w-12 h-12 rounded-2xl border flex items-center justify-center shrink-0 shadow-2xs ${
+                                tieneInformeEmitido
+                                  ? 'bg-sky-50 border-sky-200 text-[#0077c8]'
+                                  : 'bg-slate-100 border-slate-200 text-slate-400'
+                              }`}>
+                                <FileText className="w-6 h-6" />
+                              </div>
+                              <div>
+                                <div className="flex items-center space-x-2">
+                                  <h3 className={`text-sm font-black ${tieneInformeEmitido ? 'text-slate-900' : 'text-slate-700'}`}>
+                                    Informe Técnico / Comunicación Interna CODELAB
+                                  </h3>
+                                  <span className={`px-2 py-0.5 text-[10px] font-extrabold rounded-md border ${
+                                    tieneInformeEmitido
+                                      ? 'bg-sky-50 text-[#0077c8] border border-sky-200'
+                                      : 'bg-slate-100 text-slate-500 border-slate-200'
+                                  }`}>
+                                    {tieneInformeEmitido ? 'Dictamen Favorable' : 'Pendiente de Elaboración'}
+                                  </span>
+                                </div>
+                                <p className="text-xs text-slate-500 font-medium mt-1">
+                                  {tieneInformeEmitido
+                                    ? `CITE: ${tramiteHistorialSeleccionado.resolucion?.cite_informe || `CODELAB/SEDES/1/${new Date().getFullYear()}`} • Remisión oficial a Asesoría Legal`
+                                    : 'El Informe Técnico se generará una vez que la inspección in-situ concluya favorablemente.'}
+                                </p>
+                                <div className="flex flex-wrap items-center gap-3 text-[11px] text-slate-400 font-medium mt-2">
+                                  <span>Emitido por: <strong className={tieneInformeEmitido ? 'text-slate-700' : 'text-slate-500'}>{nombreCoordinador}</strong></span>
+                                  <span>&bull;</span>
+                                  <span>Destino: <strong className={tieneInformeEmitido ? 'text-slate-700' : 'text-slate-500'}>Asesoría Legal SEDES</strong></span>
+                                </div>
+                              </div>
                             </div>
-                            <div>
-                              <div className="flex items-center space-x-2">
-                                <h3 className="text-sm font-black text-slate-900">
-                                  Informe Técnico / Comunicación Interna CODELAB
-                                </h3>
-                                <span className="px-2 py-0.5 text-[10px] font-extrabold rounded-md bg-sky-50 text-[#0077c8] border border-sky-200">
-                                  Dictamen Favorable
+
+                            {/* Acciones de Informe */}
+                            <div className="flex items-center space-x-2 self-end sm:self-center shrink-0">
+                              {tieneInformeEmitido ? (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() => handlePrevisualizarPdfHistorial('informe', tramiteHistorialSeleccionado)}
+                                    disabled={generandoPdfHistorial}
+                                    className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold flex items-center space-x-1.5 transition cursor-pointer disabled:opacity-50"
+                                    title="Ver vista previa del Informe Técnico"
+                                  >
+                                    <Eye className="w-3.5 h-3.5 text-slate-600" />
+                                    <span>Vista Previa</span>
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDescargarInformeHistorial(tramiteHistorialSeleccionado)}
+                                    disabled={generandoPdfHistorial}
+                                    className="px-3.5 py-2 bg-[#19324d] hover:bg-[#102235] text-white rounded-xl text-xs font-extrabold flex items-center space-x-1.5 shadow-xs transition cursor-pointer disabled:opacity-50 active:scale-95"
+                                    title="Descargar Comunicación Interna en PDF"
+                                  >
+                                    <Download className="w-3.5 h-3.5" />
+                                    <span>Descargar (PDF)</span>
+                                  </button>
+                                </>
+                              ) : (
+                                <span className="inline-flex items-center space-x-1.5 text-slate-500 bg-slate-100 border border-slate-200 text-xs font-bold px-3 py-2 rounded-xl">
+                                  <Clock className="w-3.5 h-3.5 text-slate-400" />
+                                  <span>En Espera de Inspección</span>
                                 </span>
-                              </div>
-                              <p className="text-xs text-slate-500 font-medium mt-1">
-                                CITE: <strong className="text-slate-700">{tramiteHistorialSeleccionado.resolucion?.cite_informe || `CODELAB/SEDES/1/${new Date().getFullYear()}`}</strong> &bull; Remisión oficial a Asesoría Legal
-                              </p>
-                              <div className="flex flex-wrap items-center gap-3 text-[11px] text-slate-400 font-medium mt-2">
-                                <span>Emitido por: <strong className="text-slate-700">{nombreCoordinador}</strong></span>
-                                <span>&bull;</span>
-                                <span>Destino: <strong className="text-slate-700">Asesoría Legal SEDES</strong></span>
-                              </div>
+                              )}
                             </div>
-                          </div>
-
-                          {/* Acciones de Informe */}
-                          <div className="flex items-center space-x-2 self-end sm:self-center shrink-0">
-                            <button
-                              type="button"
-                              onClick={() => handlePrevisualizarPdfHistorial('informe', tramiteHistorialSeleccionado)}
-                              disabled={generandoPdfHistorial}
-                              className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold flex items-center space-x-1.5 transition cursor-pointer disabled:opacity-50"
-                              title="Ver vista previa del Informe Técnico"
-                            >
-                              <Eye className="w-3.5 h-3.5 text-slate-600" />
-                              <span>Vista Previa</span>
-                            </button>
-
-                            <button
-                              type="button"
-                              onClick={() => handleDescargarInformeHistorial(tramiteHistorialSeleccionado)}
-                              disabled={generandoPdfHistorial}
-                              className="px-3.5 py-2 bg-[#19324d] hover:bg-[#102235] text-white rounded-xl text-xs font-extrabold flex items-center space-x-1.5 shadow-xs transition cursor-pointer disabled:opacity-50 active:scale-95"
-                              title="Descargar Comunicación Interna en PDF"
-                            >
-                              <Download className="w-3.5 h-3.5" />
-                              <span>Descargar (PDF)</span>
-                            </button>
                           </div>
                         </div>
-                      </div>
 
-                      {/* 3. Tarjeta: Acta de Fiscalización e Inspección Técnica In-Situ */}
-                      <div className="bg-white rounded-2xl border border-slate-200/90 shadow-xs p-5 hover:border-indigo-300 transition-all">
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                          <div className="flex items-start space-x-4">
-                            <div className="w-12 h-12 rounded-2xl bg-indigo-50 border border-indigo-200 flex items-center justify-center text-indigo-600 shrink-0 shadow-2xs">
-                              <ShieldCheck className="w-6 h-6" />
+                        {/* 3. Tarjeta: Acta de Fiscalización e Inspección Técnica In-Situ */}
+                        <div className={`rounded-2xl border p-5 transition-all ${
+                          tieneInspeccionRealizada
+                            ? 'bg-white border-slate-200/90 shadow-xs hover:border-indigo-300'
+                            : 'bg-slate-50/60 border-slate-200/70 opacity-90'
+                        }`}>
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                            <div className="flex items-start space-x-4">
+                              <div className={`w-12 h-12 rounded-2xl border flex items-center justify-center shrink-0 shadow-2xs ${
+                                tieneInspeccionRealizada
+                                  ? 'bg-indigo-50 border-indigo-200 text-indigo-600'
+                                  : 'bg-slate-100 border-slate-200 text-slate-400'
+                              }`}>
+                                <ShieldCheck className="w-6 h-6" />
+                              </div>
+                              <div>
+                                <div className="flex items-center space-x-2">
+                                  <h3 className={`text-sm font-black ${tieneInspeccionRealizada ? 'text-slate-900' : 'text-slate-700'}`}>
+                                    Acta de Fiscalización e Inspección Técnica In-Situ
+                                  </h3>
+                                  <span className={`px-2 py-0.5 text-[10px] font-extrabold rounded-md border ${
+                                    tieneInspeccionRealizada
+                                      ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
+                                      : 'bg-amber-50 text-amber-700 border-amber-200'
+                                  }`}>
+                                    {tieneInspeccionRealizada ? 'Inspección de Campo' : 'Inspección Pendiente'}
+                                  </span>
+                                </div>
+                                <p className="text-xs text-slate-500 font-medium mt-1">
+                                  Veredicto: <strong className={tieneInspeccionRealizada ? 'text-emerald-700' : 'text-amber-700'}>
+                                    {tramiteHistorialSeleccionado.veredictoSupervisor || 'PENDIENTE DE ASIGNACIÓN'}
+                                  </strong> &bull; Supervisor: <strong className="text-slate-700">{tramiteHistorialSeleccionado.supervisorAsignado || 'Sin Asignar'}</strong>
+                                </p>
+                                <div className="flex flex-wrap items-center gap-3 text-[11px] text-slate-400 font-medium mt-2">
+                                  <span>Fecha Inspección: <strong className="text-slate-700">{tramiteHistorialSeleccionado.fechaInspeccion || 'Pendiente de Programación'}</strong></span>
+                                </div>
+                              </div>
                             </div>
-                            <div>
-                              <div className="flex items-center space-x-2">
-                                <h3 className="text-sm font-black text-slate-900">
-                                  Acta de Fiscalización e Inspección Técnica In-Situ
-                                </h3>
-                                <span className="px-2 py-0.5 text-[10px] font-extrabold rounded-md bg-indigo-50 text-indigo-700 border border-indigo-200">
-                                  Inspección de Campo
+
+                            {/* Acciones de Acta */}
+                            <div className="flex items-center space-x-2 self-end sm:self-center shrink-0">
+                              {tieneInspeccionRealizada ? (
+                                tramiteHistorialSeleccionado.acta_pdf_url ? (
+                                  <a
+                                    href={tramiteHistorialSeleccionado.acta_pdf_url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-extrabold flex items-center space-x-1.5 shadow-xs transition cursor-pointer"
+                                  >
+                                    <ExternalLink className="w-3.5 h-3.5" />
+                                    <span>Ver Acta Firmada</span>
+                                  </a>
+                                ) : (
+                                  <span className="inline-flex items-center space-x-1 text-emerald-700 bg-emerald-50 border border-emerald-200 font-bold text-xs px-3 py-1.5 rounded-xl">
+                                    <Check className="w-3.5 h-3.5 stroke-[2.5]" />
+                                    <span>Inspección Validada</span>
+                                  </span>
+                                )
+                              ) : (
+                                <span className="inline-flex items-center space-x-1.5 text-amber-700 bg-amber-50 border border-amber-200 text-xs font-bold px-3 py-2 rounded-xl">
+                                  <Clock className="w-3.5 h-3.5 text-amber-500" />
+                                  <span>Sin Inspección In-Situ</span>
                                 </span>
-                              </div>
-                              <p className="text-xs text-slate-500 font-medium mt-1">
-                                Veredicto: <strong className="text-emerald-700">{tramiteHistorialSeleccionado.veredictoSupervisor || 'Favorable (Conforme)'}</strong> &bull; Supervisor: <strong className="text-slate-700">{tramiteHistorialSeleccionado.supervisorAsignado || 'Supervisor Institucional SEDES'}</strong>
-                              </p>
-                              <div className="flex flex-wrap items-center gap-3 text-[11px] text-slate-400 font-medium mt-2">
-                                <span>Fecha Inspección: <strong className="text-slate-700">{tramiteHistorialSeleccionado.fechaInspeccion || 'Completada'}</strong></span>
-                              </div>
+                              )}
                             </div>
                           </div>
-
-                          {/* Acciones de Acta */}
-                          <div className="flex items-center space-x-2 self-end sm:self-center shrink-0">
-                            {tramiteHistorialSeleccionado.acta_pdf_url ? (
-                              <a
-                                href={tramiteHistorialSeleccionado.acta_pdf_url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-extrabold flex items-center space-x-1.5 shadow-xs transition cursor-pointer"
-                              >
-                                <ExternalLink className="w-3.5 h-3.5" />
-                                <span>Ver Acta Firmada</span>
-                              </a>
-                            ) : (
-                              <span className="inline-flex items-center space-x-1 text-emerald-700 bg-emerald-50 border border-emerald-200 font-bold text-xs px-3 py-1.5 rounded-xl">
-                                <Check className="w-3.5 h-3.5 stroke-[2.5]" />
-                                <span>Inspección Validada</span>
-                              </span>
-                            )}
-                          </div>
                         </div>
-                      </div>
 
-                    </div>
-                  )}
+                      </div>
+                    );
+                  })()}
 
                   {/* ========================================================= */}
                   {/* TAB 2: FICHA DEL ESTABLECIMIENTO                         */}

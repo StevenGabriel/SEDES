@@ -249,6 +249,49 @@ def limpiar_todas_notificaciones(
 
     return {"mensaje": f"Se eliminaron {borradas} notificaciones correctamente.", "total_eliminadas": borradas}
 
+@router.delete("/rol/{rol_nombre}/limpiar", summary="Limpiar/eliminar todas las notificaciones de un rol")
+def limpiar_todas_notificaciones_rol(
+    rol_nombre: str,
+    db: Session = Depends(get_db)
+):
+    usuarios = db.query(models.Usuario).join(models.Role).filter(
+        models.Role.nombre.ilike(rol_nombre.strip()),
+        models.Usuario.estado == True
+    ).all()
+
+    if not usuarios:
+        return {"mensaje": "No se encontraron usuarios para este rol.", "total_eliminadas": 0}
+
+    u_ids = [u.id for u in usuarios]
+    borradas = db.query(models.Notificacion).filter(
+        models.Notificacion.usuario_id.in_(u_ids)
+    ).delete(synchronize_session=False)
+    db.commit()
+
+    return {"mensaje": f"Se eliminaron {borradas} notificaciones del rol {rol_nombre}.", "total_eliminadas": borradas}
+
+@router.patch("/rol/{rol_nombre}/leer-todas", summary="Marcar todas las notificaciones de un rol como leídas")
+def marcar_todas_leidas_rol(
+    rol_nombre: str,
+    db: Session = Depends(get_db)
+):
+    usuarios = db.query(models.Usuario).join(models.Role).filter(
+        models.Role.nombre.ilike(rol_nombre.strip()),
+        models.Usuario.estado == True
+    ).all()
+
+    if not usuarios:
+        return {"mensaje": "No se encontraron usuarios para este rol."}
+
+    u_ids = [u.id for u in usuarios]
+    db.query(models.Notificacion).filter(
+        models.Notificacion.usuario_id.in_(u_ids),
+        models.Notificacion.leido == False
+    ).update({"leido": True}, synchronize_session=False)
+    db.commit()
+
+    return {"mensaje": f"Todas las notificaciones del rol {rol_nombre} fueron marcadas como leídas."}
+
 @router.delete("/{notificacion_id}", summary="Eliminar una notificación individual")
 def eliminar_notificacion_individual(
     notificacion_id: str,

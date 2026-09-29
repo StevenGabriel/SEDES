@@ -222,10 +222,25 @@ def listar_establecimientos(
     tipo: Optional[str] = Query(None, description="Filtrar por tipo"),
     nivel: Optional[str] = Query(None, description="Filtrar por nivel"),
     estado: Optional[str] = Query(None, description="Filtrar por estado operativo"),
+    incluir_en_tramite: bool = Query(False, description="Incluir laboratorios que aún están en trámite"),
     q: Optional[str] = Query(None, description="Búsqueda por nombre, código CUE o dirección"),
     db: Session = Depends(get_db)
 ):
     query = db.query(models.Establecimiento).filter(models.Establecimiento.estado == True)
+
+    # Control de publicación oficial:
+    # Para el público en general (landing page, mapa, catálogo), SOLO se publican laboratorios autorizados y habilitados
+    if not incluir_en_tramite:
+        if estado and estado.lower() != "todos":
+            query = query.filter(models.Establecimiento.estado_operativo.ilike(f"%{estado.strip()}%"))
+        else:
+            query = query.filter(
+                models.Establecimiento.estado_operativo.notin_(["En Trámite", "Clausurado"]),
+                models.Establecimiento.estado_operativo.isnot(None)
+            )
+    else:
+        if estado and estado.lower() != "todos":
+            query = query.filter(models.Establecimiento.estado_operativo.ilike(f"%{estado.strip()}%"))
 
     if municipio and municipio.lower() != "todos":
         query = query.filter(models.Establecimiento.municipio.ilike(f"%{municipio.strip()}%"))
@@ -235,9 +250,6 @@ def listar_establecimientos(
 
     if nivel and nivel.lower() != "todos":
         query = query.filter(models.Establecimiento.nivel.ilike(f"%{nivel.strip()}%"))
-
-    if estado and estado.lower() != "todos":
-        query = query.filter(models.Establecimiento.estado_operativo.ilike(f"%{estado.strip()}%"))
 
     if q:
         termino = f"%{q.strip()}%"
@@ -315,6 +327,13 @@ def obtener_detalle_establecimiento(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Laboratorio no encontrado."
+        )
+
+    # Bloqueo de publicación para laboratorios en trámite que no han sido habilitados oficialmente
+    if (estab.estado_operativo or "").strip().lower() in ["en trámite", "en tramite"]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Este laboratorio se encuentra actualmente en proceso de revisión y habilitación técnica ante CODELAB SEDES. Su página web oficial estará disponible una vez que el Coordinador apruebe el trámite final."
         )
 
     return serializar_establecimiento(estab, db)

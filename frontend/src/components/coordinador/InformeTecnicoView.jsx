@@ -704,50 +704,6 @@ export default function InformeTecnicoView({
         {/* Formulario o Visualizador de PDF */}
         <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6 flex flex-col">
 
-          {/* Banner de Resolución Aprobada por Legal (Listo para Aprobación Final) */}
-          {esListoParaAprobarFinal && !esAprobadoFinal && (
-            <div className="bg-emerald-50/90 border border-emerald-300 p-4 sm:p-5 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs shrink-0 animate-in fade-in duration-200">
-              <div className="flex items-start sm:items-center space-x-3.5">
-                <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0 shadow-inner">
-                  <Award className="w-5 h-5" />
-                </div>
-                <div>
-                  <h4 className="text-xs sm:text-sm font-black text-emerald-900 flex items-center space-x-2">
-                    <span>¡Resolución Administrativa {tramiteActivo?.resolucion_numero ? `(${tramiteActivo.resolucion_numero})` : ''} Aprobada por Asesoría Legal!</span>
-                    <span className="text-[10px] font-bold bg-emerald-200 text-emerald-900 px-2 py-0.5 rounded-full">
-                      Listo para Firma
-                    </span>
-                  </h4>
-                  <p className="text-[11px] sm:text-xs text-emerald-800 font-medium mt-0.5 leading-relaxed">
-                    El Asesor Legal ha redactado/editado la Resolución Administrativa y la ha remitido para su revisión final. Puede visualizarla en el visor o presionar <strong>"Aprobar Trámite Final"</strong>.
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-center space-x-2 shrink-0">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setTipoDocumentoVisor('resolucion');
-                    setVistaModo('visor');
-                  }}
-                  className="px-3.5 py-2 bg-white text-emerald-800 hover:bg-emerald-100/70 border border-emerald-300 font-bold text-xs rounded-xl transition flex items-center space-x-1.5 cursor-pointer shadow-xs"
-                >
-                  <Eye className="w-3.5 h-3.5 text-emerald-700" />
-                  <span>Ver Resolución</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onAprobarFinal(tramiteActivo)}
-                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-extrabold text-xs rounded-xl shadow-md transition flex items-center justify-center space-x-2 cursor-pointer"
-                >
-                  <Award className="w-4 h-4 text-white" />
-                  <span>Aprobar Ahora</span>
-                </button>
-              </div>
-            </div>
-          )}
-
           {/* Panel Opcional de Configuración del Membrete Oficial CITE */}
           {mostrarConfigMemo && (
             <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-3 animate-in fade-in duration-150 shrink-0">

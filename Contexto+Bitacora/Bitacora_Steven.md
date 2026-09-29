@@ -3616,9 +3616,134 @@ Ajustar la sección de firmas de la **Resolución Administrativa Legal (PDF)** (
 * **Estructura Limpia de 4 Líneas de Firma (2 x 2):**
   * Se mantuvieron y alinearon las 4 líneas horizontales con grosor uniforme (`0.4 pt`) y separación vertical de `48 mm`, proporcionando el espacio adecuado para los sellos oficiales físicos.
 
+## [2026-09-29] Eliminación de Banner y Botones Redundantes en la Vista de Informe Técnico
+
+### 📌 Objetivo
+Limpiar la interfaz del módulo de **Informe Técnico** (`InformeTecnicoView.jsx`) removiendo el banner de alerta superior *"¡Resolución Administrativa Aprobada por Asesoría Legal! Listo para Firma"* y sus botones duplicados (*"Ver Resolución"* y *"Aprobar Ahora"*), ya que las acciones de previsualización y aprobación final se encuentran centralizadas y organizadas en la barra de acciones inferior del panel.
+
 ---
 
+### 🛠️ Archivos Modificados y Soluciones Aplicadas
 
+#### 1. `frontend/src/components/coordinador/InformeTecnicoView.jsx` [MODIFICADO]
+* **Depuración de Elementos Duplicados:**
+  * Se eliminó el bloque condicional del banner superior `esListoParaAprobarFinal && !esAprobadoFinal`, otorgando mayor visibilidad al documento y evitando redundancia de controles con la barra inferior.
 
+## [2026-09-29] Control de Publicación Oficial de Establecimientos (Landing Page, Mapa y Ficha Pública)
 
+### 📌 Objetivo
+Garantizar que cuando un propietario registre y envíe una solicitud de apertura de un nuevo laboratorio (`estado_operativo = "En Trámite"`), este **NO** sea publicado de inmediato en la Landing Page, el Mapa Georreferenciado, el Carrusel de destacados ni tenga página web pública accesible, hasta que el **Coordinador** emita la aprobación final del trámite en la etapa de Informe Técnico (`POST /api/coordinador/tramites/{tramite_id}/aprobar`), momento en el cual el establecimiento pasa formalmente a estado **`"Habilitado"`** y se le asigna su código CUE oficial.
 
+---
+
+### 🛠️ Archivos Modificados y Soluciones Aplicadas
+
+#### 1. `backend/establecimientos.py` [MODIFICADO]
+* **Filtro de Publicación en `GET /api/establecimientos`:**
+  * Por defecto, el catálogo público excluye todos los establecimientos con `estado_operativo == "En Trámite"` o `"Clausurado"`, publicando únicamente los laboratorios autorizados y habilitados.
+* **Bloqueo de Ficha Pública en `GET /api/establecimientos/{id_o_cue}`:**
+  * Si un usuario intenta acceder a la URL pública de un laboratorio que aún está en trámite, el backend responde con código HTTP 403 informando que el laboratorio está en proceso de auditoría y no se encuentra publicado.
+
+#### 2. `backend/coordinador.py` [MODIFICADO]
+* **Activación y Publicación en Aprobación Final (`handleConfirmarAprobacion`):**
+  * Al emitir la aprobación final del trámite, el establecimiento pasa inmediatamente a `estado_operativo = "Habilitado"` y se le asigna su código CUE oficial (ej. `3LXXXX`), publicándolo de forma instantánea en el mapa y la landing page.
+
+## [2026-09-29] Catálogo Completo de Municipios y Delimitación Georreferenciada en el Mapa de la Landing Page
+
+### 📌 Objetivo
+Actualizar y corregir el **Mapa Georreferenciado de Laboratorios** en la Landing Page (`MapSection.jsx` y `RealMultiMapView.jsx`) para:
+1. Poner a disposición en el selector todos los municipios del departamento de Cochabamba (47 municipios organizados por regiones: Metropolitana, Valle Alto, Trópico, Cono Sur y Zona Andina), independientemente de si cuentan actualmente con laboratorios registrados/habilitados.
+2. Garantizar que al seleccionar cualquier municipio, el mapa de Leaflet / OpenStreetMap encuadre la zona con el nivel de zoom idóneo y dibuje su polígono de delimitación jurisdiccional de forma limpia y fluida.
+3. Mejorar la experiencia de usuario mostrando el conteo de laboratorios por municipio en el selector y un mensaje informativo orientador cuando una zona no disponga aún de laboratorios habilitados.
+
+---
+
+### 🛠️ Archivos Modificados y Soluciones Aplicadas
+
+#### 1. `frontend/src/components/landing/MapSection.jsx` [MODIFICADO]
+* **Catálogo Oficial de Municipios (`CATALOGO_MUNICIPIOS`):**
+  * Se definió la lista exhaustiva de municipios de Cochabamba (Cercado, Quillacollo, Sacaba, Colcapirhua, Tiquipaya, Vinto, Sipe Sipe, Punata, Cliza, Tarata, Arani, Villa Tunari, Shinahota, Chimoré, Puerto Villarroel, Entre Ríos, Aiquile, Mizque, Totora, Capinota, Independencia, etc.).
+* **Selector Dinámico con Conteo:**
+  * Cada opción del selector muestra el nombre del municipio y la cantidad de laboratorios habilitados disponibles (ej. `Cercado (5)`, `Sacaba (0)`).
+* **Manejo de Estados Vacíos:**
+  * Cuando se selecciona un municipio sin laboratorios registrados, se despliega una tarjeta explicativa invitando a consultar los requisitos de apertura del SEDES Cochabamba.
+
+#### 2. `frontend/src/components/common/RealMultiMapView.jsx` [MODIFICADO]
+* **Definición Espacial Exhaustiva (`LIMITES_TERRITORIALES` y `getMunicipioLimite`):**
+  * Se integraron centros geográficos, zooms calibrados y polígonos de límites territoriales para todos los municipios de Cochabamba.
+  * Se implementó la normalización fonética y de caracteres diacríticos (`normalizeMunKey`), garantizando la correcta vinculación geográfica ante variaciones de acentuación (ej. `ENTRE RÍOS` / `ENTRE RIOS`, `CHIMORÉ` / `CHIMORE`, `SANTIVÁÑEZ` / `SANTIVANEZ`).
+## [2026-09-29] Restricción de Zoom Mínimo y Límites Geográficos para Evitar Duplicación de Mapas
+
+### 📌 Objetivo
+Solucionar el problema de repetición/duplicación horizontal de continentes (*world wrapping / tiling duplication*) al alejar excesivamente el mapa con la rueda del ratón o el botón de zoom out (`-`).
+
+---
+
+### 🛠️ Archivos Modificados y Soluciones Aplicadas
+
+#### 1. `frontend/src/components/common/RealMultiMapView.jsx`, `RealMapView.jsx` y `RealMapPicker.jsx` [MODIFICADOS]
+* **Límite de Zoom Mínimo (`minZoom: 7`):**
+  * Se configuró `minZoom: 7` en la instancia del mapa y en la capa de azulejos de OpenStreetMap, permitiendo visualizar con amplitud la totalidad del departamento de Cochabamba y sus alrededores, pero impidiendo alejarse al nivel de visualización del planisferio completo.
+* **Bloqueo de Envoltura Horizontal (`noWrap: true`):**
+  * Se activó la propiedad `noWrap: true` en la capa de tiles de Leaflet, desactivando la repetición infinita del globo terráqueo a izquierda y derecha.
+## [2026-09-29] Rediseño del Selector de Municipios: Menú Desplegable con Buscador en Vivo y Agrupación por Regiones
+
+### 📌 Objetivo
+Reemplazar el selector HTML nativo por un menú desplegable interactivo y elegante con **buscador en tiempo real**, **agrupación por las 5 regiones oficiales de Cochabamba** y **chips de acceso rápido** para los núcleos metropolitanos y provinciales más frecuentados.
+
+---
+
+### 🛠️ Archivos Modificados y Soluciones Aplicadas
+
+#### 1. `frontend/src/components/landing/MapSection.jsx` [MODIFICADO]
+* **Buscador en Tiempo Real:**
+  * Al desplegar el menú, se ofrece una barra de búsqueda integrada (`Search`) con autocompletado instantáneo que filtra municipios por nombre o región mientras el usuario escribe (con botón `X` de limpieza rápida).
+* **Agrupación Estructurada por 5 Regiones Oficiales (`REGIONES_MUNICIPIOS`):**
+  * 🏙️ *Región Metropolitana* (Cercado, Sacaba, Quillacollo, Colcapirhua, Tiquipaya, Vinto, Sipe Sipe)
+  * 🌾 *Valle Alto* (Punata, Cliza, Tarata, Arani, Arbieto, Tolata, etc.)
+  * 🌴 *Trópico de Cochabamba* (Villa Tunari, Shinahota, Chimoré, Puerto Villarroel, Entre Ríos)
+  * ⛰️ *Cono Sur* (Aiquile, Mizque, Totora, Pasorapa, etc.)
+  * 🏔️ *Zona Andina y Valles* (Capinota, Independencia, Morochata, etc.)
+* **Chips de Acceso Rápido (`CHIPS_DESTACADOS`):**
+  * Se añadieron botones rápidos en la parte superior del panel (`Todos`, `Cercado`, `Quillacollo`, `Sacaba`, `Punata`, `Villa Tunari`) con conteo de laboratorios para selección con 1 solo clic.
+## [2026-09-29] Renderizado Condicional y Dinámico de Documentos Emitidos en el Expediente Digital (Historial y Trazabilidad)
+
+### 📌 Objetivo
+Corregir la pestaña de *"Documentos Emitidos (PDF)"* en el modal de Expediente Digital (`CoordinadorPage.jsx`) para que los documentos oficiales (Resolución Administrativa, Informe Técnico / Comunicación Interna y Acta de Fiscalización In-Situ) se muestren de forma **estrictamente condicional** según la etapa real en la que se encuentra el trámite, evitando mostrar botones de descarga o vista previa de documentos que aún no han sido elaborados ni emitidos.
+
+---
+
+### 🛠️ Archivos Modificados y Soluciones Aplicadas
+
+#### 1. `frontend/src/pages/CoordinadorPage.jsx` [MODIFICADO]
+* **Validación de Resolución Administrativa (`tieneResolucionEmitida`):**
+  * Solo muestra los botones de *Vista Previa* y *Descargar (PDF)* si el trámite ha sido Aprobado definitivamente (`es_aprobado_final` / `estado == "Aprobado"`) o cuenta con una Resolución formalmente emitida por Asesoría Legal (`resolucion_lista_para_firma` o `resolucion.numero_resolucion`).
+  * En trámites en revisión o etapas previas, muestra el estado *"Pendiente de Emisión"* con indicador de espera institucional (*"No Emitido Aún"*).
+* **Validación de Informe Técnico CODELAB (`tieneInformeEmitido`):**
+  * Solo se habilita para previsualización y descarga si el trámite ya fue dictaminado y derivado al área legal (`derivado_a_legal`, `informe_tecnico_aprobado` o estado posterior).
+  * En etapas iniciales, se presenta como *"Pendiente de Elaboración"* (*"En Espera de Inspección"*).
+* **Validación de Acta de Fiscalización In-Situ (`tieneInspeccionRealizada`):**
+  * Si la inspección no se ha realizado o el supervisor no ha sido asignado, se muestra con estado *"Inspección Pendiente"* (*"Sin Inspección In-Situ"*), eliminando la falsa indicación de *"Inspección Validada"*.
+## [2026-09-29] Homologación y Gestión Completa de Notificaciones en el Panel del Coordinador
+
+### 📌 Objetivo
+Dotar al panel del **Coordinador** (`CoordinadorPage.jsx`) de las mismas funcionalidades avanzadas de gestión de notificaciones disponibles en el panel del Propietario, permitiendo **eliminar notificaciones individuales**, **limpiar todo el historial**, **marcar todas como leídas** y **actualizar en vivo**.
+
+---
+
+### 🛠️ Archivos Modificados y Soluciones Aplicadas
+
+#### 1. `backend/notificaciones.py` [MODIFICADO]
+* **Nuevos Endpoints por Rol:**
+  * `DELETE /api/notificaciones/rol/{rol_nombre}/limpiar`: Permite eliminar masivamente todas las notificaciones asignadas a un rol institucional.
+  * `PATCH /api/notificaciones/rol/{rol_nombre}/leer-todas`: Marca como leídas todas las notificaciones pendientes de los usuarios del rol.
+
+#### 2. `frontend/src/pages/CoordinadorPage.jsx` [MODIFICADO]
+* **Eliminación Individual de Notificaciones (`handleEliminarNotificacion`):**
+  * Cada tarjeta de notificación en el desplegable cuenta con un botón de papelera (`Trash2`) que aparece al pasar el cursor para borrar la notificación de forma independiente.
+* **Limpieza Masiva (`handleLimpiarTodasNotificaciones`):**
+  * Botón *"Limpiar"* en la cabecera y *"Limpiar todo"* en el pie del menú desplegable para vaciar la bandeja de avisos con 1 clic.
+* **Marcar Todas como Leídas (`handleMarcarTodasNotifsLeidas`):**
+  * Botón *"Marcar leídas"* en la cabecera para actualizar el contador a cero sin necesidad de abrir cada notificación por separado.
+
+---
