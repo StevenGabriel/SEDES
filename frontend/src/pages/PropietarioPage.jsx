@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { 
   Building2, 
@@ -34,6 +34,8 @@ import {
   FileUp,
   FileCheck2,
   ChevronRight,
+  ChevronDown,
+  Search,
   Send,
   Loader2,
   FolderOpen,
@@ -360,6 +362,20 @@ export default function PropietarioPage() {
   const [archivosSubsanacion, setArchivosSubsanacion] = useState({}); // { [docKey]: File }
   const [subsanandoDocId, setSubsanandoDocId] = useState(null); // 'ALL' o docKey específico
   const [modalFeedback, setModalFeedback] = useState(null); // { tipo: 'success' | 'error' | 'info', titulo: string, mensaje: string }
+  const [filtroVerTodosTramites, setFiltroVerTodosTramites] = useState(false);
+  const [comboboxOpen, setComboboxOpen] = useState(false);
+  const [searchLabTerm, setSearchLabTerm] = useState('');
+  const comboboxRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (comboboxRef.current && !comboboxRef.current.contains(event.target)) {
+        setComboboxOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   // =========================================================================
   // Estado para Modal de Rehabilitación de Acta (3 requisitos obligatorios)
@@ -608,9 +624,27 @@ export default function PropietarioPage() {
         const data = await res.json();
         setTramitesUsuario(data || []);
         if (data && data.length > 0) {
+          const estadosNoPendientes = [
+            'aprobado', 'aprobada', 'finalizado', 'finalizada', 'concluido', 'concluida', 
+            'inspección aprobada', 'inspeccion aprobada', 'resolución lista para firma', 
+            'resolucion lista para firma', 'resolución emitida', 'resolucion emitida'
+          ];
+          const activos = data.filter(t => {
+            const est = (t.estado_tramite || '').toLowerCase().trim();
+            if (estadosNoPendientes.includes(est)) return false;
+            const docs = t.documentos || [];
+            if (docs.length === 0) return true;
+            const docsSubidos = docs.filter(d => d.tiene_archivo || d.archivo_url);
+            const tieneObservados = docs.some(d => d.estado_validacion === 'Observado' || d.estado_validacion === 'Rechazado');
+            if (tieneObservados) return true;
+            const todosSubidosAprobados = docsSubidos.length > 0 && docsSubidos.every(d => (d.estado_validacion || '').toLowerCase() === 'aprobado');
+            if (todosSubidosAprobados) return false;
+            return true;
+          });
+          const listaReferencia = activos.length > 0 ? activos : data;
           setTramiteSeleccionadoId(prev => {
-            if (prev && data.some(t => t.tramite_id === prev)) return prev;
-            return data[0].tramite_id;
+            if (prev && listaReferencia.some(t => t.tramite_id === prev)) return prev;
+            return listaReferencia[0].tramite_id;
           });
         }
       }
@@ -1908,19 +1942,21 @@ export default function PropietarioPage() {
                               </div>
                             )}
 
-                            {/* Alerta de vencimiento y botón de rehabilitación */}
+                            {/* Alerta de vencimiento y botón de rehabilitación (Solo visible a 30 días o menos del vencimiento) */}
                             <div className="pt-2 flex flex-wrap items-center gap-2">
                               {lab.tiene_rehabilitacion_pendiente ? (
                                 <span className="inline-flex items-center space-x-1.5 bg-purple-50 text-purple-700 border border-purple-200 text-xs font-bold px-3 py-1.5 rounded-xl">
                                   <Clock className="w-3.5 h-3.5 text-purple-600" />
                                   <span>Trámite de Rehabilitación en Revisión</span>
                                 </span>
-                              ) : lab.proximo_a_vencer || lab.vencido || (lab.dias_para_vencer !== undefined && lab.dias_para_vencer <= 15) ? (
+                              ) : (lab.puede_renovar || lab.proximo_a_vencer || lab.vencido || (lab.dias_para_vencer !== undefined && lab.dias_para_vencer <= 30)) ? (
                                 <div className="flex flex-wrap items-center gap-2">
                                   <span className={`inline-flex items-center space-x-1.5 text-xs font-bold px-3 py-1.5 rounded-xl border ${
                                     lab.vencido
                                       ? 'bg-rose-50 text-rose-700 border-rose-200'
-                                      : 'bg-amber-50 text-amber-800 border-amber-200'
+                                      : (lab.dias_para_vencer !== undefined && lab.dias_para_vencer <= 15)
+                                        ? 'bg-rose-50 text-rose-700 border-rose-200'
+                                        : 'bg-amber-50 text-amber-800 border-amber-200'
                                   }`}>
                                     <AlertTriangle className="w-3.5 h-3.5" />
                                     <span>{lab.vencido ? 'Acta Vencida' : `Acta por vencer (${lab.dias_para_vencer} días)`}</span>
@@ -1930,22 +1966,13 @@ export default function PropietarioPage() {
                                     type="button"
                                     onClick={() => handleAbrirRehabilitacion(lab)}
                                     className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-4 py-1.5 rounded-xl transition flex items-center space-x-1.5 shadow-sm cursor-pointer active:scale-95 animate-pulse"
+                                    title="Iniciar renovación o rehabilitación de requisitos"
                                   >
                                     <UploadCloud className="w-4 h-4" />
-                                    <span>Subir papeles para rehabilitación</span>
+                                    <span>Rehabilitación / Renovación</span>
                                   </button>
                                 </div>
-                              ) : (
-                                <button
-                                  type="button"
-                                  onClick={() => handleAbrirRehabilitacion(lab)}
-                                  className="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold px-3 py-1.5 rounded-xl transition flex items-center space-x-1.5 cursor-pointer"
-                                  title="Iniciar renovación o rehabilitación de requisitos"
-                                >
-                                  <UploadCloud className="w-3.5 h-3.5 text-slate-500" />
-                                  <span>Rehabilitación / Renovación</span>
-                                </button>
-                              )}
+                              ) : null}
                             </div>
                           </div>
                         </div>
@@ -2024,57 +2051,290 @@ export default function PropietarioPage() {
                   <Loader2 className="w-8 h-8 animate-spin mx-auto text-[#005596]" />
                   <p className="text-sm font-semibold">Cargando trámites y estado de documentación...</p>
                 </div>
-              ) : tramitesUsuario.length === 0 ? (
-                <div className="bg-white p-10 sm:p-14 rounded-3xl border border-slate-200 text-center text-slate-500 space-y-4 shadow-2xs">
-                  <div className="w-16 h-16 bg-slate-100 text-slate-400 rounded-full flex items-center justify-center mx-auto">
-                    <FileText className="w-8 h-8" />
-                  </div>
-                  <div className="space-y-1">
-                    <h3 className="text-lg font-bold text-slate-800">No tiene trámites en curso</h3>
-                    <p className="text-xs sm:text-sm text-slate-500 max-w-md mx-auto">
-                      Cuando envíe una solicitud de apertura de laboratorio, podrá realizar el seguimiento técnico de sus documentos y subsanar observaciones aquí.
-                    </p>
-                  </div>
-                  <div className="pt-2">
-                    <Link
-                      to="/propietario/nueva-solicitud"
-                      className="inline-flex items-center space-x-2 bg-[#005596] hover:bg-[#003e6d] text-white text-xs font-bold px-6 py-3 rounded-xl transition shadow-md"
-                    >
-                      <PlusCircle className="w-4 h-4" />
-                      <span>Iniciar Nueva Solicitud de Apertura</span>
-                    </Link>
-                  </div>
-                </div>
-              ) : (
-                (() => {
-                  const tramiteActual = tramitesUsuario.find(t => t.tramite_id === tramiteSeleccionadoId) || tramitesUsuario[0];
+              ) : (() => {
+                const estadosNoPendientes = [
+                  'aprobado', 'aprobada', 'finalizado', 'finalizada', 'concluido', 'concluida', 
+                  'inspección aprobada', 'inspeccion aprobada', 'resolución lista para firma', 
+                  'resolucion lista para firma', 'resolución emitida', 'resolucion emitida'
+                ];
+                const tramitesPendientes = tramitesUsuario.filter(t => {
+                  const est = (t.estado_tramite || '').toLowerCase().trim();
+                  if (estadosNoPendientes.includes(est)) return false;
+                  const docs = t.documentos || [];
+                  if (docs.length === 0) return true;
+                  const docsSubidos = docs.filter(d => d.tiene_archivo || d.archivo_url);
+                  const tieneObservados = docs.some(d => d.estado_validacion === 'Observado' || d.estado_validacion === 'Rechazado');
+                  if (tieneObservados) return true;
+                  const todosSubidosAprobados = docsSubidos.length > 0 && docsSubidos.every(d => (d.estado_validacion || '').toLowerCase() === 'aprobado');
+                  if (todosSubidosAprobados) return false;
+                  return true;
+                });
 
+                if (tramitesUsuario.length === 0) {
                   return (
-                    <div className="space-y-6">
-                      
-                      {/* Selector de Trámites (si tiene más de 1 establecimiento en trámite) */}
-                      {tramitesUsuario.length > 1 && (
-                        <div className="flex items-center space-x-2 overflow-x-auto pb-2">
-                          <span className="text-xs font-bold text-slate-400 shrink-0 uppercase tracking-wider">
-                            Establecimientos en Trámite:
-                          </span>
-                          {tramitesUsuario.map((tr) => (
-                            <button
-                              key={tr.tramite_id}
-                              type="button"
-                              onClick={() => setTramiteSeleccionadoId(tr.tramite_id)}
-                              className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center space-x-2 shrink-0 cursor-pointer ${
-                                tr.tramite_id === tramiteActual.tramite_id
-                                  ? 'bg-[#005596] text-white shadow-sm'
-                                  : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
-                              }`}
-                            >
-                              <Building2 className="w-3.5 h-3.5" />
-                              <span>{tr.establecimiento_nombre}</span>
-                            </button>
-                          ))}
+                    <div className="bg-white p-10 sm:p-14 rounded-3xl border border-slate-200 text-center text-slate-500 space-y-4 shadow-2xs">
+                      <div className="w-16 h-16 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center mx-auto border border-emerald-200">
+                        <CheckCircle2 className="w-8 h-8" />
+                      </div>
+                      <div className="space-y-1">
+                        <h3 className="text-lg font-bold text-slate-800">No tiene trámites registrados</h3>
+                        <p className="text-xs sm:text-sm text-slate-500 max-w-md mx-auto">
+                          Inicie una solicitud de apertura para registrar sus laboratorios ante el SEDES.
+                        </p>
+                      </div>
+                      <div className="pt-2">
+                        <Link
+                          to="/propietario/nueva-solicitud"
+                          className="inline-flex items-center space-x-2 bg-[#005596] hover:bg-[#003e6d] text-white text-xs font-bold px-6 py-3 rounded-xl transition shadow-md"
+                        >
+                          <PlusCircle className="w-4 h-4" />
+                          <span>Iniciar Nueva Solicitud</span>
+                        </Link>
+                      </div>
+                    </div>
+                  );
+                }
+
+                // Lista a mostrar según el filtro
+                const tramitesVisibles = filtroVerTodosTramites
+                  ? tramitesUsuario
+                  : (tramitesPendientes.length > 0 ? tramitesPendientes : tramitesUsuario);
+
+                const tramiteActual = tramitesVisibles.find(t => t.tramite_id === tramiteSeleccionadoId) 
+                  || tramitesVisibles[0] 
+                  || tramitesUsuario[0];
+
+                return (
+                  <div className="space-y-6">
+                    
+                    {/* Selector de Establecimiento como Combobox Moderno */}
+                    <div className="bg-white border border-slate-200/90 rounded-2xl p-4 shadow-xs space-y-3" ref={comboboxRef}>
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        
+                        {/* Título y etiqueta */}
+                        <div className="flex items-center space-x-2.5">
+                          <div className="w-8 h-8 rounded-xl bg-[#005596]/10 text-[#005596] flex items-center justify-center font-black">
+                            <Building2 className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <label className="text-[11px] font-black uppercase tracking-wider text-slate-500 block">
+                              Establecimiento en Trámite
+                            </label>
+                            <span className="text-xs text-slate-700 font-semibold">
+                              {tramiteActual ? `Trámite activo: ${tramiteActual.codigo_tramite}` : 'Seleccione un establecimiento'}
+                            </span>
+                          </div>
                         </div>
-                      )}
+
+                        {/* Toggle Rápido: En Trámite vs Todos */}
+                        <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200 self-start sm:self-auto">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setFiltroVerTodosTramites(false);
+                              if (tramitesPendientes.length > 0 && !tramitesPendientes.some(t => t.tramite_id === tramiteSeleccionadoId)) {
+                                setTramiteSeleccionadoId(tramitesPendientes[0].tramite_id);
+                              }
+                            }}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center space-x-1.5 cursor-pointer ${
+                              !filtroVerTodosTramites
+                                ? 'bg-white text-[#005596] shadow-xs'
+                                : 'text-slate-500 hover:text-slate-800'
+                            }`}
+                          >
+                            <span>En Trámite</span>
+                            <span className="bg-amber-100 text-amber-800 text-[10px] font-black px-1.5 py-0.2 rounded-full">
+                              {tramitesPendientes.length}
+                            </span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => setFiltroVerTodosTramites(true)}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center space-x-1.5 cursor-pointer ${
+                              filtroVerTodosTramites
+                                ? 'bg-white text-[#005596] shadow-xs'
+                                : 'text-slate-500 hover:text-slate-800'
+                            }`}
+                          >
+                            <span>Todos</span>
+                            <span className="bg-slate-200 text-slate-700 text-[10px] font-black px-1.5 py-0.2 rounded-full">
+                              {tramitesUsuario.length}
+                            </span>
+                          </button>
+                        </div>
+
+                      </div>
+
+                      {/* Combobox Principal con Desplegable */}
+                      <div className="relative">
+                        {/* Botón Disparador del Combobox */}
+                        <button
+                          type="button"
+                          onClick={() => setComboboxOpen(prev => !prev)}
+                          className={`w-full bg-slate-50 hover:bg-slate-100/80 text-left px-4 py-3 rounded-xl border transition flex items-center justify-between gap-3 cursor-pointer shadow-2xs ${
+                            comboboxOpen
+                              ? 'border-[#005596] ring-2 ring-[#005596]/20 bg-white'
+                              : 'border-slate-200'
+                          }`}
+                        >
+                          <div className="flex items-center space-x-3 truncate">
+                            <div className="w-8 h-8 rounded-lg bg-blue-50 text-[#005596] flex items-center justify-center shrink-0 border border-blue-200/60">
+                              <Building2 className="w-4 h-4" />
+                            </div>
+                            <div className="truncate">
+                              <span className="font-black text-sm text-slate-900 block truncate">
+                                {tramiteActual?.establecimiento_nombre || 'Seleccione un establecimiento...'}
+                              </span>
+                              <span className="text-[11px] text-slate-500 flex items-center gap-1.5 truncate font-medium">
+                                <span>{tramiteActual?.establecimiento_municipio || 'Cercado'}</span>
+                                <span>•</span>
+                                <span>{tramiteActual?.codigo_tramite}</span>
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center space-x-2 shrink-0">
+                            {tramiteActual && (() => {
+                              const est = (tramiteActual.estado_tramite || '').toLowerCase();
+                              const esAprobado = estadosNoPendientes.includes(est) || 
+                                (tramiteActual.documentos && tramiteActual.documentos.length > 0 && tramiteActual.documentos.every(d => (d.estado_validacion || '').toLowerCase() === 'aprobado'));
+                              const esObservado = est.includes('observad') || est.includes('rechaz');
+
+                              return (
+                                <span className={`text-xs font-black px-2.5 py-1 rounded-lg border shadow-2xs ${
+                                  esAprobado
+                                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                    : esObservado
+                                      ? 'bg-rose-50 text-rose-700 border-rose-200'
+                                      : 'bg-amber-50 text-amber-800 border-amber-200'
+                                }`}>
+                                  {esAprobado && !est.includes('resolución') ? 'Aprobado' : tramiteActual.estado_tramite}
+                                </span>
+                              );
+                            })()}
+                            <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${comboboxOpen ? 'rotate-180 text-[#005596]' : ''}`} />
+                          </div>
+                        </button>
+
+                        {/* Menú Desplegable Flotante */}
+                        {comboboxOpen && (
+                          <div className="absolute left-0 right-0 top-full mt-2 bg-white rounded-2xl shadow-xl border border-slate-200 z-40 overflow-hidden animate-fadeIn">
+                            
+                            {/* Buscador interno */}
+                            <div className="p-3 border-b border-slate-100 bg-slate-50/60 flex items-center gap-2">
+                              <Search className="w-4 h-4 text-slate-400 shrink-0 ml-1" />
+                              <input
+                                type="text"
+                                placeholder="Buscar laboratorio por nombre, municipio o código..."
+                                value={searchLabTerm}
+                                onChange={(e) => setSearchLabTerm(e.target.value)}
+                                onClick={(e) => e.stopPropagation()}
+                                className="w-full bg-transparent text-xs text-slate-800 placeholder:text-slate-400 outline-none font-medium"
+                                autoFocus
+                              />
+                              {searchLabTerm && (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setSearchLabTerm('');
+                                  }}
+                                  className="text-slate-400 hover:text-slate-600 p-1 rounded-md cursor-pointer"
+                                >
+                                  <X className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                            </div>
+
+                            {/* Lista de Establecimientos en el Combobox */}
+                            <div className="max-h-64 overflow-y-auto divide-y divide-slate-100 p-1.5">
+                              {(() => {
+                                const filtradosPorBusqueda = tramitesVisibles.filter(tr => {
+                                  if (!searchLabTerm.trim()) return true;
+                                  const term = searchLabTerm.toLowerCase();
+                                  return (
+                                    (tr.establecimiento_nombre || '').toLowerCase().includes(term) ||
+                                    (tr.establecimiento_municipio || '').toLowerCase().includes(term) ||
+                                    (tr.codigo_tramite || '').toLowerCase().includes(term) ||
+                                    (tr.estado_tramite || '').toLowerCase().includes(term)
+                                  );
+                                });
+
+                                if (filtradosPorBusqueda.length === 0) {
+                                  return (
+                                    <div className="p-6 text-center text-slate-400 text-xs font-medium space-y-1">
+                                      <p>No se encontraron establecimientos con "{searchLabTerm}"</p>
+                                    </div>
+                                  );
+                                }
+
+                                return filtradosPorBusqueda.map((tr) => {
+                                  const esSeleccionado = tr.tramite_id === tramiteActual?.tramite_id;
+                                  const estNormal = (tr.estado_tramite || 'En Revisión').trim();
+                                  const esAprobado = estadosNoPendientes.includes(estNormal.toLowerCase()) || 
+                                    (tr.documentos && tr.documentos.length > 0 && tr.documentos.every(d => (d.estado_validacion || '').toLowerCase() === 'aprobado'));
+                                  const esObservado = estNormal.toLowerCase().includes('observad') || estNormal.toLowerCase().includes('rechaz');
+
+                                  return (
+                                    <button
+                                      key={tr.tramite_id}
+                                      type="button"
+                                      onClick={() => {
+                                        setTramiteSeleccionadoId(tr.tramite_id);
+                                        setComboboxOpen(false);
+                                        setSearchLabTerm('');
+                                      }}
+                                      className={`w-full text-left p-3 rounded-xl transition flex items-center justify-between gap-3 cursor-pointer ${
+                                        esSeleccionado
+                                          ? 'bg-blue-50/90 text-[#005596]'
+                                          : 'hover:bg-slate-50 text-slate-700'
+                                      }`}
+                                    >
+                                      <div className="flex items-center space-x-3 truncate">
+                                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border ${
+                                          esSeleccionado 
+                                            ? 'bg-[#005596] text-white border-[#005596]' 
+                                            : 'bg-slate-100 text-slate-500 border-slate-200'
+                                        }`}>
+                                          <Building2 className="w-4 h-4" />
+                                        </div>
+                                        <div className="truncate">
+                                          <span className={`font-black text-xs block truncate ${esSeleccionado ? 'text-[#005596]' : 'text-slate-800'}`}>
+                                            {tr.establecimiento_nombre}
+                                          </span>
+                                          <span className="text-[11px] text-slate-400 flex items-center gap-1.5 truncate font-medium">
+                                            <span>{tr.establecimiento_municipio || 'Cercado'}</span>
+                                            <span>•</span>
+                                            <span>{tr.codigo_tramite}</span>
+                                          </span>
+                                        </div>
+                                      </div>
+
+                                      <div className="flex items-center space-x-2 shrink-0">
+                                        <span className={`text-[10px] font-black px-2 py-0.5 rounded-md border ${
+                                          esAprobado
+                                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                            : esObservado
+                                              ? 'bg-rose-50 text-rose-700 border-rose-200'
+                                              : 'bg-amber-50 text-amber-800 border-amber-200'
+                                        }`}>
+                                          {esAprobado && !estNormal.toLowerCase().includes('resolución') ? 'Aprobado' : tr.estado_tramite}
+                                        </span>
+                                        {esSeleccionado && (
+                                          <Check className="w-4 h-4 text-[#005596] shrink-0" />
+                                        )}
+                                      </div>
+                                    </button>
+                                  );
+                                });
+                              })()}
+                            </div>
+
+                          </div>
+                        )}
+                      </div>
+                    </div>
 
                       {/* Encabezado del Trámite (Estilo Figma) */}
                       {/* Encabezado del Trámite (Estilo Figma) */}
@@ -2415,8 +2675,7 @@ export default function PropietarioPage() {
 
                     </div>
                   );
-                })()
-              )}
+                })()}
 
             </div>
           )}

@@ -686,6 +686,56 @@ Desarrollar y consolidar el módulo integral del **Asesor Legal / Abogado** en e
 * Adaptación de validadores Pydantic compatibles con versiones v1 y v2.
 
 ---
+
+## [2026-09-29] Mejoras en Notificaciones Preventivas (30 y 15 días), Renovaciones, Combobox de Trámites y Filtro de Notificaciones
+
+### 📌 Objetivo
+Optimizar la experiencia del Propietario en el portal de trámites y el sistema de alertas institucionales:
+1. Habilitar el flujo y botón de **Rehabilitación / Renovación** únicamente cuando el establecimiento se encuentre a 30 días de su vencimiento (o vencido), enviando alertas automáticas a los 30 días y recordatorio a los 15 días previos.
+2. Eliminar emojis de las notificaciones del sistema para mantener un tono formal e institucional.
+3. Rediseñar el selector de establecimientos en la sección **Trámites** del Propietario sustituyendo la lista horizontal por un **Combobox interactivo, compacto y con buscador**.
+4. Filtrar los establecimientos en "En Trámite" para mostrar únicamente los que tienen trámites o requisitos genuinamente pendientes/en revisión/observados, ocultando los 100% aprobados.
+5. Evitar el spam de notificaciones al propietario durante la evaluación de requisitos en Coordinación, emitiendo alertas **únicamente para requisitos u observaciones rechazadas/observadas**.
+
+---
+
+### 🛠️ Archivos Creados y Modificados
+
+#### 1. `backend/models.py` & `backend/init_db.py` [MODIFICADO]
+* **Nueva Columna de Control:** Se agregó `alerta_30_dias_enviada = Column(Boolean, default=False, nullable=True)` al modelo `Inspeccion` en SQLAlchemy para controlar de forma independiente el envío de la primera alerta preventiva de 30 días y la segunda de 15 días (`alerta_15_dias_enviada`).
+* **Migración Automática Idempotente:** En `init_db.py` se incluyó la verificación `ALTER TABLE inspecciones ADD COLUMN IF NOT EXISTS alerta_30_dias_enviada BOOLEAN DEFAULT FALSE;`.
+
+#### 2. `backend/establecimientos.py` & `backend/supervisor.py` [MODIFICADO]
+* **Control de Vencimientos y Alertas Preventivas:**
+  * Se configuró el cálculo de días restantes (`dias_restantes <= 30`) para habilitar `puede_renovar: True`.
+  * **Alerta a 30 días:** Si `dias_restantes <= 30` y `not insp.alerta_30_dias_enviada`, se envía la notificación: *"Aviso Preventivo: Próximo Vencimiento de Habilitación Sanitaria - Su establecimiento '{nombre}' vencerá en {dias} días. Ya puede iniciar su trámite de Rehabilitación/Renovación."*
+  * **Recordatorio a 15 días:** Si `dias_restantes <= 15` y `not insp.alerta_15_dias_enviada`, se emite la notificación de recordatorio.
+* **Reseteo en Nuevas Inspecciones:** En `supervisor.py` al concluir una nueva inspección favorable se resetean ambos flags a `False`.
+* **Limpieza de Emojis:** Se eliminaron emojis en los títulos y mensajes de notificaciones generadas.
+
+#### 3. `frontend/src/pages/PropietarioPage.jsx` [MODIFICADO / OPTIMIZADO]
+* **Condicional del Botón de Renovación:** El botón **"Rehabilitación / Renovación"** y la alerta visual solo se muestran cuando `dias_para_vencer <= 30` o cuando el certificado ya se encuentra vencido.
+* **Combobox Moderno y Buscador de Establecimientos:**
+  * Se reemplazó la fila horizontal con scroll infinito por un selector desplegable elegante con buscador en tiempo real (`searchQuery`), badge de cantidad y cierre al hacer clic fuera (`useRef`).
+  * **Pestañas de Selección:**
+    * **En Trámite:** Filtra exclusivamente los establecimientos que poseen trámites en curso o documentos pendientes/en revisión/observados.
+    * **Todos:** Permite seleccionar y consultar el historial documental de cualquiera de los establecimientos del propietario.
+* **Cálculo Preciso de Estado "En Trámite":** Se ajustó la verificación para validar únicamente documentos subidos/activos (`tiene_archivo` o `archivo_url`), evitando que requisitos opcionales sin archivo marquen erróneamente un trámite 100% aprobado como pendiente.
+
+#### 4. `backend/coordinador.py` & Depuración de Base de Datos [MODIFICADO]
+* **Filtro de Notificaciones en Evaluación de Requisitos:**
+  * Se removió la emisión de notificaciones individuales por cada "Documento Aprobado" en la revisión de requisitos y validación de datos del establecimiento.
+  * **Solo se notifica si el documento es Observado o Rechazado**, adjuntando el motivo exacto para su subsanación.
+* **Depuración de Base de Datos:** Se ejecutó la limpieza de 47 notificaciones históricas de tipo "Documento Aprobado" para descongestionar la bandeja de notificaciones del propietario.
+
+---
+
+### 🎨 Tecnologías y Componentes Aplicados
+* **React 19 & Hooks:** `useState`, `useRef`, `useEffect` para dropdowns tipo Combobox accesibles y filtrado reactivo.
+* **FastAPI & SQLAlchemy:** Consultas SQL idempotentes, manejo de estados booleanos para alertas programadas y endpoints limpios de notificación.
+* **PostgreSQL:** Persistencia del ciclo de vida de inspecciones y trazabilidad de alertas de vencimiento.
+
+---
 *Bitácora actualizada por: Juan*
 
 

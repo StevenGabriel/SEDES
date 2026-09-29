@@ -48,6 +48,7 @@ def serializar_establecimiento(e: models.Establecimiento, db: Session) -> dict:
     dias_restantes = None
     proximo_a_vencer = False
     vencido = False
+    puede_renovar = False
     plazo_acta_str = "1 año"
 
     if ultima_insp:
@@ -67,24 +68,41 @@ def serializar_establecimiento(e: models.Establecimiento, db: Session) -> dict:
         fecha_venc_str = f_venc.strftime("%d/%m/%Y")
         hoy = date.today()
         dias_restantes = (f_venc - hoy).days
-        proximo_a_vencer = (dias_restantes <= 15)
+        proximo_a_vencer = (dias_restantes <= 30)
         vencido = (dias_restantes <= 0)
+        puede_renovar = proximo_a_vencer or vencido
 
-        # Si restan 15 días o menos y no se ha notificado, emitir notificación automática al propietario
-        if proximo_a_vencer and not getattr(ultima_insp, 'alerta_15_dias_enviada', False) and e.propietario_id:
+        # 1. Alerta a los 30 días si restan 30 días o menos (y aún no ha sido enviada)
+        if dias_restantes <= 30 and not getattr(ultima_insp, 'alerta_30_dias_enviada', False) and e.propietario_id:
             try:
-                notif_venc = models.Notificacion(
+                notif_venc_30 = models.Notificacion(
                     id=uuid.uuid4(),
                     usuario_id=e.propietario_id,
-                    titulo=f"⚠️ Aviso de Vencimiento de Acta - {e.nombre_comercial}",
-                    mensaje=f"El acta de inspección in-situ de su laboratorio '{e.nombre_comercial}' vencerá el {fecha_venc_str} ({max(0, dias_restantes)} días restantes). Inicie el proceso de rehabilitación subiendo la documentación requerida (EMSA, COZBES y Memorial).",
+                    titulo=f"Aviso de Renovación Disponible (30 días) - {e.nombre_comercial}",
+                    mensaje=f"El acta de inspección in-situ de su laboratorio '{e.nombre_comercial}' vencerá el {fecha_venc_str} ({max(0, dias_restantes)} días restantes). Ya puede iniciar su proceso de Rehabilitación / Renovación subiendo la documentación reglamentaria requerida (EMSA, COZBES y Memorial).",
                     leido=False
                 )
-                db.add(notif_venc)
+                db.add(notif_venc_30)
+                ultima_insp.alerta_30_dias_enviada = True
+                db.commit()
+            except Exception as e_notif:
+                print(f"Error al enviar notificación de vencimiento (30 días): {e_notif}")
+
+        # 2. Alerta urgente a los 15 días si restan 15 días o menos (y aún no ha sido enviada)
+        if dias_restantes <= 15 and not getattr(ultima_insp, 'alerta_15_dias_enviada', False) and e.propietario_id:
+            try:
+                notif_venc_15 = models.Notificacion(
+                    id=uuid.uuid4(),
+                    usuario_id=e.propietario_id,
+                    titulo=f"Recordatorio Urgente de Renovación (15 días) - {e.nombre_comercial}",
+                    mensaje=f"Recordatorio importante: El acta de inspección in-situ de su laboratorio '{e.nombre_comercial}' vencerá en {max(0, dias_restantes)} días (el {fecha_venc_str}). Por favor realice su trámite de Rehabilitación / Renovación a la brevedad para mantener la vigencia reglamentaria.",
+                    leido=False
+                )
+                db.add(notif_venc_15)
                 ultima_insp.alerta_15_dias_enviada = True
                 db.commit()
             except Exception as e_notif:
-                print(f"Error al enviar notificación de vencimiento: {e_notif}")
+                print(f"Error al enviar notificación de vencimiento (15 días): {e_notif}")
 
     return {
         "id": str(e.id),
@@ -111,9 +129,10 @@ def serializar_establecimiento(e: models.Establecimiento, db: Session) -> dict:
         "propietario_nombre": prop_nombre,
         "fecha_ultima_inspeccion": fecha_insp_str or "15/07/2026",
         "fecha_vencimiento_acta": fecha_venc_str or "15/07/2027",
-        "dias_para_vencer": dias_restantes if dias_restantes is not None else 300,
+        "dias_para_vencer": dias_restantes if dias_restantes is not None else 365,
         "proximo_a_vencer": proximo_a_vencer,
         "vencido": vencido,
+        "puede_renovar": puede_renovar,
         "plazo_acta": plazo_acta_str,
         "tiene_rehabilitacion_pendiente": bool(tramite_rehab_activo),
         "rehabilitacion_tramite_id": str(tramite_rehab_activo.id) if tramite_rehab_activo else None,

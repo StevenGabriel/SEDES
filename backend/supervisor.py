@@ -1110,6 +1110,7 @@ def registrar_acta_inspeccion(
         insp.acta_pdf_url = pdf_o_codigo
         insp.plazo_subsanacion = plazo_txt
         insp.fecha_vencimiento_acta = f_venc
+        insp.alerta_30_dias_enviada = False
         insp.alerta_15_dias_enviada = False
         insp.fecha_modificacion = ahora_dt
         if sup_usuario:
@@ -1164,6 +1165,7 @@ def registrar_acta_inspeccion(
             acta_pdf_url=pdf_o_codigo,
             plazo_subsanacion=plazo_txt,
             fecha_vencimiento_acta=f_venc,
+            alerta_30_dias_enviada=False,
             alerta_15_dias_enviada=False,
             estado=True,
             fecha_creacion=ahora_dt,
