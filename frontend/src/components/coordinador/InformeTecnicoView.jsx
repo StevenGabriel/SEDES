@@ -22,7 +22,8 @@ import {
   RefreshCw,
   X,
   Inbox,
-  Lock
+  Lock,
+  History
 } from 'lucide-react';
 import { generarComunicacionInternaPDF } from './ComunicacionInternaPDF';
 import { generarResolucionAdministrativaPDF } from '../abogado/ResolucionAdministrativaPDF';
@@ -38,12 +39,19 @@ export default function InformeTecnicoView({
 }) {
   const navigate = useNavigate();
 
-  // Filtrar ÚNICAMENTE los trámites reales de la Base de Datos que han sido formalmente pasados a Informe Técnico o etapas legales
+  // Filtrar ÚNICAMENTE los trámites reales de la Base de Datos que están formalmente en Informe Técnico o en revisión/firma de Asesoría Legal
+  // Los laboratorios que ya cuenten con tramitación final y tengan estado de "Aprobado" pasan directamente a "Historial y Trazabilidad"
   const tramitesEnInforme = useMemo(() => {
     return tramites.filter(t => {
       const est = (t.estado || '').toLowerCase();
+      const estRaw = (t.estado_tramite_raw || '').toLowerCase();
 
-      // Estados iniciales o en proceso documental/inspección que NUNCA deben figurar en Informe Técnico
+      // 1. Excluir trámites que ya cuenten con la tramitación final y tengan estado de "Aprobado" (o habilitados)
+      if (t.es_aprobado_final || est === 'aprobado' || estRaw === 'aprobado' || (t.estado_operativo || '').toLowerCase() === 'habilitado') {
+        return false;
+      }
+
+      // 2. Estados iniciales o en proceso documental/inspección que NUNCA deben figurar en Informe Técnico
       const esEstadoInicialOInspeccion = (
         est.includes('pendiente') ||
         est.includes('esperando') ||
@@ -62,7 +70,7 @@ export default function InformeTecnicoView({
         return false;
       }
 
-      // Estados válidos que han completado la carpeta legal y la inspección de campo
+      // 3. Estados válidos que han completado la carpeta legal y la inspección de campo y están en informe/revisión legal/firma
       const esEstadoValido = (
         est === 'en informe técnico' ||
         est === 'en informe tecnico' ||
@@ -72,7 +80,6 @@ export default function InformeTecnicoView({
         est.includes('resolución') ||
         est.includes('resolucion') ||
         est.includes('firma') ||
-        est === 'aprobado' ||
         Boolean(t.resolucion_lista_para_firma) ||
         Boolean(t.resolucion?.numero_resolucion)
       );
@@ -460,14 +467,25 @@ export default function InformeTecnicoView({
   };
 
   // Estados calculados para aprobación final del trámite
-  const esAprobadoFinal = (tramiteActivo?.estado || '').toLowerCase() === 'aprobado';
-  const esListoParaAprobarFinal = Boolean(
+  const esAprobadoFinal = Boolean(
+    tramiteActivo?.es_aprobado_final ||
+    (tramiteActivo?.estado || '').toLowerCase() === 'aprobado' ||
+    (tramiteActivo?.estado_tramite_raw || '').toLowerCase() === 'aprobado' ||
+    (tramiteActivo?.estado_operativo || '').toLowerCase() === 'habilitado'
+  );
+
+  const esListoParaAprobarFinal = !esAprobadoFinal && Boolean(
     tramiteActivo?.resolucion_lista_para_firma ||
     (tramiteActivo?.estado || '').toLowerCase().includes('resolución') ||
     (tramiteActivo?.estado || '').toLowerCase().includes('resolucion') ||
     (tramiteActivo?.estado || '').toLowerCase().includes('firma') ||
     (tramiteActivo?.estado || '').toLowerCase().includes('aprobado por legal') ||
     (tramiteActivo?.resolucion_estado || '').toLowerCase().includes('coordinador')
+  );
+
+  const esDerivadoALegal = !esAprobadoFinal && !esListoParaAprobarFinal && (
+    (tramiteActivo?.estado || '').toLowerCase().includes('derivado') ||
+    (tramiteActivo?.estado_tramite_raw || '').toLowerCase().includes('derivado')
   );
 
   // Documentos aprobados del trámite actual
@@ -490,9 +508,9 @@ export default function InformeTecnicoView({
         {/* Columna Izquierda Vacía */}
         <div className="w-full md:w-80 lg:w-96 bg-white rounded-2xl border border-slate-200/90 shadow-xs flex flex-col shrink-0 overflow-hidden">
           <div className="p-4 border-b border-slate-100 flex items-center justify-between">
-            <h2 className="font-black text-slate-800 text-base tracking-tight">Establecimientos Aprobados</h2>
+            <h2 className="font-black text-slate-800 text-base tracking-tight">Establecimientos en Trámite</h2>
             <span className="bg-slate-100 text-slate-600 text-xs font-bold px-2.5 py-0.5 rounded-full border border-slate-200">
-              0 listos
+              0 pendientes
             </span>
           </div>
 
@@ -500,9 +518,9 @@ export default function InformeTecnicoView({
             <div className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center">
               <FileText className="w-6 h-6" />
             </div>
-            <p className="text-xs font-bold text-slate-700">Sin laboratorios en informe</p>
+            <p className="text-xs font-bold text-slate-700">Sin trámites pendientes en informe</p>
             <p className="text-[11px] text-slate-400 leading-relaxed">
-              Los laboratorios registrados en la base de datos aparecerán aquí una vez que apruebe sus requisitos y el acta técnica, y pulse el botón <strong>"Aprobar Trámite y Emitir Resolución"</strong>.
+              Todos los informes técnicos han completado su tramitación y emisión de resolución, encontrándose debidamente registrados en <strong>Historial y Trazabilidad</strong>.
             </p>
           </div>
         </div>
@@ -510,20 +528,20 @@ export default function InformeTecnicoView({
         {/* Panel Derecho Vacío con Guía */}
         <div className="flex-1 bg-white rounded-2xl border border-slate-200/90 shadow-xs flex flex-col items-center justify-center p-8 text-center overflow-hidden">
           <div className="max-w-md space-y-4">
-            <div className="w-16 h-16 rounded-2xl bg-sky-100 text-[#0077c8] flex items-center justify-center mx-auto shadow-inner">
-              <FileText className="w-8 h-8" />
+            <div className="w-16 h-16 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto shadow-inner border border-emerald-100">
+              <CheckCircle2 className="w-8 h-8" />
             </div>
             
             <div>
               <h3 className="text-lg font-black text-slate-900 tracking-tight">
-                Módulo de Informe Técnico
+                Módulo de Informe Técnico al Día
               </h3>
               <p className="text-xs text-slate-500 mt-2 leading-relaxed">
-                Actualmente no hay laboratorios derivados a Informe Técnico. Para que un establecimiento aparezca en esta sección, diríjase a la <strong>Bandeja de Entrada</strong>, verifique que los documentos y la inspección del supervisor estén aprobados, y haga clic en <strong>"Aprobar Trámite y Emitir Resolución"</strong>.
+                No hay expedientes pendientes de derivación ni resoluciones por firmar en este momento. Los laboratorios con tramitación final y estado <strong>Aprobado</strong> se encuentran archivados en la vista de <strong>Historial y Trazabilidad</strong>.
               </p>
             </div>
 
-            <div className="pt-2">
+            <div className="pt-2 flex flex-wrap gap-2 justify-center">
               <button
                 type="button"
                 onClick={() => navigate('/coordinador/bandeja')}
@@ -531,6 +549,14 @@ export default function InformeTecnicoView({
               >
                 <Inbox className="w-4 h-4" />
                 <span>Ir a Bandeja de Trámites</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate('/coordinador/historial-trazabilidad')}
+                className="inline-flex items-center space-x-2 px-5 py-2.5 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-bold shadow-md transition active:scale-95 cursor-pointer"
+              >
+                <History className="w-4 h-4" />
+                <span>Ver Historial y Trazabilidad</span>
               </button>
             </div>
           </div>
@@ -544,15 +570,15 @@ export default function InformeTecnicoView({
     <div className="flex-1 flex flex-col md:flex-row overflow-hidden p-3 sm:p-5 gap-4 bg-[#f3f6f9]">
 
       {/* ===================================================================== */}
-      {/* 1. COLUMNA IZQUIERDA: Establecimientos Aprobados (Lista de Cards BDD)  */}
+      {/* 1. COLUMNA IZQUIERDA: Establecimientos en Informe (Lista de Cards)    */}
       {/* ===================================================================== */}
       <div className="w-full md:w-80 lg:w-96 bg-white rounded-2xl border border-slate-200/90 shadow-xs flex flex-col shrink-0 overflow-hidden">
         
         {/* Cabecera de la columna */}
         <div className="p-4 border-b border-slate-100 flex items-center justify-between">
-          <h2 className="font-black text-slate-800 text-base tracking-tight">Establecimientos Aprobados</h2>
-          <span className="bg-[#dcfce7] text-[#166534] text-xs font-bold px-2.5 py-0.5 rounded-full border border-[#bbf7d0]">
-            {listaEstablecimientos.length} {listaEstablecimientos.length === 1 ? 'listo' : 'listos'}
+          <h2 className="font-black text-slate-800 text-base tracking-tight">Establecimientos en Informe</h2>
+          <span className="bg-[#e0f2fe] text-[#0369a1] text-xs font-bold px-2.5 py-0.5 rounded-full border border-[#bae6fd]">
+            {listaEstablecimientos.length} {listaEstablecimientos.length === 1 ? 'en curso' : 'en curso'}
           </span>
         </div>
 
@@ -596,13 +622,21 @@ export default function InformeTecnicoView({
                 {/* Badge de Estado */}
                 <div>
                   <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${
-                    item.estado === 'Derivado a Asesoría Legal'
-                      ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
-                      : item.estado === 'Aprobado'
-                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                        : 'bg-amber-50 text-amber-700 border-amber-200'
+                    item.estado === 'Aprobado' || item.es_aprobado_final
+                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                      : item.resolucion_lista_para_firma
+                        ? 'bg-sky-50 text-sky-700 border-sky-200'
+                        : item.estado === 'Derivado a Asesoría Legal'
+                          ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
+                          : 'bg-amber-50 text-amber-700 border-amber-200'
                   }`}>
-                    {item.estado === 'Derivado a Asesoría Legal' ? 'Derivado a Legal' : item.estado === 'Aprobado' ? 'Aprobado' : 'En Informe Técnico'}
+                    {item.estado === 'Aprobado' || item.es_aprobado_final
+                      ? 'Aprobado'
+                      : item.resolucion_lista_para_firma
+                        ? 'Resolución Lista para Firma'
+                        : item.estado === 'Derivado a Asesoría Legal'
+                          ? 'Derivado a Legal'
+                          : 'En Informe Técnico'}
                   </span>
                 </div>
               </div>
@@ -996,47 +1030,49 @@ export default function InformeTecnicoView({
             </span>
           </button>
 
-          {/* Botón 2: Enviar a Área Legal */}
-          <button
-            type="button"
-            onClick={handleEnviarAreaLegal}
-            disabled={enviandoLegal}
-            className={`px-5 py-2.5 font-extrabold text-xs sm:text-sm rounded-xl shadow-xs transition flex items-center justify-center space-x-2 cursor-pointer active:scale-98 disabled:opacity-50 ${
-              tramiteActivo?.estado === 'Derivado a Asesoría Legal'
-                ? 'bg-indigo-50 text-indigo-700 border border-indigo-300 hover:bg-indigo-100'
-                : 'bg-[#0077c8] hover:bg-[#0064a7] text-white shadow-md'
-            }`}
-            title={
-              tramiteActivo?.estado === 'Derivado a Asesoría Legal'
-                ? 'Este informe técnico ya fue derivado a Asesoría Legal. Puede volver a enviar si realizó modificaciones.'
-                : 'Enviar informe técnico y antecedentes a la Unidad de Asesoría Legal'
-            }
-          >
-            {tramiteActivo?.estado === 'Derivado a Asesoría Legal' ? (
-              <>
-                <CheckCircle2 className="w-4 h-4 text-indigo-600" />
-                <span>{enviandoLegal ? 'Re-derivando a Legal...' : 'Derivado a Área Legal (Reenviar)'}</span>
-              </>
-            ) : (
-              <>
-                <Send className="w-4 h-4 text-white" />
-                <span>{enviandoLegal ? 'Derivando a Legal...' : 'Enviar a Área Legal'}</span>
-              </>
-            )}
-          </button>
+          {/* Botón 2: Enviar a Área Legal (Solo cuando NO ha sido aprobado ni está listo para firma final) */}
+          {!esAprobadoFinal && !esListoParaAprobarFinal && (
+            <button
+              type="button"
+              onClick={handleEnviarAreaLegal}
+              disabled={enviandoLegal}
+              className={`px-5 py-2.5 font-extrabold text-xs sm:text-sm rounded-xl shadow-xs transition flex items-center justify-center space-x-2 cursor-pointer active:scale-98 disabled:opacity-50 ${
+                esDerivadoALegal
+                  ? 'bg-indigo-50 text-indigo-700 border border-indigo-300 hover:bg-indigo-100'
+                  : 'bg-[#0077c8] hover:bg-[#0064a7] text-white shadow-md'
+              }`}
+              title={
+                esDerivadoALegal
+                  ? 'Este informe técnico ya fue derivado a Asesoría Legal. Puede volver a enviar si realizó modificaciones.'
+                  : 'Enviar informe técnico y antecedentes a la Unidad de Asesoría Legal'
+              }
+            >
+              {esDerivadoALegal ? (
+                <>
+                  <CheckCircle2 className="w-4 h-4 text-indigo-600" />
+                  <span>{enviandoLegal ? 'Re-derivando a Legal...' : 'Derivado a Área Legal (Reenviar)'}</span>
+                </>
+              ) : (
+                <>
+                  <Send className="w-4 h-4 text-white" />
+                  <span>{enviandoLegal ? 'Derivando a Legal...' : 'Enviar a Área Legal'}</span>
+                </>
+              )}
+            </button>
+          )}
 
-          {/* Botón 3: Aprobar Trámite Final (Dinámico según estado de Asesoría Legal) */}
+          {/* Botón 3: Aprobar Trámite Final / Estado Final */}
           {esAprobadoFinal ? (
             <div className="px-5 py-2.5 bg-emerald-50 text-emerald-800 border border-emerald-300 font-extrabold text-xs sm:text-sm rounded-xl shadow-xs flex items-center justify-center space-x-2 select-none">
               <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-              <span>Trámite Aprobado y Habilitado</span>
+              <span>Trámite Aprobado y Resolución Emitida</span>
             </div>
           ) : esListoParaAprobarFinal ? (
             <button
               type="button"
               onClick={() => onAprobarFinal(tramiteActivo)}
               className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 active:scale-98 text-white font-extrabold text-xs sm:text-sm rounded-xl shadow-md hover:shadow-lg transition flex items-center justify-center space-x-2 cursor-pointer ring-2 ring-emerald-400/60 animate-pulse"
-              title="El Asesor Legal ha aprobado la Resolución Administrativa. Haga clic para emitir la aprobación final y habilitar el establecimiento."
+              title="El Asesor Legal ha elaborado la Resolución Administrativa. Haga clic para emitir la aprobación definitiva y habilitar el establecimiento."
             >
               <Award className="w-4 h-4 text-white" />
               <span>Aprobar Trámite Final</span>
@@ -1045,7 +1081,7 @@ export default function InformeTecnicoView({
             <button
               type="button"
               disabled={true}
-              title="La aprobación final del trámite se habilitará automáticamente una vez que Asesoría Legal elabore y apruebe la Resolución Administrativa."
+              title="La aprobación final del trámite se habilitará automáticamente una vez que Asesoría Legal elabore y remita la Resolución Administrativa."
               className="px-5 py-2.5 bg-slate-100 text-slate-400 font-extrabold text-xs sm:text-sm rounded-xl border border-slate-200 flex items-center justify-center space-x-2 cursor-not-allowed opacity-75 select-none"
             >
               <Lock className="w-4 h-4 text-slate-400" />

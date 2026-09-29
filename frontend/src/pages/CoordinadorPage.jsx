@@ -53,6 +53,8 @@ import logoL2 from '../assets/L2.png';
 import heroBg from '../assets/hero_bg.jpg';
 import RealMapPicker from '../components/common/RealMapPicker';
 import InformeTecnicoView from '../components/coordinador/InformeTecnicoView';
+import { generarResolucionAdministrativaPDF } from '../components/abogado/ResolucionAdministrativaPDF';
+import { generarComunicacionInternaPDF } from '../components/coordinador/ComunicacionInternaPDF';
 
 // 8 Especialidades Oficiales del SEDES (según normativa y formulario de apertura)
 const ESPECIALIDADES_OFICIALES = [
@@ -206,11 +208,16 @@ const getAvatarColor = (nombre) => {
 export const getTramiteEstadoVisual = (item) => {
   if (!item) return { texto: 'En Revisión', color: 'bg-amber-50 text-amber-700 border-amber-200' };
 
+  // 0. Aprobado definitivo (Finalizado)
+  const estLower = (item.estado_tramite_raw || item.estado || '').toLowerCase();
+  if (item.es_aprobado_final || estLower === 'aprobado' || (item.estado_operativo || '').toLowerCase() === 'habilitado') {
+    return { texto: 'Aprobado', color: 'bg-emerald-50 text-emerald-700 border-emerald-200' };
+  }
+
   // 1. Estados legales avanzados
   if (item.resolucion_lista_para_firma) {
     return { texto: 'Resolución Lista para Firma', color: 'bg-sky-50 text-sky-700 border-sky-200' };
   }
-  const estLower = (item.estado || '').toLowerCase();
   if (estLower === 'derivado a asesoría legal' || estLower === 'derivado a asesoria legal') {
     return { texto: 'Derivado a Legal', color: 'bg-indigo-50 text-indigo-700 border-indigo-200' };
   }
@@ -307,6 +314,16 @@ export default function CoordinadorPage() {
   const [procesandoValidacionDatos, setProcesandoValidacionDatos] = useState(false);
   const [modalVerDocFull, setModalVerDocFull] = useState(false);
   const [notificacionToast, setNotificacionToast] = useState(null);
+
+  // Modal de Expediente Digital y Documentos Emitidos (Historial y Trazabilidad)
+  const [modalExpedienteHistorialOpen, setModalExpedienteHistorialOpen] = useState(false);
+  const [tramiteHistorialSeleccionado, setTramiteHistorialSeleccionado] = useState(null);
+  const [cargandoDetalleHistorial, setCargandoDetalleHistorial] = useState(false);
+  const [tabModalHistorial, setTabModalHistorial] = useState('documentos'); // 'documentos' | 'resumen' | 'requisitos'
+  const [generandoPdfHistorial, setGenerandoPdfHistorial] = useState(false);
+  const [pdfPreviewModalOpen, setPdfPreviewModalOpen] = useState(false);
+  const [pdfPreviewUrl, setPdfPreviewUrl] = useState(null);
+  const [pdfPreviewTitulo, setPdfPreviewTitulo] = useState('');
 
   // Formularios de modales
   const [reinspeccionData, setReinspeccionData] = useState({
@@ -819,20 +836,56 @@ export default function CoordinadorPage() {
     }
   };
 
-  // Filtrado de actividades de auditoría (excluyendo aprobaciones individuales de documentos)
-  const actividadesFiltradas = historialActividades.filter(act => {
-    const accionLower = (act.accion || '').toLowerCase();
-    // Excluir aprobaciones individuales de documentos como "Documento aprobado: ..."
-    if (accionLower.includes('documento aprobado') || accionLower.startsWith('documento aprobado')) {
-      return false;
-    }
-    const matchTexto = (act.codigo || '').toLowerCase().includes(filtroHistorialTexto.toLowerCase()) ||
-                       (act.establecimiento || '').toLowerCase().includes(filtroHistorialTexto.toLowerCase()) ||
-                       accionLower.includes(filtroHistorialTexto.toLowerCase());
-    const matchEstado = filtroHistorialEstado === 'Todos' || act.estado === filtroHistorialEstado;
-    const matchSupervisor = filtroHistorialSupervisor === 'Todos' || (act.responsable || '').includes(filtroHistorialSupervisor.replace('Ing.', '').replace('Dra.', '').replace('Lic.', '').trim());
-    return matchTexto && matchEstado && matchSupervisor;
-  });
+  // Obtener catálogo completo y dinámico de estados disponibles en el historial
+  const estadosHistorialDisponibles = useMemo(() => {
+    const estadosEstandar = [
+      'Aprobado',
+      'Observado',
+      'Asignado',
+      'Rechazado',
+      'En Informe Técnico',
+      'Derivado',
+      'Enviado a Coordinador',
+      'Aprobado por Legal',
+      'Subsanado',
+      'Pendiente',
+      'Programada',
+      'Reprogramada'
+    ];
+    const estadosEnDatos = (historialActividades || [])
+      .map(act => act.estado)
+      .filter(Boolean)
+      .map(e => e.trim());
+
+    return Array.from(new Set([...estadosEstandar, ...estadosEnDatos])).filter(Boolean);
+  }, [historialActividades]);
+
+  // Filtrado reactivo en tiempo real de actividades de auditoría (excluyendo aprobaciones individuales de documentos)
+  const actividadesFiltradas = useMemo(() => {
+    return (historialActividades || []).filter(act => {
+      const accionLower = (act.accion || '').toLowerCase();
+      // Excluir aprobaciones individuales de documentos como "Documento aprobado: ..."
+      if (accionLower.includes('documento aprobado') || accionLower.startsWith('documento aprobado')) {
+        return false;
+      }
+      const matchTexto = !filtroHistorialTexto.trim() ||
+                         (act.codigo || '').toLowerCase().includes(filtroHistorialTexto.toLowerCase()) ||
+                         (act.establecimiento || '').toLowerCase().includes(filtroHistorialTexto.toLowerCase()) ||
+                         accionLower.includes(filtroHistorialTexto.toLowerCase());
+
+      const estadoAct = (act.estado || '').toLowerCase().trim();
+      const filtroEstadoLower = (filtroHistorialEstado || 'Todos').toLowerCase().trim();
+      const matchEstado = filtroHistorialEstado === 'Todos' ||
+                          estadoAct === filtroEstadoLower ||
+                          estadoAct.includes(filtroEstadoLower);
+
+      const matchSupervisor = filtroHistorialSupervisor === 'Todos' ||
+                              (act.responsable || '').toLowerCase().includes(
+                                filtroHistorialSupervisor.replace('Ing.', '').replace('Dra.', '').replace('Lic.', '').replace('Dr.', '').trim().toLowerCase()
+                              );
+      return matchTexto && matchEstado && matchSupervisor;
+    });
+  }, [historialActividades, filtroHistorialTexto, filtroHistorialEstado, filtroHistorialSupervisor]);
 
   // Paginación para Historial y Trazabilidad (10 por defecto, configurable a 25 y 50)
   const [itemsPorPaginaHistorial, setItemsPorPaginaHistorial] = useState(10);
@@ -993,7 +1046,9 @@ export default function CoordinadorPage() {
       if (response.ok) {
         mostrarToast(`¡Trámite ${tramiteActual.id} (${tramiteActual.establecimiento}) APROBADO exitosamente! Resolución: ${aprobacionData.codigoResolucion}.`, 'success');
         setModalAprobacionOpen(false);
-        cargarDatosBackend();
+        await cargarDatosBackend(true);
+        recargarHistorial();
+        navigate('/coordinador/historial-trazabilidad');
       } else {
         const err = await response.json();
         mostrarToast(err.detail || 'Error al aprobar trámite', 'warning');
@@ -1030,6 +1085,197 @@ export default function CoordinadorPage() {
       setPasandoAInforme(false);
       setTramiteSeleccionadoId(tramite.id);
       navigate('/coordinador/informe-tecnico');
+    }
+  };
+
+  // Abrir Expediente Digital desde el Historial
+  const handleAbrirExpedienteHistorial = async (item) => {
+    setCargandoDetalleHistorial(true);
+    setModalExpedienteHistorialOpen(true);
+    setTabModalHistorial('documentos');
+
+    // 1. Intentar buscar en el estado local de trámites
+    let target = tramites.find(t => 
+      (item.tramite_uuid && (t.tramite_uuid === item.tramite_uuid || t.id === item.tramite_uuid)) ||
+      (t.id && item.codigo && t.id.toLowerCase().includes(item.codigo.toLowerCase().replace('trm-', '').replace('req-', ''))) ||
+      (item.establecimiento && t.establecimiento && t.establecimiento.toLowerCase() === item.establecimiento.toLowerCase())
+    );
+
+    // 2. Traer los datos frescos y completos desde el backend
+    const lookupId = item.tramite_uuid || item.codigo;
+    if (lookupId) {
+      try {
+        const res = await fetch(`http://localhost:8000/api/coordinador/tramites/${lookupId}`);
+        if (res.ok) {
+          const freshData = await res.json();
+          target = freshData;
+        }
+      } catch (e) {
+        console.warn('Error al obtener detalle del trámite para historial:', e);
+      }
+    }
+
+    if (target) {
+      setTramiteHistorialSeleccionado(target);
+    } else {
+      setTramiteHistorialSeleccionado({
+        id: item.codigo,
+        establecimiento: item.establecimiento,
+        estado: item.estado,
+        estadoBadgeColor: item.estadoBadge,
+        fecha: item.fechaHora,
+        responsable: item.responsable,
+        documentos: []
+      });
+    }
+    setCargandoDetalleHistorial(false);
+  };
+
+  // Descargar PDF de Resolución Administrativa desde el Historial
+  const handleDescargarResolucionHistorial = async (tramite) => {
+    if (!tramite) return;
+    setGenerandoPdfHistorial(true);
+    try {
+      const res = tramite.resolucion || {};
+      const datosParaPdf = {
+        numero_resolucion: res.numero_resolucion || tramite.resolucion_numero || `RA-${new Date().getFullYear()}-SEDES`,
+        fecha_emision: res.fecha_emision || new Date().toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' }),
+        establecimiento: res.establecimiento_nombre || tramite.establecimiento,
+        establecimiento_nombre: res.establecimiento_nombre || tramite.establecimiento,
+        propietario: res.razon_social_propietario || tramite.propietario,
+        razon_social: res.razon_social_propietario || tramite.propietario,
+        razon_social_propietario: res.razon_social_propietario || tramite.propietario,
+        ci_nit: res.ci_nit_solicitante || tramite.propietario_ci || tramite.ci_nit,
+        ci_nit_solicitante: res.ci_nit_solicitante || tramite.propietario_ci || tramite.ci_nit,
+        regente: res.regente_tecnico || tramite.regente || tramite.propietario,
+        regente_nombre: res.regente_tecnico || tramite.regente || tramite.propietario,
+        ci_regente: res.ci_regente || tramite.regente_ci || tramite.ci_responsable,
+        tipo_tramite: tramite.tipo || 'APERTURA Y HABILITACIÓN',
+        direccion: res.direccion_registrada || tramite.direccion,
+        direccion_registrada: res.direccion_registrada || tramite.direccion,
+        tipo_establecimiento: res.tipo_establecimiento || tramite.categoria || 'Laboratorio Clínico',
+        cite_informe: res.cite_informe || `CODELAB/SEDES/1/${new Date().getFullYear()}`,
+        fecha_informe: res.fecha_emision || 'Reciente',
+        coordinador_nombre: nombreCoordinador,
+        abogado_nombre: res.abogado_nombre || 'Dr. Marco Villanueva (Asesor Legal SEDES)',
+        vigencia_anios: res.vigencia_anios || 5,
+        antecedentes: res.antecedentes,
+        vistos: res.antecedentes,
+        fundamento_legal: res.fundamento_legal,
+        articulo_primero: res.articulo_primero,
+        articulo_segundo: res.articulo_segundo,
+        articulo_tercero: res.articulo_tercero,
+        observaciones_legales: res.observaciones_legales
+      };
+      const doc = await generarResolucionAdministrativaPDF(datosParaPdf);
+      doc.save(`Resolucion_Administrativa_${(datosParaPdf.numero_resolucion || 'SEDES').replace(/\//g, '_')}.pdf`);
+      mostrarToast('Resolución Administrativa descargada exitosamente.', 'success');
+    } catch (e) {
+      console.error('Error al generar PDF de Resolución:', e);
+      mostrarToast('Error al generar PDF de Resolución', 'warning');
+    } finally {
+      setGenerandoPdfHistorial(false);
+    }
+  };
+
+  // Descargar PDF de Informe Técnico / Comunicación Interna desde el Historial
+  const handleDescargarInformeHistorial = async (tramite) => {
+    if (!tramite) return;
+    setGenerandoPdfHistorial(true);
+    try {
+      const cite = tramite.resolucion?.cite_informe || `CODELAB/SEDES/1/${new Date().getFullYear()}`;
+      const doc = await generarComunicacionInternaPDF(tramite, {
+        cite: cite,
+        destinatario: 'Dra. Mery D. Loroño V.',
+        destinatarioCargo: 'ASESOR LEGAL - UNIDAD DE CALIDAD Y SERVICIOS',
+        via: 'Dra. Karina Soliz Villarroel',
+        viaCargo: 'JEFE DE LA UNIDAD DE CALIDAD Y SERVICIOS a.i.',
+        remitente: nombreCoordinador,
+        remitenteCargo: 'RESPONSABLE DEPARTAMENTAL DE LABORATORIOS CODELAB - SEDES',
+        regente: tramite.regente,
+        ciRegente: tramite.ci_regente || tramite.regente_ci || tramite.ci_responsable,
+        responsables_areas: tramite.responsables_areas,
+        observaciones: tramite.resolucion?.observaciones_coordinador || 'Conformidad técnica legal total verificada en expediente.',
+      });
+      doc.save(`Informe_Tecnico_${cite.replace(/\//g, '_')}.pdf`);
+      mostrarToast('Informe Técnico descargado exitosamente.', 'success');
+    } catch (e) {
+      console.error('Error al generar Informe Técnico PDF:', e);
+      mostrarToast('Error al generar Informe Técnico PDF', 'warning');
+    } finally {
+      setGenerandoPdfHistorial(false);
+    }
+  };
+
+  // Previsualizar PDF en Modal
+  const handlePrevisualizarPdfHistorial = async (tipo, tramite) => {
+    if (!tramite) return;
+    setGenerandoPdfHistorial(true);
+    try {
+      let doc;
+      if (tipo === 'resolucion') {
+        const res = tramite.resolucion || {};
+        const datosParaPdf = {
+          numero_resolucion: res.numero_resolucion || tramite.resolucion_numero || `RA-${new Date().getFullYear()}-SEDES`,
+          fecha_emision: res.fecha_emision || new Date().toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' }),
+          establecimiento: res.establecimiento_nombre || tramite.establecimiento,
+          establecimiento_nombre: res.establecimiento_nombre || tramite.establecimiento,
+          propietario: res.razon_social_propietario || tramite.propietario,
+          razon_social: res.razon_social_propietario || tramite.propietario,
+          razon_social_propietario: res.razon_social_propietario || tramite.propietario,
+          ci_nit: res.ci_nit_solicitante || tramite.propietario_ci || tramite.ci_nit,
+          ci_nit_solicitante: res.ci_nit_solicitante || tramite.propietario_ci || tramite.ci_nit,
+          regente: res.regente_tecnico || tramite.regente || tramite.propietario,
+          regente_nombre: res.regente_tecnico || tramite.regente || tramite.propietario,
+          ci_regente: res.ci_regente || tramite.regente_ci || tramite.ci_responsable,
+          tipo_tramite: tramite.tipo || 'APERTURA Y HABILITACIÓN',
+          direccion: res.direccion_registrada || tramite.direccion,
+          direccion_registrada: res.direccion_registrada || tramite.direccion,
+          tipo_establecimiento: res.tipo_establecimiento || tramite.categoria || 'Laboratorio Clínico',
+          cite_informe: res.cite_informe || `CODELAB/SEDES/1/${new Date().getFullYear()}`,
+          fecha_informe: res.fecha_emision || 'Reciente',
+          coordinador_nombre: nombreCoordinador,
+          abogado_nombre: res.abogado_nombre || 'Dr. Marco Villanueva (Asesor Legal SEDES)',
+          vigencia_anios: res.vigencia_anios || 5,
+          antecedentes: res.antecedentes,
+          vistos: res.antecedentes,
+          fundamento_legal: res.fundamento_legal,
+          articulo_primero: res.articulo_primero,
+          articulo_segundo: res.articulo_segundo,
+          articulo_tercero: res.articulo_tercero,
+          observaciones_legales: res.observaciones_legales
+        };
+        doc = await generarResolucionAdministrativaPDF(datosParaPdf);
+        setPdfPreviewTitulo(`Resolución Administrativa - ${datosParaPdf.numero_resolucion}`);
+      } else {
+        const cite = tramite.resolucion?.cite_informe || `CODELAB/SEDES/1/${new Date().getFullYear()}`;
+        doc = await generarComunicacionInternaPDF(tramite, {
+          cite: cite,
+          destinatario: 'Dra. Mery D. Loroño V.',
+          destinatarioCargo: 'ASESOR LEGAL - UNIDAD DE CALIDAD Y SERVICIOS',
+          via: 'Dra. Karina Soliz Villarroel',
+          viaCargo: 'JEFE DE LA UNIDAD DE CALIDAD Y SERVICIOS a.i.',
+          remitente: nombreCoordinador,
+          remitenteCargo: 'RESPONSABLE DEPARTAMENTAL DE LABORATORIOS CODELAB - SEDES',
+          regente: tramite.regente,
+          ciRegente: tramite.ci_regente || tramite.regente_ci || tramite.ci_responsable,
+          responsables_areas: tramite.responsables_areas,
+          observaciones: tramite.resolucion?.observaciones_coordinador || 'Conformidad técnica legal total verificada en expediente.',
+        });
+        setPdfPreviewTitulo(`Informe Técnico CODELAB - ${cite}`);
+      }
+      const blob = doc.output('blob');
+      const url = URL.createObjectURL(blob);
+      if (pdfPreviewUrl) {
+        URL.revokeObjectURL(pdfPreviewUrl);
+      }
+      setPdfPreviewUrl(url);
+      setPdfPreviewModalOpen(true);
+    } catch (e) {
+      console.error('Error al generar vista previa:', e);
+      mostrarToast('Error al generar vista previa del documento', 'warning');
+    } finally {
+      setGenerandoPdfHistorial(false);
     }
   };
 
@@ -2981,15 +3227,30 @@ export default function CoordinadorPage() {
                 </p>
               </div>
 
-              {/* Barra de Filtros y Búsqueda */}
+              {/* Barra de Filtros y Búsqueda Automática */}
               <div className="bg-white rounded-2xl p-5 border border-slate-200/90 shadow-xs">
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 items-end">
 
                   {/* Buscar */}
-                  <div className="col-span-1 sm:col-span-2 lg:col-span-4">
-                    <label className="block text-[10px] font-extrabold text-slate-400 uppercase tracking-wider mb-1.5">
-                      BUSCAR
-                    </label>
+                  <div className="col-span-1 sm:col-span-2 lg:col-span-5">
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="block text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">
+                        BUSCAR
+                      </label>
+                      {(filtroHistorialTexto || filtroHistorialEstado !== 'Todos' || filtroHistorialSupervisor !== 'Todos') && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setFiltroHistorialTexto('');
+                            setFiltroHistorialEstado('Todos');
+                            setFiltroHistorialSupervisor('Todos');
+                          }}
+                          className="text-[10px] font-bold text-[#0077c8] hover:text-[#005a96] hover:underline cursor-pointer"
+                        >
+                          Limpiar filtros
+                        </button>
+                      )}
+                    </div>
                     <div className="relative">
                       <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-2.5" />
                       <input
@@ -2997,15 +3258,24 @@ export default function CoordinadorPage() {
                         placeholder="Buscar por código, establecimiento, acción..."
                         value={filtroHistorialTexto}
                         onChange={(e) => setFiltroHistorialTexto(e.target.value)}
-                        className="w-full pl-9 pr-3 py-2 text-xs bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0077c8] text-slate-700 placeholder-slate-400"
+                        className="w-full pl-9 pr-8 py-2 text-xs bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0077c8] text-slate-700 placeholder-slate-400 font-medium"
                       />
+                      {filtroHistorialTexto && (
+                        <button
+                          type="button"
+                          onClick={() => setFiltroHistorialTexto('')}
+                          className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      )}
                     </div>
                   </div>
 
                   {/* Estado */}
-                  <div className="col-span-1 sm:col-span-1 lg:col-span-2">
+                  <div className="col-span-1 sm:col-span-1 lg:col-span-3">
                     <label className="block text-[10px] font-extrabold text-slate-400 uppercase tracking-wider mb-1.5">
-                      ESTADO
+                      ESTADO DEL EVENTO
                     </label>
                     <div className="relative">
                       <select
@@ -3014,9 +3284,9 @@ export default function CoordinadorPage() {
                         className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0077c8] text-slate-700 cursor-pointer appearance-none pr-8 font-medium"
                       >
                         <option value="Todos">Todos los Estados</option>
-                        <option value="Aprobado">Aprobado</option>
-                        <option value="Asignado">Asignado</option>
-                        <option value="Rechazado">Rechazado</option>
+                        {estadosHistorialDisponibles.map((est) => (
+                          <option key={est} value={est}>{est}</option>
+                        ))}
                       </select>
                       <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-slate-400">
                         <ChevronRight className="w-3.5 h-3.5 rotate-90" />
@@ -3025,9 +3295,9 @@ export default function CoordinadorPage() {
                   </div>
 
                   {/* Supervisor */}
-                  <div className="col-span-1 sm:col-span-1 lg:col-span-3">
+                  <div className="col-span-1 sm:col-span-1 lg:col-span-4">
                     <label className="block text-[10px] font-extrabold text-slate-400 uppercase tracking-wider mb-1.5">
-                      RESPONSABLE / SUPERVISOR
+                      RESPONSABLE / FUNCIONARIO
                     </label>
                     <div className="relative">
                       <select
@@ -3044,20 +3314,6 @@ export default function CoordinadorPage() {
                         <ChevronRight className="w-3.5 h-3.5 rotate-90" />
                       </div>
                     </div>
-                  </div>
-
-                  {/* Botón Filtrar */}
-                  <div className="col-span-1 sm:col-span-2 lg:col-span-3">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        recargarHistorial();
-                        mostrarToast('Filtros de auditoría aplicados correctamente.', 'info');
-                      }}
-                      className="w-full py-2 px-4 bg-[#19324d] hover:bg-[#102235] text-white text-xs font-bold rounded-xl transition-all shadow-xs cursor-pointer text-center active:scale-95 flex items-center justify-center h-[38px]"
-                    >
-                      Aplicar Filtros
-                    </button>
                   </div>
 
                 </div>
@@ -3082,11 +3338,17 @@ export default function CoordinadorPage() {
                         <th className="pb-3 font-extrabold">ACCIÓN REALIZADA</th>
                         <th className="pb-3 font-extrabold">RESPONSABLE</th>
                         <th className="pb-3 font-extrabold text-center">ESTADO</th>
+                        <th className="pb-3 font-extrabold text-center">DOCUMENTOS</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 text-xs">
                       {actividadesPaginadas.map((item) => (
-                        <tr key={item.id} className="hover:bg-slate-50/60 transition-colors">
+                        <tr 
+                          key={item.id} 
+                          onClick={() => handleAbrirExpedienteHistorial(item)}
+                          className="hover:bg-sky-50/70 transition-colors cursor-pointer group"
+                          title="Clic para ver expediente completo y descargar documentos"
+                        >
 
                           {/* Fecha / Hora */}
                           <td className="py-4 text-slate-500 font-medium whitespace-nowrap">
@@ -3094,7 +3356,7 @@ export default function CoordinadorPage() {
                           </td>
 
                           {/* Código */}
-                          <td className="py-4 font-extrabold text-[#0077c8] tracking-tight whitespace-nowrap">
+                          <td className="py-4 font-extrabold text-[#0077c8] tracking-tight whitespace-nowrap group-hover:underline">
                             {item.codigo}
                           </td>
 
@@ -3120,12 +3382,28 @@ export default function CoordinadorPage() {
                             </span>
                           </td>
 
+                          {/* Botón Ver Expediente y Documentos */}
+                          <td className="py-4 text-center whitespace-nowrap">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleAbrirExpedienteHistorial(item);
+                              }}
+                              className="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-sky-50 text-[#0077c8] hover:bg-[#0077c8] hover:text-white border border-sky-200 group-hover:border-[#0077c8] rounded-xl text-xs font-bold transition-all shadow-2xs cursor-pointer"
+                              title="Abrir expediente digital y descargar resoluciones o informes"
+                            >
+                              <FolderOpen className="w-3.5 h-3.5 shrink-0" />
+                              <span>Expediente</span>
+                            </button>
+                          </td>
+
                         </tr>
                       ))}
 
                       {actividadesPaginadas.length === 0 && (
                         <tr>
-                          <td colSpan={6} className="py-8 text-center text-slate-400 text-xs font-medium">
+                          <td colSpan={7} className="py-8 text-center text-slate-400 text-xs font-medium">
                             No se encontraron registros de trámites en el historial.
                           </td>
                         </tr>
@@ -3466,6 +3744,469 @@ export default function CoordinadorPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL: EXPEDIENTE DIGITAL Y DOCUMENTACIÓN OFICIAL (HISTORIAL)             */}
+      {/* ========================================================================= */}
+      {modalExpedienteHistorialOpen && tramiteHistorialSeleccionado && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl shadow-2xl border border-slate-200/90 w-full max-w-4xl max-h-[92vh] flex flex-col overflow-hidden">
+            
+            {/* Cabecera Estilo Institucional */}
+            <div className="bg-linear-to-r from-[#19324d] via-[#102235] to-[#0060a8] text-white p-5 sm:p-6 flex items-start justify-between relative shrink-0">
+              <div className="flex items-center space-x-3.5 pr-8">
+                <div className="w-12 h-12 rounded-2xl bg-white/15 backdrop-blur-md border border-white/20 flex items-center justify-center text-white shrink-0 shadow-inner">
+                  <FolderOpen className="w-6 h-6 text-sky-300" />
+                </div>
+                <div>
+                  <div className="flex items-center space-x-2">
+                    <span className="text-[11px] font-extrabold px-2.5 py-0.5 rounded-full bg-sky-400/20 text-sky-200 border border-sky-400/30 uppercase tracking-wide">
+                      {tramiteHistorialSeleccionado.id || tramiteHistorialSeleccionado.codigo || 'TRM'}
+                    </span>
+                    <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full border ${tramiteHistorialSeleccionado.estadoBadgeColor || 'bg-emerald-500/20 text-emerald-200 border-emerald-400/30'}`}>
+                      {tramiteHistorialSeleccionado.estado || 'Registrado'}
+                    </span>
+                  </div>
+                  <h2 className="text-lg sm:text-xl font-black tracking-tight text-white mt-1">
+                    {tramiteHistorialSeleccionado.establecimiento || 'Establecimiento de Salud'}
+                  </h2>
+                  <p className="text-xs text-sky-200/90 font-medium">
+                    Expediente Digital Centralizado &bull; SEDES Cochabamba CODELAB
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setModalExpedienteHistorialOpen(false)}
+                className="w-9 h-9 rounded-xl bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition cursor-pointer"
+                title="Cerrar expediente"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Pestañas del Modal */}
+            <div className="bg-slate-50 border-b border-slate-200 px-6 pt-3 flex space-x-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => setTabModalHistorial('documentos')}
+                className={`flex items-center space-x-2 px-4 py-2.5 rounded-t-xl text-xs font-bold transition border-t border-x cursor-pointer ${
+                  tabModalHistorial === 'documentos'
+                    ? 'bg-white text-[#0077c8] border-slate-200 border-b-white -mb-px shadow-xs'
+                    : 'bg-transparent text-slate-500 border-transparent hover:text-slate-800'
+                }`}
+              >
+                <Award className="w-4 h-4" />
+                <span>Documentos Emitidos (PDF)</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setTabModalHistorial('resumen')}
+                className={`flex items-center space-x-2 px-4 py-2.5 rounded-t-xl text-xs font-bold transition border-t border-x cursor-pointer ${
+                  tabModalHistorial === 'resumen'
+                    ? 'bg-white text-[#0077c8] border-slate-200 border-b-white -mb-px shadow-xs'
+                    : 'bg-transparent text-slate-500 border-transparent hover:text-slate-800'
+                }`}
+              >
+                <Building2 className="w-4 h-4" />
+                <span>Ficha Técnica del Establecimiento</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setTabModalHistorial('requisitos')}
+                className={`flex items-center space-x-2 px-4 py-2.5 rounded-t-xl text-xs font-bold transition border-t border-x cursor-pointer ${
+                  tabModalHistorial === 'requisitos'
+                    ? 'bg-white text-[#0077c8] border-slate-200 border-b-white -mb-px shadow-xs'
+                    : 'bg-transparent text-slate-500 border-transparent hover:text-slate-800'
+                }`}
+              >
+                <FileCheck className="w-4 h-4" />
+                <span>Requisitos Adjuntos ({tramiteHistorialSeleccionado.documentos?.length || 0})</span>
+              </button>
+            </div>
+
+            {/* Cuerpo del Modal con Scroll */}
+            <div className="flex-1 overflow-y-auto p-5 sm:p-6 bg-slate-50/50 space-y-5">
+
+              {cargandoDetalleHistorial ? (
+                <div className="py-12 flex flex-col items-center justify-center text-slate-400 space-y-3">
+                  <RefreshCw className="w-8 h-8 animate-spin text-[#0077c8]" />
+                  <p className="text-xs font-semibold">Cargando expediente digital completo...</p>
+                </div>
+              ) : (
+                <>
+                  {/* ========================================================= */}
+                  {/* TAB 1: DOCUMENTOS EMITIDOS OFICIALES                      */}
+                  {/* ========================================================= */}
+                  {tabModalHistorial === 'documentos' && (
+                    <div className="space-y-4">
+                      <div className="bg-sky-50/60 border border-sky-200/80 rounded-2xl p-4 flex items-start space-x-3">
+                        <AlertCircle className="w-5 h-5 text-[#0077c8] shrink-0 mt-0.5" />
+                        <div className="text-xs text-sky-950 leading-relaxed font-medium">
+                          <strong>Repositorio Oficial de Documentos Emitidos:</strong> Desde aquí puede previsualizar o volver a descargar copias oficiales de las Resoluciones Administrativas e Informes Técnicos generados durante la tramitación.
+                        </div>
+                      </div>
+
+                      {/* 1. Tarjeta: Resolución Administrativa Oficial */}
+                      <div className="bg-white rounded-2xl border border-slate-200/90 shadow-xs p-5 hover:border-emerald-300 transition-all">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                          <div className="flex items-start space-x-4">
+                            <div className="w-12 h-12 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-600 shrink-0 shadow-2xs">
+                              <Award className="w-6 h-6" />
+                            </div>
+                            <div>
+                              <div className="flex items-center space-x-2">
+                                <h3 className="text-sm font-black text-slate-900">
+                                  Resolución Administrativa SEDES
+                                </h3>
+                                <span className="px-2 py-0.5 text-[10px] font-extrabold rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                  Documento Legal Oficial
+                                </span>
+                              </div>
+                              <p className="text-xs text-slate-500 font-medium mt-1">
+                                {tramiteHistorialSeleccionado.resolucion?.numero_resolucion || tramiteHistorialSeleccionado.resolucion_numero
+                                  ? `Resolución N° ${tramiteHistorialSeleccionado.resolucion?.numero_resolucion || tramiteHistorialSeleccionado.resolucion_numero} • Vigencia: ${tramiteHistorialSeleccionado.resolucion?.vigencia_anios || 5} años`
+                                  : 'Resolución Administrativa Oficial de Habilitación y Funcionamiento'}
+                              </p>
+                              <div className="flex flex-wrap items-center gap-3 text-[11px] text-slate-400 font-medium mt-2">
+                                <span>Asesor Legal: <strong className="text-slate-700">{tramiteHistorialSeleccionado.resolucion?.abogado_nombre || 'Dr. Marco Villanueva'}</strong></span>
+                                <span>&bull;</span>
+                                <span>Fecha: <strong className="text-slate-700">{tramiteHistorialSeleccionado.resolucion?.fecha_emision || tramiteHistorialSeleccionado.fecha || 'Oficial'}</strong></span>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Acciones de Resolución */}
+                          <div className="flex items-center space-x-2 self-end sm:self-center shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => handlePrevisualizarPdfHistorial('resolucion', tramiteHistorialSeleccionado)}
+                              disabled={generandoPdfHistorial}
+                              className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold flex items-center space-x-1.5 transition cursor-pointer disabled:opacity-50"
+                              title="Ver vista previa de la Resolución"
+                            >
+                              <Eye className="w-3.5 h-3.5 text-slate-600" />
+                              <span>Vista Previa</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => handleDescargarResolucionHistorial(tramiteHistorialSeleccionado)}
+                              disabled={generandoPdfHistorial}
+                              className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-extrabold flex items-center space-x-1.5 shadow-xs transition cursor-pointer disabled:opacity-50 active:scale-95"
+                              title="Descargar Resolución Administrativa en PDF"
+                            >
+                              <Download className="w-3.5 h-3.5" />
+                              <span>Descargar (PDF)</span>
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* 2. Tarjeta: Informe Técnico / Comunicación Interna */}
+                      <div className="bg-white rounded-2xl border border-slate-200/90 shadow-xs p-5 hover:border-sky-300 transition-all">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                          <div className="flex items-start space-x-4">
+                            <div className="w-12 h-12 rounded-2xl bg-sky-50 border border-sky-200 flex items-center justify-center text-[#0077c8] shrink-0 shadow-2xs">
+                              <FileText className="w-6 h-6" />
+                            </div>
+                            <div>
+                              <div className="flex items-center space-x-2">
+                                <h3 className="text-sm font-black text-slate-900">
+                                  Informe Técnico / Comunicación Interna CODELAB
+                                </h3>
+                                <span className="px-2 py-0.5 text-[10px] font-extrabold rounded-md bg-sky-50 text-[#0077c8] border border-sky-200">
+                                  Dictamen Favorable
+                                </span>
+                              </div>
+                              <p className="text-xs text-slate-500 font-medium mt-1">
+                                CITE: <strong className="text-slate-700">{tramiteHistorialSeleccionado.resolucion?.cite_informe || `CODELAB/SEDES/1/${new Date().getFullYear()}`}</strong> &bull; Remisión oficial a Asesoría Legal
+                              </p>
+                              <div className="flex flex-wrap items-center gap-3 text-[11px] text-slate-400 font-medium mt-2">
+                                <span>Emitido por: <strong className="text-slate-700">{nombreCoordinador}</strong></span>
+                                <span>&bull;</span>
+                                <span>Destino: <strong className="text-slate-700">Asesoría Legal SEDES</strong></span>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Acciones de Informe */}
+                          <div className="flex items-center space-x-2 self-end sm:self-center shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => handlePrevisualizarPdfHistorial('informe', tramiteHistorialSeleccionado)}
+                              disabled={generandoPdfHistorial}
+                              className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold flex items-center space-x-1.5 transition cursor-pointer disabled:opacity-50"
+                              title="Ver vista previa del Informe Técnico"
+                            >
+                              <Eye className="w-3.5 h-3.5 text-slate-600" />
+                              <span>Vista Previa</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => handleDescargarInformeHistorial(tramiteHistorialSeleccionado)}
+                              disabled={generandoPdfHistorial}
+                              className="px-3.5 py-2 bg-[#19324d] hover:bg-[#102235] text-white rounded-xl text-xs font-extrabold flex items-center space-x-1.5 shadow-xs transition cursor-pointer disabled:opacity-50 active:scale-95"
+                              title="Descargar Comunicación Interna en PDF"
+                            >
+                              <Download className="w-3.5 h-3.5" />
+                              <span>Descargar (PDF)</span>
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* 3. Tarjeta: Acta de Fiscalización e Inspección Técnica In-Situ */}
+                      <div className="bg-white rounded-2xl border border-slate-200/90 shadow-xs p-5 hover:border-indigo-300 transition-all">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                          <div className="flex items-start space-x-4">
+                            <div className="w-12 h-12 rounded-2xl bg-indigo-50 border border-indigo-200 flex items-center justify-center text-indigo-600 shrink-0 shadow-2xs">
+                              <ShieldCheck className="w-6 h-6" />
+                            </div>
+                            <div>
+                              <div className="flex items-center space-x-2">
+                                <h3 className="text-sm font-black text-slate-900">
+                                  Acta de Fiscalización e Inspección Técnica In-Situ
+                                </h3>
+                                <span className="px-2 py-0.5 text-[10px] font-extrabold rounded-md bg-indigo-50 text-indigo-700 border border-indigo-200">
+                                  Inspección de Campo
+                                </span>
+                              </div>
+                              <p className="text-xs text-slate-500 font-medium mt-1">
+                                Veredicto: <strong className="text-emerald-700">{tramiteHistorialSeleccionado.veredictoSupervisor || 'Favorable (Conforme)'}</strong> &bull; Supervisor: <strong className="text-slate-700">{tramiteHistorialSeleccionado.supervisorAsignado || 'Supervisor Institucional SEDES'}</strong>
+                              </p>
+                              <div className="flex flex-wrap items-center gap-3 text-[11px] text-slate-400 font-medium mt-2">
+                                <span>Fecha Inspección: <strong className="text-slate-700">{tramiteHistorialSeleccionado.fechaInspeccion || 'Completada'}</strong></span>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Acciones de Acta */}
+                          <div className="flex items-center space-x-2 self-end sm:self-center shrink-0">
+                            {tramiteHistorialSeleccionado.acta_pdf_url ? (
+                              <a
+                                href={tramiteHistorialSeleccionado.acta_pdf_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-extrabold flex items-center space-x-1.5 shadow-xs transition cursor-pointer"
+                              >
+                                <ExternalLink className="w-3.5 h-3.5" />
+                                <span>Ver Acta Firmada</span>
+                              </a>
+                            ) : (
+                              <span className="inline-flex items-center space-x-1 text-emerald-700 bg-emerald-50 border border-emerald-200 font-bold text-xs px-3 py-1.5 rounded-xl">
+                                <Check className="w-3.5 h-3.5 stroke-[2.5]" />
+                                <span>Inspección Validada</span>
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                    </div>
+                  )}
+
+                  {/* ========================================================= */}
+                  {/* TAB 2: FICHA DEL ESTABLECIMIENTO                         */}
+                  {/* ========================================================= */}
+                  {tabModalHistorial === 'resumen' && (
+                    <div className="bg-white rounded-2xl border border-slate-200/90 shadow-xs p-5 space-y-5">
+                      <h3 className="font-black text-sm text-slate-900 border-b border-slate-100 pb-3">
+                        Datos del Establecimiento y Titular Registrado
+                      </h3>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                        <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200">
+                          <span className="text-[10px] text-slate-400 font-extrabold uppercase block">Establecimiento / Razón Comercial</span>
+                          <span className="font-bold text-slate-800 text-sm block mt-0.5">{tramiteHistorialSeleccionado.establecimiento || tramiteHistorialSeleccionado.nombre_comercial}</span>
+                          <span className="text-slate-500 block mt-0.5">{tramiteHistorialSeleccionado.categoria || 'Laboratorio Clínico'}</span>
+                        </div>
+
+                        <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200">
+                          <span className="text-[10px] text-slate-400 font-extrabold uppercase block">Ubicación y Jurisdicción</span>
+                          <span className="font-bold text-slate-800 block mt-0.5">{tramiteHistorialSeleccionado.municipio || 'CERCADO'}</span>
+                          <span className="text-slate-500 block mt-0.5">{tramiteHistorialSeleccionado.direccion || 'Cochabamba'}</span>
+                        </div>
+
+                        <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200">
+                          <span className="text-[10px] text-slate-400 font-extrabold uppercase block">Propietario / Razón Social</span>
+                          <span className="font-bold text-slate-800 block mt-0.5">{tramiteHistorialSeleccionado.propietario || 'No especificado'}</span>
+                          <span className="text-slate-500 block mt-0.5">CI/NIT: {tramiteHistorialSeleccionado.propietario_ci || tramiteHistorialSeleccionado.ci_nit || 'S/N'}</span>
+                        </div>
+
+                        <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200">
+                          <span className="text-[10px] text-slate-400 font-extrabold uppercase block">Regente Técnico / Director</span>
+                          <span className="font-bold text-slate-800 block mt-0.5">{tramiteHistorialSeleccionado.regente || tramiteHistorialSeleccionado.director_tecnico || 'No asignado'}</span>
+                          <span className="text-slate-500 block mt-0.5">CI Regente: {tramiteHistorialSeleccionado.regente_ci || tramiteHistorialSeleccionado.director_tecnico_ci || 'S/N'}</span>
+                        </div>
+
+                        <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200">
+                          <span className="text-[10px] text-slate-400 font-extrabold uppercase block">Contacto y Horario</span>
+                          <span className="font-bold text-slate-800 block mt-0.5">{tramiteHistorialSeleccionado.telefono || 'Sin teléfono'} &bull; {tramiteHistorialSeleccionado.email || 'Sin email'}</span>
+                          <span className="text-slate-500 block mt-0.5">{tramiteHistorialSeleccionado.horario || 'Lun-Vie 7:00 - 19:00'}</span>
+                        </div>
+
+                        <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200">
+                          <span className="text-[10px] text-slate-400 font-extrabold uppercase block">Tipo de Trámite</span>
+                          <span className="font-bold text-[#0077c8] block mt-0.5">{tramiteHistorialSeleccionado.tipo || 'Apertura y Habilitación'}</span>
+                          <span className="text-slate-500 block mt-0.5">Código CUE: {tramiteHistorialSeleccionado.codigo_cue || 'Nuevo'}</span>
+                        </div>
+                      </div>
+
+                      {tramiteHistorialSeleccionado.responsables_areas && (
+                        <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 text-xs">
+                          <span className="text-[10px] text-slate-400 font-extrabold uppercase block mb-1.5">Responsables de Áreas de Especialidad</span>
+                          <p className="text-slate-700 font-medium leading-relaxed">
+                            {tramiteHistorialSeleccionado.responsables_areas}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* ========================================================= */}
+                  {/* TAB 3: REQUISITOS ADJUNTOS                                */}
+                  {/* ========================================================= */}
+                  {tabModalHistorial === 'requisitos' && (
+                    <div className="bg-white rounded-2xl border border-slate-200/90 shadow-xs p-5 space-y-4">
+                      <h3 className="font-black text-sm text-slate-900 border-b border-slate-100 pb-3">
+                        Documentación y Requisitos Presentados
+                      </h3>
+
+                      <div className="divide-y divide-slate-100">
+                        {tramiteHistorialSeleccionado.documentos?.map((doc, idx) => (
+                          <div key={doc.id || idx} className="py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                            <div className="flex items-start space-x-3">
+                              <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-500 shrink-0 font-bold text-[11px]">
+                                #{idx + 1}
+                              </div>
+                              <div>
+                                <h4 className="font-bold text-slate-800">{doc.nombre || doc.nombre_requisito || 'Documento Legal'}</h4>
+                                <p className="text-[11px] text-slate-400 font-medium mt-0.5">
+                                  Categoría: {doc.tipo || 'Legal / Técnico'} &bull; Subido el {doc.fecha_subida || 'Registro inicial'}
+                                </p>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center space-x-2 self-start sm:self-auto shrink-0">
+                              <span className={`inline-block text-[10px] font-extrabold px-2.5 py-0.5 rounded-full border ${
+                                (doc.estado || '').toLowerCase() === 'aprobado'
+                                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                  : 'bg-amber-50 text-amber-700 border-amber-200'
+                              }`}>
+                                {doc.estado || 'Aprobado'}
+                              </span>
+
+                              {doc.archivo_url && (
+                                <a
+                                  href={doc.archivo_url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="px-2.5 py-1 bg-slate-100 hover:bg-[#0077c8] hover:text-white text-slate-600 rounded-lg text-[11px] font-bold transition flex items-center space-x-1"
+                                >
+                                  <Eye className="w-3 h-3" />
+                                  <span>Ver Archivo</span>
+                                </a>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+
+                        {(!tramiteHistorialSeleccionado.documentos || tramiteHistorialSeleccionado.documentos.length === 0) && (
+                          <p className="py-6 text-center text-slate-400 text-xs font-medium">
+                            No se encontraron archivos adjuntos para este expediente.
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+
+            </div>
+
+            {/* Pie de Modal */}
+            <div className="p-4 bg-white border-t border-slate-200 flex items-center justify-between shrink-0 text-xs">
+              <div className="text-slate-400 font-medium">
+                SEDES Cochabamba &bull; CODELAB Sistema de Habilitación
+              </div>
+              <button
+                type="button"
+                onClick={() => setModalExpedienteHistorialOpen(false)}
+                className="px-5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition cursor-pointer"
+              >
+                Cerrar
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL: VISOR DE PREVISUALIZACIÓN DE DOCUMENTOS PDF                        */}
+      {/* ========================================================================= */}
+      {pdfPreviewModalOpen && pdfPreviewUrl && (
+        <div className="fixed inset-0 z-60 flex items-center justify-center p-2 sm:p-4 bg-slate-950/70 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-5xl h-[92vh] flex flex-col overflow-hidden">
+            
+            {/* Barra superior de visor */}
+            <div className="p-4 bg-[#19324d] text-white flex items-center justify-between shrink-0">
+              <div className="flex items-center space-x-3">
+                <FileText className="w-5 h-5 text-sky-400" />
+                <h3 className="text-sm font-bold truncate max-w-xl">
+                  {pdfPreviewTitulo || 'Vista Previa del Documento Oficial'}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setPdfPreviewModalOpen(false);
+                  if (pdfPreviewUrl) {
+                    URL.revokeObjectURL(pdfPreviewUrl);
+                    setPdfPreviewUrl(null);
+                  }
+                }}
+                className="w-8 h-8 rounded-xl bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Iframe visor de PDF */}
+            <div className="flex-1 w-full bg-slate-100">
+              <iframe
+                src={pdfPreviewUrl}
+                title="Vista previa PDF"
+                className="w-full h-full border-none"
+              />
+            </div>
+
+            {/* Pie de visor */}
+            <div className="p-3 bg-white border-t border-slate-200 flex items-center justify-between text-xs shrink-0">
+              <span className="text-slate-400 font-medium">Documento generado para impresión y archivo oficial</span>
+              <button
+                type="button"
+                onClick={() => {
+                  setPdfPreviewModalOpen(false);
+                  if (pdfPreviewUrl) {
+                    URL.revokeObjectURL(pdfPreviewUrl);
+                    setPdfPreviewUrl(null);
+                  }
+                }}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition cursor-pointer"
+              >
+                Cerrar Visor
+              </button>
+            </div>
+
           </div>
         </div>
       )}

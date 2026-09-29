@@ -3521,3 +3521,104 @@ Solucionar el problema en la vista del **Abogado / Asesor Legal** (`/abogado/inf
 
 ---
 
+## [2026-09-28] Corrección en la Barra de Acciones del Coordinador (Aprobación Final y Ocultamiento de Derivación a Legal)
+
+### 📌 Objetivo
+Resolver la inconsistencia en la vista del **Coordinador** (`InformeTecnicoView.jsx` y `CoordinadorPage.jsx`), donde después de que el Asesor Legal remitía la Resolución Administrativa y se procedía a la aprobación final del trámite (o cuando ya estaba listo para firma final):
+1. El botón `"Enviar a Área Legal"` continuaba mostrándose indebidamente a pesar de que el expediente ya había sido evaluado y despachado por el abogado.
+2. El botón `"Aprobar Trámite Final"` no pasaba al estado definitivo de **`"Trámite Aprobado y Resolución Emitida"`** debido a que `resolucion_lista_para_firma` seguía evaluándose como verdadero en lugar de priorizar el estado `Aprobado` del trámite y de la resolución.
+
+---
+
+### 🛠️ Archivos Modificados y Soluciones Aplicadas
+
+#### 1. `backend/coordinador.py` [MODIFICADO]
+* **Priorización de Estado Aprobado y Limpieza de Flags:**
+  * En `serializar_tramite_coordinador()`, se definió `es_aprobado_definitivo = (tramite.estado_tramite == "Aprobado")`.
+  * La bandera `resolucion_lista_para_firma` ahora requiere explícitamente `not es_aprobado_definitivo`, evitando que trámites finalizados sigan considerándose pendientes de firma.
+  * Se asignó `estado_visual = "Aprobado"` de forma prioritaria y se enviaron los atributos `"es_aprobado_final": es_aprobado_definitivo` y `"estado_tramite_raw": tramite.estado_tramite`.
+* **Actualización Integral de la Resolución en Aprobación Final (`POST /api/coordinador/tramites/{tramite_id}/aprobar`):**
+  * Al aprobar el trámite, se actualiza simultáneamente `ResolucionAdministrativa` con `estado_resolucion = "Emitido"`, `numero_resolucion = payload.codigo_resolucion` y `fecha_emision = datetime.now()`.
+
+#### 2. `frontend/src/components/coordinador/InformeTecnicoView.jsx` [MODIFICADO]
+* **Control Inteligente de Botones Inferiores de Acción:**
+  * **Botón `"Enviar a Área Legal"`:** Se oculta automáticamente cuando el trámite ya fue revisado y remitido por Legal (`esListoParaAprobarFinal`) o cuando ya fue aprobado definitivamente (`esAprobadoFinal`).
+  * **Botón `"Aprobar Trámite Final"`:** Cuando el trámite es aprobado (`esAprobadoFinal === true`), se sustituye por el badge institucional en verde esmeralda: **`"Trámite Aprobado y Resolución Emitida"`**.
+  * **Tarjetas Laterales:** Reflejan fielmente el badge `"Aprobado"` para expedientes finalizados y `"Resolución Lista para Firma"` para los pendientes de firma del Coordinador.
+
+#### 3. `frontend/src/pages/CoordinadorPage.jsx` [MODIFICADO]
+* **`getTramiteEstadoVisual()`:** Antepone la verificación de `es_aprobado_final` o `estado === 'Aprobado'`, garantizando que los trámites archivados o aprobados desplieguen su etiqueta verde `"Aprobado"` sin interferencia de estados previos.
+
+---
+
+## [2026-09-29] Expediente Digital Interactivo y Descarga/Previsualización de Documentos Emitidos en "Registro de Actividad"
+
+### 📌 Objetivo
+Permitir que las filas y registros del **"Registro de Actividad"** en el módulo de **"Historial y Trazabilidad"** del Coordinador (`/coordinador/historial-trazabilidad`) sean 100% interactivos y clicables, abriendo un modal integral de **"Expediente Digital y Documentación Oficial"**. Esto facilita al Coordinador y al personal administrativo volver a consultar, previsualizar en tiempo real y descargar copias oficiales en PDF de los documentos generados (Resolución Administrativa oficial, Informe Técnico / Comunicación Interna CODELAB, Acta de Inspección y requisitos adjuntos) ante cualquier extravío o necesidad de archivo.
+
+---
+
+### 🛠️ Archivos Modificados y Soluciones Aplicadas
+
+#### 1. `backend/coordinador.py` [MODIFICADO]
+* **Endpoint de Detalle de Trámite (`GET /api/coordinador/tramites/{tramite_id}`):**
+  * Se implementó para permitir la obtención completa y serializada de cualquier expediente por su identificador UUID o código visual `TRM-XXXX`.
+* **Vincular UUID en Historial de Actividad (`GET /api/coordinador/historial`):**
+  * Se optimizó el endpoint para resolver e incluir `tramite_uuid` en cada registro retornado, permitiendo la apertura inmediata del expediente digital correspondiente.
+
+#### 2. `frontend/src/pages/CoordinadorPage.jsx` [MODIFICADO]
+* **Filas Clicables y Botón de Acción en la Tabla de Registro de Actividad:**
+  * Se añadieron efectos *hover*, estilo de cursor y columna dedicada de **`DOCUMENTOS`** con el botón **`"Expediente"`** (`FolderOpen`).
+  * Al hacer clic en cualquier fila o en el botón de acción, se dispara `handleAbrirExpedienteHistorial(item)`.
+* **Modal de Expediente Digital Centralizado (`ModalExpedienteHistorial`):**
+  * **Pestaña 1: "Documentos Emitidos (PDF)":**
+    * **Resolución Administrativa SEDES:** Tarjeta institucional con información del asesor legal, fecha de emisión, número de resolución y vigencia, acompañada de botones para **"Descargar (PDF)"** y **"Vista Previa"** usando `generarResolucionAdministrativaPDF`.
+    * **Informe Técnico / Comunicación Interna CODELAB:** Tarjeta con CITE correlativo, remitente y destino legal, con opciones para **"Descargar (PDF)"** y **"Vista Previa"** usando `generarComunicacionInternaPDF`.
+    * **Acta de Fiscalización Técnica In-Situ:** Estado de inspección de campo, supervisor asignado, veredicto técnico y enlace directo al acta firmada.
+  * **Pestaña 2: "Ficha Técnica del Establecimiento":**
+    * Desglose completo de razón social, propietario, CI/NIT, regente técnico, especialidades, ubicación geográfica, municipio, teléfono y horario.
+## [2026-09-29] Ampliación de Estados y Filtrado Reactivo en Tiempo Real en "Historial y Trazabilidad"
+
+### 📌 Objetivo
+1. Ampliar las opciones disponibles en el selector de **"ESTADO"** en la barra de búsqueda y auditoría de **"Historial y Trazabilidad"** (`CoordinadorPage.jsx`), integrando tanto los estados estándar del sistema (*Aprobado, Observado, Asignado, Rechazado, En Informe Técnico, Derivado, Enviado a Coordinador, Aprobado por Legal, Subsanado, Pendiente, Programada, Reprogramada*) como cualquier estado dinámico adicional presente en los registros.
+2. Eliminar el botón manual de `"Aplicar Filtros"`, transformando el filtrado en un mecanismo 100% reactivo en tiempo real al seleccionar cualquier estado, funcionario o al escribir en el campo de búsqueda, con opción para limpiar filtros rápidamente.
+
+---
+
+### 🛠️ Archivos Modificados y Soluciones Aplicadas
+
+#### 1. `frontend/src/pages/CoordinadorPage.jsx` [MODIFICADO]
+* **Catálogo Dinámico de Estados (`estadosHistorialDisponibles`):**
+  * Se implementó un hook `useMemo` que consolida la lista estándar de estados del flujo normativo y extrae automáticamente estados presentes en los datos de auditoría.
+* **Filtrado Instantáneo Reactivo (`actividadesFiltradas`):**
+  * Se optimizó el hook `useMemo` para evaluar en tiempo real las coincidencias de texto, estado y responsable, actualizando instantáneamente la tabla y la paginación sin necesidad de recargas manuales.
+* **Rediseño de la Barra de Filtros:**
+  * Se removió el botón `"Aplicar Filtros"`.
+  * Se redistribuyeron los anchos de columnas (`lg:col-span-5` para búsqueda, `lg:col-span-3` para estado y `lg:col-span-4` para funcionario/supervisor).
+  * Se integró un botón de `"Limpiar filtros"` que aparece condicionalmente cuando hay algún filtro activo y un botón para limpiar el texto de búsqueda (`X`).
+
+## [2026-09-29] Depuración de Bloque de Firmas en el PDF de Resolución Administrativa (RA)
+
+### 📌 Objetivo
+Ajustar la sección de firmas de la **Resolución Administrativa Legal (PDF)** (`ResolucionAdministrativaPDF.js`) eliminando textos preimpresos (nombres y cargos de los 4 funcionarios), el sello circular sintético de *"SEDES V° B° ASESORÍA JURÍDICA"* y la fecha inferior, dejando únicamente las 4 líneas limpias con espacio suficiente para que los funcionarios puedan estampar sus firmas y sellos de goma físicos oficiales.
+
+---
+
+### 🛠️ Archivos Modificados y Soluciones Aplicadas
+
+#### 1. `frontend/src/components/abogado/ResolucionAdministrativaPDF.js` [MODIFICADO]
+* **Eliminación de Textos y Nombres de Funcionarios:**
+  * Se retiraron los bloques de texto de Coordinación CODELAB, Jefa de Calidad y Servicios, Asesor Legal y Directora Técnica del SEDES.
+* **Eliminación del Sello Circular:**
+  * Se eliminó el dibujo del círculo y textos de *"SEDES V° B° ASESORÍA JURÍDICA"*.
+* **Eliminación de Fecha Inferior Duplicada:**
+  * Se removió la línea final de *"Cochabamba, [Fecha]"*.
+* **Estructura Limpia de 4 Líneas de Firma (2 x 2):**
+  * Se mantuvieron y alinearon las 4 líneas horizontales con grosor uniforme (`0.4 pt`) y separación vertical de `48 mm`, proporcionando el espacio adecuado para los sellos oficiales físicos.
+
+---
+
+
+
+
+

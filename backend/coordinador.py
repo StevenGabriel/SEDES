@@ -255,9 +255,13 @@ def serializar_tramite_coordinador(
             models.ResolucionAdministrativa.estado == True
         ).order_by(models.ResolucionAdministrativa.fecha_creacion.desc()).first()
 
+    es_aprobado_definitivo = (tramite.estado_tramite == "Aprobado")
+
     resolucion_lista_para_firma = bool(
-        (tramite.estado_tramite in ["Resolución Lista para Firma", "Aprobado por Legal", "Enviado a Coordinador"]) or
-        (resol and resol.estado_resolucion in ["Enviado a Coordinador", "Aprobado por Legal", "Emitida", "Firmada"])
+        not es_aprobado_definitivo and (
+            (tramite.estado_tramite in ["Resolución Lista para Firma", "Aprobado por Legal", "Enviado a Coordinador"]) or
+            (resol and resol.estado_resolucion in ["Enviado a Coordinador", "Aprobado por Legal", "Firmada"] and resol.estado_resolucion not in ["Emitido", "Aprobado"])
+        )
     )
 
     resolucion_dict = None
@@ -288,7 +292,9 @@ def serializar_tramite_coordinador(
         }
 
     # Determinar el estado visual oficial para la tarjeta en la bandeja de entrada
-    if resolucion_lista_para_firma:
+    if es_aprobado_definitivo:
+        estado_visual = "Aprobado"
+    elif resolucion_lista_para_firma:
         estado_visual = "Resolución Lista para Firma"
     elif tramite.estado_tramite == "Derivado a Asesoría Legal":
         estado_visual = "Derivado a Asesoría Legal"
@@ -359,7 +365,9 @@ def serializar_tramite_coordinador(
         "responsable_laboratorio": estab.responsable_laboratorio if estab else "",
         "ci_responsable": estab.ci_responsable if estab else "",
         "responsables_areas": estab.responsables_areas if estab else "",
+        "estado_tramite_raw": tramite.estado_tramite,
         "estado": estado_visual,
+        "es_aprobado_final": es_aprobado_definitivo,
         "estadoColor": get_estado_color(estado_visual),
         "supervisorAsignado": sup_nombre,
         "supervisor_id": str(supervisor.id) if supervisor else None,
@@ -512,6 +520,29 @@ def listar_tramites_coordinador(db: Session = Depends(get_db)):
         "total": len(tramites_serializados),
         "tramites": tramites_serializados
     }
+
+@router.get("/tramites/{tramite_id}", summary="Obtener detalle completo de un trámite por ID o código")
+def obtener_detalle_tramite(tramite_id: str, db: Session = Depends(get_db)):
+    """Obtiene el detalle completo serializado de un trámite por UUID o código TRM-XXXX."""
+    tramite = None
+    try:
+        t_uuid = uuid.UUID(tramite_id)
+        tramite = db.query(models.Tramite).filter(models.Tramite.id == t_uuid).first()
+    except ValueError:
+        pass
+
+    if not tramite:
+        clean_code = tramite_id.replace("TRM-", "").replace("REQ-", "").strip().lower()
+        tramites = db.query(models.Tramite).filter(models.Tramite.estado == True).all()
+        for t in tramites:
+            if str(t.id).lower().startswith(clean_code):
+                tramite = t
+                break
+
+    if not tramite:
+        raise HTTPException(status_code=404, detail="Trámite no encontrado.")
+
+    return serializar_tramite_coordinador(tramite, db)
 
 @router.post("/tramites/{tramite_id}/validar-datos", summary="Validar u Observar los Datos del Establecimiento")
 def validar_datos_establecimiento(
@@ -871,6 +902,21 @@ def aprobar_tramite(
     tramite.estado_tramite = "Aprobado"
     if tramite.establecimiento:
         tramite.establecimiento.estado_operativo = "Habilitado"
+
+    resol = db.query(models.ResolucionAdministrativa).filter(
+        models.ResolucionAdministrativa.tramite_id == tramite.id,
+        models.ResolucionAdministrativa.estado == True
+    ).first()
+    if resol:
+        resol.estado_resolucion = "Emitido"
+        if payload.codigo_resolucion:
+            resol.numero_resolucion = payload.codigo_resolucion
+        resol.fecha_emision = datetime.now()
+        if payload.vigencia_anios:
+            try:
+                resol.vigencia_anios = int(str(payload.vigencia_anios).split()[0])
+            except Exception:
+                resol.vigencia_anios = 5
 
     db.commit()
     db.refresh(tramite)
@@ -1462,19 +1508,33 @@ def consultar_historial(
     offset = (pagina - 1) * limite
     registros_db = query.offset(offset).limit(limite).all()
 
-    resultados = [
-        {
+    # Pre-cargar mapeo de códigos de trámite a UUID
+    todos_tramites = db.query(models.Tramite.id, models.Tramite.establecimiento_id).filter(models.Tramite.estado == True).all()
+    trm_uuid_map = {}
+    for t_id, _ in todos_tramites:
+        prefix = str(t_id)[:8].upper()
+        trm_uuid_map[prefix] = str(t_id)
+        trm_uuid_map[f"TRM-{prefix}"] = str(t_id)
+        trm_uuid_map[f"REQ-{prefix}"] = str(t_id)
+
+    resultados = []
+    for r in registros_db:
+        t_uuid = None
+        if r.codigo_tramite:
+            clean_c = r.codigo_tramite.strip().upper()
+            t_uuid = trm_uuid_map.get(clean_c) or trm_uuid_map.get(clean_c.replace("TRM-", "").replace("REQ-", ""))
+
+        resultados.append({
             "id": str(r.id),
             "fechaHora": r.fecha_hora_formato or (r.fecha_creacion.strftime("%d %b %Y - %H:%M") if r.fecha_creacion else "Reciente"),
             "codigo": r.codigo_tramite,
+            "tramite_uuid": t_uuid,
             "establecimiento": r.establecimiento,
             "accion": r.accion,
             "responsable": r.responsable,
             "estado": r.estado_resultado,
             "estadoBadge": r.estado_badge or "bg-sky-50 text-sky-700 border-sky-200"
-        }
-        for r in registros_db
-    ]
+        })
 
     return {
         "total": total_registros,

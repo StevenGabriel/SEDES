@@ -278,85 +278,27 @@ export async function generarResolucionAdministrativaPDF(datos = {}, opciones = 
   doc.setFontSize(10);
   doc.text('NOTIFÍQUESE, CÚMPLASE Y REGÍSTRESE.', marginX, y2);
 
-  y2 += 22;
+  y2 += 30;
 
   // ============================================================================
-  // BLOQUE DE LAS 4 FIRMAS OFICIALES (2 x 2)
+  // BLOQUE DE LAS 4 LÍNEAS LIMPIAS PARA FIRMAS Y SELLOS (2 x 2)
   // ============================================================================
   const col1X = marginX + 8;
   const col2X = marginX + (contentWidth / 2) + 8;
   const firmaWidth = (contentWidth / 2) - 16;
 
-  // Sello Vo.Bo. Asesoría Jurídica
-  doc.setDrawColor(0, 96, 168);
-  doc.setLineWidth(0.6);
-  doc.circle(marginX + 8, y2 + 10, 10);
-  doc.setFontSize(5);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(0, 96, 168);
-  doc.text('SEDES', marginX + 8, y2 + 8, { align: 'center' });
-  doc.text('V° B°', marginX + 8, y2 + 11, { align: 'center' });
-  doc.text('ASESORÍA', marginX + 8, y2 + 13.5, { align: 'center' });
-  doc.text('JURÍDICA', marginX + 8, y2 + 16, { align: 'center' });
-
-  // Fila 1 de Firmas: Coordinador CODELAB & Jefa Unidad de Calidad
   doc.setDrawColor(40, 40, 40);
-  doc.setLineWidth(0.35);
-  doc.setTextColor(20, 20, 20);
+  doc.setLineWidth(0.4);
 
-  // 1. Coordinador CODELAB
-  doc.line(col1X + 15, y2 + 15, col1X + firmaWidth, y2 + 15);
-  doc.setFontSize(7);
-  doc.setFont('helvetica', 'bold');
-  doc.text(coordinadorNombre, col1X + (firmaWidth / 2) + 7, y2 + 19, { align: 'center' });
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(6);
-  doc.text('RESPONSABLE DE LA COORDINACIÓN', col1X + (firmaWidth / 2) + 7, y2 + 22, { align: 'center' });
-  doc.text('DEPARTAMENTAL DE LABORATORIOS - CODELAB', col1X + (firmaWidth / 2) + 7, y2 + 25, { align: 'center' });
-  doc.text('SERVICIO DPTAL. DE SALUD COCHABAMBA', col1X + (firmaWidth / 2) + 7, y2 + 28, { align: 'center' });
+  // Fila 1 de Firmas (Líneas para sellos de Coordinación y Calidad)
+  doc.line(col1X, y2 + 20, col1X + firmaWidth, y2 + 20);
+  doc.line(col2X, y2 + 20, col2X + firmaWidth, y2 + 20);
 
-  // 2. Jefa Unidad de Calidad y Servicios
-  doc.line(col2X, y2 + 15, col2X + firmaWidth, y2 + 15);
-  doc.setFontSize(7);
-  doc.setFont('helvetica', 'bold');
-  doc.text('Dra. Karina Soliz Villarroel', col2X + (firmaWidth / 2), y2 + 19, { align: 'center' });
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(6);
-  doc.text('JEFA DE LA UNIDAD DE', col2X + (firmaWidth / 2), y2 + 22, { align: 'center' });
-  doc.text('CALIDAD Y SERVICIOS a.i.', col2X + (firmaWidth / 2), y2 + 25, { align: 'center' });
-  doc.text('SERVICIO DPTAL. DE SALUD COCHABAMBA', col2X + (firmaWidth / 2), y2 + 28, { align: 'center' });
+  y2 += 48;
 
-  y2 += 42;
-
-  // Fila 2 de Firmas: Asesor Legal & Directora Técnica SEDES
-  // 3. Asesor Legal
-  doc.line(col1X, y2 + 15, col1X + firmaWidth, y2 + 15);
-  doc.setFontSize(7);
-  doc.setFont('helvetica', 'bold');
-  doc.text(datos.abogado_nombre || 'Dr. Marco Villanueva', col1X + (firmaWidth / 2), y2 + 19, { align: 'center' });
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(6);
-  doc.text('ASESOR LEGAL', col1X + (firmaWidth / 2), y2 + 22, { align: 'center' });
-  doc.text('UNIDAD DE HABILITACIÓN / JURÍDICA', col1X + (firmaWidth / 2), y2 + 25, { align: 'center' });
-  doc.text('SERVICIO DPTAL. DE SALUD COCHABAMBA', col1X + (firmaWidth / 2), y2 + 28, { align: 'center' });
-
-  // 4. Directora Técnica SEDES
-  doc.line(col2X, y2 + 15, col2X + firmaWidth, y2 + 15);
-  doc.setFontSize(7);
-  doc.setFont('helvetica', 'bold');
-  doc.text('Dra. Jenny Cintia Rojas Mamani', col2X + (firmaWidth / 2), y2 + 19, { align: 'center' });
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(6);
-  doc.text('DIRECTORA TÉCNICA', col2X + (firmaWidth / 2), y2 + 22, { align: 'center' });
-  doc.text('SERVICIO DEPARTAMENTAL DE SALUD', col2X + (firmaWidth / 2), y2 + 25, { align: 'center' });
-  doc.text('Gob. Autónomo Dptal. Cochabamba', col2X + (firmaWidth / 2), y2 + 28, { align: 'center' });
-
-  // Pie de Fecha al final de la página
-  y2 += 36;
-  doc.setFont('helvetica', 'italic');
-  doc.setFontSize(8);
-  doc.setTextColor(50, 50, 50);
-  doc.text(`Cochabamba, ${fechaEmision}`, pageWidth - marginX - 10, y2, { align: 'right' });
+  // Fila 2 de Firmas (Líneas para sellos de Asesoría Legal y Dirección Técnica)
+  doc.line(col1X, y2 + 20, col1X + firmaWidth, y2 + 20);
+  doc.line(col2X, y2 + 20, col2X + firmaWidth, y2 + 20);
 
   dibujarPiePagina(doc);
 
