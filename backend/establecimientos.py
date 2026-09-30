@@ -436,6 +436,21 @@ def actualizar_establecimiento(
         except Exception as e_notif:
             print(f"Error al registrar historial o notificar al coordinador: {e_notif}")
 
+        # Desactivar notificaciones de observación previas de este establecimiento para el propietario
+        if estab.propietario_id:
+            try:
+                notifs_obs = db.query(models.Notificacion).filter(
+                    models.Notificacion.usuario_id == estab.propietario_id,
+                    models.Notificacion.estado == True
+                ).all()
+                for n in notifs_obs:
+                    t_low = (n.titulo or "").lower()
+                    m_low = (n.mensaje or "").lower()
+                    if "observad" in t_low and estab.nombre_comercial.lower() in t_low:
+                        n.estado = False
+            except Exception as e_clean:
+                print(f"Error al desactivar notificaciones de observación: {e_clean}")
+
     db.commit()
     db.refresh(estab)
 

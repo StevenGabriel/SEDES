@@ -736,6 +736,70 @@ Optimizar la experiencia del Propietario en el portal de trámites y el sistema 
 * **PostgreSQL:** Persistencia del ciclo de vida de inspecciones y trazabilidad de alertas de vencimiento.
 
 ---
+---
+
+## [2026-09-30] Optimización del Portal del Propietario: Modal de Perfil de Establecimiento, Visor de Documentos, Depuración de Filtros y Sincronización Inteligente de Notificaciones de Subsanación
+
+### 📌 Objetivo
+1. **Refinamiento de la Sección Trámites:** Ajustar el cálculo de estado en "En Trámite" para que, cuando todos los requisitos y documentos de un trámite estén 100% aprobados, se presente un estado vacío intuitivo (*"¡Todo al día! No tiene trámites con observaciones o requisitos pendientes"*) en lugar de listas redundantes, eliminando el filtro innecesario "Todos".
+2. **Reestructuración de Acciones en Mis Establecimientos:**
+   * Retirar el botón *"Ver Detalle"*.
+   * Potenciar el botón **"Documentos"** para abrir un modal interactivo con el expediente de requisitos y visor de archivos PDF subidos.
+   * Incorporar el botón **"Ver Establecimiento"** que despliega un popup completo con el perfil oficial del laboratorio (fachada, datos de contacto, horarios, regente técnico, especialidades autorizadas con sus encargados, mapa georreferenciado y datos de fiscalización SEDES).
+3. **Resolución de Error de Pantalla en Blanco (Crash al Ver Establecimiento):** Normalizar el parseo defensivo de los campos `servicios` y `responsables_areas` (almacenados en base de datos como cadenas de texto, strings delimitados por coma o JSON) y el ciclo de vida del mapa Leaflet en `RealMapView`.
+4. **Sincronización y Depuración de Notificaciones de Subsanación:** Resolver el conflicto donde las notificaciones antiguas de *"Datos del Establecimiento Observados"* persistían en la campana tras haber sido corregidas o validadas por Coordinación, forzando erróneamente el modo de corrección al hacer clic.
+
+---
+
+### 🛠️ Archivos Creados y Modificados
+
+#### 1. `frontend/src/pages/PropietarioPage.jsx` [MODIFICADO / OPTIMIZADO]
+* **Depuración de la Pestaña "En Trámite":**
+  * Se eliminó el botón/filtro `filtroVerTodosTramites` ("Todos") en la sección de trámites para simplificar la interfaz.
+  * Se perfeccionó el filtrado de `tramitesPendientes`: si todos los requisitos subidos están validados y aprobados, se muestra una tarjeta amigable de confirmación que notifica al usuario que todo su trámite está al día.
+* **Modal de Visualización de Documentos (`modalDocumentosLab`):**
+  * Al pulsar **"Documentos"** en cualquier establecimiento, se abre una ventana modal que lista todos los requisitos del expediente con sus badges de estado (*Aprobado*, *En Revisión*, *Observado*) y botones directos para previsualizar los PDFs en una nueva pestaña.
+* **Modal de Perfil de Establecimiento (`modalVerEstablecimiento`):**
+  * Al pulsar **"Ver Establecimiento"**, se abre un popup moderno que consolida:
+    * Fotografía oficial de la fachada.
+    * Ubicación exacta, horarios de atención, teléfonos y correo institucional.
+    * Regente técnico asignado y número de C.I.
+    * Cartera de especialidades autorizadas con el encargado y C.I. por área.
+    * Visor de mapa georreferenciado interactivo con `RealMapView`.
+    * Datos de fiscalización SEDES (fecha de última inspección y vigencia del acta).
+* **Solución de Fallo de Pantalla en Blanco:**
+  * Se implementó una función IIFE de parseo seguro para `servicios` y `responsables_areas` que tolera formatos de Array, String separado por comas y JSON, evitando excepciones de tipo `TypeError: servicios.map is not a function`.
+* **Notificaciones Contextuales Inteligentes:**
+  * Se actualizó la lógica del dropdown de notificaciones para verificar si el establecimiento asociado continúa en estado `OBSERVADO`.
+  * Si el establecimiento ya fue validado o subsanado, la notificación ya no muestra *"Ir a Subsanar"* en rojo ni fuerza el formulario de corrección; en su lugar, muestra la etiqueta *"Ver Establecimiento →"* y abre el perfil informativo.
+
+#### 2. `frontend/src/components/common/RealMapView.jsx` [MODIFICADO]
+* **Manejo Seguro del Ciclo de Vida de Leaflet:**
+  * Se agregaron conversiones numéricas defensivas (`Number(latitud)`, `Number(longitud)`) para coordenadas pasadas como strings.
+  * Se encapsuló la inicialización y desmontaje del mapa en `useEffect` con `map.remove()` en el return cleanup para evitar errores de contenedor re-inicializado al abrir y cerrar modales sucesivamente.
+
+#### 3. `backend/notificaciones.py` [MODIFICADO]
+* **Depuración Automática de Notificaciones Obsoletas:**
+  * En el endpoint `GET /api/notificaciones/usuario/{usuario_id}`, el backend ahora mapea el estado actual de los establecimientos del propietario.
+  * Si un establecimiento ya tiene sus observaciones subsanadas o aprobadas (`APROBADO` o `CORREGIDO`), cualquier notificación previa de tipo *"Datos del Establecimiento Observados"* correspondiente a dicho establecimiento se desactiva automáticamente (`n.estado = False`) en la base de datos.
+
+#### 4. `backend/coordinador.py` [MODIFICADO]
+* **Sincronización en Validación de Datos:**
+  * Al validar como **"Aprobado"** los datos de un establecimiento en `/tramites/{tramite_id}/validar-datos`, se desactivan inmediatamente las notificaciones anteriores de observación para ese establecimiento y se genera la notificación formal: *"✓ Datos del Establecimiento Validados - {nombre}"*.
+
+#### 5. `backend/establecimientos.py` [MODIFICADO]
+* **Desactivación Inmediata al Subsanar:**
+  * En el endpoint `PUT /api/establecimientos/{id}`, cuando el propietario envía las correcciones (`es_subsanacion` o `estaba_observado`), se desactivan las notificaciones de observación previas de ese establecimiento, asegurando que el badge y el dropdown queden limpios y sincronizados.
+
+---
+
+### 🎨 Tecnologías y Componentes Aplicados
+* **React 19 & Hooks:** Control modal desacoplado (`modalVerEstablecimiento`, `modalDocumentosLab`), parseo defensivo de datos y sincronización de estado local con API REST.
+* **Leaflet & OpenStreetMap:** Renderizado georreferenciado seguro dentro de diálogos emergentes con limpieza de instancias de mapa.
+* **FastAPI & SQLAlchemy:** Consultas SQL dinámicas con filtrado automático de notificaciones activas vs obsoletas y trazabilidad de estados de establecimientos.
+
+---
 *Bitácora actualizada por: Juan*
+
 
 

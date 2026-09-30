@@ -48,6 +48,7 @@ import logoL1 from '../assets/L1.png';
 import logoL2 from '../assets/L2.png';
 import heroBg from '../assets/hero_bg.jpg';
 import RealMapPicker from '../components/common/RealMapPicker';
+import RealMapView from '../components/common/RealMapView';
 import HorarioPicker from '../components/common/HorarioPicker';
 
 // Obtener iniciales de 2 a 4 letras a partir de nombres y apellidos (ej: Steven Claros Tapia -> SCT, Claudia Silvia Alvarez Lopez -> CSAL)
@@ -362,9 +363,10 @@ export default function PropietarioPage() {
   const [archivosSubsanacion, setArchivosSubsanacion] = useState({}); // { [docKey]: File }
   const [subsanandoDocId, setSubsanandoDocId] = useState(null); // 'ALL' o docKey específico
   const [modalFeedback, setModalFeedback] = useState(null); // { tipo: 'success' | 'error' | 'info', titulo: string, mensaje: string }
-  const [filtroVerTodosTramites, setFiltroVerTodosTramites] = useState(false);
   const [comboboxOpen, setComboboxOpen] = useState(false);
   const [searchLabTerm, setSearchLabTerm] = useState('');
+  const [modalDocumentosLab, setModalDocumentosLab] = useState(null); // { lab, tramite }
+  const [modalVerEstablecimiento, setModalVerEstablecimiento] = useState(null); // lab
   const comboboxRef = useRef(null);
 
   useEffect(() => {
@@ -1602,9 +1604,17 @@ export default function PropietarioPage() {
                         ) : (
                           notificaciones.map((notif) => {
                             const esObs = notif.titulo?.toLowerCase().includes('observad') || notif.titulo?.toLowerCase().includes('rechaz');
-                            const esAprob = notif.titulo?.toLowerCase().includes('aprobad');
+                            const esAprob = notif.titulo?.toLowerCase().includes('aprobad') || notif.titulo?.toLowerCase().includes('validad');
                             const esSubsan = notif.titulo?.toLowerCase().includes('subsanad') || notif.titulo?.toLowerCase().includes('subir') || notif.titulo?.toLowerCase().includes('documento');
                             const esAsign = notif.titulo?.toLowerCase().includes('asignad') || notif.titulo?.toLowerCase().includes('inspecci');
+
+                            // Buscar si corresponde a un establecimiento del usuario
+                            const labAsoc = misEstablecimientos.find(l => 
+                              (notif.titulo && notif.titulo.includes(l.nombre_comercial)) ||
+                              (notif.mensaje && notif.mensaje.includes(l.nombre_comercial))
+                            ) || (esObs ? misEstablecimientos.find(l => l.observaciones && l.observaciones.startsWith('OBSERVADO')) : null);
+
+                            const estaObsActualmente = Boolean(labAsoc && labAsoc.observaciones && labAsoc.observaciones.startsWith('OBSERVADO'));
 
                             const fechaMostrar = notif.tiempoRelativo || notif.fecha || (notif.fecha_creacion ? new Date(notif.fecha_creacion).toLocaleDateString('es-BO', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : 'Reciente');
                             const fechaTooltip = notif.fecha || (notif.fecha_creacion ? new Date(notif.fecha_creacion).toLocaleString('es-BO') : '');
@@ -1621,19 +1631,18 @@ export default function PropietarioPage() {
                                   const esObsDatos = (tituloLower.includes('datos') && (tituloLower.includes('observad') || tituloLower.includes('rechaz'))) ||
                                                      (mensajeLower.includes('datos de registro') && (mensajeLower.includes('observad') || tituloLower.includes('observad')));
 
-                                  if (esObsDatos) {
+                                  if (esObsDatos || tituloLower.includes('establecimiento') || tituloLower.includes('validado')) {
                                     if (seccionActiva !== 'mis-establecimientos') {
                                       navigate('/propietario/mis-establecimientos');
                                     }
-                                    // Buscar establecimiento observado por nombre o el primero observado
-                                    const labObs = misEstablecimientos.find(l => 
-                                      (notif.titulo && notif.titulo.includes(l.nombre_comercial)) ||
-                                      (l.observaciones && l.observaciones.startsWith('OBSERVADO'))
-                                    ) || misEstablecimientos[0];
 
-                                    if (labObs) {
+                                    if (labAsoc) {
                                       setTimeout(() => {
-                                        handleAbrirEditar(labObs, true);
+                                        if (estaObsActualmente) {
+                                          handleAbrirEditar(labAsoc, true);
+                                        } else {
+                                          setModalVerEstablecimiento(labAsoc);
+                                        }
                                       }, 150);
                                     }
                                   } else if (seccionActiva !== 'tramites') {
@@ -1643,14 +1652,14 @@ export default function PropietarioPage() {
                                 className={`group p-4 transition cursor-pointer flex items-start gap-3.5 relative ${
                                   notif.leido 
                                     ? 'bg-white hover:bg-slate-50 opacity-80 hover:opacity-100' 
-                                    : esObs
+                                    : (esObs && estaObsActualmente)
                                       ? 'bg-rose-50/50 hover:bg-rose-50/80 border-l-4 border-l-rose-500'
                                       : 'bg-sky-50/60 hover:bg-sky-50/80 border-l-4 border-l-[#0077c8]'
                                 }`}
                               >
                                 {/* Icono contextual */}
                                 <div className={`w-9 h-9 rounded-xl shrink-0 flex items-center justify-center ${
-                                  esObs 
+                                  (esObs && estaObsActualmente)
                                     ? 'bg-rose-100 text-rose-600 border border-rose-200'
                                     : esAprob
                                       ? 'bg-emerald-100 text-emerald-600 border border-emerald-200'
@@ -1660,11 +1669,11 @@ export default function PropietarioPage() {
                                           ? 'bg-indigo-100 text-indigo-600 border border-indigo-200'
                                           : 'bg-slate-100 text-slate-600 border border-slate-200'
                                 }`}>
-                                  {esObs && <AlertTriangle className="w-4 h-4" />}
+                                  {(esObs && estaObsActualmente) && <AlertTriangle className="w-4 h-4" />}
                                   {esAprob && <CheckCircle2 className="w-4 h-4" />}
                                   {esSubsan && <FileText className="w-4 h-4" />}
                                   {esAsign && <Calendar className="w-4 h-4" />}
-                                  {!esObs && !esAprob && !esSubsan && !esAsign && <Bell className="w-4 h-4" />}
+                                  {!(esObs && estaObsActualmente) && !esAprob && !esSubsan && !esAsign && <Bell className="w-4 h-4" />}
                                 </div>
 
                                 {/* Contenido Completo */}
@@ -1675,7 +1684,7 @@ export default function PropietarioPage() {
                                     </p>
                                     <div className="flex items-center space-x-1 shrink-0">
                                       {!notif.leido && (
-                                        <span className={`w-2 h-2 rounded-full mt-1 ${esObs ? 'bg-rose-500 ring-2 ring-rose-200' : 'bg-[#0077c8] ring-2 ring-sky-200'}`} />
+                                        <span className={`w-2 h-2 rounded-full mt-1 ${(esObs && estaObsActualmente) ? 'bg-rose-500 ring-2 ring-rose-200' : 'bg-[#0077c8] ring-2 ring-sky-200'}`} />
                                       )}
                                       <button
                                         onClick={(e) => handleEliminarNotificacion(notif.id, e)}
@@ -1698,9 +1707,15 @@ export default function PropietarioPage() {
                                     </div>
 
                                     {esObs && (
-                                      <span className="text-[11px] font-bold text-rose-700 bg-rose-100/90 hover:bg-rose-200 px-2.5 py-1 rounded-lg transition shadow-2xs">
-                                        Ir a Subsanar →
-                                      </span>
+                                      estaObsActualmente ? (
+                                        <span className="text-[11px] font-bold text-rose-700 bg-rose-100/90 hover:bg-rose-200 px-2.5 py-1 rounded-lg transition shadow-2xs">
+                                          Ir a Subsanar →
+                                        </span>
+                                      ) : (
+                                        <span className="text-[11px] font-bold text-emerald-700 bg-emerald-100/90 px-2.5 py-1 rounded-lg transition shadow-2xs">
+                                          Ver Establecimiento →
+                                        </span>
+                                      )
                                     )}
                                   </div>
                                 </div>
@@ -1977,34 +1992,36 @@ export default function PropietarioPage() {
                           </div>
                         </div>
 
-                        {/* Botones de Acción (Figma + Editar Página / Subsanar) */}
+                        {/* Botones de Acción */}
                         <div className="flex flex-wrap items-center gap-2 self-stretch sm:self-auto justify-end sm:justify-start pt-3 lg:pt-0 border-t lg:border-t-0 border-slate-100">
                           
-                          {/* Botón 1: Documentos */}
+                          {/* Botón 1: Documentos (Abre modal de documentos presentados y PDFs) */}
                           <button
                             type="button"
                             onClick={() => {
-                              const tr = tramitesUsuario.find(t => t.establecimiento_id === lab.id);
-                              if (tr) {
-                                setTramiteSeleccionadoId(tr.tramite_id);
-                              }
-                              navigate('/propietario/tramites');
+                              const tr = tramitesUsuario.find(t => 
+                                (t.establecimiento_id && t.establecimiento_id === lab.id) ||
+                                (t.establecimiento_nombre && t.establecimiento_nombre.trim().toLowerCase() === (lab.nombre_comercial || '').trim().toLowerCase())
+                              ) || null;
+                              setModalDocumentosLab({ lab, tramite: tr });
                             }}
-                            className="flex-1 sm:flex-none bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-xs font-bold px-3.5 py-2.5 rounded-xl transition flex items-center justify-center space-x-1.5 cursor-pointer shadow-2xs"
-                            title="Ver seguimiento de trámites y documentación"
+                            className="flex-1 sm:flex-none bg-white hover:bg-slate-50 text-slate-700 hover:text-[#005596] border border-slate-200 hover:border-[#005596]/40 text-xs font-bold px-3.5 py-2.5 rounded-xl transition flex items-center justify-center space-x-1.5 cursor-pointer shadow-2xs active:scale-95"
+                            title="Ver los documentos presentados y archivos PDF subidos"
                           >
-                            <FileText className="w-3.5 h-3.5 text-slate-500" />
+                            <FileText className="w-4 h-4 text-[#005596]" />
                             <span>Documentos</span>
                           </button>
 
-                          {/* Botón 2: Ver Detalle */}
-                          <Link
-                            to={`/laboratorio/${encodeURIComponent(lab.codigo_cue !== 'Nuevo' ? lab.codigo_cue : lab.id)}`}
-                            className="flex-1 sm:flex-none bg-[#19324d] hover:bg-[#122438] text-white text-xs font-bold px-4 py-2.5 rounded-xl transition flex items-center justify-center space-x-1.5 shadow-sm"
+                          {/* Botón 2: Ver Establecimiento (Abre popup con información completa y mapa) */}
+                          <button
+                            type="button"
+                            onClick={() => setModalVerEstablecimiento(lab)}
+                            className="flex-1 sm:flex-none bg-[#19324d] hover:bg-[#122438] text-white text-xs font-bold px-3.5 py-2.5 rounded-xl transition flex items-center justify-center space-x-1.5 shadow-sm cursor-pointer active:scale-95"
+                            title="Ver información y perfil del establecimiento en ventana emergente"
                           >
                             <Eye className="w-3.5 h-3.5 text-white" />
-                            <span>Ver Detalle</span>
-                          </Link>
+                            <span>Ver Establecimiento</span>
+                          </button>
 
                           {/* Botón 3: Editar Página / Subsanar Datos */}
                           {lab.observaciones && lab.observaciones.startsWith('OBSERVADO') ? (
@@ -2057,17 +2074,32 @@ export default function PropietarioPage() {
                   'inspección aprobada', 'inspeccion aprobada', 'resolución lista para firma', 
                   'resolucion lista para firma', 'resolución emitida', 'resolucion emitida'
                 ];
-                const tramitesPendientes = tramitesUsuario.filter(t => {
-                  const est = (t.estado_tramite || '').toLowerCase().trim();
-                  if (estadosNoPendientes.includes(est)) return false;
-                  const docs = t.documentos || [];
-                  if (docs.length === 0) return true;
-                  const docsSubidos = docs.filter(d => d.tiene_archivo || d.archivo_url);
+
+                const obtenerInfoEstadoTramite = (tr) => {
+                  if (!tr) return { esAprobado: false, esObservado: false, label: 'Pendiente' };
+                  const estNormal = (tr.estado_tramite || 'En Revisión').trim();
+                  const estLower = estNormal.toLowerCase();
+                  const docs = tr.documentos || [];
+                  const docsSubidos = docs.filter(d => d.tiene_archivo || d.archivo_url || d.documento_id);
                   const tieneObservados = docs.some(d => d.estado_validacion === 'Observado' || d.estado_validacion === 'Rechazado');
-                  if (tieneObservados) return true;
                   const todosSubidosAprobados = docsSubidos.length > 0 && docsSubidos.every(d => (d.estado_validacion || '').toLowerCase() === 'aprobado');
-                  if (todosSubidosAprobados) return false;
-                  return true;
+                  
+                  const esAprobado = estadosNoPendientes.includes(estLower) || (!tieneObservados && todosSubidosAprobados);
+                  const esObservado = tieneObservados || estLower.includes('observad') || estLower.includes('rechaz');
+                  
+                  let label = tr.estado_tramite || 'En Revisión';
+                  if (esAprobado && !estLower.includes('resolución') && !estLower.includes('inspecc')) {
+                    label = 'Aprobado';
+                  } else if (esObservado) {
+                    label = 'Observado';
+                  }
+                  
+                  return { esAprobado, esObservado, label };
+                };
+
+                const tramitesPendientes = tramitesUsuario.filter(t => {
+                  const info = obtenerInfoEstadoTramite(t);
+                  return !info.esAprobado;
                 });
 
                 if (tramitesUsuario.length === 0) {
@@ -2095,19 +2127,40 @@ export default function PropietarioPage() {
                   );
                 }
 
-                // Lista a mostrar según el filtro
-                const tramitesVisibles = filtroVerTodosTramites
-                  ? tramitesUsuario
-                  : (tramitesPendientes.length > 0 ? tramitesPendientes : tramitesUsuario);
+                if (tramitesPendientes.length === 0) {
+                  return (
+                    <div className="bg-white rounded-3xl p-10 sm:p-14 border border-slate-200 text-center space-y-4 shadow-2xs animate-fadeIn">
+                      <div className="w-16 h-16 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center mx-auto border border-emerald-200 shadow-xs">
+                        <CheckCircle2 className="w-8 h-8" />
+                      </div>
+                      <div className="space-y-1.5 max-w-md mx-auto">
+                        <h3 className="text-lg font-black text-slate-800">
+                          ¡Todo al día! No tiene trámites pendientes
+                        </h3>
+                        <p className="text-xs sm:text-sm text-slate-500 leading-relaxed">
+                          Todos los requisitos y documentos de sus solicitudes han sido aprobados o no presentan observaciones. Puede consultar la documentación y los archivos de sus laboratorios directamente en la pestaña <strong>Mis Establecimientos</strong>.
+                        </p>
+                      </div>
+                      <div className="pt-2">
+                        <Link
+                          to="/propietario/mis-establecimientos"
+                          className="inline-flex items-center space-x-2 bg-[#005596] hover:bg-[#003e6d] text-white text-xs font-bold px-6 py-2.5 rounded-xl transition shadow-sm cursor-pointer"
+                        >
+                          <Building2 className="w-4 h-4" />
+                          <span>Ir a Mis Establecimientos</span>
+                        </Link>
+                      </div>
+                    </div>
+                  );
+                }
 
-                const tramiteActual = tramitesVisibles.find(t => t.tramite_id === tramiteSeleccionadoId) 
-                  || tramitesVisibles[0] 
-                  || tramitesUsuario[0];
+                const tramiteActual = tramitesPendientes.find(t => t.tramite_id === tramiteSeleccionadoId) 
+                  || tramitesPendientes[0];
 
                 return (
                   <div className="space-y-6">
                     
-                    {/* Selector de Establecimiento como Combobox Moderno */}
+                    {/* Selector de Establecimiento en Trámite */}
                     <div className="bg-white border border-slate-200/90 rounded-2xl p-4 shadow-xs space-y-3" ref={comboboxRef}>
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                         
@@ -2121,234 +2174,198 @@ export default function PropietarioPage() {
                               Establecimiento en Trámite
                             </label>
                             <span className="text-xs text-slate-700 font-semibold">
-                              {tramiteActual ? `Trámite activo: ${tramiteActual.codigo_tramite}` : 'Seleccione un establecimiento'}
+                              Trámite activo: {tramiteActual.codigo_tramite}
                             </span>
                           </div>
                         </div>
 
-                        {/* Toggle Rápido: En Trámite vs Todos */}
-                        <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200 self-start sm:self-auto">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setFiltroVerTodosTramites(false);
-                              if (tramitesPendientes.length > 0 && !tramitesPendientes.some(t => t.tramite_id === tramiteSeleccionadoId)) {
-                                setTramiteSeleccionadoId(tramitesPendientes[0].tramite_id);
-                              }
-                            }}
-                            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center space-x-1.5 cursor-pointer ${
-                              !filtroVerTodosTramites
-                                ? 'bg-white text-[#005596] shadow-xs'
-                                : 'text-slate-500 hover:text-slate-800'
-                            }`}
-                          >
-                            <span>En Trámite</span>
-                            <span className="bg-amber-100 text-amber-800 text-[10px] font-black px-1.5 py-0.2 rounded-full">
-                              {tramitesPendientes.length}
-                            </span>
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => setFiltroVerTodosTramites(true)}
-                            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center space-x-1.5 cursor-pointer ${
-                              filtroVerTodosTramites
-                                ? 'bg-white text-[#005596] shadow-xs'
-                                : 'text-slate-500 hover:text-slate-800'
-                            }`}
-                          >
-                            <span>Todos</span>
-                            <span className="bg-slate-200 text-slate-700 text-[10px] font-black px-1.5 py-0.2 rounded-full">
-                              {tramitesUsuario.length}
-                            </span>
-                          </button>
+                        {/* Cantidad de Trámites Pendientes */}
+                        <div className="flex items-center self-start sm:self-auto">
+                          <span className="bg-amber-100 text-amber-800 text-[10px] font-black px-2.5 py-1 rounded-full flex items-center space-x-1.5 border border-amber-200">
+                            <span className="w-1.5 h-1.5 rounded-full bg-amber-600 animate-pulse" />
+                            <span>{tramitesPendientes.length} {tramitesPendientes.length === 1 ? 'en trámite' : 'en trámite'}</span>
+                          </span>
                         </div>
 
                       </div>
 
-                      {/* Combobox Principal con Desplegable */}
-                      <div className="relative">
-                        {/* Botón Disparador del Combobox */}
-                        <button
-                          type="button"
-                          onClick={() => setComboboxOpen(prev => !prev)}
-                          className={`w-full bg-slate-50 hover:bg-slate-100/80 text-left px-4 py-3 rounded-xl border transition flex items-center justify-between gap-3 cursor-pointer shadow-2xs ${
-                            comboboxOpen
-                              ? 'border-[#005596] ring-2 ring-[#005596]/20 bg-white'
-                              : 'border-slate-200'
-                          }`}
-                        >
-                          <div className="flex items-center space-x-3 truncate">
-                            <div className="w-8 h-8 rounded-lg bg-blue-50 text-[#005596] flex items-center justify-center shrink-0 border border-blue-200/60">
-                              <Building2 className="w-4 h-4" />
-                            </div>
-                            <div className="truncate">
-                              <span className="font-black text-sm text-slate-900 block truncate">
-                                {tramiteActual?.establecimiento_nombre || 'Seleccione un establecimiento...'}
-                              </span>
-                              <span className="text-[11px] text-slate-500 flex items-center gap-1.5 truncate font-medium">
-                                <span>{tramiteActual?.establecimiento_municipio || 'Cercado'}</span>
-                                <span>•</span>
-                                <span>{tramiteActual?.codigo_tramite}</span>
-                              </span>
-                            </div>
-                          </div>
-
-                          <div className="flex items-center space-x-2 shrink-0">
-                            {tramiteActual && (() => {
-                              const est = (tramiteActual.estado_tramite || '').toLowerCase();
-                              const esAprobado = estadosNoPendientes.includes(est) || 
-                                (tramiteActual.documentos && tramiteActual.documentos.length > 0 && tramiteActual.documentos.every(d => (d.estado_validacion || '').toLowerCase() === 'aprobado'));
-                              const esObservado = est.includes('observad') || est.includes('rechaz');
-
-                              return (
-                                <span className={`text-xs font-black px-2.5 py-1 rounded-lg border shadow-2xs ${
-                                  esAprobado
-                                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                                    : esObservado
-                                      ? 'bg-rose-50 text-rose-700 border-rose-200'
-                                      : 'bg-amber-50 text-amber-800 border-amber-200'
-                                }`}>
-                                  {esAprobado && !est.includes('resolución') ? 'Aprobado' : tramiteActual.estado_tramite}
+                      {/* Combobox de Establecimientos en Trámite (si hay más de 1) */}
+                      {tramitesPendientes.length > 1 && (
+                        <div className="relative">
+                          {/* Botón Disparador del Combobox */}
+                          <button
+                            type="button"
+                            onClick={() => setComboboxOpen(prev => !prev)}
+                            className={`w-full bg-slate-50 hover:bg-slate-100/80 text-left px-4 py-3 rounded-xl border transition flex items-center justify-between gap-3 cursor-pointer shadow-2xs ${
+                              comboboxOpen
+                                ? 'border-[#005596] ring-2 ring-[#005596]/20 bg-white'
+                                : 'border-slate-200'
+                            }`}
+                          >
+                            <div className="flex items-center space-x-3 truncate">
+                              <div className="w-8 h-8 rounded-lg bg-blue-50 text-[#005596] flex items-center justify-center shrink-0 border border-blue-200/60">
+                                <Building2 className="w-4 h-4" />
+                              </div>
+                              <div className="truncate">
+                                <span className="font-black text-sm text-slate-900 block truncate">
+                                  {tramiteActual.establecimiento_nombre || 'Seleccione un establecimiento...'}
                                 </span>
-                              );
-                            })()}
-                            <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${comboboxOpen ? 'rotate-180 text-[#005596]' : ''}`} />
-                          </div>
-                        </button>
-
-                        {/* Menú Desplegable Flotante */}
-                        {comboboxOpen && (
-                          <div className="absolute left-0 right-0 top-full mt-2 bg-white rounded-2xl shadow-xl border border-slate-200 z-40 overflow-hidden animate-fadeIn">
-                            
-                            {/* Buscador interno */}
-                            <div className="p-3 border-b border-slate-100 bg-slate-50/60 flex items-center gap-2">
-                              <Search className="w-4 h-4 text-slate-400 shrink-0 ml-1" />
-                              <input
-                                type="text"
-                                placeholder="Buscar laboratorio por nombre, municipio o código..."
-                                value={searchLabTerm}
-                                onChange={(e) => setSearchLabTerm(e.target.value)}
-                                onClick={(e) => e.stopPropagation()}
-                                className="w-full bg-transparent text-xs text-slate-800 placeholder:text-slate-400 outline-none font-medium"
-                                autoFocus
-                              />
-                              {searchLabTerm && (
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setSearchLabTerm('');
-                                  }}
-                                  className="text-slate-400 hover:text-slate-600 p-1 rounded-md cursor-pointer"
-                                >
-                                  <X className="w-3.5 h-3.5" />
-                                </button>
-                              )}
+                                <span className="text-[11px] text-slate-500 flex items-center gap-1.5 truncate font-medium">
+                                  <span>{tramiteActual.establecimiento_municipio || 'Cercado'}</span>
+                                  <span>•</span>
+                                  <span>{tramiteActual.codigo_tramite}</span>
+                                </span>
+                              </div>
                             </div>
 
-                            {/* Lista de Establecimientos en el Combobox */}
-                            <div className="max-h-64 overflow-y-auto divide-y divide-slate-100 p-1.5">
+                            <div className="flex items-center space-x-2 shrink-0">
                               {(() => {
-                                const filtradosPorBusqueda = tramitesVisibles.filter(tr => {
-                                  if (!searchLabTerm.trim()) return true;
-                                  const term = searchLabTerm.toLowerCase();
-                                  return (
-                                    (tr.establecimiento_nombre || '').toLowerCase().includes(term) ||
-                                    (tr.establecimiento_municipio || '').toLowerCase().includes(term) ||
-                                    (tr.codigo_tramite || '').toLowerCase().includes(term) ||
-                                    (tr.estado_tramite || '').toLowerCase().includes(term)
-                                  );
-                                });
-
-                                if (filtradosPorBusqueda.length === 0) {
-                                  return (
-                                    <div className="p-6 text-center text-slate-400 text-xs font-medium space-y-1">
-                                      <p>No se encontraron establecimientos con "{searchLabTerm}"</p>
-                                    </div>
-                                  );
-                                }
-
-                                return filtradosPorBusqueda.map((tr) => {
-                                  const esSeleccionado = tr.tramite_id === tramiteActual?.tramite_id;
-                                  const estNormal = (tr.estado_tramite || 'En Revisión').trim();
-                                  const esAprobado = estadosNoPendientes.includes(estNormal.toLowerCase()) || 
-                                    (tr.documentos && tr.documentos.length > 0 && tr.documentos.every(d => (d.estado_validacion || '').toLowerCase() === 'aprobado'));
-                                  const esObservado = estNormal.toLowerCase().includes('observad') || estNormal.toLowerCase().includes('rechaz');
-
-                                  return (
-                                    <button
-                                      key={tr.tramite_id}
-                                      type="button"
-                                      onClick={() => {
-                                        setTramiteSeleccionadoId(tr.tramite_id);
-                                        setComboboxOpen(false);
-                                        setSearchLabTerm('');
-                                      }}
-                                      className={`w-full text-left p-3 rounded-xl transition flex items-center justify-between gap-3 cursor-pointer ${
-                                        esSeleccionado
-                                          ? 'bg-blue-50/90 text-[#005596]'
-                                          : 'hover:bg-slate-50 text-slate-700'
-                                      }`}
-                                    >
-                                      <div className="flex items-center space-x-3 truncate">
-                                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border ${
-                                          esSeleccionado 
-                                            ? 'bg-[#005596] text-white border-[#005596]' 
-                                            : 'bg-slate-100 text-slate-500 border-slate-200'
-                                        }`}>
-                                          <Building2 className="w-4 h-4" />
-                                        </div>
-                                        <div className="truncate">
-                                          <span className={`font-black text-xs block truncate ${esSeleccionado ? 'text-[#005596]' : 'text-slate-800'}`}>
-                                            {tr.establecimiento_nombre}
-                                          </span>
-                                          <span className="text-[11px] text-slate-400 flex items-center gap-1.5 truncate font-medium">
-                                            <span>{tr.establecimiento_municipio || 'Cercado'}</span>
-                                            <span>•</span>
-                                            <span>{tr.codigo_tramite}</span>
-                                          </span>
-                                        </div>
-                                      </div>
-
-                                      <div className="flex items-center space-x-2 shrink-0">
-                                        <span className={`text-[10px] font-black px-2 py-0.5 rounded-md border ${
-                                          esAprobado
-                                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                                            : esObservado
-                                              ? 'bg-rose-50 text-rose-700 border-rose-200'
-                                              : 'bg-amber-50 text-amber-800 border-amber-200'
-                                        }`}>
-                                          {esAprobado && !estNormal.toLowerCase().includes('resolución') ? 'Aprobado' : tr.estado_tramite}
-                                        </span>
-                                        {esSeleccionado && (
-                                          <Check className="w-4 h-4 text-[#005596] shrink-0" />
-                                        )}
-                                      </div>
-                                    </button>
-                                  );
-                                });
+                                const info = obtenerInfoEstadoTramite(tramiteActual);
+                                return (
+                                  <span className={`text-xs font-black px-2.5 py-1 rounded-lg border shadow-2xs ${
+                                    info.esAprobado
+                                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                      : info.esObservado
+                                        ? 'bg-rose-50 text-rose-700 border-rose-200'
+                                        : 'bg-amber-50 text-amber-800 border-amber-200'
+                                  }`}>
+                                    {info.label}
+                                  </span>
+                                );
                               })()}
+                              <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${comboboxOpen ? 'rotate-180 text-[#005596]' : ''}`} />
                             </div>
+                          </button>
 
-                          </div>
-                        )}
-                      </div>
+                          {/* Menú Desplegable Flotante */}
+                          {comboboxOpen && (
+                            <div className="absolute left-0 right-0 top-full mt-2 bg-white rounded-2xl shadow-xl border border-slate-200 z-40 overflow-hidden animate-fadeIn">
+                              
+                              {/* Buscador interno */}
+                              <div className="p-3 border-b border-slate-100 bg-slate-50/60 flex items-center gap-2">
+                                <Search className="w-4 h-4 text-slate-400 shrink-0 ml-1" />
+                                <input
+                                  type="text"
+                                  placeholder="Buscar laboratorio por nombre, municipio o código..."
+                                  value={searchLabTerm}
+                                  onChange={(e) => setSearchLabTerm(e.target.value)}
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="w-full bg-transparent text-xs text-slate-800 placeholder:text-slate-400 outline-none font-medium"
+                                  autoFocus
+                                />
+                                {searchLabTerm && (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setSearchLabTerm('');
+                                    }}
+                                    className="text-slate-400 hover:text-slate-600 p-1 rounded-md cursor-pointer"
+                                  >
+                                    <X className="w-3.5 h-3.5" />
+                                  </button>
+                                )}
+                              </div>
+
+                              {/* Lista de Establecimientos en el Combobox */}
+                              <div className="max-h-64 overflow-y-auto divide-y divide-slate-100 p-1.5">
+                                {(() => {
+                                  const filtradosPorBusqueda = tramitesPendientes.filter(tr => {
+                                    if (!searchLabTerm.trim()) return true;
+                                    const term = searchLabTerm.toLowerCase();
+                                    return (
+                                      (tr.establecimiento_nombre || '').toLowerCase().includes(term) ||
+                                      (tr.establecimiento_municipio || '').toLowerCase().includes(term) ||
+                                      (tr.codigo_tramite || '').toLowerCase().includes(term) ||
+                                      (tr.estado_tramite || '').toLowerCase().includes(term)
+                                    );
+                                  });
+
+                                  if (filtradosPorBusqueda.length === 0) {
+                                    return (
+                                      <div className="p-6 text-center text-slate-400 text-xs font-medium space-y-1">
+                                        <p>No se encontraron trámites con "{searchLabTerm}"</p>
+                                      </div>
+                                    );
+                                  }
+
+                                  return filtradosPorBusqueda.map((tr) => {
+                                    const esSeleccionado = tr.tramite_id === tramiteActual.tramite_id;
+                                    const info = obtenerInfoEstadoTramite(tr);
+
+                                    return (
+                                      <button
+                                        key={tr.tramite_id}
+                                        type="button"
+                                        onClick={() => {
+                                          setTramiteSeleccionadoId(tr.tramite_id);
+                                          setComboboxOpen(false);
+                                          setSearchLabTerm('');
+                                        }}
+                                        className={`w-full text-left p-3 rounded-xl transition flex items-center justify-between gap-3 cursor-pointer ${
+                                          esSeleccionado
+                                            ? 'bg-blue-50/90 text-[#005596]'
+                                            : 'hover:bg-slate-50 text-slate-700'
+                                        }`}
+                                      >
+                                        <div className="flex items-center space-x-3 truncate">
+                                          <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border ${
+                                            esSeleccionado 
+                                              ? 'bg-[#005596] text-white border-[#005596]' 
+                                              : 'bg-slate-100 text-slate-500 border-slate-200'
+                                          }`}>
+                                            <Building2 className="w-4 h-4" />
+                                          </div>
+                                          <div className="truncate">
+                                            <span className={`font-black text-xs block truncate ${esSeleccionado ? 'text-[#005596]' : 'text-slate-800'}`}>
+                                              {tr.establecimiento_nombre}
+                                            </span>
+                                            <span className="text-[11px] text-slate-400 flex items-center gap-1.5 truncate font-medium">
+                                              <span>{tr.establecimiento_municipio || 'Cercado'}</span>
+                                              <span>•</span>
+                                              <span>{tr.codigo_tramite}</span>
+                                            </span>
+                                          </div>
+                                        </div>
+
+                                        <div className="flex items-center space-x-2 shrink-0">
+                                          <span className={`text-[10px] font-black px-2 py-0.5 rounded-md border ${
+                                            info.esAprobado
+                                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                              : info.esObservado
+                                                ? 'bg-rose-50 text-rose-700 border-rose-200'
+                                                : 'bg-amber-50 text-amber-800 border-amber-200'
+                                          }`}>
+                                            {info.label}
+                                          </span>
+                                          {esSeleccionado && (
+                                            <Check className="w-4 h-4 text-[#005596] shrink-0" />
+                                          )}
+                                        </div>
+                                      </button>
+                                    );
+                                  });
+                                })()}
+                              </div>
+
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
 
-                      {/* Encabezado del Trámite (Estilo Figma) */}
-                      {/* Encabezado del Trámite (Estilo Figma) */}
-                      <div className="space-y-2">
-                        <span className="inline-block bg-[#19324d] text-white text-[11px] font-black px-3.5 py-1 rounded-md tracking-wider shadow-xs uppercase">
-                          {tramiteActual.codigo_tramite}
-                        </span>
-                        <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
-                          Solicitud de {tramiteActual.tipo_tramite} - Laboratorio {tramiteActual.establecimiento_nombre}
-                        </h2>
-                        <p className="text-xs sm:text-sm text-slate-500 max-w-3xl leading-relaxed">
-                          Realice el seguimiento técnico y subsane las observaciones identificadas para la habilitación de su establecimiento.
-                        </p>
-                      </div>
+                    {/* Encabezado del Trámite (Estilo Figma) */}
+                    <div className="space-y-2">
+                      <span className="inline-block bg-[#19324d] text-white text-[11px] font-black px-3.5 py-1 rounded-md tracking-wider shadow-xs uppercase">
+                        {tramiteActual.codigo_tramite}
+                      </span>
+                      <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+                        Solicitud de {tramiteActual.tipo_tramite} - Laboratorio {tramiteActual.establecimiento_nombre}
+                      </h2>
+                      <p className="text-xs sm:text-sm text-slate-500 max-w-3xl leading-relaxed">
+                        Realice el seguimiento técnico y subsane las observaciones identificadas para la habilitación de su establecimiento.
+                      </p>
+                    </div>
 
                       {/* ===================================================================== */}
                       {/* PANEL SUPERIOR: DOCUMENTOS OBSERVADOS / RECHAZADOS (SUBSANACIÓN)      */}
@@ -4157,6 +4174,485 @@ export default function PropietarioPage() {
           </div>
         </div>
       )}
+
+      {/* ===================================================================== */}
+      {/* MODAL: VER DOCUMENTACIÓN CARGADA DEL ESTABLECIMIENTO                  */}
+      {/* ===================================================================== */}
+      {modalDocumentosLab && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fadeIn">
+          <div className="bg-white w-full max-w-3xl rounded-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh]">
+            
+            {/* Cabecera del Modal */}
+            <div className="bg-gradient-to-r from-blue-50/80 to-slate-50 border-b border-slate-200/80 p-6 flex items-start space-x-4">
+              <div className="w-12 h-12 rounded-2xl bg-[#005596]/10 text-[#005596] flex items-center justify-center shrink-0 border border-[#005596]/20">
+                <FileText className="w-6 h-6" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2.5 flex-wrap">
+                    <h3 className="text-lg font-black text-slate-900 tracking-tight">
+                      Documentación Cargada
+                    </h3>
+                    <span className="text-xs font-black bg-[#19324d] text-white px-2.5 py-0.5 rounded-md uppercase">
+                      {modalDocumentosLab.lab.nombre_comercial}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setModalDocumentosLab(null)}
+                    className="text-slate-400 hover:text-slate-600 p-1 rounded-lg transition cursor-pointer"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+                <p className="text-xs text-slate-500 mt-1">
+                  {modalDocumentosLab.lab.municipio ? `Municipio: ${modalDocumentosLab.lab.municipio} • ` : ''}
+                  Código CUE: <strong className="text-slate-700">{modalDocumentosLab.lab.codigo_cue || 'En proceso'}</strong>
+                  {modalDocumentosLab.tramite ? ` • Trámite: ${modalDocumentosLab.tramite.codigo_tramite}` : ''}
+                </p>
+              </div>
+            </div>
+
+            {/* Contenido del Modal con Lista / Tabla de Documentos */}
+            <div className="p-6 overflow-y-auto space-y-4 flex-1">
+              {modalDocumentosLab.tramite && modalDocumentosLab.tramite.documentos && modalDocumentosLab.tramite.documentos.length > 0 ? (
+                <div className="space-y-4">
+                  
+                  {/* Resumen rápido */}
+                  <div className="flex flex-wrap items-center gap-2 p-3 bg-slate-50 rounded-2xl border border-slate-200/80 text-xs">
+                    <div className="flex items-center space-x-1.5 font-bold text-slate-700">
+                      <FileCheck2 className="w-4 h-4 text-[#005596]" />
+                      <span>{modalDocumentosLab.tramite.documentos.length} Requisitos normativos</span>
+                    </div>
+                    <span className="text-slate-300">•</span>
+                    <div className="flex items-center space-x-1.5 font-bold text-emerald-700">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                      <span>{modalDocumentosLab.tramite.documentos.filter(d => (d.estado_validacion || '').toLowerCase() === 'aprobado').length} Aprobados</span>
+                    </div>
+                    {modalDocumentosLab.tramite.documentos.some(d => d.estado_validacion === 'Observado' || d.estado_validacion === 'Rechazado') && (
+                      <>
+                        <span className="text-slate-300">•</span>
+                        <div className="flex items-center space-x-1.5 font-bold text-rose-700">
+                          <AlertCircle className="w-4 h-4 text-rose-600" />
+                          <span>{modalDocumentosLab.tramite.documentos.filter(d => d.estado_validacion === 'Observado' || d.estado_validacion === 'Rechazado').length} Observados</span>
+                        </div>
+                      </>
+                    )}
+                  </div>
+
+                  {/* Tabla de Documentos */}
+                  <div className="border border-slate-200 rounded-2xl overflow-hidden">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="bg-slate-50 border-b border-slate-200 text-[11px] font-extrabold text-slate-400 uppercase tracking-wider">
+                          <th scope="col" className="py-3 px-4">DOCUMENTO REQUERIDO</th>
+                          <th scope="col" className="py-3 px-4 text-center">ESTADO</th>
+                          <th scope="col" className="py-3 px-4 text-right">DOCUMENTO SUBIDO</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 text-xs">
+                        {modalDocumentosLab.tramite.documentos.map((doc, idx) => {
+                          const estado = doc.estado_validacion || (doc.tiene_archivo || doc.archivo_url ? 'En Revisión' : 'Pendiente');
+                          const esAprobado = estado === 'Aprobado';
+                          const esRechazado = estado === 'Rechazado' || estado === 'Observado';
+                          const esEnRevision = estado === 'En Revisión';
+
+                          return (
+                            <tr key={doc.documento_id || doc.requisito_id || idx} className="hover:bg-slate-50/70 transition-colors">
+                              <td className="py-3 px-4 align-middle">
+                                <div className="space-y-1">
+                                  <div className="flex items-center space-x-2 flex-wrap">
+                                    {doc.seccion_codigo && (
+                                      <span className="text-[10px] font-black uppercase text-[#005596] bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">
+                                        Secc. {doc.seccion_codigo}
+                                      </span>
+                                    )}
+                                    <p className="font-bold text-slate-800 leading-snug">
+                                      {doc.requisito_nombre}
+                                    </p>
+                                    {doc.es_obligatorio === false && (
+                                      <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">
+                                        Opcional
+                                      </span>
+                                    )}
+                                  </div>
+                                  {doc.observaciones_supervisor && esRechazado && (
+                                    <p className="text-[11px] font-semibold text-rose-600">
+                                      * Obs: {doc.observaciones_supervisor}
+                                    </p>
+                                  )}
+                                </div>
+                              </td>
+
+                              <td className="py-3 px-4 text-center align-middle whitespace-nowrap">
+                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold select-none ${
+                                  esAprobado
+                                    ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                                    : esRechazado
+                                      ? 'bg-rose-100 text-rose-800 border border-rose-200'
+                                      : esEnRevision
+                                        ? 'bg-amber-100 text-amber-800 border border-amber-200'
+                                        : 'bg-slate-100 text-slate-600 border border-slate-200'
+                                }`}>
+                                  {estado}
+                                </span>
+                              </td>
+
+                              <td className="py-3 px-4 text-right align-middle whitespace-nowrap">
+                                {doc.archivo_url ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => window.open(`http://localhost:8000${doc.archivo_url}`, '_blank')}
+                                    className="inline-flex items-center space-x-1.5 bg-[#005596] hover:bg-[#003e6d] text-white text-xs font-bold px-3 py-1.5 rounded-xl transition shadow-2xs cursor-pointer active:scale-95"
+                                    title="Visualizar documento PDF presentado"
+                                  >
+                                    <Eye className="w-3.5 h-3.5" />
+                                    <span>Ver PDF</span>
+                                  </button>
+                                ) : doc.tiene_archivo ? (
+                                  <span className="text-[11px] font-semibold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-md border border-blue-200">
+                                    Archivo adjunto
+                                  </span>
+                                ) : (
+                                  <span className="text-[11px] text-slate-400 italic">
+                                    Sin archivo
+                                  </span>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+
+                </div>
+              ) : (
+                <div className="p-8 text-center bg-slate-50 rounded-2xl border border-slate-200 space-y-2">
+                  <FileText className="w-10 h-10 text-slate-400 mx-auto" />
+                  <h4 className="font-bold text-slate-800 text-sm">No se encontraron documentos cargados</h4>
+                  <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                    Este establecimiento no tiene solicitudes de apertura activas o los requisitos se gestionaron de forma presencial.
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Pie del Modal */}
+            <div className="p-4 sm:px-6 bg-slate-50 border-t border-slate-200/80 flex items-center justify-between">
+              {modalDocumentosLab.tramite ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTramiteSeleccionadoId(modalDocumentosLab.tramite.tramite_id);
+                    setModalDocumentosLab(null);
+                    navigate('/propietario/tramites');
+                  }}
+                  className="inline-flex items-center space-x-1.5 text-xs font-bold text-[#005596] hover:text-[#003e6d] bg-blue-50 hover:bg-blue-100 px-4 py-2 rounded-xl transition cursor-pointer"
+                >
+                  <FileText className="w-3.5 h-3.5" />
+                  <span>Gestionar en Trámites y Subsanación →</span>
+                </button>
+              ) : <div />}
+
+              <button
+                type="button"
+                onClick={() => setModalDocumentosLab(null)}
+                className="bg-slate-200 hover:bg-slate-300 text-slate-800 text-xs font-bold px-5 py-2.5 rounded-xl transition cursor-pointer"
+              >
+                Cerrar
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* ===================================================================== */}
+      {/* MODAL: VER ESTABLECIMIENTO (POPUP CON PERFIL, SERVICIOS Y MAPA)       */}
+      {/* ===================================================================== */}
+      {modalVerEstablecimiento && (() => {
+        // Parsear servicios de forma totalmente segura (puede ser Array, string delimitado por coma o JSON)
+        let serviciosModal = [];
+        if (Array.isArray(modalVerEstablecimiento.servicios)) {
+          serviciosModal = modalVerEstablecimiento.servicios;
+        } else if (typeof modalVerEstablecimiento.servicios === 'string' && modalVerEstablecimiento.servicios.trim()) {
+          const raw = modalVerEstablecimiento.servicios.trim();
+          if (raw.startsWith('[')) {
+            try {
+              serviciosModal = JSON.parse(raw);
+            } catch (e) {
+              serviciosModal = raw.split(',').map(s => s.trim()).filter(Boolean);
+            }
+          } else {
+            serviciosModal = raw.split(',').map(s => s.trim()).filter(Boolean);
+          }
+        }
+        if (!serviciosModal || serviciosModal.length === 0) {
+          serviciosModal = ['Clínico General'];
+        }
+
+        // Parsear responsables_areas de forma segura
+        let respAreasModal = {};
+        if (modalVerEstablecimiento.responsables_areas) {
+          if (typeof modalVerEstablecimiento.responsables_areas === 'object' && !Array.isArray(modalVerEstablecimiento.responsables_areas)) {
+            respAreasModal = modalVerEstablecimiento.responsables_areas;
+          } else if (typeof modalVerEstablecimiento.responsables_areas === 'string' && modalVerEstablecimiento.responsables_areas.trim()) {
+            try {
+              respAreasModal = JSON.parse(modalVerEstablecimiento.responsables_areas);
+            } catch (e) {
+              respAreasModal = {};
+            }
+          }
+        }
+
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fadeIn">
+            <div className="bg-white w-full max-w-3xl rounded-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh]">
+              
+              {/* Cabecera del Modal */}
+              <div className="bg-gradient-to-r from-blue-50/90 via-slate-50 to-white border-b border-slate-200/80 p-5 sm:p-6 flex items-start justify-between gap-4">
+                <div className="flex items-start space-x-3.5 min-w-0">
+                  <div className="w-12 h-12 rounded-2xl bg-[#005596] text-white flex items-center justify-center shrink-0 shadow-md">
+                    <Building2 className="w-6 h-6" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex items-center space-x-2 flex-wrap">
+                      <h3 className="text-lg sm:text-xl font-black text-slate-900 tracking-tight truncate">
+                        {modalVerEstablecimiento.nombre_comercial || 'Establecimiento'}
+                      </h3>
+                      <span className="text-[11px] font-extrabold bg-[#19324d] text-white px-2.5 py-0.5 rounded-md uppercase">
+                        CUE: {modalVerEstablecimiento.codigo_cue || 'Nuevo'}
+                      </span>
+                    </div>
+                    <div className="flex items-center space-x-2 text-xs text-slate-500 font-medium mt-1 flex-wrap">
+                      <span>{modalVerEstablecimiento.municipio || 'Cercado'}</span>
+                      <span>•</span>
+                      <span>{modalVerEstablecimiento.tipo || 'Privado'}</span>
+                      <span>•</span>
+                      <span className="font-bold text-[#005596]">{modalVerEstablecimiento.nivel || 'Nivel 1'}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center space-x-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setModalVerEstablecimiento(null)}
+                    className="text-slate-400 hover:text-slate-700 p-1.5 rounded-xl hover:bg-slate-100 transition cursor-pointer"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Contenido con Scroll */}
+              <div className="p-6 overflow-y-auto space-y-6 flex-1 text-slate-700">
+                
+                {/* Imagen o Banner de Fachada */}
+                {modalVerEstablecimiento.imagen_url && (
+                  <div className="w-full h-48 rounded-2xl overflow-hidden border border-slate-200 shadow-xs relative">
+                    <img
+                      src={`http://localhost:8000${modalVerEstablecimiento.imagen_url}`}
+                      alt={modalVerEstablecimiento.nombre_comercial || 'Fachada'}
+                      className="w-full h-full object-cover"
+                      onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent flex items-end p-4">
+                      <span className="text-white text-xs font-bold bg-black/40 backdrop-blur-xs px-3 py-1 rounded-lg">
+                        Fachada Oficial Registrada
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Grid 2 Columnas: Información General */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  
+                  {/* Tarjeta Dirección y Horario */}
+                  <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-3">
+                    <h4 className="text-xs font-black text-slate-400 uppercase tracking-wider flex items-center space-x-1.5">
+                      <MapPin className="w-3.5 h-3.5 text-[#005596]" />
+                      <span>Ubicación y Horario</span>
+                    </h4>
+                    <div className="space-y-2 text-xs">
+                      <div>
+                        <span className="text-slate-400 font-semibold block">Dirección:</span>
+                        <p className="font-bold text-slate-800">{modalVerEstablecimiento.direccion || 'Sin dirección registrada'}</p>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 font-semibold block">Horario de Atención:</span>
+                        <p className="font-bold text-slate-800 flex items-center space-x-1">
+                          <Clock className="w-3.5 h-3.5 text-slate-400" />
+                          <span>{modalVerEstablecimiento.horario || 'No especificado'}</span>
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Tarjeta Contacto y Responsable */}
+                  <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-3">
+                    <h4 className="text-xs font-black text-slate-400 uppercase tracking-wider flex items-center space-x-1.5">
+                      <UserCheck className="w-3.5 h-3.5 text-[#005596]" />
+                      <span>Contacto y Dirección Técnica</span>
+                    </h4>
+                    <div className="space-y-2 text-xs">
+                      <div>
+                        <span className="text-slate-400 font-semibold block">Regente / Responsable:</span>
+                        <p className="font-bold text-slate-800">
+                          {modalVerEstablecimiento.responsable_laboratorio || 'No asignado'}
+                          {modalVerEstablecimiento.ci_responsable ? ` (CI: ${modalVerEstablecimiento.ci_responsable})` : ''}
+                        </p>
+                      </div>
+                      <div className="flex items-center space-x-4 pt-1">
+                        {modalVerEstablecimiento.telefono && (
+                          <div className="flex items-center space-x-1 font-bold text-slate-800">
+                            <Phone className="w-3.5 h-3.5 text-slate-400" />
+                            <span>{modalVerEstablecimiento.telefono}</span>
+                          </div>
+                        )}
+                        {modalVerEstablecimiento.email_contacto && (
+                          <div className="flex items-center space-x-1 font-bold text-slate-800 truncate">
+                            <Mail className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                            <span className="truncate">{modalVerEstablecimiento.email_contacto}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                </div>
+
+                {/* Descripción */}
+                {modalVerEstablecimiento.descripcion && (
+                  <div className="p-4 rounded-2xl bg-white border border-slate-200 space-y-1.5">
+                    <h4 className="text-xs font-black text-slate-400 uppercase tracking-wider">Descripción del Establecimiento</h4>
+                    <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
+                      {modalVerEstablecimiento.descripcion}
+                    </p>
+                  </div>
+                )}
+
+                {/* Especialidades y Servicios Autorizados */}
+                <div className="space-y-3">
+                  <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider flex items-center justify-between">
+                    <span>Especialidades y Áreas Autorizadas ({serviciosModal.length})</span>
+                    <span className="text-[10px] font-bold text-slate-400 normal-case">Registradas ante el SEDES</span>
+                  </h4>
+                  
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    {serviciosModal.map((esp, idx) => {
+                      const infoEsp = ESPECIALIDAD_INFO[esp] || { 
+                        badge: 'bg-blue-50 text-blue-700 border-blue-200', 
+                        dot: 'bg-blue-500', 
+                        descripcion: 'Servicio de análisis clínico autorizado' 
+                      };
+                      const respArea = respAreasModal[esp] || (typeof respAreasModal === 'object' ? Object.values(respAreasModal).find(r => r && r.nombre) : null);
+
+                      return (
+                        <div 
+                          key={idx}
+                          className="p-3 rounded-2xl bg-white border border-slate-200/90 shadow-2xs space-y-1.5"
+                        >
+                          <div className="flex items-center space-x-2">
+                            <span className={`w-2 h-2 rounded-full ${infoEsp.dot} shrink-0`} />
+                            <span className="font-bold text-xs text-slate-900">{esp}</span>
+                          </div>
+                          <p className="text-[11px] text-slate-500 leading-tight">
+                            {infoEsp.descripcion}
+                          </p>
+                          {respArea && (respArea.nombre || respArea.ci) && (
+                            <div className="pt-1 border-t border-slate-100 flex items-center space-x-1.5 text-[10px] text-slate-600">
+                              <User className="w-3 h-3 text-slate-400 shrink-0" />
+                              <span className="truncate"><strong>Encargado:</strong> {respArea.nombre} {respArea.ci ? `(CI: ${respArea.ci})` : ''}</span>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Mapa de Ubicación Georreferenciada */}
+                <div className="space-y-2.5">
+                  <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider flex items-center space-x-1.5">
+                    <Navigation className="w-3.5 h-3.5 text-[#005596]" />
+                    <span>Ubicación Georreferenciada</span>
+                  </h4>
+                  <div className="rounded-2xl overflow-hidden border border-slate-200 shadow-xs">
+                    <RealMapView
+                      latitud={modalVerEstablecimiento.latitud}
+                      longitud={modalVerEstablecimiento.longitud}
+                      nombre={modalVerEstablecimiento.nombre_comercial}
+                      direccion={modalVerEstablecimiento.direccion}
+                      height="240px"
+                    />
+                  </div>
+                </div>
+
+                {/* Datos de Fiscalización SEDES */}
+                <div className="p-4 rounded-2xl bg-blue-50/60 border border-blue-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                  <div>
+                    <span className="text-slate-500 font-semibold block">Última Inspección Técnica SEDES:</span>
+                    <strong className="text-slate-800">{modalVerEstablecimiento.fecha_inspeccion || 'En trámite de habilitación'}</strong>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 font-semibold block">Vigencia del Acta de Habilitación:</span>
+                    <strong className={modalVerEstablecimiento.vencido ? 'text-rose-600' : 'text-emerald-700'}>
+                      {modalVerEstablecimiento.fecha_vencimiento_acta || 'Pendiente de emisión de acta'}
+                    </strong>
+                  </div>
+                </div>
+
+              </div>
+
+              {/* Pie del Modal */}
+              <div className="p-4 sm:px-6 bg-slate-50 border-t border-slate-200/80 flex items-center justify-between flex-wrap gap-2">
+                <div className="flex items-center space-x-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const lab = modalVerEstablecimiento;
+                      const tr = tramitesUsuario.find(t => 
+                        (t.establecimiento_id && t.establecimiento_id === lab.id) ||
+                        (t.establecimiento_nombre && t.establecimiento_nombre.trim().toLowerCase() === (lab.nombre_comercial || '').trim().toLowerCase())
+                      ) || null;
+                      setModalVerEstablecimiento(null);
+                      setModalDocumentosLab({ lab, tramite: tr });
+                    }}
+                    className="inline-flex items-center space-x-1.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 text-xs font-bold px-3.5 py-2 rounded-xl transition shadow-2xs cursor-pointer"
+                  >
+                    <FileText className="w-3.5 h-3.5 text-[#005596]" />
+                    <span>Ver Documentos</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const lab = modalVerEstablecimiento;
+                      setModalVerEstablecimiento(null);
+                      handleAbrirEditar(lab, false);
+                    }}
+                    className="inline-flex items-center space-x-1.5 bg-[#005596] hover:bg-[#003e6d] text-white text-xs font-bold px-3.5 py-2 rounded-xl transition shadow-xs cursor-pointer"
+                  >
+                    <Edit3 className="w-3.5 h-3.5" />
+                    <span>Editar Información</span>
+                  </button>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setModalVerEstablecimiento(null)}
+                  className="bg-slate-200 hover:bg-slate-300 text-slate-800 text-xs font-bold px-5 py-2.5 rounded-xl transition cursor-pointer"
+                >
+                  Cerrar
+                </button>
+              </div>
+
+            </div>
+          </div>
+        );
+      })()}
 
     </div>
   );

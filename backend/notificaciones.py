@@ -82,11 +82,46 @@ def obtener_notificaciones_usuario(
     if not usuario:
         raise HTTPException(status_code=404, detail="Usuario no encontrado.")
 
-    # Si es Coordinador o Director, traer tanto las directas como las generales
+    # Mapa de estado actual de establecimientos del usuario para depurar notificaciones obsoletas
+    mis_estabs = db.query(models.Establecimiento).filter(
+        models.Establecimiento.propietario_id == u_uuid,
+        models.Establecimiento.estado == True
+    ).all()
+    estab_obs_map = {}
+    for e in mis_estabs:
+        sigue_obs = bool(e.observaciones and e.observaciones.strip().startswith("OBSERVADO"))
+        estab_obs_map[e.nombre_comercial.strip().lower()] = sigue_obs
+
+    # Obtener notificaciones activas
     notificaciones_db = db.query(models.Notificacion).filter(
         models.Notificacion.usuario_id == u_uuid,
         models.Notificacion.estado == True
     ).order_by(desc(models.Notificacion.fecha_creacion)).limit(limite).all()
+
+    # Desactivar notificaciones de observación para laboratorios que ya NO están observados
+    notifs_validas = []
+    hubo_limpieza = False
+    for n in notificaciones_db:
+        tit_low = (n.titulo or "").lower()
+        msg_low = (n.mensaje or "").lower()
+        if "observad" in tit_low or ("observad" in msg_low and "establecimiento" in msg_low):
+            # Verificar si corresponde a un establecimiento del usuario que ya fue validado/subsanado
+            es_obsoleto = False
+            for nom_estab, esta_obs in estab_obs_map.items():
+                if (nom_estab in tit_low or nom_estab in msg_low) and not esta_obs:
+                    es_obsoleto = True
+                    break
+            if es_obsoleto:
+                n.estado = False
+                hubo_limpieza = True
+                continue
+        notifs_validas.append(n)
+
+    if hubo_limpieza:
+        try:
+            db.commit()
+        except Exception:
+            db.rollback()
 
     no_leidas = db.query(models.Notificacion).filter(
         models.Notificacion.usuario_id == u_uuid,
@@ -125,7 +160,7 @@ def obtener_notificaciones_usuario(
             "tiempoRelativo": formatear_tiempo(n.fecha_creacion),
             "fecha_creacion": n.fecha_creacion.isoformat() if n.fecha_creacion else datetime.now().isoformat()
         }
-        for n in notificaciones_db
+        for n in notifs_validas
     ]
 
     return {
