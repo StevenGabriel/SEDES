@@ -106,12 +106,35 @@ def obtener_metricas_consola(db: Session = Depends(get_db)):
     rendimiento_supervisores = []
 
     for s in supervisores_db:
-        # Contar actas oficiales emitidas reales (inspecciones completadas/finalizadas)
-        inspecciones_completadas = db.query(models.Inspeccion).filter(
+        # Obtener todas las inspecciones del supervisor con datos de establecimiento
+        inspecciones_db = db.query(models.Inspeccion).filter(
             models.Inspeccion.supervisor_id == s.id,
-            models.Inspeccion.estado == True,
-            models.Inspeccion.estado_inspeccion.in_(["Completada", "Aprobada", "Finalizada"])
-        ).count()
+            models.Inspeccion.estado == True
+        ).order_by(desc(models.Inspeccion.fecha_programada), desc(models.Inspeccion.fecha_creacion)).all()
+
+        detalles_inspecciones = []
+        inspecciones_completadas = 0
+
+        for insp in inspecciones_db:
+            es_completada = insp.estado_inspeccion in ["Completada", "Aprobada", "Finalizada"] or bool(insp.acta_pdf_url)
+            if es_completada:
+                inspecciones_completadas += 1
+
+            trm = insp.tramite
+            estab = trm.establecimiento if trm else None
+            detalles_inspecciones.append({
+                "id": str(insp.id),
+                "tramite_id": str(insp.tramite_id) if insp.tramite_id else None,
+                "codigo_tramite": f"TRM-{str(trm.id)[:8].upper()}" if trm else "TRM-N/A",
+                "establecimiento": estab.nombre_comercial if (estab and estab.nombre_comercial) else "Establecimiento de Salud",
+                "municipio": estab.municipio if (estab and estab.municipio) else "Cochabamba",
+                "tipo_tramite": trm.tipo_tramite if trm else "Apertura y Habilitación",
+                "fecha": insp.fecha_programada.strftime("%d/%m/%Y") if insp.fecha_programada else (insp.fecha_creacion.strftime("%d/%m/%Y") if insp.fecha_creacion else ""),
+                "fecha_iso": insp.fecha_programada.strftime("%Y-%m-%d") if insp.fecha_programada else (insp.fecha_creacion.strftime("%Y-%m-%d") if insp.fecha_creacion else ""),
+                "estado_inspeccion": insp.estado_inspeccion or "Pendiente",
+                "veredicto": (insp.veredicto_final or "Pendiente").upper(),
+                "acta_pdf_url": insp.acta_pdf_url or None
+            })
 
         # Contar trámites asignados activos con inspección de campo pendiente
         tramites_asig_list = db.query(models.Tramite).filter(
@@ -139,7 +162,8 @@ def obtener_metricas_consola(db: Session = Depends(get_db)):
             "actas_reales_db": inspecciones_completadas,
             "asignados": tramites_asig,
             "email": s.email,
-            "telefono": s.telefono or ""
+            "telefono": s.telefono or "",
+            "inspecciones": detalles_inspecciones
         })
 
     # Ordenar ranking de mayor a menor número de actas emitidas
@@ -148,8 +172,9 @@ def obtener_metricas_consola(db: Session = Depends(get_db)):
     # 4. BITÁCORA DE TRAZABILIDAD RECIENTE (ESTRICTAMENTE DE LA TABLA HISTORIAL ACTIVIDAD)
     trazabilidad = []
     logs_db = db.query(models.HistorialActividad).filter(
-        models.HistorialActividad.estado == True
-    ).order_by(desc(models.HistorialActividad.fecha_creacion)).limit(10).all()
+        models.HistorialActividad.estado == True,
+        ~models.HistorialActividad.accion.ilike("%Documento aprobado%")
+    ).order_by(desc(models.HistorialActividad.fecha_creacion)).limit(200).all()
 
     for log in logs_db:
         es_sistema = "sistema" in (log.responsable or "").lower() or "alerta" in (log.accion or "").lower()
@@ -158,6 +183,7 @@ def obtener_metricas_consola(db: Session = Depends(get_db)):
             "funcionario": log.responsable or ("Sistema" if es_sistema else "Personal SEDES"),
             "es_sistema": es_sistema,
             "accion": log.accion,
+            "establecimiento": log.establecimiento or "",
             "fecha": log.fecha_hora_formato or (log.fecha_creacion.strftime("%d %b %Y - %H:%M") if log.fecha_creacion else ""),
             "expediente": log.codigo_tramite or "N/A",
             "resultado": log.estado_resultado

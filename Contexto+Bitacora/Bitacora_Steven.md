@@ -3743,7 +3743,120 @@ Dotar al panel del **Coordinador** (`CoordinadorPage.jsx`) de las mismas funcion
   * Cada tarjeta de notificación en el desplegable cuenta con un botón de papelera (`Trash2`) que aparece al pasar el cursor para borrar la notificación de forma independiente.
 * **Limpieza Masiva (`handleLimpiarTodasNotificaciones`):**
   * Botón *"Limpiar"* en la cabecera y *"Limpiar todo"* en el pie del menú desplegable para vaciar la bandeja de avisos con 1 clic.
-* **Marcar Todas como Leídas (`handleMarcarTodasNotifsLeidas`):**
-  * Botón *"Marcar leídas"* en la cabecera para actualizar el contador a cero sin necesidad de abrir cada notificación por separado.
+---
+
+## [2026-09-30] Paginación, Filtros y Búsqueda en la Bitácora de Trazabilidad del Director
+
+### 📌 Objetivo
+Mejorar la **"Bitácora de Trazabilidad Reciente"** en la vista de *Consola Administrativa* del panel del Director (`DirectorPage.jsx`), implementando controles de paginación configurables (10, 25 y 50 registros por vista), búsqueda instantánea por funcionario, acción o código de expediente/CUE, filtro por tipo de actor (*Todos los actores*, *Solo Funcionarios*, *Solo Sistema*) y paginación responsiva con botones numéricos y soporte de elipsis (`...`), homologando la experiencia con la sección de Historial y Trazabilidad del Coordinador.
 
 ---
+
+### 🛠️ Archivos Modificados y Soluciones Aplicadas
+
+#### 1. `backend/director.py` [MODIFICADO]
+* **Ampliación de Límite de Consulta:** Se amplió la consulta de `HistorialActividad` en el endpoint `/api/director/consola` de un límite estático de 10 a un tope de 200 registros ordenados descendentemente por fecha (`fecha_creacion`), excluyendo registros irrelevantes de aprobación interna y enviando el campo `establecimiento` junto al expediente y responsable.
+
+#### 2. `frontend/src/pages/DirectorPage.jsx` [MODIFICADO]
+* **Estados y Filtrado Reactivo (`useMemo`):**
+  * `filtroBitacoraTexto`: Búsqueda en tiempo real sobre nombre de funcionario, descripción de la acción, código de expediente, nombre de establecimiento y fecha.
+  * `filtroBitacoraTipo`: Selector de actor (`Todos`, `Funcionario`, `Sistema`).
+  * `paginaBitacora` e `itemsPorPaginaBitacora`: Gestión de paginación y tamaño de vista (10, 25, 50 registros).
+  * `getNumeroPaginasBitacora()`: Generador de botones de navegación inteligente con elipsis para listas extensas.
+* **Cabecera de Tabla con Búsqueda y Filtro de Actor:**
+  * Barra de búsqueda con icono `Search` y selector interactivo de actor.
+* **Pie de Tabla con Paginación Completa:**
+  * Contador informativo *"Mostrando X a Y de Z registros"*.
+  * Selector *"Mostrar: 10/25/50 por vista"*.
+  * Botones de navegación Anterior (`<`), números de página activos/inactivos y Siguiente (`>`).
+
+---
+
+## [2026-09-30] Integración de Expediente Digital, Badges de Estado y Exportación a Excel en Bitácora del Director
+
+### 📌 Objetivo
+Ampliar la capacidad operativa y de auditoría de la **"Bitácora de Trazabilidad Reciente"** del Director (`DirectorPage.jsx`) mediante:
+1. **Modal de Expediente Digital Centralizado:** Apertura interactiva al hacer clic sobre cualquier fila o código de trámite (`TRM-XXXXXXXX`) con 3 pestañas: *Documentos Emitidos (PDF)* (Resolución Administrativa, Informe Técnico, Acta de Inspección), *Ficha Técnica del Establecimiento* y *Requisitos Adjuntos*.
+2. **Columna y Badges de Estado / Resultado:** Indicadores visuales de color (*Aprobado/Favorable*, *Observado*, *Derivado*, *Concluido*, *Registrado*).
+3. **Exportación a Excel / CSV para Auditoría:** Botón en la cabecera con descarga inmediata en formato `.csv` con codificación UTF-8 BOM para apertura perfecta en Microsoft Excel.
+
+---
+
+### 🛠️ Archivos Modificados y Soluciones Aplicadas
+
+#### 1. `frontend/src/pages/DirectorPage.jsx` [MODIFICADO]
+* **Mapeo Inteligente de Estados (`getBadgeResultado`):** Asignación automática de chips de color y texto descriptivo según el contenido de la acción y resultado del acto.
+* **Modal de Expediente Digital:**
+  * Vista previa y descarga de *Resolución Administrativa SEDES* en PDF mediante `generarResolucionAdministrativaPDF`.
+  * Vista previa y descarga de *Informe Técnico CODELAB* en PDF mediante `generarComunicacionInternaPDF`.
+  * Enlace al *Acta de Fiscalización In-Situ* y estado de supervisión de campo.
+  * Pestaña de *Ficha Técnica* con datos de titular, regente, especialidades, CUE y horarios.
+  * Pestaña de *Requisitos Adjuntos* con visor de documentos subidos.
+* **Exportador a Excel (`handleExportarBitacoraExcel`):**
+  * Generación de archivo `.csv` delimitado por punto y coma (`;`), preámbulo UTF-8 (`\uFEFF`) y saneamiento de comillas.
+* **Interacción en Tabla:**
+  * Las filas y los códigos de expediente cuentan con cursor interactivo, indicador `FolderOpen` y resaltado al pasar el ratón.
+* **Resolución de Enlaces de Actas y Archivos Estáticos:**
+  * Se corrigió la resolución de URLs en los botones *"Ver Acta Firmada"* y *"Ver Archivo"* para que apunten al servidor FastAPI backend (`http://localhost:8000/...`), evitando redirecciones erróneas hacia la landing page de React Router.
+
+---
+
+## [2026-09-30] Visualización Completa del Rendimiento por Supervisor en la Consola del Director
+
+### 📌 Objetivo
+Permitir al Director General tener visibilidad del plantel completo de supervisores registrados en el SEDES dentro de la tarjeta de **"Rendimiento por Supervisor"** ([`DirectorPage.jsx`](file:///c:/Users/ASUS/Music/SEDES/frontend/src/pages/DirectorPage.jsx)), mostrando la totalidad del equipo de campo con su ranking, desglose de actas emitidas, trámites asignados en curso y datos de contacto institucional.
+
+---
+
+### 🛠️ Archivos Modificados y Soluciones Aplicadas
+
+#### 1. `frontend/src/pages/DirectorPage.jsx` [MODIFICADO]
+* **Vista por Defecto de Todos los Supervisores:** Se ajustó el estado inicial a `vistaSupervisores = 'todos'`, garantizando que todos los supervisores registrados aparezcan listados en el panel ejecutivo.
+* **Insignia de Total de Supervisores:** Badge institucional en la cabecera mostrando el total de inspectores activos (`X supervisores`).
+* **Tarjetas con Métricas Completas por Inspector:**
+  * Nombre completo y correo institucional.
+  * Avatar con iniciales y color distintivo.
+  * Conteo de **Actas Emitidas** y barra horizontal de porcentaje.
+  * Badge de **Trámites en Curso** (`X en curso`) cuando tienen inspecciones asignadas pendientes.
+* **Resumen al Pie:** Conteo consolidado departamental de actas emitidas y total de inspectores.
+
+---
+
+## [2026-09-30] Filtro por Períodos de Fecha y Modal de Desglose de Inspecciones en Rendimiento por Supervisor
+
+### 📌 Objetivo
+Implementar capacidades avanzadas de análisis temporal y auditoría técnica individual sobre la tarjeta de **"Rendimiento por Supervisor"** en la *Consola de Administración del Director* ([`DirectorPage.jsx`](file:///c:/Users/ASUS/Music/SEDES/frontend/src/pages/DirectorPage.jsx)):
+1. **Filtro de Períodos de Tiempo:** Selector reactivo de rangos temporales (*Todo el Historial*, *Este Mes*, *Últimos 30 días*, *Últimos 7 días*, *Personalizado con selector de fechas Desde / Hasta*) que recalcula en tiempo real el ranking, conteo de actas y porcentaje de las barras de progreso.
+2. **Modal de Desglose por Supervisor:** Al hacer clic sobre cualquier supervisor del ranking, se despliega una ventana modal con:
+   * Perfil del supervisor (avatar, nombre, correo institucional, teléfono y cargo).
+   * 4 tarjetas KPI de resumen: Actas en el período seleccionado, Dictámenes Favorables/Conformes, Con Observaciones y Trámites en curso.
+   * Barra de búsqueda por texto (nombre de laboratorio, código de trámite o municipio) y filtros rápidos por veredicto (*Todos*, *Favorables*, *Observados*, *En proceso*).
+   * Lista detallada de inspecciones con botón directo **"Ver Acta Firmada"** (apuntando al PDF en el servidor FastAPI) y **"Ver Expediente"** (apertura del expediente digital centralizado).
+
+---
+
+### 🛠️ Archivos Modificados y Soluciones Aplicadas
+
+#### 1. `backend/director.py` [MODIFICADO]
+* **Enriquecimiento del Endpoint `/api/director/consola`:**
+  * En la sección de `rendimiento_supervisores`, se estructuró el listado completo de `inspecciones` de cada supervisor incluyendo `id`, `tramite_id`, `codigo_tramite`, `establecimiento`, `municipio`, `tipo_tramite`, `fecha`, `fecha_iso`, `estado_inspeccion`, `veredicto` y `acta_pdf_url`.
+
+#### 2. `frontend/src/pages/DirectorPage.jsx` [MODIFICADO]
+* **Estados y Filtrado Temporal Reactivo (`useMemo`):**
+  * `periodoSupervisores`, `fechaInicioSup`, `fechaFinSup`, calculando dinámicamente `supervisoresFiltrados`, `maxActasFiltradas` y `totalActasFiltradas`.
+  * Ordenamiento dinámico descendente de mayor a menor según las actas emitidas en el período seleccionado.
+* **Componente de Tarjeta de Rendimiento:**
+  * Selector desplegable de períodos y controles de fecha personalizados.
+  * Filas interactivas con ranking medalla (#1 oro, #2 plata, #3 bronce), datos del inspector, badge de trámites en curso y chevron de apertura.
+  * Barra de progreso horizontal reactiva al período.
+* **Modal de Desglose de Inspecciones y Actas (`modalSupervisorOpen`):**
+  * Banner superior corporativo SEDES con datos de contacto del inspector.
+  * Tarjetas de indicadores cuantitativos (Actas, Favorables, Observadas, En trámite).
+  * Búsqueda por texto y filtrado por estado de inspección/veredicto.
+  * Acciones directas por fila: visualización de Acta Oficial en PDF (`/uploads/...` resuelto a `http://localhost:8000`) y apertura de Expediente Digital.
+
+---
+
+### 📊 Verificación y Pruebas Realizadas
+* **Compilación Frontend:** `npm run build` ejecutado exitosamente con 0 errores (dist generado en 849ms).
+* **Integración API & Archivos:** Verificación de resolución de URLs absolutas para actas firmadas y compatibilidad de parámetros en el modal de expedientes.

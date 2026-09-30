@@ -4175,7 +4175,11 @@ export default function CoordinadorPage() {
                               {tieneInspeccionRealizada ? (
                                 tramiteHistorialSeleccionado.acta_pdf_url ? (
                                   <a
-                                    href={tramiteHistorialSeleccionado.acta_pdf_url}
+                                    href={
+                                      tramiteHistorialSeleccionado.acta_pdf_url.startsWith('http')
+                                        ? tramiteHistorialSeleccionado.acta_pdf_url
+                                        : `http://localhost:8000/${tramiteHistorialSeleccionado.acta_pdf_url.replace(/^\/+/, '')}`
+                                    }
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-extrabold flex items-center space-x-1.5 shadow-xs transition cursor-pointer"
@@ -4296,7 +4300,11 @@ export default function CoordinadorPage() {
 
                               {doc.archivo_url && (
                                 <a
-                                  href={doc.archivo_url}
+                                  href={
+                                    doc.archivo_url.startsWith('http')
+                                      ? doc.archivo_url
+                                      : `http://localhost:8000/${doc.archivo_url.replace(/^\/+/, '')}`
+                                  }
                                   target="_blank"
                                   rel="noopener noreferrer"
                                   className="px-2.5 py-1 bg-slate-100 hover:bg-[#0077c8] hover:text-white text-slate-600 rounded-lg text-[11px] font-bold transition flex items-center space-x-1"

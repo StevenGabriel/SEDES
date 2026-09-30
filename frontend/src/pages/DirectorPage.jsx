@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import {
   LayoutDashboard,
@@ -20,6 +20,7 @@ import {
   TrendingUp,
   Activity,
   Award,
+  ChevronLeft,
   ChevronRight,
   Clock,
   Sparkles,
@@ -46,12 +47,18 @@ import {
   Eye,
   Info,
   HelpCircle,
-  FileCheck
+  FileCheck,
+  FolderOpen,
+  AlertCircle,
+  ExternalLink,
+  Phone,
+  Mail
 } from 'lucide-react';
 
 import logoL1 from '../assets/L1.png';
 import logoL2 from '../assets/L2.png';
 import { generarComunicacionInternaPDF } from '../components/coordinador/ComunicacionInternaPDF';
+import { generarResolucionAdministrativaPDF } from '../components/abogado/ResolucionAdministrativaPDF';
 import EditarPlantillasView from '../components/common/EditarPlantillasView';
 
 // Obtener iniciales de 2 a 4 letras a partir de nombres y apellidos
@@ -125,6 +132,346 @@ export default function DirectorPage() {
     },
     trazabilidad_reciente: []
   });
+
+  // Estados para búsqueda, filtro y paginación de la Bitácora de Trazabilidad
+  const [filtroBitacoraTexto, setFiltroBitacoraTexto] = useState('');
+  const [filtroBitacoraTipo, setFiltroBitacoraTipo] = useState('Todos');
+  const [paginaBitacora, setPaginaBitacora] = useState(1);
+  const [itemsPorPaginaBitacora, setItemsPorPaginaBitacora] = useState(10);
+
+  // Filtrado reactivo de la bitácora
+  const bitacoraFiltrada = useMemo(() => {
+    const lista = datosConsola.trazabilidad_reciente || [];
+    return lista.filter((row) => {
+      const q = filtroBitacoraTexto.toLowerCase().trim();
+      const matchTexto = !q ||
+        (row.funcionario || '').toLowerCase().includes(q) ||
+        (row.accion || '').toLowerCase().includes(q) ||
+        (row.expediente || '').toLowerCase().includes(q) ||
+        (row.establecimiento || '').toLowerCase().includes(q) ||
+        (row.fecha || '').toLowerCase().includes(q);
+
+      const esSistema = row.es_sistema || (row.funcionario || '').toLowerCase() === 'sistema';
+      let matchTipo = true;
+      if (filtroBitacoraTipo === 'Funcionario') {
+        matchTipo = !esSistema;
+      } else if (filtroBitacoraTipo === 'Sistema') {
+        matchTipo = esSistema;
+      }
+
+      return matchTexto && matchTipo;
+    });
+  }, [datosConsola.trazabilidad_reciente, filtroBitacoraTexto, filtroBitacoraTipo]);
+
+  // Cálculos de paginación
+  const totalRegistrosBitacora = bitacoraFiltrada.length;
+  const totalPaginasBitacora = Math.max(1, Math.ceil(totalRegistrosBitacora / itemsPorPaginaBitacora));
+  const inicioBitacora = (paginaBitacora - 1) * itemsPorPaginaBitacora;
+  const finBitacora = inicioBitacora + itemsPorPaginaBitacora;
+  const bitacoraPaginada = bitacoraFiltrada.slice(inicioBitacora, finBitacora);
+
+  // Reiniciar a la primera página al cambiar filtros o tamaño de página
+  useEffect(() => {
+    setPaginaBitacora(1);
+  }, [filtroBitacoraTexto, filtroBitacoraTipo, itemsPorPaginaBitacora]);
+
+  // Generador inteligente de botones de página con elipsis (...)
+  const getNumeroPaginasBitacora = () => {
+    const paginas = [];
+    if (totalPaginasBitacora <= 7) {
+      for (let i = 1; i <= totalPaginasBitacora; i++) {
+        paginas.push(i);
+      }
+    } else {
+      if (paginaBitacora <= 4) {
+        for (let i = 1; i <= 5; i++) paginas.push(i);
+        paginas.push('...');
+        paginas.push(totalPaginasBitacora);
+      } else if (paginaBitacora >= totalPaginasBitacora - 3) {
+        paginas.push(1);
+        paginas.push('...');
+        for (let i = totalPaginasBitacora - 4; i <= totalPaginasBitacora; i++) {
+          paginas.push(i);
+        }
+      } else {
+        paginas.push(1);
+        paginas.push('...');
+        paginas.push(paginaBitacora - 1);
+        paginas.push(paginaBitacora);
+        paginas.push(paginaBitacora + 1);
+        paginas.push('...');
+        paginas.push(totalPaginasBitacora);
+      }
+    }
+    return paginas;
+  };
+
+  // Obtener estilo e información de estado/resultado
+  const getBadgeResultado = (row) => {
+    const res = (row.resultado || '').toLowerCase().trim();
+    const acc = (row.accion || '').toLowerCase().trim();
+
+    if (res.includes('aprobado') || res.includes('favorable') || res.includes('procedente') || acc.includes('aprobado') || acc.includes('resolución administrativa emitida') || acc.includes('resolucion administrativa')) {
+      return {
+        texto: row.resultado || 'Aprobado',
+        clase: 'bg-emerald-50 text-emerald-700 border-emerald-200/80'
+      };
+    }
+    if (res.includes('observad') || res.includes('rechazad') || acc.includes('observ') || acc.includes('rechaz')) {
+      return {
+        texto: row.resultado || 'Observado',
+        clase: 'bg-amber-50 text-amber-700 border-amber-200/80'
+      };
+    }
+    if (res.includes('derivado') || acc.includes('asign') || acc.includes('deriv')) {
+      return {
+        texto: row.resultado || 'Derivado',
+        clase: 'bg-blue-50 text-blue-700 border-blue-200/80'
+      };
+    }
+    if (res.includes('concluid') || acc.includes('habilit') || acc.includes('final')) {
+      return {
+        texto: row.resultado || 'Concluido',
+        clase: 'bg-purple-50 text-purple-700 border-purple-200/80'
+      };
+    }
+    return {
+      texto: row.resultado || 'Registrado',
+      clase: 'bg-slate-50 text-slate-600 border-slate-200/80'
+    };
+  };
+
+  // Estados para Modal de Expediente Digital desde la Bitácora
+  const [modalExpedienteBitacoraOpen, setModalExpedienteBitacoraOpen] = useState(false);
+  const [tramiteBitacoraSeleccionado, setTramiteBitacoraSeleccionado] = useState(null);
+  const [cargandoDetalleBitacora, setCargandoDetalleBitacora] = useState(false);
+  const [tabModalBitacora, setTabModalBitacora] = useState('documentos');
+  const [generandoPdfBitacora, setGenerandoPdfBitacora] = useState(false);
+
+  // Abrir Expediente Digital desde la Bitácora del Director o Modal de Supervisor
+  const handleAbrirExpedienteBitacora = async (param) => {
+    setCargandoDetalleBitacora(true);
+    setModalExpedienteBitacoraOpen(true);
+    setTabModalBitacora('documentos');
+
+    const lookupId = typeof param === 'string' ? param : (param?.expediente || param?.codigo || param?.tramite_id || param?.id);
+    if (lookupId && lookupId !== 'N/A') {
+      try {
+        const res = await fetch(`http://localhost:8000/api/coordinador/tramites/${lookupId}`);
+        if (res.ok) {
+          const freshData = await res.json();
+          setTramiteBitacoraSeleccionado(freshData);
+          setCargandoDetalleBitacora(false);
+          return;
+        }
+      } catch (e) {
+        console.warn('Error al obtener detalle del expediente:', e);
+      }
+    }
+
+    const rowObj = typeof param === 'object' && param !== null ? param : { expediente: lookupId };
+    setTramiteBitacoraSeleccionado({
+      id: rowObj.expediente || rowObj.id || lookupId,
+      codigo: rowObj.expediente || rowObj.codigo || lookupId,
+      establecimiento: rowObj.establecimiento || 'Establecimiento de Salud',
+      estado: rowObj.resultado || rowObj.estado || 'Registrado',
+      fecha: rowObj.fecha,
+      responsable: rowObj.funcionario || rowObj.responsable,
+      documentos: []
+    });
+    setCargandoDetalleBitacora(false);
+  };
+
+  // Descargar Resolución desde el modal de Expediente
+  const handleDescargarResolucionBitacora = async (tramite) => {
+    if (!tramite) return;
+    setGenerandoPdfBitacora(true);
+    try {
+      const res = tramite.resolucion || {};
+      const datosParaPdf = {
+        numero_resolucion: res.numero_resolucion || tramite.resolucion_numero || `RA-${new Date().getFullYear()}-SEDES`,
+        fecha_emision: res.fecha_emision || new Date().toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' }),
+        establecimiento: res.establecimiento_nombre || tramite.establecimiento,
+        establecimiento_nombre: res.establecimiento_nombre || tramite.establecimiento,
+        propietario: res.razon_social_propietario || tramite.propietario,
+        razon_social: res.razon_social_propietario || tramite.propietario,
+        razon_social_propietario: res.razon_social_propietario || tramite.propietario,
+        ci_nit: res.ci_nit_solicitante || tramite.propietario_ci || tramite.ci_nit,
+        ci_nit_solicitante: res.ci_nit_solicitante || tramite.propietario_ci || tramite.ci_nit,
+        regente: res.regente_tecnico || tramite.regente || tramite.propietario,
+        regente_nombre: res.regente_tecnico || tramite.regente || tramite.propietario,
+        ci_regente: res.ci_regente || tramite.regente_ci || tramite.ci_responsable,
+        tipo_tramite: tramite.tipo || 'APERTURA Y HABILITACIÓN',
+        direccion: res.direccion_registrada || tramite.direccion,
+        direccion_registrada: res.direccion_registrada || tramite.direccion,
+        tipo_establecimiento: res.tipo_establecimiento || tramite.categoria || 'Laboratorio Clínico',
+        cite_informe: res.cite_informe || `CODELAB/SEDES/1/${new Date().getFullYear()}`,
+        fecha_informe: res.fecha_emision || 'Reciente',
+        coordinador_nombre: 'Dra. Claudia Morales Valenzuela',
+        abogado_nombre: res.abogado_nombre || 'Dr. Marco Villanueva (Asesor Legal SEDES)',
+        vigencia_anios: res.vigencia_anios || 5,
+        antecedentes: res.antecedentes,
+        vistos: res.antecedentes,
+        fundamento_legal: res.fundamento_legal,
+        articulo_primero: res.articulo_primero,
+        articulo_segundo: res.articulo_segundo,
+        articulo_tercero: res.articulo_tercero,
+        observaciones_legales: res.observaciones_legales
+      };
+      const doc = await generarResolucionAdministrativaPDF(datosParaPdf);
+      doc.save(`Resolucion_Administrativa_${(datosParaPdf.numero_resolucion || 'SEDES').replace(/\//g, '_')}.pdf`);
+      mostrarToast('Resolución Administrativa descargada con éxito.', 'success');
+    } catch (e) {
+      console.error('Error al generar PDF de Resolución:', e);
+      mostrarToast('Error al generar PDF de Resolución', 'warning');
+    } finally {
+      setGenerandoPdfBitacora(false);
+    }
+  };
+
+  // Descargar Informe Técnico desde el modal de Expediente
+  const handleDescargarInformeBitacora = async (tramite) => {
+    if (!tramite) return;
+    setGenerandoPdfBitacora(true);
+    try {
+      const cite = tramite.resolucion?.cite_informe || `CODELAB/SEDES/1/${new Date().getFullYear()}`;
+      const doc = await generarComunicacionInternaPDF(tramite, {
+        cite: cite,
+        destinatario: 'Dra. Mery D. Loroño V.',
+        destinatarioCargo: 'ASESOR LEGAL - UNIDAD DE CALIDAD Y SERVICIOS',
+        via: 'Dra. Karina Soliz Villarroel',
+        viaCargo: 'JEFE DE LA UNIDAD DE CALIDAD Y SERVICIOS a.i.',
+        remitente: 'Dra. Claudia Morales Valenzuela',
+        remitenteCargo: 'RESPONSABLE DEPARTAMENTAL DE LABORATORIOS CODELAB - SEDES',
+        regente: tramite.regente,
+        ciRegente: tramite.ci_regente || tramite.regente_ci || tramite.ci_responsable,
+        responsables_areas: tramite.responsables_areas,
+        observaciones: tramite.resolucion?.observaciones_coordinador || 'Conformidad técnica y regulatoria verificada en expediente digital.',
+      });
+      doc.save(`Informe_Tecnico_${cite.replace(/\//g, '_')}.pdf`);
+      mostrarToast('Informe Técnico descargado con éxito.', 'success');
+    } catch (e) {
+      console.error('Error al generar Informe Técnico PDF:', e);
+      mostrarToast('Error al generar Informe Técnico PDF', 'warning');
+    } finally {
+      setGenerandoPdfBitacora(false);
+    }
+  };
+
+  // Previsualizar PDF en pestaña nueva
+  const handlePrevisualizarPdfBitacora = async (tipo, tramite) => {
+    if (!tramite) return;
+    setGenerandoPdfBitacora(true);
+    try {
+      let doc;
+      if (tipo === 'resolucion') {
+        const res = tramite.resolucion || {};
+        const datosParaPdf = {
+          numero_resolucion: res.numero_resolucion || tramite.resolucion_numero || `RA-${new Date().getFullYear()}-SEDES`,
+          fecha_emision: res.fecha_emision || new Date().toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' }),
+          establecimiento: res.establecimiento_nombre || tramite.establecimiento,
+          establecimiento_nombre: res.establecimiento_nombre || tramite.establecimiento,
+          propietario: res.razon_social_propietario || tramite.propietario,
+          razon_social: res.razon_social_propietario || tramite.propietario,
+          razon_social_propietario: res.razon_social_propietario || tramite.propietario,
+          ci_nit: res.ci_nit_solicitante || tramite.propietario_ci || tramite.ci_nit,
+          ci_nit_solicitante: res.ci_nit_solicitante || tramite.propietario_ci || tramite.ci_nit,
+          regente: res.regente_tecnico || tramite.regente || tramite.propietario,
+          regente_nombre: res.regente_tecnico || tramite.regente || tramite.propietario,
+          ci_regente: res.ci_regente || tramite.regente_ci || tramite.ci_responsable,
+          tipo_tramite: tramite.tipo || 'APERTURA Y HABILITACIÓN',
+          direccion: res.direccion_registrada || tramite.direccion,
+          direccion_registrada: res.direccion_registrada || tramite.direccion,
+          tipo_establecimiento: res.tipo_establecimiento || tramite.categoria || 'Laboratorio Clínico',
+          cite_informe: res.cite_informe || `CODELAB/SEDES/1/${new Date().getFullYear()}`,
+          fecha_informe: res.fecha_emision || 'Reciente',
+          coordinador_nombre: 'Dra. Claudia Morales Valenzuela',
+          abogado_nombre: res.abogado_nombre || 'Dr. Marco Villanueva (Asesor Legal SEDES)',
+          vigencia_anios: res.vigencia_anios || 5,
+          antecedentes: res.antecedentes,
+          vistos: res.antecedentes,
+          fundamento_legal: res.fundamento_legal,
+          articulo_primero: res.articulo_primero,
+          articulo_segundo: res.articulo_segundo,
+          articulo_tercero: res.articulo_tercero,
+          observaciones_legales: res.observaciones_legales
+        };
+        doc = await generarResolucionAdministrativaPDF(datosParaPdf);
+      } else {
+        const cite = tramite.resolucion?.cite_informe || `CODELAB/SEDES/1/${new Date().getFullYear()}`;
+        doc = await generarComunicacionInternaPDF(tramite, {
+          cite: cite,
+          destinatario: 'Dra. Mery D. Loroño V.',
+          destinatarioCargo: 'ASESOR LEGAL - UNIDAD DE CALIDAD Y SERVICIOS',
+          via: 'Dra. Karina Soliz Villarroel',
+          viaCargo: 'JEFE DE LA UNIDAD DE CALIDAD Y SERVICIOS a.i.',
+          remitente: 'Dra. Claudia Morales Valenzuela',
+          remitenteCargo: 'RESPONSABLE DEPARTAMENTAL DE LABORATORIOS CODELAB - SEDES',
+          regente: tramite.regente,
+          ciRegente: tramite.ci_regente || tramite.regente_ci || tramite.ci_responsable,
+          responsables_areas: tramite.responsables_areas,
+          observaciones: tramite.resolucion?.observaciones_coordinador || 'Conformidad técnica y regulatoria verificada en expediente digital.',
+        });
+      }
+      if (doc) {
+        const blob = doc.output('blob');
+        const blobUrl = URL.createObjectURL(blob);
+        window.open(blobUrl, '_blank');
+      }
+    } catch (e) {
+      console.error('Error al previsualizar PDF:', e);
+      mostrarToast('Error al previsualizar documento PDF', 'warning');
+    } finally {
+      setGenerandoPdfBitacora(false);
+    }
+  };
+
+  // Exportar Bitácora a Excel (CSV con formato UTF-8 BOM para soporte completo de caracteres y compatibilidad con MS Excel)
+  const handleExportarBitacoraExcel = () => {
+    if (!bitacoraFiltrada || bitacoraFiltrada.length === 0) {
+      mostrarToast('No hay registros en la bitácora para exportar.', 'warning');
+      return;
+    }
+
+    const headers = [
+      'FECHA Y HORA',
+      'EXPEDIENTE',
+      'ESTABLECIMIENTO',
+      'ACCION REALIZADA',
+      'RESPONSABLE / FUNCIONARIO',
+      'TIPO DE ACTOR',
+      'ESTADO / RESULTADO'
+    ];
+
+    const rows = bitacoraFiltrada.map(row => {
+      const esSistema = row.es_sistema || (row.funcionario || '').toLowerCase() === 'sistema';
+      const actorTipo = esSistema ? 'Sistema Automatizado' : 'Funcionario SEDES';
+      const badge = getBadgeResultado(row);
+      const sanitize = (text) => `"${(text || '').toString().replace(/"/g, '""')}"`;
+
+      return [
+        sanitize(row.fecha),
+        sanitize(row.expediente),
+        sanitize(row.establecimiento || 'N/A'),
+        sanitize(row.accion),
+        sanitize(row.funcionario),
+        sanitize(actorTipo),
+        sanitize(badge.texto)
+      ].join(';');
+    });
+
+    const csvContent = '\uFEFF' + [headers.join(';'), ...rows].join('\r\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `Bitacora_Trazabilidad_SEDES_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    mostrarToast('Bitácora exportada en formato Excel (.csv) exitosamente.', 'success');
+  };
 
   // Estados para la sección de Métricas e Indicadores
   const [filtros, setFiltros] = useState({
@@ -547,7 +894,14 @@ export default function DirectorPage() {
     }
   ];
 
-  const [vistaSupervisores, setVistaSupervisores] = useState('top5');
+  // Estados para filtro de períodos de fechas y modal de desglose de supervisores
+  const [periodoSupervisores, setPeriodoSupervisores] = useState('todos'); // 'todos', 'este_mes', 'ultimos_30', 'ultimos_7', 'personalizado'
+  const [fechaInicioSup, setFechaInicioSup] = useState('');
+  const [fechaFinSup, setFechaFinSup] = useState('');
+  const [modalSupervisorOpen, setModalSupervisorOpen] = useState(false);
+  const [supervisorSeleccionadoModal, setSupervisorSeleccionadoModal] = useState(null);
+  const [filtroInspTextoModal, setFiltroInspTextoModal] = useState('');
+  const [filtroInspVeredictoModal, setFiltroInspVeredictoModal] = useState('Todos');
 
   const itemActivo = menuItems.find(item => item.id === seccionActiva) || menuItems[0];
 
@@ -555,11 +909,65 @@ export default function DirectorPage() {
     ? (usuario.nombres && usuario.apellidos ? `${usuario.nombres} ${usuario.apellidos}` : (usuario.nombre || usuario.nombreCompleto || 'Fernando Castillo').replace(/^Dr\.\s*/i, '')) 
     : 'Fernando Castillo';
 
-  // Cálculos para Gráficos
-  const listaSupervisores = datosConsola.rendimiento_supervisores || [];
-  const supervisoresMostrados = vistaSupervisores === 'top5' ? listaSupervisores.slice(0, 5) : listaSupervisores;
-  const maxActas = Math.max(...listaSupervisores.map(s => s.actas_emitidas || 0), 1);
-  const totalActasGlobal = listaSupervisores.reduce((acc, curr) => acc + (curr.actas_emitidas || 0), 0);
+  // Filtrado reactivo de supervisores por período de fechas
+  const { supervisoresFiltrados, maxActasFiltradas, totalActasFiltradas } = useMemo(() => {
+    const rawList = datosConsola.rendimiento_supervisores || [];
+    const ahora = new Date();
+
+    let fInicio = null;
+    let fFin = null;
+
+    if (periodoSupervisores === 'este_mes') {
+      fInicio = new Date(ahora.getFullYear(), ahora.getMonth(), 1);
+      fFin = new Date(ahora.getFullYear(), ahora.getMonth() + 1, 0, 23, 59, 59);
+    } else if (periodoSupervisores === 'ultimos_30') {
+      fInicio = new Date(ahora.getTime() - 30 * 24 * 60 * 60 * 1000);
+      fFin = ahora;
+    } else if (periodoSupervisores === 'ultimos_7') {
+      fInicio = new Date(ahora.getTime() - 7 * 24 * 60 * 60 * 1000);
+      fFin = ahora;
+    } else if (periodoSupervisores === 'personalizado') {
+      if (fechaInicioSup) fInicio = new Date(`${fechaInicioSup}T00:00:00`);
+      if (fechaFinSup) fFin = new Date(`${fechaFinSup}T23:59:59`);
+    }
+
+    const processed = rawList.map(sup => {
+      const allInsp = sup.inspecciones || [];
+      const inspFiltradas = allInsp.filter(insp => {
+        if (!fInicio && !fFin) return true;
+        if (!insp.fecha_iso) return true;
+        const d = new Date(`${insp.fecha_iso}T12:00:00`);
+        if (fInicio && d < fInicio) return false;
+        if (fFin && d > fFin) return false;
+        return true;
+      });
+
+      const actasEmitidasPeriodo = inspFiltradas.filter(i => 
+        (i.estado_inspeccion || '').toLowerCase() === 'completada' ||
+        (i.estado_inspeccion || '').toLowerCase() === 'aprobada' ||
+        (i.estado_inspeccion || '').toLowerCase() === 'finalizada' ||
+        Boolean(i.acta_pdf_url)
+      ).length;
+
+      return {
+        ...sup,
+        actas_emitidas_periodo: actasEmitidasPeriodo,
+        inspecciones_periodo: inspFiltradas
+      };
+    });
+
+    // Ordenar de mayor a menor por actas en el período seleccionado
+    processed.sort((a, b) => b.actas_emitidas_periodo - a.actas_emitidas_periodo);
+
+    const maxA = Math.max(...processed.map(s => s.actas_emitidas_periodo), 1);
+    const totA = processed.reduce((acc, curr) => acc + curr.actas_emitidas_periodo, 0);
+
+    return {
+      supervisoresFiltrados: processed,
+      maxActasFiltradas: maxA,
+      totalActasFiltradas: totA
+    };
+  }, [datosConsola.rendimiento_supervisores, periodoSupervisores, fechaInicioSup, fechaFinSup]);
 
   const donutRadius = 45;
   const donutCircumference = 2 * Math.PI * donutRadius; // ~282.74
@@ -893,101 +1301,160 @@ export default function DirectorPage() {
               {/* ----------------------------------------------------------------- */}
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
 
-                {/* COLUMNA IZQUIERDA: Rendimiento por Supervisor (Ranking Horizontal Escalable) */}
+                {/* COLUMNA IZQUIERDA: Rendimiento por Supervisor con Filtros de Período y Acceso a Desglose */}
                 <div className="lg:col-span-7 bg-white rounded-2xl p-6 border border-slate-200/80 shadow-xs flex flex-col justify-between space-y-5">
                   
-                  {/* Cabecera de la Tarjeta con Filtro Top 5 / Todos */}
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3.5">
-                    <div>
-                      <h3 className="text-base font-bold text-slate-900 tracking-tight">
-                        Rendimiento por Supervisor
-                      </h3>
-                      <p className="text-xs text-slate-400 font-medium mt-0.5">
-                        Medido por actas oficiales de inspección emitidas en campo
-                      </p>
+                  {/* Cabecera de la Tarjeta con Filtro de Período */}
+                  <div className="flex flex-col gap-3 border-b border-slate-100 pb-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <div>
+                        <div className="flex items-center space-x-2.5">
+                          <h3 className="text-base font-bold text-slate-900 tracking-tight">
+                            Rendimiento por Supervisor
+                          </h3>
+                          <span className="text-[11px] font-extrabold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
+                            {supervisoresFiltrados.length} supervisores
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-400 font-medium mt-0.5">
+                          Medido por actas oficiales de inspección emitidas en campo
+                        </p>
+                      </div>
+
+                      {/* Selector de Período de Tiempo */}
+                      <div className="flex items-center space-x-2 shrink-0">
+                        <Calendar className="w-4 h-4 text-slate-400 shrink-0" />
+                        <select
+                          value={periodoSupervisores}
+                          onChange={(e) => setPeriodoSupervisores(e.target.value)}
+                          className="text-xs font-bold bg-slate-100 hover:bg-slate-200/80 text-slate-700 rounded-xl px-3 py-1.5 border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-[#0077c8] cursor-pointer transition"
+                        >
+                          <option value="todos">Todo el Historial</option>
+                          <option value="este_mes">Este Mes</option>
+                          <option value="ultimos_30">Últimos 30 días</option>
+                          <option value="ultimos_7">Últimos 7 días</option>
+                          <option value="personalizado">Personalizado...</option>
+                        </select>
+                      </div>
                     </div>
 
-                    {/* Selector Top 5 / Todos */}
-                    {listaSupervisores.length > 5 && (
-                      <div className="flex items-center bg-slate-100 p-0.5 rounded-xl text-xs font-bold self-start sm:self-auto">
-                        <button
-                          type="button"
-                          onClick={() => setVistaSupervisores('top5')}
-                          className={`px-3 py-1 rounded-lg transition cursor-pointer ${
-                            vistaSupervisores === 'top5'
-                              ? 'bg-white text-slate-900 shadow-xs'
-                              : 'text-slate-500 hover:text-slate-800'
-                          }`}
-                        >
-                          Top 5
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setVistaSupervisores('todos')}
-                          className={`px-3 py-1 rounded-lg transition cursor-pointer ${
-                            vistaSupervisores === 'todos'
-                              ? 'bg-white text-slate-900 shadow-xs'
-                              : 'text-slate-500 hover:text-slate-800'
-                          }`}
-                        >
-                          Todos ({listaSupervisores.length})
-                        </button>
+                    {/* Inputs de Rango de Fechas si se selecciona Personalizado */}
+                    {periodoSupervisores === 'personalizado' && (
+                      <div className="flex flex-wrap items-center gap-2 p-2.5 bg-sky-50/60 rounded-xl border border-sky-100 text-xs text-slate-700">
+                        <span className="font-bold text-sky-800 text-[11px] uppercase tracking-wider">Rango personalizado:</span>
+                        <div className="flex items-center space-x-1.5">
+                          <label className="text-[11px] text-slate-500 font-medium">Desde:</label>
+                          <input
+                            type="date"
+                            value={fechaInicioSup}
+                            onChange={(e) => setFechaInicioSup(e.target.value)}
+                            className="bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs text-slate-700 font-medium focus:ring-2 focus:ring-[#0077c8] focus:outline-hidden"
+                          />
+                        </div>
+                        <div className="flex items-center space-x-1.5">
+                          <label className="text-[11px] text-slate-500 font-medium">Hasta:</label>
+                          <input
+                            type="date"
+                            value={fechaFinSup}
+                            onChange={(e) => setFechaFinSup(e.target.value)}
+                            className="bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs text-slate-700 font-medium focus:ring-2 focus:ring-[#0077c8] focus:outline-hidden"
+                          />
+                        </div>
+                        {(fechaInicioSup || fechaFinSup) && (
+                          <button
+                            type="button"
+                            onClick={() => { setFechaInicioSup(''); setFechaFinSup(''); }}
+                            className="text-[10px] font-bold text-sky-700 hover:text-sky-900 underline ml-auto cursor-pointer"
+                          >
+                            Limpiar fechas
+                          </button>
+                        )}
                       </div>
                     )}
                   </div>
 
-                  {/* Lista de Barras Horizontales (Leaderboard Escalable) */}
-                  <div className={`space-y-4 ${vistaSupervisores === 'todos' ? 'max-h-80 overflow-y-auto pr-1.5' : ''}`}>
-                    {supervisoresMostrados.length === 0 ? (
+                  {/* Lista de Barras Horizontales (Supervisores Interactivos) */}
+                  <div className="space-y-3 max-h-96 overflow-y-auto pr-1">
+                    {supervisoresFiltrados.length === 0 ? (
                       <div className="py-10 text-center text-slate-400">
                         <Users className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-                        <p className="text-xs font-bold text-slate-600">No hay supervisores con actas registradas</p>
-                        <p className="text-[11px] text-slate-400 mt-0.5">Las inspecciones completadas aparecerán aquí automáticamente.</p>
+                        <p className="text-xs font-bold text-slate-600">No hay supervisores para el período seleccionado</p>
+                        <p className="text-[11px] text-slate-400 mt-0.5">Ajuste el rango de fechas para visualizar los registros.</p>
                       </div>
                     ) : (
-                      supervisoresMostrados.map((sup, index) => {
-                        const val = sup.actas_emitidas ?? 0;
-                        const widthPercent = maxActas > 0 ? Math.min(100, Math.max(val > 0 ? 8 : 2, (val / maxActas) * 100)) : 0;
+                      supervisoresFiltrados.map((sup, index) => {
+                        const val = sup.actas_emitidas_periodo ?? 0;
+                        const widthPercent = maxActasFiltradas > 0 ? Math.min(100, Math.max(val > 0 ? 8 : 2, (val / maxActasFiltradas) * 100)) : 0;
 
                         return (
-                          <div key={sup.id || index} className="space-y-1.5 group">
+                          <div
+                            key={sup.id || index}
+                            onClick={() => {
+                              setSupervisorSeleccionadoModal(sup);
+                              setFiltroInspTextoModal('');
+                              setFiltroInspVeredictoModal('Todos');
+                              setModalSupervisorOpen(true);
+                            }}
+                            className="space-y-1.5 group p-2.5 rounded-xl hover:bg-sky-50/60 border border-transparent hover:border-sky-200 transition cursor-pointer"
+                            title="Haz clic para ver el desglose detallado de inspecciones y actas"
+                          >
                             {/* Fila Superior: Posición + Avatar + Nombre + Conteo de Actas */}
                             <div className="flex items-center justify-between text-xs">
                               <div className="flex items-center space-x-2.5 min-w-0">
                                 {/* Medalla o Número de Puesto */}
-                                <span className={`w-5 text-center font-black text-[11px] ${
-                                  index === 0 ? 'text-amber-500' : index === 1 ? 'text-slate-400' : index === 2 ? 'text-amber-700' : 'text-slate-400'
+                                <span className={`w-5.5 h-5.5 rounded-full flex items-center justify-center font-black text-[10px] shrink-0 ${
+                                  index === 0 ? 'bg-amber-100 text-amber-800 border border-amber-300' :
+                                  index === 1 ? 'bg-slate-200 text-slate-700 border border-slate-300' :
+                                  index === 2 ? 'bg-amber-50 text-amber-900 border border-amber-200' :
+                                  'bg-slate-100 text-slate-500'
                                 }`}>
                                   #{index + 1}
                                 </span>
 
                                 {/* Avatar con Iniciales */}
-                                <div className={`w-6 h-6 rounded-full ${getAvatarColor(sup.nombre_completo || sup.nombre_corto)} text-white flex items-center justify-center font-bold text-[10px] shrink-0 shadow-xs`}>
+                                <div className={`w-7 h-7 rounded-full ${getAvatarColor(sup.nombre_completo || sup.nombre_corto)} text-white flex items-center justify-center font-bold text-[10px] shrink-0 shadow-xs`}>
                                   <span>{getInitials({ nombreCompleto: sup.nombre_completo || sup.nombre_corto })}</span>
                                 </div>
 
                                 {/* Nombre Completo del Supervisor */}
-                                <span className="font-bold text-slate-800 truncate" title={sup.nombre_completo}>
-                                  {sup.nombre_completo || sup.nombre_corto}
-                                </span>
+                                <div className="min-w-0 truncate">
+                                  <div className="flex items-center space-x-1.5">
+                                    <span className="font-bold text-slate-800 truncate block text-xs group-hover:text-[#0077c8] transition" title={sup.nombre_completo}>
+                                      {sup.nombre_completo || sup.nombre_corto}
+                                    </span>
+                                  </div>
+                                  {sup.email && (
+                                    <span className="text-[10px] text-slate-400 font-normal truncate block">
+                                      {sup.email}
+                                    </span>
+                                  )}
+                                </div>
                               </div>
 
-                              {/* Badge con el Total de Actas */}
-                              <div className="flex items-center space-x-1.5 shrink-0 pl-2">
-                                <span className="font-extrabold text-slate-900 text-xs">
-                                  {val}
-                                </span>
-                                <span className="text-[11px] text-slate-400 font-medium">
-                                  actas
-                                </span>
+                              {/* Badges de Actas e Inspecciones en Curso */}
+                              <div className="flex items-center space-x-2.5 shrink-0 pl-2">
+                                {sup.asignados > 0 && (
+                                  <span className="text-[10px] text-sky-700 bg-sky-50 border border-sky-200 px-2 py-0.5 rounded-md font-bold">
+                                    {sup.asignados} en curso
+                                  </span>
+                                )}
+                                <div className="flex items-center space-x-1 text-right">
+                                  <span className="font-extrabold text-slate-900 text-xs">
+                                    {val}
+                                  </span>
+                                  <span className="text-[11px] text-slate-400 font-medium">
+                                    {val === 1 ? 'acta' : 'actas'}
+                                  </span>
+                                </div>
+                                <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-[#0077c8] group-hover:translate-x-0.5 transition" />
                               </div>
                             </div>
 
                             {/* Barra Horizontal de Progreso */}
-                            <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden">
+                            <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
                               <div
                                 style={{ width: `${widthPercent}%` }}
-                                className="h-full bg-gradient-to-r from-[#1e2d42] to-[#005596] rounded-full transition-all duration-500 group-hover:brightness-110"
+                                className="h-full bg-linear-to-r from-[#1e2d42] to-[#005596] rounded-full transition-all duration-500 group-hover:brightness-110"
                               />
                             </div>
                           </div>
@@ -997,10 +1464,13 @@ export default function DirectorPage() {
                   </div>
 
                   {/* Resumen al Pie */}
-                  <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400 font-medium">
-                    <span>Fiscalización técnica activa</span>
-                    <span className="font-bold text-slate-700">
-                      Total: {totalActasGlobal} actas emitidas
+                  <div className="pt-3 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 text-[11px] text-slate-400 font-medium">
+                    <span className="flex items-center space-x-1 text-sky-700 font-semibold">
+                      <span>💡</span>
+                      <span>Haz clic en un supervisor para ver su desglose de actas e inspecciones</span>
+                    </span>
+                    <span className="font-bold text-slate-700 shrink-0">
+                      Total: {totalActasFiltradas} actas emitidas
                     </span>
                   </div>
 
@@ -1087,40 +1557,105 @@ export default function DirectorPage() {
               </div>
 
               {/* ----------------------------------------------------------------- */}
-              {/* FILA 3: BITÁCORA DE TRAZABILIDAD RECIENTE (TABLA)                 */}
+              {/* FILA 3: BITÁCORA DE TRAZABILIDAD RECIENTE (TABLA CON PAGINACIÓN)  */}
               {/* ----------------------------------------------------------------- */}
               <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
-                <div className="p-6 border-b border-slate-100">
-                  <h3 className="text-base font-bold text-slate-900 tracking-tight">
-                    Bitácora de Trazabilidad Reciente
-                  </h3>
+                <div className="p-6 border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                  <div>
+                    <h3 className="text-base font-bold text-slate-900 tracking-tight">
+                      Bitácora de Trazabilidad Reciente
+                    </h3>
+                    <p className="text-xs text-slate-500 font-medium mt-0.5">
+                      Registro de auditoría de trámites, emisión de actos administrativos y actividades del sistema
+                    </p>
+                  </div>
+
+                  {/* Controles de Búsqueda y Filtro de Actor */}
+                  <div className="flex flex-wrap items-center gap-2.5">
+                    {/* Búsqueda por texto */}
+                    <div className="relative">
+                      <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                      <input
+                        type="text"
+                        placeholder="Buscar funcionario, acción, CUE..."
+                        value={filtroBitacoraTexto}
+                        onChange={(e) => {
+                          setFiltroBitacoraTexto(e.target.value);
+                          setPaginaBitacora(1);
+                        }}
+                        className="pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#0077c8]/20 focus:border-[#0077c8] w-48 sm:w-60 transition"
+                      />
+                    </div>
+
+                    {/* Selector de Actor */}
+                    <div className="relative">
+                      <select
+                        value={filtroBitacoraTipo}
+                        onChange={(e) => {
+                          setFiltroBitacoraTipo(e.target.value);
+                          setPaginaBitacora(1);
+                        }}
+                        className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-700 hover:border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#0077c8]/20 focus:border-[#0077c8] cursor-pointer transition shadow-2xs"
+                      >
+                        <option value="Todos">Todos los actores</option>
+                        <option value="Funcionario">Solo Funcionarios</option>
+                        <option value="Sistema">Solo Sistema</option>
+                      </select>
+                    </div>
+
+                    {/* Botón Exportar Excel / CSV */}
+                    <button
+                      type="button"
+                      onClick={handleExportarBitacoraExcel}
+                      className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold flex items-center space-x-1.5 transition shadow-2xs cursor-pointer active:scale-95"
+                      title="Exportar registros filtrados a formato compatible con Excel (.csv)"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      <span>Exportar Excel</span>
+                    </button>
+                  </div>
                 </div>
 
                 {/* Tabla de Registros */}
                 <div className="overflow-x-auto">
-                  <table className="w-full text-left border-collapse">
+                  <table className="w-full text-left border-collapse min-w-[750px]">
                     <thead>
                       <tr className="border-b border-slate-100 bg-slate-50/40 text-[11px] font-extrabold text-slate-400 uppercase tracking-wider">
                         <th className="py-3.5 px-6">FUNCIONARIO</th>
-                        <th className="py-3.5 px-6">ACCIÓN</th>
+                        <th className="py-3.5 px-6">ACCIÓN REALIZADA</th>
+                        <th className="py-3.5 px-6 text-center">ESTADO / RESULTADO</th>
                         <th className="py-3.5 px-6">FECHA</th>
                         <th className="py-3.5 px-6 text-right">EXPEDIENTE</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 text-xs">
-                      {(!datosConsola.trazabilidad_reciente || datosConsola.trazabilidad_reciente.length === 0) ? (
+                      {bitacoraPaginada.length === 0 ? (
                         <tr>
-                          <td colSpan={4} className="py-8 text-center text-slate-400">
-                            <FileText className="w-7 h-7 text-slate-300 mx-auto mb-2" />
-                            <p className="text-xs font-bold text-slate-600">Sin registros de trazabilidad recientes</p>
-                            <p className="text-[11px] text-slate-400 mt-0.5">Las acciones del sistema quedarán auditadas aquí en tiempo real.</p>
+                          <td colSpan={5} className="py-10 text-center text-slate-400">
+                            <FileText className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                            <p className="text-xs font-bold text-slate-600">
+                              {datosConsola.trazabilidad_reciente?.length === 0
+                                ? 'Sin registros de trazabilidad recientes'
+                                : 'No se encontraron registros que coincidan con la búsqueda'}
+                            </p>
+                            <p className="text-[11px] text-slate-400 mt-0.5">
+                              {datosConsola.trazabilidad_reciente?.length === 0
+                                ? 'Las acciones del sistema y funcionarios quedarán auditadas aquí en tiempo real.'
+                                : 'Pruebe modificando el término de búsqueda o el filtro de actor.'}
+                            </p>
                           </td>
                         </tr>
                       ) : (
-                        datosConsola.trazabilidad_reciente.map((row, idx) => {
+                        bitacoraPaginada.map((row, idx) => {
                           const esSistema = row.es_sistema || row.funcionario?.toLowerCase() === 'sistema';
+                          const badge = getBadgeResultado(row);
                           return (
-                            <tr key={row.id || idx} className="hover:bg-slate-50/70 transition-colors">
+                            <tr
+                              key={row.id || idx}
+                              onClick={() => handleAbrirExpedienteBitacora(row)}
+                              className="hover:bg-sky-50/70 transition-colors cursor-pointer group"
+                              title="Haga clic para abrir el Expediente Digital completo y ver documentos oficiales"
+                            >
                               {/* Funcionario con Dot de Estado */}
                               <td className="py-4 px-6 font-bold text-slate-900">
                                 <div className="flex items-center space-x-2.5">
@@ -1131,7 +1666,21 @@ export default function DirectorPage() {
 
                               {/* Acción */}
                               <td className="py-4 px-6 text-slate-600 font-medium">
-                                {row.accion}
+                                <div>
+                                  <span className="group-hover:text-slate-900 transition-colors">{row.accion}</span>
+                                  {row.establecimiento && (
+                                    <span className="block text-[11px] text-slate-400 font-normal mt-0.5 group-hover:text-[#0077c8] transition-colors">
+                                      {row.establecimiento}
+                                    </span>
+                                  )}
+                                </div>
+                              </td>
+
+                              {/* Estado / Resultado Badge */}
+                              <td className="py-4 px-6 text-center whitespace-nowrap">
+                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-extrabold border ${badge.clase}`}>
+                                  {badge.texto}
+                                </span>
                               </td>
 
                               {/* Fecha */}
@@ -1139,14 +1688,15 @@ export default function DirectorPage() {
                                 {row.fecha}
                               </td>
 
-                              {/* Expediente Badge */}
+                              {/* Expediente Badge con Indicador de Click */}
                               <td className="py-4 px-6 text-right whitespace-nowrap">
-                                <span className={`inline-flex items-center px-3 py-1 rounded-md text-[11px] font-extrabold tracking-wide border ${
+                                <span className={`inline-flex items-center space-x-1.5 px-3 py-1 rounded-md text-[11px] font-extrabold tracking-wide border shadow-2xs group-hover:ring-2 group-hover:ring-[#0077c8]/30 transition-all ${
                                   esSistema
                                     ? 'bg-rose-50 text-rose-700 border-rose-200/80'
-                                    : 'bg-blue-50 text-blue-700 border-blue-200/80'
+                                    : 'bg-blue-50 text-[#0077c8] border-blue-200/80'
                                 }`}>
-                                  {row.expediente}
+                                  <span>{row.expediente}</span>
+                                  <FolderOpen className="w-3.5 h-3.5 text-slate-400 group-hover:text-[#0077c8]" />
                                 </span>
                               </td>
                             </tr>
@@ -1155,6 +1705,81 @@ export default function DirectorPage() {
                       )}
                     </tbody>
                   </table>
+                </div>
+
+                {/* Pie de Tabla: Paginación, selector de cantidad y contador de registros */}
+                <div className="p-4 sm:px-6 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs bg-slate-50/40">
+                  {/* Conteo de registros + Selector de tamaño de página */}
+                  <div className="flex flex-wrap items-center gap-3">
+                    <span className="text-slate-500 font-medium">
+                      Mostrando {totalRegistrosBitacora === 0 ? 0 : inicioBitacora + 1}-{Math.min(finBitacora, totalRegistrosBitacora)} de {totalRegistrosBitacora} registros
+                    </span>
+
+                    <div className="flex items-center space-x-1.5 pl-2 sm:border-l sm:border-slate-200">
+                      <span className="text-[11px] font-semibold text-slate-400">Mostrar:</span>
+                      <select
+                        value={itemsPorPaginaBitacora}
+                        onChange={(e) => {
+                          setItemsPorPaginaBitacora(Number(e.target.value));
+                          setPaginaBitacora(1);
+                        }}
+                        className="px-2.5 py-1 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-700 hover:border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#0077c8]/20 focus:border-[#0077c8] cursor-pointer shadow-2xs transition"
+                      >
+                        <option value={10}>10 por vista</option>
+                        <option value={25}>25 por vista</option>
+                        <option value={50}>50 por vista</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Controles de Paginación */}
+                  {totalPaginasBitacora > 1 && (
+                    <div className="flex items-center space-x-1.5">
+                      {/* Botón Anterior < */}
+                      <button
+                        type="button"
+                        onClick={() => setPaginaBitacora(prev => Math.max(1, prev - 1))}
+                        disabled={paginaBitacora === 1}
+                        className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-white hover:text-slate-700 disabled:opacity-30 disabled:cursor-not-allowed text-xs font-semibold cursor-pointer transition shadow-2xs bg-white"
+                        title="Página anterior"
+                      >
+                        <ChevronLeft className="w-4 h-4" />
+                      </button>
+
+                      {/* Botones de número de página con soporte de elipsis */}
+                      {getNumeroPaginasBitacora().map((p, idx) => (
+                        p === '...' ? (
+                          <span key={`dots-${idx}`} className="w-8 h-8 flex items-center justify-center text-slate-400 text-xs font-bold select-none">
+                            ...
+                          </span>
+                        ) : (
+                          <button
+                            key={`page-${p}`}
+                            type="button"
+                            onClick={() => setPaginaBitacora(p)}
+                            className={`w-8 h-8 flex items-center justify-center rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                              paginaBitacora === p
+                                ? 'bg-[#1e2d42] text-white border border-[#1e2d42] shadow-xs'
+                                : 'border border-slate-200 text-slate-700 hover:bg-white bg-white'
+                            }`}
+                          >
+                            {p}
+                          </button>
+                        )
+                      ))}
+
+                      {/* Botón Siguiente > */}
+                      <button
+                        type="button"
+                        onClick={() => setPaginaBitacora(prev => Math.min(totalPaginasBitacora, prev + 1))}
+                        disabled={paginaBitacora === totalPaginasBitacora}
+                        className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-white hover:text-slate-700 disabled:opacity-30 disabled:cursor-not-allowed text-xs font-semibold cursor-pointer transition shadow-2xs bg-white"
+                        title="Página siguiente"
+                      >
+                        <ChevronRight className="w-4 h-4" />
+                      </button>
+                    </div>
+                  )}
                 </div>
 
               </div>
@@ -1958,6 +2583,826 @@ export default function DirectorPage() {
         </main>
 
       </div>
+
+      {/* ========================================================================= */}
+      {/* MODAL: EXPEDIENTE DIGITAL Y DOCUMENTACIÓN OFICIAL (DIRECTOR BITÁCORA)    */}
+      {/* ========================================================================= */}
+      {modalExpedienteBitacoraOpen && tramiteBitacoraSeleccionado && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl shadow-2xl border border-slate-200/90 w-full max-w-4xl max-h-[92vh] flex flex-col overflow-hidden">
+            
+            {/* Cabecera Estilo Institucional */}
+            <div className="bg-linear-to-r from-[#19324d] via-[#102235] to-[#0060a8] text-white p-5 sm:p-6 flex items-start justify-between relative shrink-0">
+              <div className="flex items-center space-x-3.5 pr-8">
+                <div className="w-12 h-12 rounded-2xl bg-white/15 backdrop-blur-md border border-white/20 flex items-center justify-center text-white shrink-0 shadow-inner">
+                  <FolderOpen className="w-6 h-6 text-sky-300" />
+                </div>
+                <div>
+                  <div className="flex items-center space-x-2">
+                    <span className="text-[11px] font-extrabold px-2.5 py-0.5 rounded-full bg-sky-400/20 text-sky-200 border border-sky-400/30 uppercase tracking-wide">
+                      {tramiteBitacoraSeleccionado.id || tramiteBitacoraSeleccionado.codigo || 'TRM'}
+                    </span>
+                    <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full border bg-emerald-500/20 text-emerald-200 border-emerald-400/30">
+                      {tramiteBitacoraSeleccionado.estado || 'Registrado'}
+                    </span>
+                  </div>
+                  <h2 className="text-lg sm:text-xl font-black tracking-tight text-white mt-1">
+                    {tramiteBitacoraSeleccionado.establecimiento || tramiteBitacoraSeleccionado.nombre_comercial || 'Establecimiento de Salud'}
+                  </h2>
+                  <p className="text-xs text-sky-200/90 font-medium">
+                    Expediente Digital Centralizado &bull; SEDES Cochabamba CODELAB
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setModalExpedienteBitacoraOpen(false)}
+                className="w-9 h-9 rounded-xl bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition cursor-pointer"
+                title="Cerrar expediente"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Pestañas del Modal */}
+            <div className="bg-slate-50 border-b border-slate-200 px-6 pt-3 flex space-x-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => setTabModalBitacora('documentos')}
+                className={`flex items-center space-x-2 px-4 py-2.5 rounded-t-xl text-xs font-bold transition border-t border-x cursor-pointer ${
+                  tabModalBitacora === 'documentos'
+                    ? 'bg-white text-[#0077c8] border-slate-200 border-b-white -mb-px shadow-xs'
+                    : 'bg-transparent text-slate-500 border-transparent hover:text-slate-800'
+                }`}
+              >
+                <Award className="w-4 h-4" />
+                <span>Documentos Emitidos (PDF)</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setTabModalBitacora('resumen')}
+                className={`flex items-center space-x-2 px-4 py-2.5 rounded-t-xl text-xs font-bold transition border-t border-x cursor-pointer ${
+                  tabModalBitacora === 'resumen'
+                    ? 'bg-white text-[#0077c8] border-slate-200 border-b-white -mb-px shadow-xs'
+                    : 'bg-transparent text-slate-500 border-transparent hover:text-slate-800'
+                }`}
+              >
+                <Building2 className="w-4 h-4" />
+                <span>Ficha Técnica del Establecimiento</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setTabModalBitacora('requisitos')}
+                className={`flex items-center space-x-2 px-4 py-2.5 rounded-t-xl text-xs font-bold transition border-t border-x cursor-pointer ${
+                  tabModalBitacora === 'requisitos'
+                    ? 'bg-white text-[#0077c8] border-slate-200 border-b-white -mb-px shadow-xs'
+                    : 'bg-transparent text-slate-500 border-transparent hover:text-slate-800'
+                }`}
+              >
+                <FileCheck className="w-4 h-4" />
+                <span>Requisitos Adjuntos ({tramiteBitacoraSeleccionado.documentos?.length || 0})</span>
+              </button>
+            </div>
+
+            {/* Cuerpo del Modal con Scroll */}
+            <div className="flex-1 overflow-y-auto p-5 sm:p-6 bg-slate-50/50 space-y-5">
+
+              {cargandoDetalleBitacora ? (
+                <div className="py-12 flex flex-col items-center justify-center text-slate-400 space-y-3">
+                  <RefreshCw className="w-8 h-8 animate-spin text-[#0077c8]" />
+                  <p className="text-xs font-semibold">Cargando expediente digital completo...</p>
+                </div>
+              ) : (
+                <>
+                  {/* TAB 1: DOCUMENTOS EMITIDOS OFICIALES */}
+                  {tabModalBitacora === 'documentos' && (() => {
+                    const estNorm = (tramiteBitacoraSeleccionado.estado_tramite_raw || tramiteBitacoraSeleccionado.estado || '').toLowerCase();
+                    const esAprobadoFinal = Boolean(
+                      tramiteBitacoraSeleccionado.es_aprobado_final ||
+                      estNorm === 'aprobado' ||
+                      (tramiteBitacoraSeleccionado.estado_operativo || '').toLowerCase() === 'habilitado'
+                    );
+
+                    const tieneResolucionEmitida = Boolean(
+                      esAprobadoFinal ||
+                      tramiteBitacoraSeleccionado.resolucion_lista_para_firma ||
+                      tramiteBitacoraSeleccionado.resolucion?.numero_resolucion ||
+                      tramiteBitacoraSeleccionado.resolucion_numero
+                    );
+
+                    const tieneInformeEmitido = Boolean(
+                      tieneResolucionEmitida ||
+                      tramiteBitacoraSeleccionado.informe_tecnico_aprobado ||
+                      tramiteBitacoraSeleccionado.derivado_a_legal ||
+                      estNorm.includes('legal') ||
+                      estNorm.includes('informe') ||
+                      estNorm.includes('derivado') ||
+                      tramiteBitacoraSeleccionado.resolucion?.cite_informe
+                    );
+
+                    const veredictoSupRaw = (tramiteBitacoraSeleccionado.veredicto_supervisor_raw || tramiteBitacoraSeleccionado.veredictoSupervisor || '').toLowerCase();
+                    const tieneInspeccionRealizada = Boolean(
+                      tramiteBitacoraSeleccionado.inspeccion_aprobada ||
+                      tramiteBitacoraSeleccionado.inspeccion_rechazada ||
+                      tramiteBitacoraSeleccionado.inspeccion_con_observaciones ||
+                      tramiteBitacoraSeleccionado.acta_pdf_url ||
+                      (veredictoSupRaw && !veredictoSupRaw.includes('pendiente') && !veredictoSupRaw.includes('sin asignar') && !veredictoSupRaw.includes('no asignado'))
+                    );
+
+                    return (
+                      <div className="space-y-4">
+                        {/* Mensaje de Cabecera Informativo */}
+                        <div className={`rounded-2xl p-4 flex items-start space-x-3 border ${
+                          tieneResolucionEmitida
+                            ? 'bg-emerald-50/60 border-emerald-200/80 text-emerald-950'
+                            : tieneInformeEmitido
+                            ? 'bg-sky-50/60 border-sky-200/80 text-sky-950'
+                            : 'bg-amber-50/60 border-amber-200/80 text-amber-950'
+                        }`}>
+                          <AlertCircle className={`w-5 h-5 shrink-0 mt-0.5 ${
+                            tieneResolucionEmitida ? 'text-emerald-600' : tieneInformeEmitido ? 'text-[#0077c8]' : 'text-amber-600'
+                          }`} />
+                          <div className="text-xs leading-relaxed font-medium">
+                            <strong>Repositorio Oficial de Documentos:</strong> {tieneResolucionEmitida 
+                              ? 'Este trámite ha completado satisfactoriamente el circuito administrativo. Puede visualizar y descargar las copias oficiales de los documentos emitidos.'
+                              : tieneInformeEmitido
+                              ? 'El Informe Técnico fue emitido y remitido a Asesoría Legal. La Resolución Administrativa se habilitará una vez aprobada por el área legal y el Coordinador.'
+                              : 'Este trámite se encuentra en etapa inicial de revisión documental. Los documentos oficiales (Informe Técnico y Resolución Administrativa) se habilitarán a medida que se cumplan las inspecciones y dictámenes correspondientes.'}
+                          </div>
+                        </div>
+
+                        {/* 1. Tarjeta: Resolución Administrativa Oficial */}
+                        <div className={`rounded-2xl border p-5 transition-all ${
+                          tieneResolucionEmitida
+                            ? 'bg-white border-slate-200/90 shadow-xs hover:border-emerald-300'
+                            : 'bg-slate-50/60 border-slate-200/70 opacity-90'
+                        }`}>
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                            <div className="flex items-start space-x-4">
+                              <div className={`w-12 h-12 rounded-2xl border flex items-center justify-center shrink-0 shadow-2xs ${
+                                tieneResolucionEmitida
+                                  ? 'bg-emerald-50 border-emerald-200 text-emerald-600'
+                                  : 'bg-slate-100 border-slate-200 text-slate-400'
+                              }`}>
+                                <Award className="w-6 h-6" />
+                              </div>
+                              <div>
+                                <div className="flex items-center space-x-2">
+                                  <h3 className={`text-sm font-black ${tieneResolucionEmitida ? 'text-slate-900' : 'text-slate-700'}`}>
+                                    Resolución Administrativa SEDES
+                                  </h3>
+                                  <span className={`px-2 py-0.5 text-[10px] font-extrabold rounded-md border ${
+                                    tieneResolucionEmitida
+                                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                      : 'bg-slate-100 text-slate-500 border-slate-200'
+                                  }`}>
+                                    {tieneResolucionEmitida ? 'Documento Legal Oficial' : 'Pendiente de Emisión'}
+                                  </span>
+                                </div>
+                                <p className="text-xs text-slate-500 font-medium mt-1">
+                                  {tieneResolucionEmitida
+                                    ? (tramiteBitacoraSeleccionado.resolucion?.numero_resolucion || tramiteBitacoraSeleccionado.resolucion_numero
+                                        ? `Resolución N° ${tramiteBitacoraSeleccionado.resolucion?.numero_resolucion || tramiteBitacoraSeleccionado.resolucion_numero} • Vigencia: ${tramiteBitacoraSeleccionado.resolucion?.vigencia_anios || 5} años`
+                                        : 'Resolución Administrativa Oficial de Habilitación y Funcionamiento')
+                                    : 'La Resolución Administrativa será emitida por Asesoría Legal tras aprobar el Informe Técnico.'}
+                                </p>
+                                <div className="flex flex-wrap items-center gap-3 text-[11px] text-slate-400 font-medium mt-2">
+                                  <span>Asesor Legal: <strong className={tieneResolucionEmitida ? 'text-slate-700' : 'text-slate-500'}>{tramiteBitacoraSeleccionado.resolucion?.abogado_nombre || 'Asesoría Jurídica SEDES'}</strong></span>
+                                  <span>&bull;</span>
+                                  <span>Estado: <strong className={tieneResolucionEmitida ? 'text-emerald-700' : 'text-slate-500'}>{tieneResolucionEmitida ? (tramiteBitacoraSeleccionado.resolucion?.fecha_emision || 'Emitida / Oficial') : 'En Espera de Informe Técnico'}</strong></span>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Acciones de Resolución */}
+                            <div className="flex items-center space-x-2 self-end sm:self-center shrink-0">
+                              {tieneResolucionEmitida ? (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() => handlePrevisualizarPdfBitacora('resolucion', tramiteBitacoraSeleccionado)}
+                                    disabled={generandoPdfBitacora}
+                                    className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold flex items-center space-x-1.5 transition cursor-pointer disabled:opacity-50"
+                                    title="Ver vista previa de la Resolución"
+                                  >
+                                    <Eye className="w-3.5 h-3.5 text-slate-600" />
+                                    <span>Vista Previa</span>
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDescargarResolucionBitacora(tramiteBitacoraSeleccionado)}
+                                    disabled={generandoPdfBitacora}
+                                    className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-extrabold flex items-center space-x-1.5 shadow-xs transition cursor-pointer disabled:opacity-50 active:scale-95"
+                                    title="Descargar Resolución Administrativa en PDF"
+                                  >
+                                    <Download className="w-3.5 h-3.5" />
+                                    <span>Descargar (PDF)</span>
+                                  </button>
+                                </>
+                              ) : (
+                                <span className="inline-flex items-center space-x-1.5 text-slate-500 bg-slate-100 border border-slate-200 text-xs font-bold px-3 py-2 rounded-xl">
+                                  <Clock className="w-3.5 h-3.5 text-slate-400" />
+                                  <span>No Emitido Aún</span>
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* 2. Tarjeta: Informe Técnico / Comunicación Interna */}
+                        <div className={`rounded-2xl border p-5 transition-all ${
+                          tieneInformeEmitido
+                            ? 'bg-white border-slate-200/90 shadow-xs hover:border-sky-300'
+                            : 'bg-slate-50/60 border-slate-200/70 opacity-90'
+                        }`}>
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                            <div className="flex items-start space-x-4">
+                              <div className={`w-12 h-12 rounded-2xl border flex items-center justify-center shrink-0 shadow-2xs ${
+                                tieneInformeEmitido
+                                  ? 'bg-sky-50 border-sky-200 text-[#0077c8]'
+                                  : 'bg-slate-100 border-slate-200 text-slate-400'
+                              }`}>
+                                <FileText className="w-6 h-6" />
+                              </div>
+                              <div>
+                                <div className="flex items-center space-x-2">
+                                  <h3 className={`text-sm font-black ${tieneInformeEmitido ? 'text-slate-900' : 'text-slate-700'}`}>
+                                    Informe Técnico / Comunicación Interna CODELAB
+                                  </h3>
+                                  <span className={`px-2 py-0.5 text-[10px] font-extrabold rounded-md border ${
+                                    tieneInformeEmitido
+                                      ? 'bg-sky-50 text-[#0077c8] border border-sky-200'
+                                      : 'bg-slate-100 text-slate-500 border-slate-200'
+                                  }`}>
+                                    {tieneInformeEmitido ? 'Dictamen Favorable' : 'Pendiente de Elaboración'}
+                                  </span>
+                                </div>
+                                <p className="text-xs text-slate-500 font-medium mt-1">
+                                  {tieneInformeEmitido
+                                    ? `CITE: ${tramiteBitacoraSeleccionado.resolucion?.cite_informe || `CODELAB/SEDES/1/${new Date().getFullYear()}`} • Remisión oficial a Asesoría Legal`
+                                    : 'El Informe Técnico se generará una vez que la inspección in-situ concluya favorablemente.'}
+                                </p>
+                                <div className="flex flex-wrap items-center gap-3 text-[11px] text-slate-400 font-medium mt-2">
+                                  <span>Emitido por: <strong className={tieneInformeEmitido ? 'text-slate-700' : 'text-slate-500'}>Dra. Claudia Morales Valenzuela</strong></span>
+                                  <span>&bull;</span>
+                                  <span>Destino: <strong className={tieneInformeEmitido ? 'text-slate-700' : 'text-slate-500'}>Asesoría Legal SEDES</strong></span>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Acciones de Informe */}
+                            <div className="flex items-center space-x-2 self-end sm:self-center shrink-0">
+                              {tieneInformeEmitido ? (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() => handlePrevisualizarPdfBitacora('informe', tramiteBitacoraSeleccionado)}
+                                    disabled={generandoPdfBitacora}
+                                    className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold flex items-center space-x-1.5 transition cursor-pointer disabled:opacity-50"
+                                    title="Ver vista previa del Informe Técnico"
+                                  >
+                                    <Eye className="w-3.5 h-3.5 text-slate-600" />
+                                    <span>Vista Previa</span>
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDescargarInformeBitacora(tramiteBitacoraSeleccionado)}
+                                    disabled={generandoPdfBitacora}
+                                    className="px-3.5 py-2 bg-[#19324d] hover:bg-[#102235] text-white rounded-xl text-xs font-extrabold flex items-center space-x-1.5 shadow-xs transition cursor-pointer disabled:opacity-50 active:scale-95"
+                                    title="Descargar Comunicación Interna en PDF"
+                                  >
+                                    <Download className="w-3.5 h-3.5" />
+                                    <span>Descargar (PDF)</span>
+                                  </button>
+                                </>
+                              ) : (
+                                <span className="inline-flex items-center space-x-1.5 text-slate-500 bg-slate-100 border border-slate-200 text-xs font-bold px-3 py-2 rounded-xl">
+                                  <Clock className="w-3.5 h-3.5 text-slate-400" />
+                                  <span>En Espera de Inspección</span>
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* 3. Tarjeta: Acta de Fiscalización e Inspección Técnica In-Situ */}
+                        <div className={`rounded-2xl border p-5 transition-all ${
+                          tieneInspeccionRealizada
+                            ? 'bg-white border-slate-200/90 shadow-xs hover:border-indigo-300'
+                            : 'bg-slate-50/60 border-slate-200/70 opacity-90'
+                        }`}>
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                            <div className="flex items-start space-x-4">
+                              <div className={`w-12 h-12 rounded-2xl border flex items-center justify-center shrink-0 shadow-2xs ${
+                                tieneInspeccionRealizada
+                                  ? 'bg-indigo-50 border-indigo-200 text-indigo-600'
+                                  : 'bg-slate-100 border-slate-200 text-slate-400'
+                              }`}>
+                                <ShieldCheck className="w-6 h-6" />
+                              </div>
+                              <div>
+                                <div className="flex items-center space-x-2">
+                                  <h3 className={`text-sm font-black ${tieneInspeccionRealizada ? 'text-slate-900' : 'text-slate-700'}`}>
+                                    Acta de Fiscalización e Inspección Técnica In-Situ
+                                  </h3>
+                                  <span className={`px-2 py-0.5 text-[10px] font-extrabold rounded-md border ${
+                                    tieneInspeccionRealizada
+                                      ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
+                                      : 'bg-amber-50 text-amber-700 border-amber-200'
+                                  }`}>
+                                    {tieneInspeccionRealizada ? 'Inspección de Campo' : 'Inspección Pendiente'}
+                                  </span>
+                                </div>
+                                <p className="text-xs text-slate-500 font-medium mt-1">
+                                  Veredicto: <strong className={tieneInspeccionRealizada ? 'text-emerald-700' : 'text-amber-700'}>
+                                    {tramiteBitacoraSeleccionado.veredictoSupervisor || 'PENDIENTE DE ASIGNACIÓN'}
+                                  </strong> &bull; Supervisor: <strong className="text-slate-700">{tramiteBitacoraSeleccionado.supervisorAsignado || 'Sin Asignar'}</strong>
+                                </p>
+                                <div className="flex flex-wrap items-center gap-3 text-[11px] text-slate-400 font-medium mt-2">
+                                  <span>Fecha Inspección: <strong className="text-slate-700">{tramiteBitacoraSeleccionado.fechaInspeccion || 'Pendiente de Programación'}</strong></span>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Acciones de Acta */}
+                            <div className="flex items-center space-x-2 self-end sm:self-center shrink-0">
+                              {tieneInspeccionRealizada ? (
+                                tramiteBitacoraSeleccionado.acta_pdf_url ? (
+                                  <a
+                                    href={
+                                      tramiteBitacoraSeleccionado.acta_pdf_url.startsWith('http')
+                                        ? tramiteBitacoraSeleccionado.acta_pdf_url
+                                        : `http://localhost:8000/${tramiteBitacoraSeleccionado.acta_pdf_url.replace(/^\/+/, '')}`
+                                    }
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-extrabold flex items-center space-x-1.5 shadow-xs transition cursor-pointer"
+                                  >
+                                    <ExternalLink className="w-3.5 h-3.5" />
+                                    <span>Ver Acta Firmada</span>
+                                  </a>
+                                ) : (
+                                  <span className="inline-flex items-center space-x-1 text-emerald-700 bg-emerald-50 border border-emerald-200 font-bold text-xs px-3 py-1.5 rounded-xl">
+                                    <Check className="w-3.5 h-3.5 stroke-[2.5]" />
+                                    <span>Inspección Validada</span>
+                                  </span>
+                                )
+                              ) : (
+                                <span className="inline-flex items-center space-x-1.5 text-amber-700 bg-amber-50 border border-amber-200 text-xs font-bold px-3 py-2 rounded-xl">
+                                  <Clock className="w-3.5 h-3.5 text-amber-500" />
+                                  <span>Sin Inspección In-Situ</span>
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                      </div>
+                    );
+                  })()}
+
+                  {/* TAB 2: FICHA DEL ESTABLECIMIENTO */}
+                  {tabModalBitacora === 'resumen' && (
+                    <div className="bg-white rounded-2xl border border-slate-200/90 shadow-xs p-5 space-y-5">
+                      <h3 className="font-black text-sm text-slate-900 border-b border-slate-100 pb-3">
+                        Datos del Establecimiento y Titular Registrado
+                      </h3>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                        <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200">
+                          <span className="text-[10px] text-slate-400 font-extrabold uppercase block">Establecimiento / Razón Comercial</span>
+                          <span className="font-bold text-slate-800 text-sm block mt-0.5">{tramiteBitacoraSeleccionado.establecimiento || tramiteBitacoraSeleccionado.nombre_comercial}</span>
+                          <span className="text-slate-500 block mt-0.5">{tramiteBitacoraSeleccionado.categoria || 'Laboratorio Clínico'}</span>
+                        </div>
+
+                        <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200">
+                          <span className="text-[10px] text-slate-400 font-extrabold uppercase block">Ubicación y Jurisdicción</span>
+                          <span className="font-bold text-slate-800 block mt-0.5">{tramiteBitacoraSeleccionado.municipio || 'CERCADO'}</span>
+                          <span className="text-slate-500 block mt-0.5">{tramiteBitacoraSeleccionado.direccion || 'Cochabamba'}</span>
+                        </div>
+
+                        <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200">
+                          <span className="text-[10px] text-slate-400 font-extrabold uppercase block">Propietario / Razón Social</span>
+                          <span className="font-bold text-slate-800 block mt-0.5">{tramiteBitacoraSeleccionado.propietario || 'No especificado'}</span>
+                          <span className="text-slate-500 block mt-0.5">CI/NIT: {tramiteBitacoraSeleccionado.propietario_ci || tramiteBitacoraSeleccionado.ci_nit || 'S/N'}</span>
+                        </div>
+
+                        <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200">
+                          <span className="text-[10px] text-slate-400 font-extrabold uppercase block">Regente Técnico / Director</span>
+                          <span className="font-bold text-slate-800 block mt-0.5">{tramiteBitacoraSeleccionado.regente || tramiteBitacoraSeleccionado.director_tecnico || 'No asignado'}</span>
+                          <span className="text-slate-500 block mt-0.5">CI Regente: {tramiteBitacoraSeleccionado.regente_ci || tramiteBitacoraSeleccionado.director_tecnico_ci || 'S/N'}</span>
+                        </div>
+
+                        <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200">
+                          <span className="text-[10px] text-slate-400 font-extrabold uppercase block">Contacto y Horario</span>
+                          <span className="font-bold text-slate-800 block mt-0.5">{tramiteBitacoraSeleccionado.telefono || 'Sin teléfono'} &bull; {tramiteBitacoraSeleccionado.email || 'Sin email'}</span>
+                          <span className="text-slate-500 block mt-0.5">{tramiteBitacoraSeleccionado.horario || 'Lun-Vie 7:00 - 19:00'}</span>
+                        </div>
+
+                        <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200">
+                          <span className="text-[10px] text-slate-400 font-extrabold uppercase block">Tipo de Trámite</span>
+                          <span className="font-bold text-[#0077c8] block mt-0.5">{tramiteBitacoraSeleccionado.tipo || 'Apertura y Habilitación'}</span>
+                          <span className="text-slate-500 block mt-0.5">Código CUE: {tramiteBitacoraSeleccionado.codigo_cue || 'Nuevo'}</span>
+                        </div>
+                      </div>
+
+                      {tramiteBitacoraSeleccionado.responsables_areas && (
+                        <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 text-xs">
+                          <span className="text-[10px] text-slate-400 font-extrabold uppercase block mb-1.5">Responsables de Áreas de Especialidad</span>
+                          <p className="text-slate-700 font-medium leading-relaxed">
+                            {tramiteBitacoraSeleccionado.responsables_areas}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* TAB 3: REQUISITOS ADJUNTOS */}
+                  {tabModalBitacora === 'requisitos' && (
+                    <div className="bg-white rounded-2xl border border-slate-200/90 shadow-xs p-5 space-y-4">
+                      <h3 className="font-black text-sm text-slate-900 border-b border-slate-100 pb-3">
+                        Documentación y Requisitos Presentados
+                      </h3>
+
+                      <div className="divide-y divide-slate-100">
+                        {tramiteBitacoraSeleccionado.documentos?.map((doc, idx) => (
+                          <div key={doc.id || idx} className="py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                            <div className="flex items-start space-x-3">
+                              <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-500 shrink-0 font-bold text-[11px]">
+                                #{idx + 1}
+                              </div>
+                              <div>
+                                <h4 className="font-bold text-slate-800">{doc.nombre || doc.nombre_requisito || 'Documento Legal'}</h4>
+                                <p className="text-[11px] text-slate-400 font-medium mt-0.5">
+                                  Categoría: {doc.tipo || 'Legal / Técnico'} &bull; Subido el {doc.fecha_subida || 'Registro inicial'}
+                                </p>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center space-x-2 self-start sm:self-auto shrink-0">
+                              <span className={`inline-block text-[10px] font-extrabold px-2.5 py-0.5 rounded-full border ${
+                                (doc.estado || '').toLowerCase() === 'aprobado'
+                                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                  : 'bg-amber-50 text-amber-700 border-amber-200'
+                              }`}>
+                                {doc.estado || 'Aprobado'}
+                              </span>
+
+                              {doc.archivo_url && (
+                                <a
+                                  href={
+                                    doc.archivo_url.startsWith('http')
+                                      ? doc.archivo_url
+                                      : `http://localhost:8000/${doc.archivo_url.replace(/^\/+/, '')}`
+                                  }
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="px-2.5 py-1 bg-slate-100 hover:bg-[#0077c8] hover:text-white text-slate-600 rounded-lg text-[11px] font-bold transition flex items-center space-x-1"
+                                >
+                                  <Eye className="w-3 h-3" />
+                                  <span>Ver Archivo</span>
+                                </a>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+
+                        {(!tramiteBitacoraSeleccionado.documentos || tramiteBitacoraSeleccionado.documentos.length === 0) && (
+                          <p className="py-6 text-center text-slate-400 text-xs font-medium">
+                            No se encontraron archivos adjuntos para este expediente.
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+
+            </div>
+
+            {/* Pie de Modal Expediente */}
+            <div className="p-4 bg-white border-t border-slate-200 flex items-center justify-between shrink-0 text-xs">
+              <div className="text-slate-400 font-medium">
+                SEDES Cochabamba &bull; CODELAB Sistema de Habilitación &bull; Consulta de Dirección
+              </div>
+              <button
+                type="button"
+                onClick={() => setModalExpedienteBitacoraOpen(false)}
+                className="px-5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition cursor-pointer"
+              >
+                Cerrar
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* 5. MODAL DE DESGLOSE DE INSPECCIONES Y ACTAS POR SUPERVISOR               */}
+      {/* ========================================================================= */}
+      {modalSupervisorOpen && supervisorSeleccionadoModal && (() => {
+        const listaInsp = supervisorSeleccionadoModal.inspecciones_periodo || supervisorSeleccionadoModal.inspecciones || [];
+        const searchLower = filtroInspTextoModal.toLowerCase().trim();
+
+        const inspFiltradas = listaInsp.filter(insp => {
+          if (searchLower) {
+            const matchText = (
+              (insp.establecimiento || '') + ' ' +
+              (insp.codigo_tramite || '') + ' ' +
+              (insp.municipio || '') + ' ' +
+              (insp.tipo_tramite || '')
+            ).toLowerCase();
+            if (!matchText.includes(searchLower)) return false;
+          }
+          if (filtroInspVeredictoModal !== 'Todos') {
+            const v = (insp.veredicto || '').toUpperCase();
+            const e = (insp.estado_inspeccion || '').toLowerCase();
+            if (filtroInspVeredictoModal === 'FAVORABLE') {
+              if (v !== 'FAVORABLE' && e !== 'aprobada') return false;
+            } else if (filtroInspVeredictoModal === 'OBSERVADO') {
+              if (v !== 'OBSERVADO' && v !== 'NO FAVORABLE' && e !== 'observada') return false;
+            } else if (filtroInspVeredictoModal === 'PENDIENTE') {
+              if (e !== 'pendiente' && e !== 'en proceso' && e !== 'asignada' && e !== 'asignado') return false;
+            }
+          }
+          return true;
+        });
+
+        const favCount = listaInsp.filter(i => (i.veredicto || '').toUpperCase() === 'FAVORABLE' || (i.estado_inspeccion || '').toLowerCase() === 'aprobada').length;
+        const obsCount = listaInsp.filter(i => (i.veredicto || '').toUpperCase() === 'OBSERVADO' || (i.veredicto || '').toUpperCase() === 'NO FAVORABLE' || (i.estado_inspeccion || '').toLowerCase() === 'observada').length;
+        const actasTotalPeriodo = supervisorSeleccionadoModal.actas_emitidas_periodo ?? listaInsp.filter(i => (i.estado_inspeccion || '').toLowerCase() === 'completada' || Boolean(i.acta_pdf_url)).length;
+
+        return (
+          <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+            <div className="bg-slate-50 rounded-3xl max-w-4xl w-full max-h-[92vh] flex flex-col shadow-2xl overflow-hidden border border-slate-200 animate-in fade-in duration-200">
+
+              {/* Cabecera del Supervisor */}
+              <div className="bg-linear-to-r from-[#1e2d42] to-[#005596] p-5 sm:p-6 text-white shrink-0 relative">
+                <button
+                  type="button"
+                  onClick={() => setModalSupervisorOpen(false)}
+                  className="absolute top-5 right-5 w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+
+                <div className="flex flex-col sm:flex-row sm:items-center space-y-3 sm:space-y-0 sm:space-x-4">
+                  <div className={`w-14 h-14 rounded-2xl ${getAvatarColor(supervisorSeleccionadoModal.nombre_completo || supervisorSeleccionadoModal.nombre_corto)} text-white flex items-center justify-center font-black text-lg shadow-md shrink-0 border-2 border-white/20`}>
+                    <span>{getInitials({ nombreCompleto: supervisorSeleccionadoModal.nombre_completo || supervisorSeleccionadoModal.nombre_corto })}</span>
+                  </div>
+
+                  <div className="min-w-0 pr-8">
+                    <div className="flex items-center space-x-2">
+                      <h2 className="text-xl font-bold tracking-tight text-white truncate">
+                        {supervisorSeleccionadoModal.nombre_completo || supervisorSeleccionadoModal.nombre_corto}
+                      </h2>
+                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-sky-400/20 text-sky-200 border border-sky-300/30">
+                        Supervisor de Campo
+                      </span>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-3 text-xs text-sky-100/80 mt-1 font-medium">
+                      {supervisorSeleccionadoModal.email && (
+                        <span className="flex items-center space-x-1">
+                          <Mail className="w-3.5 h-3.5 opacity-80" />
+                          <span>{supervisorSeleccionadoModal.email}</span>
+                        </span>
+                      )}
+                      {supervisorSeleccionadoModal.telefono && (
+                        <span className="flex items-center space-x-1">
+                          <Phone className="w-3.5 h-3.5 opacity-80" />
+                          <span>{supervisorSeleccionadoModal.telefono}</span>
+                        </span>
+                      )}
+                      <span className="text-sky-300/60">&bull;</span>
+                      <span className="text-sky-200 font-semibold">
+                        Período: {periodoSupervisores === 'todos' ? 'Todo el historial' :
+                                  periodoSupervisores === 'este_mes' ? 'Este mes' :
+                                  periodoSupervisores === 'ultimos_30' ? 'Últimos 30 días' :
+                                  periodoSupervisores === 'ultimos_7' ? 'Últimos 7 días' : 'Personalizado'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Métricas Rápidas del Supervisor en el Período */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-4 sm:p-5 bg-white border-b border-slate-200/80 shrink-0">
+                <div className="bg-slate-50 rounded-2xl p-3.5 border border-slate-200/80">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Actas en Período</span>
+                  <p className="text-2xl font-black text-slate-900 mt-0.5">{actasTotalPeriodo}</p>
+                  <span className="text-[10px] text-slate-500 font-medium">Oficiales emitidas</span>
+                </div>
+
+                <div className="bg-emerald-50/60 rounded-2xl p-3.5 border border-emerald-100">
+                  <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider block">Favorables</span>
+                  <p className="text-2xl font-black text-emerald-700 mt-0.5">{favCount}</p>
+                  <span className="text-[10px] text-emerald-600 font-medium">Dictamen conforme</span>
+                </div>
+
+                <div className="bg-rose-50/60 rounded-2xl p-3.5 border border-rose-100">
+                  <span className="text-[10px] font-bold text-rose-500 uppercase tracking-wider block">Observadas</span>
+                  <p className="text-2xl font-black text-rose-700 mt-0.5">{obsCount}</p>
+                  <span className="text-[10px] text-rose-500 font-medium">Con observaciones</span>
+                </div>
+
+                <div className="bg-sky-50/60 rounded-2xl p-3.5 border border-sky-100">
+                  <span className="text-[10px] font-bold text-sky-600 uppercase tracking-wider block">En Trámite</span>
+                  <p className="text-2xl font-black text-sky-800 mt-0.5">{supervisorSeleccionadoModal.asignados || 0}</p>
+                  <span className="text-[10px] text-sky-600 font-medium">Asignados en curso</span>
+                </div>
+              </div>
+
+              {/* Barra de Filtros y Búsqueda */}
+              <div className="p-4 bg-slate-50 border-b border-slate-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shrink-0">
+                <div className="relative flex-1 max-w-sm">
+                  <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    placeholder="Buscar por laboratorio, código o municipio..."
+                    value={filtroInspTextoModal}
+                    onChange={(e) => setFiltroInspTextoModal(e.target.value)}
+                    className="w-full pl-9 pr-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs text-slate-700 placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-[#0077c8]"
+                  />
+                  {filtroInspTextoModal && (
+                    <button
+                      type="button"
+                      onClick={() => setFiltroInspTextoModal('')}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+
+                {/* Filtro de Veredicto */}
+                <div className="flex items-center space-x-1.5 self-start sm:self-auto overflow-x-auto">
+                  {['Todos', 'FAVORABLE', 'OBSERVADO', 'PENDIENTE'].map((ver) => (
+                    <button
+                      key={ver}
+                      type="button"
+                      onClick={() => setFiltroInspVeredictoModal(ver)}
+                      className={`px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
+                        filtroInspVeredictoModal === ver
+                          ? 'bg-[#0077c8] text-white shadow-xs'
+                          : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
+                      }`}
+                    >
+                      {ver === 'Todos' ? 'Todos' :
+                       ver === 'FAVORABLE' ? 'Favorables' :
+                       ver === 'OBSERVADO' ? 'Observados' : 'En proceso'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Lista / Tabla de Inspecciones */}
+              <div className="p-4 sm:p-5 overflow-y-auto flex-1 space-y-3">
+                {inspFiltradas.length === 0 ? (
+                  <div className="py-14 text-center bg-white rounded-2xl border border-slate-200/80">
+                    <FileText className="w-10 h-10 text-slate-300 mx-auto mb-2" />
+                    <h4 className="text-sm font-bold text-slate-700">No se encontraron inspecciones</h4>
+                    <p className="text-xs text-slate-400 mt-1 max-w-md mx-auto">
+                      No hay registros de inspección que coincidan con los filtros aplicados para este supervisor.
+                    </p>
+                    {(filtroInspTextoModal || filtroInspVeredictoModal !== 'Todos') && (
+                      <button
+                        type="button"
+                        onClick={() => { setFiltroInspTextoModal(''); setFiltroInspVeredictoModal('Todos'); }}
+                        className="mt-3 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-lg transition cursor-pointer"
+                      >
+                        Limpiar filtros
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  <div className="divide-y divide-slate-100 bg-white rounded-2xl border border-slate-200/80 overflow-hidden shadow-xs">
+                    {inspFiltradas.map((insp, idx) => {
+                      const veredictoUpper = (insp.veredicto || '').toUpperCase();
+                      const estadoLower = (insp.estado_inspeccion || '').toLowerCase();
+                      const esFavorable = veredictoUpper === 'FAVORABLE' || estadoLower === 'aprobada';
+                      const esObservado = veredictoUpper === 'OBSERVADO' || veredictoUpper === 'NO FAVORABLE' || estadoLower === 'observada';
+
+                      return (
+                        <div key={insp.id || idx} className="p-4 hover:bg-slate-50/80 transition flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs">
+                          {/* Info Principal */}
+                          <div className="space-y-1.5 flex-1 min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="font-mono font-bold text-sky-800 bg-sky-50 px-2 py-0.5 rounded border border-sky-200 text-[11px]">
+                                {insp.codigo_tramite || 'TRM-S/N'}
+                              </span>
+                              <span className="text-[11px] text-slate-400 font-medium flex items-center space-x-1">
+                                <Calendar className="w-3 h-3" />
+                                <span>{insp.fecha || insp.fecha_iso || 'Sin fecha'}</span>
+                              </span>
+                              <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+                                {insp.tipo_tramite || 'Apertura y Habilitación'}
+                              </span>
+                            </div>
+
+                            <div className="flex items-center space-x-2">
+                              <Building2 className="w-4 h-4 text-slate-400 shrink-0" />
+                              <h4 className="font-bold text-slate-900 text-sm truncate">
+                                {insp.establecimiento || 'Laboratorio Clínico'}
+                              </h4>
+                            </div>
+
+                            {insp.municipio && (
+                              <div className="flex items-center space-x-1 text-[11px] text-slate-500">
+                                <MapPin className="w-3 h-3 text-slate-400" />
+                                <span>Municipio: <strong className="text-slate-700">{insp.municipio}</strong></span>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Estado / Veredicto + Botones de Acción */}
+                          <div className="flex flex-wrap items-center gap-2.5 shrink-0 self-start md:self-center">
+                            {/* Badge de Veredicto */}
+                            <span className={`inline-flex items-center space-x-1 px-2.5 py-1 rounded-full text-[11px] font-extrabold border ${
+                              esFavorable
+                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                : esObservado
+                                ? 'bg-rose-50 text-rose-700 border-rose-200'
+                                : 'bg-amber-50 text-amber-700 border-amber-200'
+                            }`}>
+                              {esFavorable ? (
+                                <>
+                                  <CheckCircle2 className="w-3.5 h-3.5" />
+                                  <span>Favorable / Aprobada</span>
+                                </>
+                              ) : esObservado ? (
+                                <>
+                                  <AlertTriangle className="w-3.5 h-3.5" />
+                                  <span>Con Observaciones</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Clock className="w-3.5 h-3.5" />
+                                  <span>{insp.estado_inspeccion || 'En Curso'}</span>
+                                </>
+                              )}
+                            </span>
+
+                            {/* Botón Ver Acta Firmada */}
+                            {insp.acta_pdf_url && (
+                              <a
+                                href={
+                                  insp.acta_pdf_url.startsWith('http')
+                                    ? insp.acta_pdf_url
+                                    : `http://localhost:8000/${insp.acta_pdf_url.replace(/^\/+/, '')}`
+                                }
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition flex items-center space-x-1.5 shadow-xs"
+                                title="Ver Acta Oficial de Inspección Firmada en PDF"
+                              >
+                                <FileCheck className="w-3.5 h-3.5" />
+                                <span>Ver Acta Firmada</span>
+                              </a>
+                            )}
+
+                            {/* Botón Ver Expediente */}
+                            <button
+                              type="button"
+                              onClick={() => handleAbrirExpedienteBitacora(insp.tramite_id || insp.codigo_tramite)}
+                              className="px-3 py-1.5 bg-slate-100 hover:bg-[#0077c8] hover:text-white text-slate-700 rounded-xl text-xs font-bold transition flex items-center space-x-1.5 border border-slate-200 cursor-pointer"
+                              title="Abrir Expediente Digital Completo"
+                            >
+                              <Eye className="w-3.5 h-3.5" />
+                              <span>Ver Expediente</span>
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Pie del Modal */}
+              <div className="p-4 bg-white border-t border-slate-200 flex items-center justify-between shrink-0 text-xs">
+                <span className="text-slate-500 font-medium">
+                  Mostrando <strong className="text-slate-800">{inspFiltradas.length}</strong> de <strong className="text-slate-800">{listaInsp.length}</strong> inspecciones registradas.
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setModalSupervisorOpen(false)}
+                  className="px-5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition cursor-pointer"
+                >
+                  Cerrar
+                </button>
+              </div>
+
+            </div>
+          </div>
+        );
+      })()}
 
     </div>
   );
