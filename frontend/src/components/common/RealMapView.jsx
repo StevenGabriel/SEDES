@@ -26,58 +26,73 @@ export default function RealMapView({ latitud, longitud, nombre, direccion, heig
   const mapContainerRef = useRef(null);
   const mapInstanceRef = useRef(null);
 
-  const lat = latitud || -17.3895;
-  const lng = longitud || -66.1568;
+  const lat = typeof latitud === 'number' && !isNaN(latitud) ? latitud : parseFloat(latitud) || -17.3895;
+  const lng = typeof longitud === 'number' && !isNaN(longitud) ? longitud : parseFloat(longitud) || -66.1568;
 
   useEffect(() => {
     if (!mapContainerRef.current) return;
 
-    if (!mapInstanceRef.current) {
-      const boliviaBounds = [
-        [-24.0, -71.5],
-        [-8.5, -56.0]
-      ];
+    try {
+      if (!mapInstanceRef.current) {
+        if (mapContainerRef.current._leaflet_id) {
+          mapContainerRef.current._leaflet_id = null;
+        }
 
-      const map = L.map(mapContainerRef.current, {
-        center: [lat, lng],
-        zoom: 16,
-        minZoom: 7,
-        maxZoom: 19,
-        maxBounds: boliviaBounds,
-        maxBoundsViscosity: 0.9,
-        zoomControl: true,
-        scrollWheelZoom: true
-      });
+        const boliviaBounds = [
+          [-24.0, -71.5],
+          [-8.5, -56.0]
+        ];
 
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> colaboradores',
-        minZoom: 7,
-        maxZoom: 19,
-        noWrap: true,
-        bounds: boliviaBounds
-      }).addTo(map);
+        const map = L.map(mapContainerRef.current, {
+          center: [lat, lng],
+          zoom: 16,
+          minZoom: 7,
+          maxZoom: 19,
+          maxBounds: boliviaBounds,
+          maxBoundsViscosity: 0.9,
+          zoomControl: true,
+          scrollWheelZoom: true
+        });
 
-      const marker = L.marker([lat, lng], {
-        icon: createLabPinIcon(nombre)
-      }).addTo(map);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> colaboradores',
+          minZoom: 7,
+          maxZoom: 19,
+          noWrap: true,
+          bounds: boliviaBounds
+        }).addTo(map);
 
-      if (direccion) {
-        marker.bindPopup(`<strong>${nombre}</strong><br/>${direccion}`).openPopup();
+        const marker = L.marker([lat, lng], {
+          icon: createLabPinIcon(nombre)
+        }).addTo(map);
+
+        if (direccion) {
+          marker.bindPopup(`<strong>${nombre || 'Laboratorio'}</strong><br/>${direccion}`).openPopup();
+        }
+
+        mapInstanceRef.current = map;
+
+        setTimeout(() => {
+          if (mapInstanceRef.current) {
+            mapInstanceRef.current.invalidateSize();
+          }
+        }, 250);
+      } else {
+        mapInstanceRef.current.setView([lat, lng], 16);
       }
-
-      mapInstanceRef.current = map;
-
-      setTimeout(() => {
-        map.invalidateSize();
-      }, 200);
-    } else {
-      mapInstanceRef.current.setView([lat, lng], 16);
+    } catch (err) {
+      console.warn('Leaflet map init warning:', err);
     }
 
     return () => {
-      // Cleanup
+      if (mapInstanceRef.current) {
+        try {
+          mapInstanceRef.current.remove();
+        } catch (e) {}
+        mapInstanceRef.current = null;
+      }
     };
-  }, [latitud, longitud, nombre, direccion]);
+  }, [lat, lng, nombre, direccion]);
 
   return (
     <div className="relative w-full h-full rounded-2xl overflow-hidden border border-slate-200 shadow-inner">

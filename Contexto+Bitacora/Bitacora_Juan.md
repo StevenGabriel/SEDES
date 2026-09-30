@@ -686,6 +686,120 @@ Desarrollar y consolidar el módulo integral del **Asesor Legal / Abogado** en e
 * Adaptación de validadores Pydantic compatibles con versiones v1 y v2.
 
 ---
+
+## [2026-09-29] Mejoras en Notificaciones Preventivas (30 y 15 días), Renovaciones, Combobox de Trámites y Filtro de Notificaciones
+
+### 📌 Objetivo
+Optimizar la experiencia del Propietario en el portal de trámites y el sistema de alertas institucionales:
+1. Habilitar el flujo y botón de **Rehabilitación / Renovación** únicamente cuando el establecimiento se encuentre a 30 días de su vencimiento (o vencido), enviando alertas automáticas a los 30 días y recordatorio a los 15 días previos.
+2. Eliminar emojis de las notificaciones del sistema para mantener un tono formal e institucional.
+3. Rediseñar el selector de establecimientos en la sección **Trámites** del Propietario sustituyendo la lista horizontal por un **Combobox interactivo, compacto y con buscador**.
+4. Filtrar los establecimientos en "En Trámite" para mostrar únicamente los que tienen trámites o requisitos genuinamente pendientes/en revisión/observados, ocultando los 100% aprobados.
+5. Evitar el spam de notificaciones al propietario durante la evaluación de requisitos en Coordinación, emitiendo alertas **únicamente para requisitos u observaciones rechazadas/observadas**.
+
+---
+
+### 🛠️ Archivos Creados y Modificados
+
+#### 1. `backend/models.py` & `backend/init_db.py` [MODIFICADO]
+* **Nueva Columna de Control:** Se agregó `alerta_30_dias_enviada = Column(Boolean, default=False, nullable=True)` al modelo `Inspeccion` en SQLAlchemy para controlar de forma independiente el envío de la primera alerta preventiva de 30 días y la segunda de 15 días (`alerta_15_dias_enviada`).
+* **Migración Automática Idempotente:** En `init_db.py` se incluyó la verificación `ALTER TABLE inspecciones ADD COLUMN IF NOT EXISTS alerta_30_dias_enviada BOOLEAN DEFAULT FALSE;`.
+
+#### 2. `backend/establecimientos.py` & `backend/supervisor.py` [MODIFICADO]
+* **Control de Vencimientos y Alertas Preventivas:**
+  * Se configuró el cálculo de días restantes (`dias_restantes <= 30`) para habilitar `puede_renovar: True`.
+  * **Alerta a 30 días:** Si `dias_restantes <= 30` y `not insp.alerta_30_dias_enviada`, se envía la notificación: *"Aviso Preventivo: Próximo Vencimiento de Habilitación Sanitaria - Su establecimiento '{nombre}' vencerá en {dias} días. Ya puede iniciar su trámite de Rehabilitación/Renovación."*
+  * **Recordatorio a 15 días:** Si `dias_restantes <= 15` y `not insp.alerta_15_dias_enviada`, se emite la notificación de recordatorio.
+* **Reseteo en Nuevas Inspecciones:** En `supervisor.py` al concluir una nueva inspección favorable se resetean ambos flags a `False`.
+* **Limpieza de Emojis:** Se eliminaron emojis en los títulos y mensajes de notificaciones generadas.
+
+#### 3. `frontend/src/pages/PropietarioPage.jsx` [MODIFICADO / OPTIMIZADO]
+* **Condicional del Botón de Renovación:** El botón **"Rehabilitación / Renovación"** y la alerta visual solo se muestran cuando `dias_para_vencer <= 30` o cuando el certificado ya se encuentra vencido.
+* **Combobox Moderno y Buscador de Establecimientos:**
+  * Se reemplazó la fila horizontal con scroll infinito por un selector desplegable elegante con buscador en tiempo real (`searchQuery`), badge de cantidad y cierre al hacer clic fuera (`useRef`).
+  * **Pestañas de Selección:**
+    * **En Trámite:** Filtra exclusivamente los establecimientos que poseen trámites en curso o documentos pendientes/en revisión/observados.
+    * **Todos:** Permite seleccionar y consultar el historial documental de cualquiera de los establecimientos del propietario.
+* **Cálculo Preciso de Estado "En Trámite":** Se ajustó la verificación para validar únicamente documentos subidos/activos (`tiene_archivo` o `archivo_url`), evitando que requisitos opcionales sin archivo marquen erróneamente un trámite 100% aprobado como pendiente.
+
+#### 4. `backend/coordinador.py` & Depuración de Base de Datos [MODIFICADO]
+* **Filtro de Notificaciones en Evaluación de Requisitos:**
+  * Se removió la emisión de notificaciones individuales por cada "Documento Aprobado" en la revisión de requisitos y validación de datos del establecimiento.
+  * **Solo se notifica si el documento es Observado o Rechazado**, adjuntando el motivo exacto para su subsanación.
+* **Depuración de Base de Datos:** Se ejecutó la limpieza de 47 notificaciones históricas de tipo "Documento Aprobado" para descongestionar la bandeja de notificaciones del propietario.
+
+---
+
+### 🎨 Tecnologías y Componentes Aplicados
+* **React 19 & Hooks:** `useState`, `useRef`, `useEffect` para dropdowns tipo Combobox accesibles y filtrado reactivo.
+* **FastAPI & SQLAlchemy:** Consultas SQL idempotentes, manejo de estados booleanos para alertas programadas y endpoints limpios de notificación.
+* **PostgreSQL:** Persistencia del ciclo de vida de inspecciones y trazabilidad de alertas de vencimiento.
+
+---
+---
+
+## [2026-09-30] Optimización del Portal del Propietario: Modal de Perfil de Establecimiento, Visor de Documentos, Depuración de Filtros y Sincronización Inteligente de Notificaciones de Subsanación
+
+### 📌 Objetivo
+1. **Refinamiento de la Sección Trámites:** Ajustar el cálculo de estado en "En Trámite" para que, cuando todos los requisitos y documentos de un trámite estén 100% aprobados, se presente un estado vacío intuitivo (*"¡Todo al día! No tiene trámites con observaciones o requisitos pendientes"*) en lugar de listas redundantes, eliminando el filtro innecesario "Todos".
+2. **Reestructuración de Acciones en Mis Establecimientos:**
+   * Retirar el botón *"Ver Detalle"*.
+   * Potenciar el botón **"Documentos"** para abrir un modal interactivo con el expediente de requisitos y visor de archivos PDF subidos.
+   * Incorporar el botón **"Ver Establecimiento"** que despliega un popup completo con el perfil oficial del laboratorio (fachada, datos de contacto, horarios, regente técnico, especialidades autorizadas con sus encargados, mapa georreferenciado y datos de fiscalización SEDES).
+3. **Resolución de Error de Pantalla en Blanco (Crash al Ver Establecimiento):** Normalizar el parseo defensivo de los campos `servicios` y `responsables_areas` (almacenados en base de datos como cadenas de texto, strings delimitados por coma o JSON) y el ciclo de vida del mapa Leaflet en `RealMapView`.
+4. **Sincronización y Depuración de Notificaciones de Subsanación:** Resolver el conflicto donde las notificaciones antiguas de *"Datos del Establecimiento Observados"* persistían en la campana tras haber sido corregidas o validadas por Coordinación, forzando erróneamente el modo de corrección al hacer clic.
+
+---
+
+### 🛠️ Archivos Creados y Modificados
+
+#### 1. `frontend/src/pages/PropietarioPage.jsx` [MODIFICADO / OPTIMIZADO]
+* **Depuración de la Pestaña "En Trámite":**
+  * Se eliminó el botón/filtro `filtroVerTodosTramites` ("Todos") en la sección de trámites para simplificar la interfaz.
+  * Se perfeccionó el filtrado de `tramitesPendientes`: si todos los requisitos subidos están validados y aprobados, se muestra una tarjeta amigable de confirmación que notifica al usuario que todo su trámite está al día.
+* **Modal de Visualización de Documentos (`modalDocumentosLab`):**
+  * Al pulsar **"Documentos"** en cualquier establecimiento, se abre una ventana modal que lista todos los requisitos del expediente con sus badges de estado (*Aprobado*, *En Revisión*, *Observado*) y botones directos para previsualizar los PDFs en una nueva pestaña.
+* **Modal de Perfil de Establecimiento (`modalVerEstablecimiento`):**
+  * Al pulsar **"Ver Establecimiento"**, se abre un popup moderno que consolida:
+    * Fotografía oficial de la fachada.
+    * Ubicación exacta, horarios de atención, teléfonos y correo institucional.
+    * Regente técnico asignado y número de C.I.
+    * Cartera de especialidades autorizadas con el encargado y C.I. por área.
+    * Visor de mapa georreferenciado interactivo con `RealMapView`.
+    * Datos de fiscalización SEDES (fecha de última inspección y vigencia del acta).
+* **Solución de Fallo de Pantalla en Blanco:**
+  * Se implementó una función IIFE de parseo seguro para `servicios` y `responsables_areas` que tolera formatos de Array, String separado por comas y JSON, evitando excepciones de tipo `TypeError: servicios.map is not a function`.
+* **Notificaciones Contextuales Inteligentes:**
+  * Se actualizó la lógica del dropdown de notificaciones para verificar si el establecimiento asociado continúa en estado `OBSERVADO`.
+  * Si el establecimiento ya fue validado o subsanado, la notificación ya no muestra *"Ir a Subsanar"* en rojo ni fuerza el formulario de corrección; en su lugar, muestra la etiqueta *"Ver Establecimiento →"* y abre el perfil informativo.
+
+#### 2. `frontend/src/components/common/RealMapView.jsx` [MODIFICADO]
+* **Manejo Seguro del Ciclo de Vida de Leaflet:**
+  * Se agregaron conversiones numéricas defensivas (`Number(latitud)`, `Number(longitud)`) para coordenadas pasadas como strings.
+  * Se encapsuló la inicialización y desmontaje del mapa en `useEffect` con `map.remove()` en el return cleanup para evitar errores de contenedor re-inicializado al abrir y cerrar modales sucesivamente.
+
+#### 3. `backend/notificaciones.py` [MODIFICADO]
+* **Depuración Automática de Notificaciones Obsoletas:**
+  * En el endpoint `GET /api/notificaciones/usuario/{usuario_id}`, el backend ahora mapea el estado actual de los establecimientos del propietario.
+  * Si un establecimiento ya tiene sus observaciones subsanadas o aprobadas (`APROBADO` o `CORREGIDO`), cualquier notificación previa de tipo *"Datos del Establecimiento Observados"* correspondiente a dicho establecimiento se desactiva automáticamente (`n.estado = False`) en la base de datos.
+
+#### 4. `backend/coordinador.py` [MODIFICADO]
+* **Sincronización en Validación de Datos:**
+  * Al validar como **"Aprobado"** los datos de un establecimiento en `/tramites/{tramite_id}/validar-datos`, se desactivan inmediatamente las notificaciones anteriores de observación para ese establecimiento y se genera la notificación formal: *"✓ Datos del Establecimiento Validados - {nombre}"*.
+
+#### 5. `backend/establecimientos.py` [MODIFICADO]
+* **Desactivación Inmediata al Subsanar:**
+  * En el endpoint `PUT /api/establecimientos/{id}`, cuando el propietario envía las correcciones (`es_subsanacion` o `estaba_observado`), se desactivan las notificaciones de observación previas de ese establecimiento, asegurando que el badge y el dropdown queden limpios y sincronizados.
+
+---
+
+### 🎨 Tecnologías y Componentes Aplicados
+* **React 19 & Hooks:** Control modal desacoplado (`modalVerEstablecimiento`, `modalDocumentosLab`), parseo defensivo de datos y sincronización de estado local con API REST.
+* **Leaflet & OpenStreetMap:** Renderizado georreferenciado seguro dentro de diálogos emergentes con limpieza de instancias de mapa.
+* **FastAPI & SQLAlchemy:** Consultas SQL dinámicas con filtrado automático de notificaciones activas vs obsoletas y trazabilidad de estados de establecimientos.
+
+---
 *Bitácora actualizada por: Juan*
+
 
 

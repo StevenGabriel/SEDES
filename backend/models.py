@@ -192,6 +192,7 @@ class Inspeccion(Base):
     acta_pdf_url = Column(String(500), nullable=True)
     plazo_subsanacion = Column(String(100), default="1 año", nullable=True)
     fecha_vencimiento_acta = Column(Date, nullable=True)
+    alerta_30_dias_enviada = Column(Boolean, default=False, nullable=True)
     alerta_15_dias_enviada = Column(Boolean, default=False, nullable=True)
 
     # Columnas de Auditoría

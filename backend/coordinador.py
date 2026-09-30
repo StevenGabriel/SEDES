@@ -598,15 +598,26 @@ def validar_datos_establecimiento(
     )
     db.add(nuevo_log)
 
-    # Notificar al propietario
+    # Notificar al propietario y actualizar notificaciones
     try:
         from notificaciones import crear_notificacion_db
         if estab.propietario_id:
+            # Desactivar notificaciones de observación previas de este establecimiento
+            notifs_previas = db.query(models.Notificacion).filter(
+                models.Notificacion.usuario_id == estab.propietario_id,
+                models.Notificacion.estado == True
+            ).all()
+            for n in notifs_previas:
+                t_low = (n.titulo or "").lower()
+                m_low = (n.mensaje or "").lower()
+                if "observad" in t_low and estab.nombre_comercial.lower() in t_low:
+                    n.estado = False
+
             if payload.estado == "Observado":
                 crear_notificacion_db(
                     db,
                     usuario_id=estab.propietario_id,
-                    titulo=f"⚠️ Datos del Establecimiento Observados - {estab.nombre_comercial}",
+                    titulo=f"Datos del Establecimiento Observados - {estab.nombre_comercial}",
                     mensaje=f"Los datos de registro de su establecimiento '{estab.nombre_comercial}' han sido observados: '{payload.observacion or 'Revise los datos de registro'}'. Por favor póngase en contacto con Coordinación o subsane los datos."
                 )
             elif payload.estado == "Aprobado":
@@ -701,7 +712,7 @@ def validar_documento_legal(
         )
         db.add(nuevo_log)
 
-    # Notificar al propietario en tiempo real
+    # Notificar al propietario en tiempo real solo cuando el documento es Observado o Rechazado
     try:
         from notificaciones import crear_notificacion_db
         if tramite and tramite.establecimiento and tramite.establecimiento.propietario_id:
@@ -711,15 +722,8 @@ def validar_documento_legal(
                 crear_notificacion_db(
                     db,
                     usuario_id=prop_id,
-                    titulo=f"⚠️ Documento Observado: {nombre_doc}",
+                    titulo=f"Documento Observado: {nombre_doc}",
                     mensaje=f"El documento '{nombre_doc}' de su trámite para '{estab_nombre}' ha sido {payload.estado.lower()}.{obs_detalle} Por favor ingrese a la sección 'Trámites' para subsanar y volver a subir el archivo corregido en PDF."
-                )
-            elif payload.estado == "Aprobado":
-                crear_notificacion_db(
-                    db,
-                    usuario_id=prop_id,
-                    titulo=f"✓ Documento Aprobado: {nombre_doc}",
-                    mensaje=f"El documento '{nombre_doc}' de su establecimiento '{estab_nombre}' ha sido verificado y aprobado satisfactoriamente por Coordinación."
                 )
     except Exception as e:
         print(f"Error al generar notificación de documento: {e}")

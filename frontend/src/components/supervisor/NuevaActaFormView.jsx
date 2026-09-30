@@ -2050,7 +2050,7 @@ export default function NuevaActaFormView({ usuario, onVolver, onActaGuardada, m
           )}
 
           <p className="text-[11px] text-slate-500 font-medium leading-relaxed">
-            Plazo oficial concedido al establecimiento. Al llegar a los 15 días previos al vencimiento ({fechaVencimientoCalculada}), el sistema notificará automáticamente al propietario para la rehabilitación.
+            Plazo oficial concedido al establecimiento. Al llegar a los 30 días y 15 días previos al vencimiento ({fechaVencimientoCalculada}), el sistema notificará automáticamente al propietario para la renovación/rehabilitación.
           </p>
         </div>
 
