@@ -159,14 +159,6 @@ export async function generarComunicacionInternaPDF(tramite, opciones = {}) {
   const listaRespAreas = parsearResponsablesAreas(rawRespAreas);
   const textoRespAreasP1 = formatearTextoResponsablesAreasP1(listaRespAreas, rawRespAreas);
   const citeNumero = opciones?.cite || tramite?.resolucion?.cite_informe || tramite?.cite_informe || `CODELAB/SEDES/1/${new Date().getFullYear()}`;
-  const destinatario = opciones?.destinatario || 'Dra. Mery D. Loroño V.';
-  const destinatarioCargo = opciones?.destinatarioCargo || 'ASESOR LEGAL - UNIDAD DE CALIDAD Y SERVICIOS';
-  const via = opciones?.via || 'Dra. Karina Soliz Villarroel';
-  const viaCargo = opciones?.viaCargo || 'JEFE DE LA UNIDAD DE CALIDAD Y SERVICIOS a.i.';
-  const remitente = opciones?.remitente || 'Dra. Claudia Morales Valenzuela';
-  const remitenteCargo = opciones?.remitenteCargo || 'RESPONSABLE DEPARTAMENTAL DE LABORATORIOS CODELAB - SEDES';
-  const fechaDoc = opciones?.fechaDoc || new Date().toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
-  const observacionesExtra = opciones?.observaciones || tramite?.observaciones_coordinador || 'Habiéndose verificado tanto el cumplimiento estricto de la carpeta legal como la conformidad en el informe de campo emitido por el supervisor de área, se concluye que el establecimiento cuenta con las garantías técnicas requeridas para su normal funcionamiento.';
 
   // Cargar plantilla personalizada (desde opciones, o localStorage, o defaults)
   let plantillaActiva = opciones?.plantilla;
@@ -178,6 +170,15 @@ export async function generarComunicacionInternaPDF(tramite, opciones = {}) {
       }
     } catch (e) { }
   }
+
+  const destinatario = opciones?.destinatario || plantillaActiva?.destinatario_nombre || 'Dra. Mery D. Loroño V.';
+  const destinatarioCargo = opciones?.destinatarioCargo || plantillaActiva?.destinatario_cargo || 'ASESOR LEGAL (UNIDAD DE CALIDAD Y SERVICIOS)';
+  const via = opciones?.via || plantillaActiva?.via_nombre || 'Dra. Karina Soliz Villarroel';
+  const viaCargo = opciones?.viaCargo || plantillaActiva?.via_cargo || 'JEFE DE LA UNIDAD DE CALIDAD Y SERVICIOS a.i.';
+  const remitente = opciones?.remitente || plantillaActiva?.remitente_nombre || 'Dra. Claudia Morales Valenzuela';
+  const remitenteCargo = opciones?.remitenteCargo || plantillaActiva?.remitente_cargo || 'RESPONSABLE DEPARTAMENTAL CODELAB';
+  const fechaDoc = opciones?.fechaDoc || new Date().toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
+  const observacionesExtra = opciones?.observaciones || tramite?.observaciones_coordinador || 'Habiéndose verificado tanto el cumplimiento estricto de la carpeta legal como la conformidad en el informe de campo emitido por el supervisor de área, se concluye que el establecimiento cuenta con las garantías técnicas requeridas para su normal funcionamiento.';
 
   // Diccionario de variables para interpolación de placeholders
   const vars = {

@@ -31,6 +31,12 @@ import { generarComunicacionInternaPDF } from '../coordinador/ComunicacionIntern
 
 export const PLANTILLA_DEFAULT_CODELAB = {
   titulo_documento: 'COMUNICACIÓN INTERNA',
+  destinatario_nombre: 'Dra. Mery D. Loroño V.',
+  destinatario_cargo: 'ASESOR LEGAL (UNIDAD DE CALIDAD Y SERVICIOS)',
+  via_nombre: 'Dra. Karina Soliz Villarroel',
+  via_cargo: 'JEFE DE LA UNIDAD DE CALIDAD Y SERVICIOS a.i.',
+  remitente_nombre: 'Dra. Claudia Morales Valenzuela',
+  remitente_cargo: 'RESPONSABLE DEPARTAMENTAL CODELAB',
   parrafo1: `Mediante la presente y en cumplimiento a las funciones específicas de mi cargo dentro los alcances de los Art. 28 y Art. 38 de la Ley 1178, adjunto al presente informe para su conocimiento requisitos en general para la {TIPO_TRAMITE} del establecimiento "{ESTABLECIMIENTO}" ubicado en {DIRECCION}, {MUNICIPIO}, siendo propiedad de {PROPIETARIO} con C.I. Nro. {CI_PROPIETARIO}, y regentado actualmente por el/la profesional {REGENTE} con C.I. Nro. {CI_REGENTE}{RESPONSABLES_AREAS}. En el marco de la normativa actual vigente aprobada por R.M. 0202 de fecha 22 de marzo del 2010 donde están descritos los requisitos técnicos, administrativos, legales y técnicos, en la evaluación realizada se verificó los requisitos mínimos que deben cumplir los establecimientos de salud en cuanto a documentación, gestión de calidad, bioseguridad, competencia técnica, etc., pero principalmente se hace una trazabilidad de sus procesos y procedimientos técnicos para validar la calidad de los resultados que emiten. El proceso de habilitación es análogo al de acreditación (ISO 9001 y la 15189) y la norma señala que es de responsabilidad de los SEDES para garantizar la calidad de los resultados de diagnóstico laboratorial en beneficio de la población.`,
   parrafo2: `La Evaluación técnica IN SITU para la {TIPO_TRAMITE_MIN} fue realizada en fecha {FECHA_INSPECCION} por el evaluador de campo {SUPERVISOR}, bajo la supervisión y conducción de {REMITENTE} - {REMITENTE_CARGO} y personal técnico de esa repartición del Ministerio de Salud y Deportes de Bolivia.`,
   parrafo3: `Según Resolución Ministerial N° 847 de fecha 30 de noviembre donde indica que el ente regulador y coordinador de la Red Departamental de Laboratorios será la Coordinación Departamental de Laboratorios (CODELAB) dependientes de los Servicios Departamentales de Salud; de esta red dependerán los laboratorios de servicio público, de los seguros de salud a corto plazo y privados con y sin fines de lucro, así mismo en aplicación a la Resolución Ministerial N° 0936 de fecha 16 de diciembre del 2005 que en el Artículo Quinto designa en el nivel departamental como responsable de coordinar la Red Departamental de Laboratorios de Salud en el departamento de Cochabamba al Laboratorio de SEDES Cochabamba.`,
@@ -186,12 +192,12 @@ export default function EditarPlantillasView({
       const doc = await generarComunicacionInternaPDF(tramitePrueba, {
         plantilla: plantillaDoc,
         cite: `CODELAB/SEDES/01/${new Date().getFullYear()}`,
-        destinatario: 'Dra. Mery D. Loroño V.',
-        destinatarioCargo: 'ASESOR LEGAL - UNIDAD DE CALIDAD Y SERVICIOS',
-        via: 'Dra. Karina Soliz Villarroel',
-        viaCargo: 'JEFE DE LA UNIDAD DE CALIDAD Y SERVICIOS a.i.',
-        remitente: 'Dra. Claudia Morales Valenzuela',
-        remitenteCargo: 'RESPONSABLE DEPARTAMENTAL DE LABORATORIOS CODELAB - SEDES',
+        destinatario: plantillaDoc.destinatario_nombre,
+        destinatarioCargo: plantillaDoc.destinatario_cargo,
+        via: plantillaDoc.via_nombre,
+        viaCargo: plantillaDoc.via_cargo,
+        remitente: plantillaDoc.remitente_nombre,
+        remitenteCargo: plantillaDoc.remitente_cargo,
         regente: 'DRA. NORMA VILLAVICENCIO SILES',
         ciRegente: '4589102 CB',
         responsables_areas: tramitePrueba.responsables_areas,
@@ -230,8 +236,12 @@ export default function EditarPlantillasView({
     { tag: '{FECHA_INSPECCION}', desc: 'Fecha de inspección in situ' },
     { tag: '{TIPO_TRAMITE}', desc: 'Tipo (APERTURA / RENOVACIÓN)' },
     { tag: '{TIPO_TRAMITE_MIN}', desc: 'Tipo en minúsculas' },
-    { tag: '{REMITENTE}', desc: 'Nombre del Coordinador' },
-    { tag: '{REMITENTE_CARGO}', desc: 'Cargo del Coordinador' }
+    { tag: '{DESTINATARIO}', desc: 'Nombre Asesor Legal (A:)' },
+    { tag: '{DESTINATARIO_CARGO}', desc: 'Cargo Asesor Legal' },
+    { tag: '{VIA}', desc: 'Nombre Jefatura UCS (VIA:)' },
+    { tag: '{VIA_CARGO}', desc: 'Cargo Jefatura UCS' },
+    { tag: '{REMITENTE}', desc: 'Nombre Responsable CODELAB (DE:)' },
+    { tag: '{REMITENTE_CARGO}', desc: 'Cargo Responsable CODELAB' }
   ];
 
   return (
@@ -500,23 +510,144 @@ export default function EditarPlantillasView({
               </h3>
             </div>
 
-            {/* Simulación del Membrete A / VIA / DE */}
-            <div className="bg-slate-50/80 p-4 rounded-2xl border border-slate-200 text-xs space-y-1.5 font-medium text-slate-700">
-              <div className="grid grid-cols-4 gap-2">
-                <span className="font-bold text-slate-900">A:</span>
-                <span className="col-span-3">Dra. Mery D. Loroño V. — ASESOR LEGAL (UNIDAD DE CALIDAD Y SERVICIOS)</span>
+            {/* Membrete Oficial Editable A / VIA / DE */}
+            <div className="bg-gradient-to-br from-slate-50 to-blue-50/40 p-5 rounded-2xl border border-blue-100/80 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200/80 pb-3">
+                <div className="flex items-center space-x-2">
+                  <UserCheck className="w-4 h-4 text-[#0060a8]" />
+                  <h4 className="text-xs font-black uppercase tracking-wider text-slate-800">
+                    Autoridades y Destinatarios Oficiales (Membrete A / VIA / DE)
+                  </h4>
+                </div>
+                <span className="text-[10px] font-bold text-sky-700 bg-sky-100/80 px-2.5 py-0.5 rounded-full self-start sm:self-auto">
+                  Editables para renovación anual o cambio de gestión
+                </span>
               </div>
-              <div className="grid grid-cols-4 gap-2">
-                <span className="font-bold text-slate-900">VIA:</span>
-                <span className="col-span-3">Dra. Karina Soliz Villarroel — JEFE DE LA UNIDAD DE CALIDAD Y SERVICIOS a.i.</span>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* 1. Destinatario (A:) */}
+                <div className="bg-white p-3.5 rounded-xl border border-slate-200/80 shadow-2xs space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-black text-indigo-900 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-100">
+                      A: (Destinatario)
+                    </span>
+                    <span className="text-[10px] text-slate-400 font-medium">Asesoría Legal</span>
+                  </div>
+                  <div className="space-y-2">
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-500 uppercase">Nombre y Título</label>
+                      <input
+                        type="text"
+                        value={plantillaDoc.destinatario_nombre || ''}
+                        onChange={(e) => updatePlantillaCampo('destinatario_nombre', e.target.value)}
+                        placeholder="Ej: Dra. Mery D. Loroño V."
+                        className="w-full px-3 py-1.5 text-xs font-semibold text-slate-800 bg-slate-50 border border-slate-200 rounded-lg focus:bg-white focus:ring-2 focus:ring-[#0060a8]/20 focus:border-[#0060a8] transition"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-500 uppercase">Cargo Institucional</label>
+                      <input
+                        type="text"
+                        value={plantillaDoc.destinatario_cargo || ''}
+                        onChange={(e) => updatePlantillaCampo('destinatario_cargo', e.target.value)}
+                        placeholder="Ej: ASESOR LEGAL (UNIDAD DE CALIDAD Y SERVICIOS)"
+                        className="w-full px-3 py-1.5 text-xs font-semibold text-slate-800 bg-slate-50 border border-slate-200 rounded-lg focus:bg-white focus:ring-2 focus:ring-[#0060a8]/20 focus:border-[#0060a8] transition"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* 2. Vía (VIA:) */}
+                <div className="bg-white p-3.5 rounded-xl border border-slate-200/80 shadow-2xs space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-black text-cyan-900 bg-cyan-50 px-2 py-0.5 rounded-md border border-cyan-100">
+                      VIA: (Conducto Regular)
+                    </span>
+                    <span className="text-[10px] text-slate-400 font-medium">Jefatura UCS</span>
+                  </div>
+                  <div className="space-y-2">
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-500 uppercase">Nombre y Título</label>
+                      <input
+                        type="text"
+                        value={plantillaDoc.via_nombre || ''}
+                        onChange={(e) => updatePlantillaCampo('via_nombre', e.target.value)}
+                        placeholder="Ej: Dra. Karina Soliz Villarroel"
+                        className="w-full px-3 py-1.5 text-xs font-semibold text-slate-800 bg-slate-50 border border-slate-200 rounded-lg focus:bg-white focus:ring-2 focus:ring-[#0060a8]/20 focus:border-[#0060a8] transition"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-500 uppercase">Cargo Institucional</label>
+                      <input
+                        type="text"
+                        value={plantillaDoc.via_cargo || ''}
+                        onChange={(e) => updatePlantillaCampo('via_cargo', e.target.value)}
+                        placeholder="Ej: JEFE DE LA UNIDAD DE CALIDAD Y SERVICIOS a.i."
+                        className="w-full px-3 py-1.5 text-xs font-semibold text-slate-800 bg-slate-50 border border-slate-200 rounded-lg focus:bg-white focus:ring-2 focus:ring-[#0060a8]/20 focus:border-[#0060a8] transition"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* 3. Remitente (DE:) */}
+                <div className="bg-white p-3.5 rounded-xl border border-slate-200/80 shadow-2xs space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-black text-emerald-900 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-100">
+                      DE: (Remitente)
+                    </span>
+                    <span className="text-[10px] text-slate-400 font-medium">CODELAB</span>
+                  </div>
+                  <div className="space-y-2">
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-500 uppercase">Nombre y Título</label>
+                      <input
+                        type="text"
+                        value={plantillaDoc.remitente_nombre || ''}
+                        onChange={(e) => updatePlantillaCampo('remitente_nombre', e.target.value)}
+                        placeholder="Ej: Dra. Claudia Morales Valenzuela"
+                        className="w-full px-3 py-1.5 text-xs font-semibold text-slate-800 bg-slate-50 border border-slate-200 rounded-lg focus:bg-white focus:ring-2 focus:ring-[#0060a8]/20 focus:border-[#0060a8] transition"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-500 uppercase">Cargo Institucional</label>
+                      <input
+                        type="text"
+                        value={plantillaDoc.remitente_cargo || ''}
+                        onChange={(e) => updatePlantillaCampo('remitente_cargo', e.target.value)}
+                        placeholder="Ej: RESPONSABLE DEPARTAMENTAL CODELAB"
+                        className="w-full px-3 py-1.5 text-xs font-semibold text-slate-800 bg-slate-50 border border-slate-200 rounded-lg focus:bg-white focus:ring-2 focus:ring-[#0060a8]/20 focus:border-[#0060a8] transition"
+                      />
+                    </div>
+                  </div>
+                </div>
               </div>
-              <div className="grid grid-cols-4 gap-2">
-                <span className="font-bold text-slate-900">DE:</span>
-                <span className="col-span-3">Dra. Claudia Morales Valenzuela — RESPONSABLE DEPARTAMENTAL CODELAB</span>
-              </div>
-              <div className="grid grid-cols-4 gap-2">
-                <span className="font-bold text-slate-900">MOTIVO:</span>
-                <span className="col-span-3">{'{TIPO_TRAMITE}'} "{'{ESTABLECIMIENTO}'}"</span>
+
+              {/* Vista previa compacta de la cabecera formateada */}
+              <div className="bg-white/90 p-3.5 rounded-xl border border-slate-200/80 text-xs space-y-1.5 font-medium text-slate-700">
+                <div className="flex items-center gap-2">
+                  <span className="font-bold text-slate-900 w-16 shrink-0">A:</span>
+                  <span className="text-slate-800 font-semibold truncate">
+                    {plantillaDoc.destinatario_nombre || 'Dra. Mery D. Loroño V.'} <span className="font-normal text-slate-500">— {plantillaDoc.destinatario_cargo || 'ASESOR LEGAL (UNIDAD DE CALIDAD Y SERVICIOS)'}</span>
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="font-bold text-slate-900 w-16 shrink-0">VIA:</span>
+                  <span className="text-slate-800 font-semibold truncate">
+                    {plantillaDoc.via_nombre || 'Dra. Karina Soliz Villarroel'} <span className="font-normal text-slate-500">— {plantillaDoc.via_cargo || 'JEFE DE LA UNIDAD DE CALIDAD Y SERVICIOS a.i.'}</span>
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="font-bold text-slate-900 w-16 shrink-0">DE:</span>
+                  <span className="text-slate-800 font-semibold truncate">
+                    {plantillaDoc.remitente_nombre || 'Dra. Claudia Morales Valenzuela'} <span className="font-normal text-slate-500">— {plantillaDoc.remitente_cargo || 'RESPONSABLE DEPARTAMENTAL CODELAB'}</span>
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="font-bold text-slate-900 w-16 shrink-0">MOTIVO:</span>
+                  <span className="text-slate-600 font-mono text-[11px] truncate">
+                    {'{TIPO_TRAMITE}'} "{'{ESTABLECIMIENTO}'}"
+                  </span>
+                </div>
               </div>
             </div>
 

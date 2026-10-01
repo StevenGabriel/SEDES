@@ -3981,4 +3981,37 @@ Reemplazar el gráfico estático y comprimido de barras de *"Cantidad por Munici
 * **Compilación Frontend:** `npm run build` ejecutado exitosamente con 0 errores (dist generado en 926ms).
 * **Prueba de Endpoint:** Validación de salida JSON con 5 regiones y lista municipal clasificada.
 
+---
+
+## [2026-10-01] Implementación del Generador Oficial de Informe Ejecutivo de Métricas en PDF
+
+### 📌 Objetivo
+Reemplazar la llamada genérica al diálogo de impresión del navegador (`window.print()`) del botón **"Descargar Informe"** por un **Generador de Documentos Oficiales en PDF** con diseño institucional del SEDES Cochabamba, que exporte directamente un informe ejecutivo completo con tablas, KPIs, alertas operativas, distribución territorial y ranking de supervisores.
+
+---
+
+### 🛠️ Archivos Creados y Modificados
+
+#### 1. `frontend/src/components/director/InformeEjecutivoMetricasPDF.js` [NUEVO]
+* **Módulo Generador de PDF con jsPDF y jspdf-autotable:**
+  * **Cabecera Institucional:** Logos oficiales (*Logo Chakana / Ministerio de Salud* y *Escudo de Cochabamba*), membrete formal del Estado Plurinacional de Bolivia, Gobierno Autónomo Departamental y SEDES Cochabamba.
+  * **Metadatos del Informe:** Banner con fecha y hora de emisión, período analizado, nombre y cargo de la autoridad emisora (*Dr. Fernando Castillo - Director General*).
+  * **Sección 1: Indicadores Clave de Gestión (KPIs):** Tabla estilizada con Total de Trámites, Tasa de Aprobación, Tiempo Promedio y % de Cumplimiento Normativo.
+  * **Sección 2: Centro de Alertas y Cuellos de Botella:** Tabla de auditoría con severidades en color (crítico, advertencia, óptimo) y diagnóstico operativo.
+  * **Sección 3: Distribución Territorial Departamental:** Resumen de las 5 Macro-Regiones con balance de laboratorios privados vs. públicos.
+  * **Sección 4: Clasificación por Nivel, Tipología y Estado:** Tabla combinada de niveles de complejidad, sectores y situación operativa.
+  * **Sección 5: Rendimiento del Cuerpo de Supervisores:** Tabla con ranking de fiscalizadores, actas emitidas y calificación.
+  * **Pie de Página Oficial:** Numeración automática de páginas (`Página X de Y`) y leyenda de autenticidad institucional en cada hoja.
+
+#### 2. `frontend/src/pages/DirectorPage.jsx` [MODIFICADO]
+* **Integración del Generador:** Sustitución de `window.print()` por `generarInformeEjecutivoMetricasPDF(datosMetricas, filtros, usuario)`.
+* **Estado de Carga y Feedback:** Estado `generandoInformePdf` con spinner animado `RefreshCw` en el botón y avisos Toast notificando la generación y descarga exitosa del archivo `.pdf`.
+
+---
+
+### 📊 Verificación y Pruebas Realizadas
+* **Compilación Frontend:** `npm run build` ejecutado exitosamente con 0 errores (dist generado en 1.43s).
+* **Descarga Automática:** Generación directa del archivo `Informe_Ejecutivo_Metricas_SEDES_YYYY-MM-DD.pdf`.
+
+
 

@@ -61,7 +61,7 @@ import logoL1 from '../assets/L1.png';
 import logoL2 from '../assets/L2.png';
 import { generarComunicacionInternaPDF } from '../components/coordinador/ComunicacionInternaPDF';
 import { generarResolucionAdministrativaPDF } from '../components/abogado/ResolucionAdministrativaPDF';
-import EditarPlantillasView from '../components/common/EditarPlantillasView';
+import { generarInformeEjecutivoMetricasPDF } from '../components/director/InformeEjecutivoMetricasPDF';
 import { REGIONES_MUNICIPIOS } from '../components/landing/MapSection';
 
 // Obtener iniciales de 2 a 4 letras a partir de nombres y apellidos
@@ -110,7 +110,7 @@ export default function DirectorPage() {
   const navigate = useNavigate();
   const { seccion } = useParams();
 
-  const SECCIONES_VALIDAS = ['consola-administracion', 'metricas-indicadores', 'editar-documentos'];
+  const SECCIONES_VALIDAS = ['consola-administracion', 'metricas-indicadores'];
   const seccionActiva = SECCIONES_VALIDAS.includes(seccion) ? seccion : 'consola-administracion';
 
   const [usuario, setUsuario] = useState(null);
@@ -519,6 +519,7 @@ export default function DirectorPage() {
   const [tabGeo, setTabGeo] = useState('regiones'); // 'regiones' | 'municipios'
   const [filtroMunBusqueda, setFiltroMunBusqueda] = useState('');
   const [rangoMunVista, setRangoMunVista] = useState('top10'); // 'top5', 'top10', 'todos'
+  const [generandoInformePdf, setGenerandoInformePdf] = useState(false);
 
   // Notificaciones
   const [notificaciones, setNotificaciones] = useState([]);
@@ -634,8 +635,22 @@ export default function DirectorPage() {
     mostrarToast('Filtros de métricas restablecidos.', 'info');
   };
 
-  const handleDescargarInforme = () => {
-    window.print();
+  const handleDescargarInforme = async () => {
+    if (!datosMetricas) {
+      mostrarToast('Aún no se han cargado las métricas para generar el informe.', 'warning');
+      return;
+    }
+    setGenerandoInformePdf(true);
+    try {
+      mostrarToast('Generando Informe Ejecutivo Oficial en PDF...', 'info');
+      await generarInformeEjecutivoMetricasPDF(datosMetricas, filtros, usuario);
+      mostrarToast('Informe Ejecutivo descargado con éxito.', 'success');
+    } catch (err) {
+      console.error('Error al generar PDF del Informe Ejecutivo:', err);
+      mostrarToast('Error al generar el Informe Ejecutivo en PDF', 'warning');
+    } finally {
+      setGenerandoInformePdf(false);
+    }
   };
 
   // =====================================================================
@@ -910,14 +925,6 @@ export default function DirectorPage() {
       icon: BarChart3,
       tituloBreadcrumb: 'Métricas, Estadísticas e Indicadores Clave',
       descripcion: 'Visualización de datos analíticos, tiempos de atención, resoluciones e inspecciones.'
-    },
-    {
-      id: 'editar-documentos',
-      path: '/director/editar-documentos',
-      label: 'Editar Documentos',
-      icon: FileEdit,
-      tituloBreadcrumb: 'Editor de Plantillas de Documentos Oficiales',
-      descripcion: 'Personalice los textos normativos, párrafos y fundamentos de los informes técnicos emitidos por el SEDES.'
     }
   ];
 
@@ -1852,15 +1859,20 @@ export default function DirectorPage() {
                       </select>
                     </div>
 
-                    {/* Botón Descargar Informe */}
+                    {/* Botón Descargar Informe Oficial en PDF */}
                     <button
                       type="button"
+                      disabled={generandoInformePdf}
                       onClick={handleDescargarInforme}
-                      className="inline-flex items-center space-x-2 bg-[#1e2d42] hover:bg-[#2b3d56] text-white text-xs font-bold px-4 py-2.5 rounded-xl transition cursor-pointer shadow-xs"
-                      title="Imprimir o exportar informe de métricas"
+                      className="inline-flex items-center space-x-2 bg-[#0077c8] hover:bg-[#0060a8] text-white text-xs font-bold px-4 py-2.5 rounded-xl transition cursor-pointer shadow-xs disabled:opacity-60"
+                      title="Descargar Informe Ejecutivo Oficial en PDF"
                     >
-                      <Download className="w-4 h-4 text-cyan-300" />
-                      <span>Descargar Informe</span>
+                      {generandoInformePdf ? (
+                        <RefreshCw className="w-4 h-4 text-cyan-200 animate-spin" />
+                      ) : (
+                        <Download className="w-4 h-4 text-cyan-200" />
+                      )}
+                      <span>{generandoInformePdf ? 'Generando PDF...' : 'Descargar Informe PDF'}</span>
                     </button>
                   </div>
                 </div>
@@ -3015,16 +3027,6 @@ export default function DirectorPage() {
               </div>
 
             </div>
-          )}
-
-          {/* =================================================================== */}
-          {/* SECCIÓN 3: EDITAR PLANTILLAS DE DOCUMENTOS OFICIALES               */}
-          {/* =================================================================== */}
-          {seccionActiva === 'editar-documentos' && (
-            <EditarPlantillasView
-              usuario={usuarioLogueado}
-              mostrarToast={mostrarToast}
-            />
           )}
 
         </main>
