@@ -264,16 +264,6 @@ export default function AbogadoPage() {
         const data = await res.json();
         const lista = data.informes || [];
         setInformes(lista);
-        if (lista.length > 0) {
-          setTramiteSeleccionadoId(prev => {
-            const existe = lista.find(x => x.id === prev);
-            return existe ? prev : lista[0].id;
-          });
-        } else {
-          setTramiteSeleccionadoId(null);
-          setDetalleInforme(null);
-          setBorradorResolucion(null);
-        }
       }
     } catch (err) {
       console.warn('Error al cargar informes:', err);
@@ -469,6 +459,19 @@ export default function AbogadoPage() {
     if (tramiteSeleccionadoId) {
       cargarDetalleInforme(tramiteSeleccionadoId);
       cargarBorradorResolucion(tramiteSeleccionadoId);
+    } else {
+      if (pdfInformeUrlRef.current) {
+        URL.revokeObjectURL(pdfInformeUrlRef.current);
+        pdfInformeUrlRef.current = null;
+      }
+      if (pdfResolucionUrlRef.current) {
+        URL.revokeObjectURL(pdfResolucionUrlRef.current);
+        pdfResolucionUrlRef.current = null;
+      }
+      setPdfInformeBlobUrl(null);
+      setPdfResolucionBlobUrl(null);
+      setDetalleInforme(null);
+      setBorradorResolucion(null);
     }
   }, [tramiteSeleccionadoId, cargarDetalleInforme, cargarBorradorResolucion]);
 

@@ -99,12 +99,11 @@ class EnviarCoordinadorRequest(GuardarResolucionRequest):
 @router.get("/informes", summary="Obtener lista de informes técnicos reales para conversión en resoluciones")
 def listar_informes_recibidos(db: Session = Depends(get_db)):
     """
-    Retorna ÚNICAMENTE los informes técnicos y trámites reales generados o derivados
-    por el Coordinador (estado 'Derivado a Asesoría Legal', 'En Asesoría Legal', 'En Informe Técnico' o 'Aprobado')
-    listos para revisión jurídica y elaboración de la Resolución Administrativa.
+    Retorna ÚNICAMENTE los informes técnicos y trámites reales derivados formalmente
+    por el Coordinador (estado 'Derivado a Asesoría Legal' o 'En Asesoría Legal')
+    que están pendientes de revisión jurídica o elaboración de Resolución Administrativa.
     """
-    # Filtrar trámites reales de PostgreSQL que han pasado por Informe Técnico
-    estados_validos = ["Derivado a Asesoría Legal", "En Asesoría Legal", "En Informe Técnico", "Aprobado"]
+    estados_validos = ["Derivado a Asesoría Legal", "En Asesoría Legal"]
     tramites_db = db.query(models.Tramite).join(models.Establecimiento).filter(
         models.Tramite.estado == True,
         models.Tramite.estado_tramite.in_(estados_validos)
@@ -116,12 +115,8 @@ def listar_informes_recibidos(db: Session = Depends(get_db)):
         ord_val = f_val.toordinal() if hasattr(f_val, 'toordinal') else 0
         if est == "Derivado a Asesoría Legal":
             return (0, -ord_val)
-        elif est in ["En Informe Técnico", "En Asesoría Legal"]:
-            return (1, -ord_val)
-        elif est == "Aprobado":
-            return (2, -ord_val)
         else:
-            return (3, -ord_val)
+            return (1, -ord_val)
 
     tramites_db = sorted(tramites_db, key=obtener_prioridad_tramite)
 
@@ -145,18 +140,16 @@ def listar_informes_recibidos(db: Session = Depends(get_db)):
         
         # Verificar si ya existe resolución guardada
         resol = resoluciones_db.get(t_id_str)
+
+        # Si ya fue enviado al coordinador o emitido/aprobado, no está pendiente en informes recibidos
+        if resol and resol.estado_resolucion in ["Enviado a Coordinador", "Emitido", "Aprobado"]:
+            continue
         
         if resol:
             estado_proceso = resol.estado_resolucion
-            resolucion_iniciada = (resol.estado_resolucion in ["En edición final", "Enviado a Coordinador", "Emitido", "Aprobado"])
+            resolucion_iniciada = (resol.estado_resolucion == "En edición final")
         elif t.estado_tramite == "Derivado a Asesoría Legal":
             estado_proceso = "Pendiente de Revisión"
-            resolucion_iniciada = False
-        elif t.estado_tramite == "Aprobado":
-            estado_proceso = "Aprobado"
-            resolucion_iniciada = True
-        elif t.estado_tramite == "En Informe Técnico":
-            estado_proceso = "En Informe Técnico"
             resolucion_iniciada = False
         elif t.estado_tramite == "En Asesoría Legal":
             estado_proceso = "En Asesoría Legal"
@@ -185,7 +178,7 @@ def listar_informes_recibidos(db: Session = Depends(get_db)):
         })
 
     # Conteo de pendientes
-    pendientes_count = len([x for x in lista_informes if x["estado_proceso"] not in ["Emitido", "Aprobado"]])
+    pendientes_count = len([x for x in lista_informes if x["estado_proceso"] not in ["Emitido", "Aprobado", "Enviado a Coordinador"]])
 
     return {
         "informes": lista_informes,
@@ -203,16 +196,19 @@ def obtener_detalle_informe(tramite_id: str, db: Session = Depends(get_db)):
     Retorna el informe técnico consolidado real desde PostgreSQL: datos del establecimiento,
     resumen de carpeta legal, dictamen de inspección de campo y observaciones del coordinador.
     """
-    tramite = None
-    if tramite_id and tramite_id.lower() not in ["null", "undefined", "default", "first"]:
-        try:
-            t_uuid = uuid.UUID(tramite_id)
-            tramite = db.query(models.Tramite).filter(models.Tramite.id == t_uuid).first()
-        except Exception:
-            pass
+    if not tramite_id or str(tramite_id).strip().lower() in ["null", "undefined", "default", "first", ""]:
+        raise HTTPException(status_code=400, detail="Identificador de trámite no especificado.")
 
-        if not tramite:
-            clean_code = tramite_id.replace("TRM-", "").replace("REQ-", "").strip().lower()
+    tramite = None
+    try:
+        t_uuid = uuid.UUID(str(tramite_id).strip())
+        tramite = db.query(models.Tramite).filter(models.Tramite.id == t_uuid).first()
+    except Exception:
+        pass
+
+    if not tramite:
+        clean_code = str(tramite_id).replace("TRM-", "").replace("REQ-", "").strip().lower()
+        if clean_code:
             tramites = db.query(models.Tramite).filter(models.Tramite.estado == True).all()
             for t in tramites:
                 t_str = str(t.id).lower()
@@ -221,15 +217,7 @@ def obtener_detalle_informe(tramite_id: str, db: Session = Depends(get_db)):
                     break
 
     if not tramite:
-        # Fallback al primer trámite derivado a asesoría legal o con informe técnico solo si no se pasó un ID específico válido
-        estados_validos = ["Derivado a Asesoría Legal", "En Asesoría Legal", "En Informe Técnico", "Aprobado"]
-        tramite = db.query(models.Tramite).filter(
-            models.Tramite.estado == True,
-            models.Tramite.estado_tramite.in_(estados_validos)
-        ).order_by(desc(models.Tramite.fecha_creacion)).first()
-
-    if not tramite:
-        raise HTTPException(status_code=404, detail="No se encontró ningún trámite con informe técnico generado.")
+        raise HTTPException(status_code=404, detail="No se encontró el trámite especificado.")
 
     estab = tramite.establecimiento
     prop = estab.propietario if estab else None
