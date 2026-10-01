@@ -829,6 +829,8 @@ Optimizar la experiencia del Propietario en el portal de trámites y el sistema 
   * En el `useEffect` dependiente de `tramiteSeleccionadoId`, se añadió la revocación de URLs de objeto (`URL.revokeObjectURL`) y reseteo completo de estados (`detalleInforme`, `borradorResolucion`, `pdfInformeBlobUrl`, `pdfResolucionBlobUrl`) cuando el ID es `null`.
 * **Sincronización Idempotente de `listaCardsMostrada`:**
   * Si `listaCardsMostrada` tiene longitud 0, se limpian todos los estados y se muestra de forma persistente y estable la pantalla de *"Sin informes técnicos pendientes"*, erradicando el parpadeo en polling (cada 20s) y al alternar pestañas.
+* **Estandarización del Logo SI_Lab en Barra Lateral:**
+  * Se reemplazó el enlace `<Link to="/">` por un encabezado institucional no cliqueable (`select-none`), homogeneizando el comportamiento con las demás consolas del sistema (Coordinador, Director, Admin, Supervisor, Propietario) para evitar redirecciones accidentales fuera de la sesión activa.
 
 ---
 
