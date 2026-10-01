@@ -38,6 +38,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
 import logoL1 from '../assets/L1.png';
+import logoSedes from '../assets/LogoSedes.png';
 import logoL2 from '../assets/L2.png';
 import { generarComunicacionInternaPDF } from '../components/coordinador/ComunicacionInternaPDF';
 import { generarResolucionAdministrativaPDF } from '../components/abogado/ResolucionAdministrativaPDF';
@@ -1081,10 +1082,12 @@ export default function AbogadoPage() {
 
         {/* Footer del Sidebar con Escudos Institucionales */}
         <div className="p-6 space-y-4 border-t border-white/10 bg-[#00518f] mt-auto">
-          <div className="flex items-center justify-center space-x-4 opacity-90">
-            <img src={logoL1} alt="Escudo de Bolivia" className="h-9 object-contain" />
-            <div className="h-6 w-px bg-white/20" />
-            <img src={logoL2} alt="Gobernación de Cochabamba" className="h-9 object-contain" />
+          <div className="flex items-center justify-center space-x-3 opacity-90">
+            <img src={logoL1} alt="Escudo de Bolivia" className="h-8 object-contain" />
+            <div className="h-5 w-px bg-white/20" />
+            <img src={logoSedes} alt="SEDES Cochabamba" className="h-8 object-contain" />
+            <div className="h-5 w-px bg-white/20" />
+            <img src={logoL2} alt="Gobernación de Cochabamba" className="h-8 object-contain" />
           </div>
 
           <div className="text-center text-[10px] text-blue-200/80 leading-snug">
