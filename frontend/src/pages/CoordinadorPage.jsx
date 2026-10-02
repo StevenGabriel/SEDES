@@ -296,6 +296,7 @@ export default function CoordinadorPage() {
   // Estado para el módulo de Asignación de Supervisores
   const [supervisoresDisponibles, setSupervisoresDisponibles] = useState([]);
   const [tramitesAsignacion, setTramitesAsignacion] = useState([]);
+  const [supervisoresSeleccionados, setSupervisoresSeleccionados] = useState({});
 
   // Estado para el módulo de Historial y Trazabilidad
   const [filtroHistorialTexto, setFiltroHistorialTexto] = useState('');
@@ -466,7 +467,18 @@ export default function CoordinadorPage() {
       }
 
       if (resAsignacion.status === 'fulfilled' && resAsignacion.value?.tramites) {
-        setTramitesAsignacion(resAsignacion.value.tramites);
+        setTramitesAsignacion(prev => {
+          const nuevos = resAsignacion.value.tramites;
+          return nuevos.map(n => {
+            const anterior = prev.find(p => p.codigo === n.codigo || p.tramite_uuid === n.tramite_uuid);
+            const supGuardado = supervisoresSeleccionados[n.codigo] || (n.tramite_uuid ? supervisoresSeleccionados[n.tramite_uuid] : null) || anterior?.supervisorAsignado;
+            // Si no está asignado en backend pero el coordinador ya lo había seleccionado en UI, mantener la selección
+            if (!n.yaAsignado && supGuardado && !n.supervisorAsignado) {
+              return { ...n, supervisorAsignado: supGuardado };
+            }
+            return n;
+          });
+        });
       }
 
       if (resHistorial.status === 'fulfilled' && resHistorial.value?.actividades) {
@@ -789,8 +801,12 @@ export default function CoordinadorPage() {
 
   // Manejar cambio de supervisor seleccionado en tabla
   const handleSelectSupervisorChange = (codigoTramite, nombreSupervisor) => {
+    setSupervisoresSeleccionados(prev => ({
+      ...prev,
+      [codigoTramite]: nombreSupervisor
+    }));
     setTramitesAsignacion(prev => prev.map(t => {
-      if (t.codigo === codigoTramite) {
+      if (t.codigo === codigoTramite || t.tramite_uuid === codigoTramite) {
         return { ...t, supervisorAsignado: nombreSupervisor };
       }
       return t;
@@ -799,13 +815,17 @@ export default function CoordinadorPage() {
 
   // Asignar supervisor a trámite (Backend conectado a PostgreSQL con actualización reactiva inmediata)
   const handleAsignarSupervisor = async (codigoTramite) => {
-    const tramite = tramitesAsignacion.find(t => t.codigo === codigoTramite);
-    if (!tramite || !tramite.supervisorAsignado) {
+    const tramite = tramitesAsignacion.find(t => t.codigo === codigoTramite || t.tramite_uuid === codigoTramite);
+    const supervisorElegido = supervisoresSeleccionados[codigoTramite] || 
+      (tramite?.tramite_uuid ? supervisoresSeleccionados[tramite.tramite_uuid] : null) || 
+      tramite?.supervisorAsignado;
+
+    if (!tramite || !supervisorElegido) {
       mostrarToast('Por favor seleccione un supervisor de la lista antes de asignar.', 'warning');
       return;
     }
 
-    const supervisor = supervisoresDisponibles.find(s => s.nombre === tramite.supervisorAsignado);
+    const supervisor = supervisoresDisponibles.find(s => s.nombre === supervisorElegido);
     if (supervisor && supervisor.asignados >= supervisor.maxCapacidad) {
       mostrarToast(`El supervisor ${supervisor.nombre} ha alcanzado su capacidad máxima (5/5). Seleccione otro supervisor disponible.`, 'warning');
       return;
@@ -817,13 +837,21 @@ export default function CoordinadorPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           codigo_tramite: tramite.tramite_uuid || codigoTramite,
-          supervisor_nombre: tramite.supervisorAsignado,
+          supervisor_nombre: supervisorElegido,
           responsable: nombreCoordinador
         })
       });
 
       if (response.ok) {
-        mostrarToast(`¡Trámite ${codigoTramite} (${tramite.establecimiento}) asignado con éxito a ${tramite.supervisorAsignado}!`, 'success');
+        mostrarToast(`¡Trámite ${codigoTramite} (${tramite.establecimiento}) asignado con éxito a ${supervisorElegido}!`, 'success');
+
+        // Limpiar selección temporal una vez asignado con éxito
+        setSupervisoresSeleccionados(prev => {
+          const copia = { ...prev };
+          delete copia[codigoTramite];
+          if (tramite.tramite_uuid) delete copia[tramite.tramite_uuid];
+          return copia;
+        });
 
         // 1. Actualización reactiva inmediata en la tabla de asignación
         setTramitesAsignacion(prev => prev.map(t => {
@@ -831,7 +859,7 @@ export default function CoordinadorPage() {
             return {
               ...t,
               yaAsignado: true,
-              supervisorAsignado: tramite.supervisorAsignado
+              supervisorAsignado: supervisorElegido
             };
           }
           return t;
@@ -842,7 +870,7 @@ export default function CoordinadorPage() {
           if (t.id === (tramite.tramite_uuid || codigoTramite) || t.tramite_uuid === (tramite.tramite_uuid || codigoTramite) || t.codigo === codigoTramite) {
             return {
               ...t,
-              supervisorAsignado: tramite.supervisorAsignado,
+              supervisorAsignado: supervisorElegido,
               supervisor_id: supervisor?.id || 'asignado'
             };
           }
@@ -1003,18 +1031,19 @@ export default function CoordinadorPage() {
         setMotivoObservacionDoc('');
         recargarHistorial();
 
-        // Avance automático al siguiente documento al aprobar
-        if (nuevoEstado === 'Aprobado') {
-          const indexActual = docsFiltrados.findIndex(d => d.id === docActual.id);
-          if (indexActual !== -1 && indexActual < docsFiltrados.length - 1) {
-            const siguienteDoc = docsFiltrados[indexActual + 1];
-            setDocSeleccionadoId(siguienteDoc.id);
-          } else {
-            // Si era el último de la lista filtrada, buscar si hay algún otro documento pendiente en el expediente
-            const otrosPendientes = docsDisponibles.filter(d => d.id !== docActual.id && d.estado !== 'Aprobado');
-            if (otrosPendientes.length > 0) {
-              setDocSeleccionadoId(otrosPendientes[0].id);
-            } else {
+        // Avance automático al siguiente documento al evaluar (Aprobar, Observar o Rechazar)
+        const indexActual = docsFiltrados.findIndex(d => d.id === docActual.id);
+        if (indexActual !== -1 && indexActual < docsFiltrados.length - 1) {
+          const siguienteDoc = docsFiltrados[indexActual + 1];
+          setDocSeleccionadoId(siguienteDoc.id);
+        } else {
+          // Si era el último de la lista filtrada, buscar si hay algún otro documento pendiente en el expediente
+          const otrosPendientes = docsDisponibles.filter(d => d.id !== docActual.id && d.estado === 'En Revisión');
+          if (otrosPendientes.length > 0) {
+            setDocSeleccionadoId(otrosPendientes[0].id);
+          } else if (nuevoEstado === 'Aprobado') {
+            const todosAprobados = docsDisponibles.every(d => d.id === docActual.id ? true : d.estado === 'Aprobado');
+            if (todosAprobados) {
               mostrarToast('🎉 ¡Excelente! Ha revisado y aprobado todos los documentos del expediente.', 'success');
             }
           }
@@ -3220,20 +3249,23 @@ export default function CoordinadorPage() {
                             ) : (
                               <div className="relative">
                                 <select
-                                  value={item.supervisorAsignado}
+                                  value={supervisoresSeleccionados[item.codigo] ?? (item.tramite_uuid ? supervisoresSeleccionados[item.tramite_uuid] : null) ?? item.supervisorAsignado ?? ''}
                                   onChange={(e) => handleSelectSupervisorChange(item.codigo, e.target.value)}
                                   className="w-full bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-[#0077c8] cursor-pointer appearance-none pr-8"
                                 >
                                   <option value="">Seleccionar supervisor...</option>
-                                  {supervisoresDisponibles.map((s) => (
-                                    <option
-                                      key={s.id}
-                                      value={s.nombre}
-                                      disabled={s.asignados >= s.maxCapacidad && item.supervisorAsignado !== s.nombre}
-                                    >
-                                      {s.nombre} ({s.asignados}/{s.maxCapacidad}{s.asignados >= s.maxCapacidad ? ' - Lleno' : ''})
-                                    </option>
-                                  ))}
+                                  {supervisoresDisponibles.map((s) => {
+                                    const supActual = supervisoresSeleccionados[item.codigo] ?? (item.tramite_uuid ? supervisoresSeleccionados[item.tramite_uuid] : null) ?? item.supervisorAsignado;
+                                    return (
+                                      <option
+                                        key={s.id}
+                                        value={s.nombre}
+                                        disabled={s.asignados >= s.maxCapacidad && supActual !== s.nombre}
+                                      >
+                                        {s.nombre} ({s.asignados}/{s.maxCapacidad}{s.asignados >= s.maxCapacidad ? ' - Lleno' : ''})
+                                      </option>
+                                    );
+                                  })}
                                 </select>
                                 <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-slate-400">
                                   <ChevronRight className="w-3.5 h-3.5 rotate-90" />
@@ -3252,9 +3284,9 @@ export default function CoordinadorPage() {
                             ) : (
                               <button
                                 onClick={() => handleAsignarSupervisor(item.codigo)}
-                                disabled={!item.supervisorAsignado}
+                                disabled={!(supervisoresSeleccionados[item.codigo] || (item.tramite_uuid ? supervisoresSeleccionados[item.tramite_uuid] : null) || item.supervisorAsignado)}
                                 className={`font-bold text-xs px-5 py-1.5 rounded-lg transition-all shadow-xs active:scale-95 ${
-                                  item.supervisorAsignado
+                                  (supervisoresSeleccionados[item.codigo] || (item.tramite_uuid ? supervisoresSeleccionados[item.tramite_uuid] : null) || item.supervisorAsignado)
                                     ? 'bg-[#19324d] hover:bg-[#102235] text-white cursor-pointer'
                                     : 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed'
                                 }`}
@@ -3703,16 +3735,32 @@ export default function CoordinadorPage() {
                     'Ubicación o dirección georreferenciada no coincide',
                     'Horario de atención incompleto o sin responsable',
                     'Falta cédula de identidad del regente técnico'
-                  ].map((sug, idx) => (
-                    <button
-                      key={idx}
-                      type="button"
-                      onClick={() => setMotivoObservacionDatos(prev => prev ? `${prev}. ${sug}` : sug)}
-                      className="text-[10px] bg-slate-100 hover:bg-slate-200 text-slate-700 px-2 py-1 rounded-md border border-slate-200 transition cursor-pointer"
-                    >
-                      + {sug}
-                    </button>
-                  ))}
+                  ].map((sug, idx) => {
+                    const yaAgregado = motivoObservacionDatos?.includes(sug);
+                    return (
+                      <button
+                        key={idx}
+                        type="button"
+                        disabled={yaAgregado}
+                        onClick={() => {
+                          if (!yaAgregado) {
+                            setMotivoObservacionDatos(prev => {
+                              const textoLimpio = prev ? prev.trim() : '';
+                              if (!textoLimpio) return sug;
+                              return textoLimpio.endsWith('.') ? `${textoLimpio} ${sug}` : `${textoLimpio}. ${sug}`;
+                            });
+                          }
+                        }}
+                        className={`text-[10px] px-2 py-1 rounded-md border transition ${
+                          yaAgregado
+                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200 cursor-not-allowed opacity-80 font-semibold'
+                            : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200 cursor-pointer active:scale-95'
+                        }`}
+                      >
+                        {yaAgregado ? '✓' : '+'} {sug}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 

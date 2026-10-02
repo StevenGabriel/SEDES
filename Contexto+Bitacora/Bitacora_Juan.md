@@ -840,4 +840,40 @@ Optimizar la experiencia del Propietario en el portal de trámites y el sistema 
 * **jsPDF & Visor Embebido:** Gestión segura de URLs Blob creadas en tiempo de ejecución para evitar fugas de memoria y renders fantasmas.
 
 ---
+---
+
+## [2026-10-02] Optimización de Flujo de Revisión, Control de Sugerencias y Persistencia en Asignación de Supervisores (Consola del Coordinador)
+
+### 📌 Objetivo
+1. **Control de Clic Único en Sugerencias Frecuentes:** Evitar la duplicación de textos de observación en el modal de *"Observar Datos del Establecimiento"*, limitando la selección de cada sugerencia a un solo clic y brindando retroalimentación visual clara e interactiva.
+2. **Navegación Automática al Observar/Rechazar Documentos:** Unificar el comportamiento de validación documental para que, al registrar una observación o rechazo sobre un requisito legal, el visor avance automáticamente al siguiente documento (análogo a la funcionalidad de *"Aprobar y Siguiente"*).
+3. **Persistencia Reactiva en la Asignación de Supervisores:** Corregir el bug que provocaba que la selección de un supervisor en el dropdown `<select>` se desvaneciera y volviera a su estado vacío cada 10-20 segundos a causa del polling de sincronización silencioso en segundo plano.
+
+---
+
+### 🛠️ Archivos Modificados
+
+#### 1. `frontend/src/pages/CoordinadorPage.jsx` [MODIFICADO / CORREGIDO]
+* **Control Inteligente de Sugerencias Frecuentes:**
+  * Se implementó verificación en tiempo real (`motivoObservacionDatos.includes(sug)`) en cada botón de sugerencia rápida.
+  * Cuando una sugerencia ya ha sido agregada al cuadro de texto, el botón se deshabilita (`disabled={yaAgregado}`), cambia el prefijo `+` por `✓`, adopta un estilo verde esmeralda distintivo y previene inserciones repetitivas.
+  * Si el usuario elimina o edita manualmente el texto correspondiente en el textarea, el botón se reactiva dinámicamente.
+* **Avance Automático en Validación Documental (`handleCambiarEstadoDoc`):**
+  * Se amplió la lógica de navegación secuencial para que tanto las aprobaciones como las observaciones y rechazos (`Observado` / `Rechazado`) busquen el índice en `docsFiltrados` y avancen inmediatamente al `siguienteDoc` (o al primer documento en estado `'En Revisión'` del expediente).
+  * Se optimizó el flujo operativo del coordinador, permitiéndole revisar y despachar expedientes completos con mínima fricción y sin necesidad de clicks adicionales de navegación manual.
+* **Persistencia Inmune a Polling en la Tabla de Asignación:**
+  * Se introdujo el estado reactivo dedicado `supervisoresSeleccionados` (mapa clave-valor por código/UUID de trámite).
+  * El manejador `handleSelectSupervisorChange` registra de manera inmediata la elección del coordinador en dicho estado.
+  * El `<select>` y el botón **"Asignar"** están vinculados directamente a este mapa prioritario, garantizando que los refrescos en segundo plano (`cargarDatosBackend`) nunca reseteen la selección del usuario mientras decide confirmar la asignación.
+  * Al completar con éxito la asignación en PostgreSQL mediante el endpoint `POST /api/coordinador/asignar-supervisor`, la selección temporal se limpia de forma ordenada.
+
+---
+
+### 🎨 Tecnologías y Componentes Aplicados
+* **React 19 & State Management:** Manejo de diccionarios reactivos (`supervisoresSeleccionados`), callbacks de sincronización asíncrona y preservación defensiva del estado en tiempo de renderizado.
+* **TailwindCSS & Micro-interacciones:** Retroalimentación de estados de formulario (botones deshabilitados con feedback positivo `✓`, selectores controlados con flechas estilizadas).
+* **Integración REST API & Polling Silencioso:** Sincronización transparente cliente-servidor con reconciliación de datos sin pérdida de estado en formularios activos.
+
+---
 *Bitácora actualizada por: Juan*
+
