@@ -3860,3 +3860,158 @@ Implementar capacidades avanzadas de análisis temporal y auditoría técnica in
 ### 📊 Verificación y Pruebas Realizadas
 * **Compilación Frontend:** `npm run build` ejecutado exitosamente con 0 errores (dist generado en 849ms).
 * **Integración API & Archivos:** Verificación de resolución de URLs absolutas para actas firmadas y compatibilidad de parámetros en el modal de expedientes.
+
+---
+
+## [2026-09-30] Actualización Integral de Filtros y Períodos Dinámicos en Métricas e Indicadores del Director
+
+### 📌 Objetivo
+Actualizar y expandir la barra de filtros de la sección de **"Métricas e Indicadores"** ([`DirectorPage.jsx`](file:///c:/Users/ASUS/Music/SEDES/frontend/src/pages/DirectorPage.jsx)) para dotar a la Dirección General de un análisis multidimensional moderno:
+1. **Selector de Períodos Dinámico en Cabecera:** Opciones de rango temporal rápido (*Todo el Historial / 2026*, *Este Mes*, *Últimos 30 días*, *Últimos 7 días*, *Personalizado Desde/Hasta*).
+2. **Ampliación de Dimensiones de Filtrado:** Incorporación de selectores para **Tipo de Trámite** (*Apertura*, *Renovación*), **Supervisor Asignado** (*Marco Antonio Vargas*, *Patricia Valenzuela*, *Carlos Ruiz*, *Andrea Torrico*) y **Estado del Trámite** (*Aprobado*, *Enviado a Coordinador*, *Pendiente*, *Resolución Lista para Firma*), sumados a los filtros existentes de Municipio, Sector, Nivel, Propietario, Regente, Áreas y Dirección.
+3. **Chips Reactivos de Filtros Activos:** Visualización de chips con contador de filtros aplicados y botón `(x)` para remover filtros específicos con un solo clic.
+
+---
+
+### 🛠️ Archivos Modificados y Soluciones Aplicadas
+
+#### 1. `backend/director.py` [MODIFICADO]
+* **Endpoint `/api/director/filtros-opciones`:**
+  * Se integró el catálogo oficial completo de los **47 Municipios de Cochabamba** clasificados por sus 5 regiones geográficas más los municipios registrados en la base de datos.
+  * Se añadieron las listas dinámicas de `tipos_tramite`, `estados_tramite` y `supervisores` consultando directamente la base de datos PostgreSQL.
+  * **Sanitización de Responsables de Áreas:** Se implementó un algoritmo de extracción inteligente que parsea estructuras JSON y cadenas delimitadas (`Área: Nombre (CI: ...)`), extrayendo única y exclusivamente los nombres limpios de los profesionales para el menú desplegable.
+* **Endpoint `/api/director/metricas-indicadores`:**
+  * Soporte para `periodo_predefinido`, `fecha_inicio`, `fecha_fin`, `tipo_tramite`, `estado_tramite` y `supervisor`.
+  * Normalización defensiva de parámetros para compatibilidad total con inyecciones de FastAPI y pruebas directas en scripts Python.
+
+#### 2. `frontend/src/pages/DirectorPage.jsx` [MODIFICADO]
+* **Catálogo de 47 Municipios por Regiones:** Se integró `REGIONES_MUNICIPIOS` en el selector con `<optgroup>` para clasificar los 47 municipios en *Región Metropolitana*, *Valle Alto*, *Trópico*, *Cono Sur* y *Zona Andina y Valles*.
+* **Estado `filtros` y `opcionesFiltros`:** Sincronización completa con los nuevos parámetros temporales y dimensionales.
+* **Cabecera de Métricas:** Selector con icono de calendario y controles de fecha personalizados `Desde` / `Hasta`.
+* **Barra de Chips de Filtros Activos:** Renderizado dinámico de etiquetas de descarte rápido y contador de filtros activos.
+* **Grid Reorganizado de 12 Selectores:** Distribución responsiva y estilizada con estados activos destacados en azul institucional (`#0077c8`).
+
+---
+
+### 📊 Verificación y Pruebas Realizadas
+* **Compilación Frontend:** `npm run build` ejecutado exitosamente con 0 errores (dist generado en 898ms).
+* **Pruebas de Backend:** Script de verificación ejecutado con éxito sobre `/api/director/filtros-opciones` y `/api/director/metricas-indicadores` validando todos los períodos y filtros dimensionales.
+
+---
+
+## [2026-10-01] Implementación del Centro Interactivo de Alertas y Cuellos de Botella Operativos en Métricas del Director
+
+### 📌 Objetivo
+Transformar el bloque estático de *"Cuellos de Botella Identificados"* en un **Centro Interactivo de Alertas y Cuellos de Botella Operativos** dentro de la pestaña de *Métricas e Indicadores* del Director ([`DirectorPage.jsx`](file:///c:/Users/ASUS/Music/SEDES/frontend/src/pages/DirectorPage.jsx)). La meta es dotar a la Máxima Autoridad Ejecutiva (MAE) de visibilidad en tiempo real sobre el cumplimiento normativo departamental, expedientes fuera de plazo, documentos observados, inspecciones de campo en curso y resoluciones preparadas para firma.
+
+---
+
+### 🛠️ Archivos Modificados y Soluciones Aplicadas
+
+#### 1. `backend/director.py` [MODIFICADO]
+* **Cálculo de Métricas y Alertas Operativas en Tiempo Real (`obtener_metricas_indicadores`):**
+  * **Trámites Fuera de Plazo (`tramites_demorados`):** Detección de trámites activos con más de 15 días calendario transcurridos desde su creación sin resolución final.
+  * **Documentación con Observaciones (`docs_observados_count`):** Conteo de documentos en `TramiteDocumento` con estado de validación `Observado` o `Rechazado` pendientes de subsanación.
+  * **Inspecciones de Campo en Proceso (`inspecciones_pendientes_count`):** Conteo de inspecciones en estados `Pendiente`, `Reprogramada`, `Asignada` o `En Proceso` que requieren emisión de acta técnica.
+  * **Expedientes Listos para Firma de Dirección (`resoluciones_listas_count`):** Identificación de trámites con dictamen favorable e informe técnico aprobado esperando Resolución Administrativa.
+  * **Índice de Cumplimiento Normativo SEDES (`cumplimiento_pct`):** Porcentaje de expedientes tramitados dentro de los plazos reglamentarios.
+  * **Estructura Dinámica de Alertas:** Generación de objetos con nivel de severidad (`critico`, `advertencia`, `info`, `prioritario`, `optimo`), paleta semántica (`rose`, `amber`, `sky`, `teal`, `emerald`) e iconos Lucide correspondientes.
+
+#### 2. `frontend/src/pages/DirectorPage.jsx` [MODIFICADO]
+* **Centro de Alertas y Cuellos de Botella:**
+  * **Cabecera Ejecutiva:** Título con icono de alerta, badge porcentual de cumplimiento normativo (`% en plazo`) con código de colores según nivel de eficiencia (verde $\ge 80\%$, ámbar $\ge 50\%$, rojo $< 50\%$) y barra de progreso animada.
+  * **Grid 2x2 de Tarjetas de Alerta:**
+    1. 🔴 **Fuera de Plazo (>15 días):** Icono `Clock`, contador con badge rojo suave y detalle de trámites con retraso normativo.
+    2. 🟡 **Docs. con Observación:** Icono `FileWarning`, contador con badge ámbar y resumen de expedientes en espera de subsanación.
+    3. 🔵 **Inspecciones en Curso:** Icono `ClipboardList`, contador con badge celeste y seguimiento de inspecciones de campo asignadas.
+    4. 🟢/💠 **Listos para Firma:** Icono `FileCheck`, contador con badge verde azulado y resumen de resoluciones listas para rúbrica de la MAE.
+  * **Compatibilidad Retrospectiva:** Renderizado defensivo que soporta tanto el nuevo formato estructurado como el formato anterior de cadenas de texto.
+
+---
+
+### 📊 Verificación y Pruebas Realizadas
+* **Compilación Frontend:** `npm run build` ejecutado exitosamente con 0 errores (dist generado en 2.97s).
+* **Integración API Backend:** Verificación del payload JSON emitido por `/api/director/metricas-indicadores` con los 4 indicadores y la tasa de cumplimiento.
+
+---
+
+## [2026-10-01] Implementación del Panel Ejecutivo Multidimensional de Distribución Territorial (5 Macro-Regiones y 47 Municipios)
+
+### 📌 Objetivo
+Reemplazar el gráfico estático y comprimido de barras de *"Cantidad por Municipio"* en la vista de *Métricas e Indicadores* del Director ([`DirectorPage.jsx`](file:///c:/Users/ASUS/Music/SEDES/frontend/src/pages/DirectorPage.jsx)) por un **Panel Ejecutivo Multidimensional** que permita visualizar de forma clara, jerárquica y sin truncamientos los **47 municipios del departamento de Cochabamba** clasificados en sus **5 macro-regiones oficiales**.
+
+---
+
+### 🛠️ Archivos Modificados y Soluciones Aplicadas
+
+#### 1. `backend/director.py` [MODIFICADO]
+* **Diccionario de Mapeo Geográfico Departamental (`MAPA_MUNICIPIO_REGION`):**
+  * Asignación oficial de cada uno de los 47 municipios a su correspondiente macro-región:
+    1. **Región Metropolitana:** Cercado, Sacaba, Quillacollo, Colcapirhua, Tiquipaya, Vinto, Sipe Sipe.
+    2. **Valle Alto:** Punata, Cliza, Tarata, Arani, Arbieto, Tolata, San Benito, Toco, Villa Rivero, Tacachi, Cuchumuela, Anzaldo, Santiváñez.
+    3. **Trópico de Cochabamba:** Villa Tunari, Shinahota, Chimoré, Puerto Villarroel, Entre Ríos.
+    4. **Cono Sur:** Aiquile, Mizque, Totora, Pasorapa, Omereque, Pocona, Pojo, Vacas, Alalay, Vila Vila.
+    5. **Zona Andina y Valles:** Capinota, Arque, Tapacarí, Bolívar, Independencia, Morochata, Cocapata, Sicaya, Tacopaya, Colomi, Sacabamba, Tiraque.
+* **Cálculo de Distribución por Macro-Regiones (`distribucion_regiones`):** Conteo de laboratorios totales, privados, públicos/seguros y porcentaje departamental por cada una de las 5 macro-regiones.
+* **Cálculo Municipal Completo (`cantidad_municipios`):** Conteo y porcentaje para todos los municipios activos con desglose público/privado y ordenamiento descendente sin topes fijos arbitrarios.
+
+#### 2. `frontend/src/pages/DirectorPage.jsx` [MODIFICADO]
+* **Panel Multidimensional con Pestañas Reactivas (`tabGeo`):**
+  * **Armonización Visual con la Identidad Corporativa SEDES:**
+    - **Azul SEDES (`#0077c8`):** Utilizado para representar laboratorios **Privados**, botones activos de pestañas/rangos y contadores principales.
+    - **Turquesa / Cyan Salud (`#22b8cf`):** Utilizado para representar laboratorios **Públicos / Seguridad Social**, barras proporcionales y badges de sector.
+    - **Etiquetas de Macro-Región:** Badges en azul institucional suave (`bg-blue-50/80 text-[#0077c8] border-blue-100`).
+  * **Pestaña 1: Macro-Regiones (5):**
+    - Visualización de las 5 regiones con total de laboratorios, número de municipios activos y porcentaje departamental.
+    - Barra horizontal doble proporcional segmentada (Azul SEDES `#0077c8` para Privados y Cyan `#22b8cf` para Públicos/Seguros).
+    - Subtotales cuantitativos directos en texto corporativo.
+  * **Pestaña 2: Por Municipio:**
+    - **Buscador en Tiempo Real:** Input con icono `Search` y botón de limpieza `X` para filtrar municipios instantáneamente.
+    - **Selector de Rango Rápido:** Botones de alternancia para `Top 5`, `Top 10` o `Todos` (con contador dinámico).
+    - **Lista Scrollable Optimizada:** Cada fila muestra la posición (# con medallas oro/plata/bronce), nombre del municipio, etiqueta de macro-región, badges de privados y públicos, porcentaje departamental y barra proporcional doble.
+
+  * **Armonización de Gráficos Complementarios:**
+    - **Por nivel de Laboratorio:** Icono `FlaskConical`, barras con escala corporativa coherente (*De Referencia*: `#0077c8`, *3er Nivel*: `#22b8cf`, *2do Nivel*: `#0284c7`, *1er Nivel*: `#1e2d42`).
+    - **Por tipo de Laboratorio (Sector):** Icono `Layers`, selector de color semántico para cada sector (*Privado*: `#0077c8`, *Público*: `#22b8cf`, *Seguro Social*: `#1e2d42`, *Iglesia*: `teal-600`, *ONG*: `indigo-600`, etc.) con punto indicador de color.
+    - **Estado / Situación del Laboratorio (Donut):** Icono `Activity`, anillo SVG con colores reglamentarios (*Funcionando*: `#10b981` verde esmeralda, *Renovación/En Trámite*: `#0077c8` azul SEDES, *En Refacción*: `#f59e0b` ámbar, *No Funcionando*: `#ef4444` rojo, *Cerrado*: `#94a3b8` gris slate) y centro con contador y label corporativo.
+
+---
+
+### 📊 Verificación y Pruebas Realizadas
+* **Compilación Frontend:** `npm run build` ejecutado exitosamente con 0 errores (dist generado en 926ms).
+* **Prueba de Endpoint:** Validación de salida JSON con 5 regiones y lista municipal clasificada.
+
+---
+
+## [2026-10-01] Implementación del Generador Oficial de Informe Ejecutivo de Métricas en PDF
+
+### 📌 Objetivo
+Reemplazar la llamada genérica al diálogo de impresión del navegador (`window.print()`) del botón **"Descargar Informe"** por un **Generador de Documentos Oficiales en PDF** con diseño institucional del SEDES Cochabamba, que exporte directamente un informe ejecutivo completo con tablas, KPIs, alertas operativas, distribución territorial y ranking de supervisores.
+
+---
+
+### 🛠️ Archivos Creados y Modificados
+
+#### 1. `frontend/src/components/director/InformeEjecutivoMetricasPDF.js` [NUEVO]
+* **Módulo Generador de PDF con jsPDF y jspdf-autotable:**
+  * **Cabecera Institucional:** Logos oficiales (*Logo Chakana / Ministerio de Salud* y *Escudo de Cochabamba*), membrete formal del Estado Plurinacional de Bolivia, Gobierno Autónomo Departamental y SEDES Cochabamba.
+  * **Metadatos del Informe:** Banner con fecha y hora de emisión, período analizado, nombre y cargo de la autoridad emisora (*Dr. Fernando Castillo - Director General*).
+  * **Sección 1: Indicadores Clave de Gestión (KPIs):** Tabla estilizada con Total de Trámites, Tasa de Aprobación, Tiempo Promedio y % de Cumplimiento Normativo.
+  * **Sección 2: Centro de Alertas y Cuellos de Botella:** Tabla de auditoría con severidades en color (crítico, advertencia, óptimo) y diagnóstico operativo.
+  * **Sección 3: Distribución Territorial Departamental:** Resumen de las 5 Macro-Regiones con balance de laboratorios privados vs. públicos.
+  * **Sección 4: Clasificación por Nivel, Tipología y Estado:** Tabla combinada de niveles de complejidad, sectores y situación operativa.
+  * **Sección 5: Rendimiento del Cuerpo de Supervisores:** Tabla con ranking de fiscalizadores, actas emitidas y calificación.
+  * **Pie de Página Oficial:** Numeración automática de páginas (`Página X de Y`) y leyenda de autenticidad institucional en cada hoja.
+
+#### 2. `frontend/src/pages/DirectorPage.jsx` [MODIFICADO]
+* **Integración del Generador:** Sustitución de `window.print()` por `generarInformeEjecutivoMetricasPDF(datosMetricas, filtros, usuario)`.
+* **Estado de Carga y Feedback:** Estado `generandoInformePdf` con spinner animado `RefreshCw` en el botón y avisos Toast notificando la generación y descarga exitosa del archivo `.pdf`.
+
+---
+
+### 📊 Verificación y Pruebas Realizadas
+* **Compilación Frontend:** `npm run build` ejecutado exitosamente con 0 errores (dist generado en 1.43s).
+* **Descarga Automática:** Generación directa del archivo `Informe_Ejecutivo_Metricas_SEDES_YYYY-MM-DD.pdf`.
+
+
+

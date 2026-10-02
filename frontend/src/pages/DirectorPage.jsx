@@ -52,14 +52,18 @@ import {
   AlertCircle,
   ExternalLink,
   Phone,
-  Mail
+  Mail,
+  ClipboardList,
+  FileWarning
 } from 'lucide-react';
 
 import logoL1 from '../assets/L1.png';
+import logoSedes from '../assets/LogoSedes.png';
 import logoL2 from '../assets/L2.png';
 import { generarComunicacionInternaPDF } from '../components/coordinador/ComunicacionInternaPDF';
 import { generarResolucionAdministrativaPDF } from '../components/abogado/ResolucionAdministrativaPDF';
-import EditarPlantillasView from '../components/common/EditarPlantillasView';
+import { generarInformeEjecutivoMetricasPDF } from '../components/director/InformeEjecutivoMetricasPDF';
+import { REGIONES_MUNICIPIOS } from '../components/landing/MapSection';
 
 // Obtener iniciales de 2 a 4 letras a partir de nombres y apellidos
 const getInitials = (u) => {
@@ -107,7 +111,7 @@ export default function DirectorPage() {
   const navigate = useNavigate();
   const { seccion } = useParams();
 
-  const SECCIONES_VALIDAS = ['consola-administracion', 'metricas-indicadores', 'editar-documentos'];
+  const SECCIONES_VALIDAS = ['consola-administracion', 'metricas-indicadores'];
   const seccionActiva = SECCIONES_VALIDAS.includes(seccion) ? seccion : 'consola-administracion';
 
   const [usuario, setUsuario] = useState(null);
@@ -475,11 +479,17 @@ export default function DirectorPage() {
 
   // Estados para la sección de Métricas e Indicadores
   const [filtros, setFiltros] = useState({
+    periodo_predefinido: 'todos', // 'todos', 'este_mes', 'ultimos_30', 'ultimos_7', 'personalizado'
+    fecha_inicio: '',
+    fecha_fin: '',
     periodo_anio: 2026,
     periodo_mes: '',
     municipio: '',
     tipo_laboratorio: '',
+    tipo_tramite: '',
     estado: '',
+    estado_tramite: '',
+    supervisor: '',
     nombre_laboratorio: '',
     nivel: '',
     propietario: '',
@@ -492,6 +502,9 @@ export default function DirectorPage() {
     municipios: [],
     tipos: [],
     estados: [],
+    tipos_tramite: [],
+    estados_tramite: [],
+    supervisores: [],
     nombres: [],
     niveles: [],
     propietarios: [],
@@ -504,6 +517,10 @@ export default function DirectorPage() {
   const [cargandoMetricas, setCargandoMetricas] = useState(false);
   const [hoveredMes, setHoveredMes] = useState(null);
   const [hoveredMunBar, setHoveredMunBar] = useState(null);
+  const [tabGeo, setTabGeo] = useState('regiones'); // 'regiones' | 'municipios'
+  const [filtroMunBusqueda, setFiltroMunBusqueda] = useState('');
+  const [rangoMunVista, setRangoMunVista] = useState('top10'); // 'top5', 'top10', 'todos'
+  const [generandoInformePdf, setGenerandoInformePdf] = useState(false);
 
   // Notificaciones
   const [notificaciones, setNotificaciones] = useState([]);
@@ -539,11 +556,17 @@ export default function DirectorPage() {
     if (!silencioso) setCargandoMetricas(true);
     try {
       const params = new URLSearchParams();
+      if (filtros.periodo_predefinido) params.append('periodo_predefinido', filtros.periodo_predefinido);
+      if (filtros.fecha_inicio) params.append('fecha_inicio', filtros.fecha_inicio);
+      if (filtros.fecha_fin) params.append('fecha_fin', filtros.fecha_fin);
       if (filtros.periodo_anio) params.append('periodo_anio', filtros.periodo_anio);
       if (filtros.periodo_mes) params.append('periodo_mes', filtros.periodo_mes);
       if (filtros.municipio) params.append('municipio', filtros.municipio);
       if (filtros.tipo_laboratorio) params.append('tipo_laboratorio', filtros.tipo_laboratorio);
+      if (filtros.tipo_tramite) params.append('tipo_tramite', filtros.tipo_tramite);
       if (filtros.estado) params.append('estado', filtros.estado);
+      if (filtros.estado_tramite) params.append('estado_tramite', filtros.estado_tramite);
+      if (filtros.supervisor) params.append('supervisor', filtros.supervisor);
       if (filtros.nombre_laboratorio) params.append('nombre_laboratorio', filtros.nombre_laboratorio);
       if (filtros.nivel) params.append('nivel', filtros.nivel);
       if (filtros.propietario) params.append('propietario', filtros.propietario);
@@ -592,11 +615,17 @@ export default function DirectorPage() {
 
   const handleLimpiarFiltros = () => {
     setFiltros({
+      periodo_predefinido: 'todos',
+      fecha_inicio: '',
+      fecha_fin: '',
       periodo_anio: 2026,
       periodo_mes: '',
       municipio: '',
       tipo_laboratorio: '',
+      tipo_tramite: '',
       estado: '',
+      estado_tramite: '',
+      supervisor: '',
       nombre_laboratorio: '',
       nivel: '',
       propietario: '',
@@ -604,11 +633,25 @@ export default function DirectorPage() {
       responsables_areas: '',
       direccion: ''
     });
-    mostrarToast('Filtros reestablecidos a valores globales.');
+    mostrarToast('Filtros de métricas restablecidos.', 'info');
   };
 
-  const handleDescargarInforme = () => {
-    window.print();
+  const handleDescargarInforme = async () => {
+    if (!datosMetricas) {
+      mostrarToast('Aún no se han cargado las métricas para generar el informe.', 'warning');
+      return;
+    }
+    setGenerandoInformePdf(true);
+    try {
+      mostrarToast('Generando Informe Ejecutivo Oficial en PDF...', 'info');
+      await generarInformeEjecutivoMetricasPDF(datosMetricas, filtros, usuario);
+      mostrarToast('Informe Ejecutivo descargado con éxito.', 'success');
+    } catch (err) {
+      console.error('Error al generar PDF del Informe Ejecutivo:', err);
+      mostrarToast('Error al generar el Informe Ejecutivo en PDF', 'warning');
+    } finally {
+      setGenerandoInformePdf(false);
+    }
   };
 
   // =====================================================================
@@ -883,14 +926,6 @@ export default function DirectorPage() {
       icon: BarChart3,
       tituloBreadcrumb: 'Métricas, Estadísticas e Indicadores Clave',
       descripcion: 'Visualización de datos analíticos, tiempos de atención, resoluciones e inspecciones.'
-    },
-    {
-      id: 'editar-documentos',
-      path: '/director/editar-documentos',
-      label: 'Editar Documentos',
-      icon: FileEdit,
-      tituloBreadcrumb: 'Editor de Plantillas de Documentos Oficiales',
-      descripcion: 'Personalice los textos normativos, párrafos y fundamentos de los informes técnicos emitidos por el SEDES.'
     }
   ];
 
@@ -1050,10 +1085,12 @@ export default function DirectorPage() {
 
         {/* Footer del Sidebar con Escudos Institucionales */}
         <div className="p-6 space-y-4 border-t border-white/10 bg-[#00518f] mt-auto">
-          <div className="flex items-center justify-center space-x-4 opacity-90">
-            <img src={logoL1} alt="Escudo de Bolivia" className="h-9 object-contain" />
-            <div className="h-6 w-px bg-white/20" />
-            <img src={logoL2} alt="Gobernación de Cochabamba" className="h-9 object-contain" />
+          <div className="flex items-center justify-center space-x-3 opacity-90">
+            <img src={logoL1} alt="Escudo de Bolivia" className="h-8 object-contain" />
+            <div className="h-5 w-px bg-white/20" />
+            <img src={logoSedes} alt="SEDES Cochabamba" className="h-8 object-contain" />
+            <div className="h-5 w-px bg-white/20" />
+            <img src={logoL2} alt="Gobernación de Cochabamba" className="h-8 object-contain" />
           </div>
 
           <div className="text-center text-[10px] text-blue-200/80 leading-snug">
@@ -1792,67 +1829,115 @@ export default function DirectorPage() {
             <div className="space-y-6 animate-fadeIn">
               
               {/* ============================================================= */}
-              {/* CABECERA: TÍTULO + SELECTOR PERIODO + DESCARGAR INFORME       */}
+              {/* CABECERA: TÍTULO + SELECTOR PERIODO DINÁMICO + DESCARGAR INFORME */}
               {/* ============================================================= */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs">
-                <div>
-                  <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
-                    Métricas e Indicadores
-                    {cargandoMetricas && (
-                      <RefreshCw className="w-4 h-4 text-[#0077c8] animate-spin" />
-                    )}
-                  </h2>
-                  <p className="text-xs text-slate-500 font-medium mt-0.5">
-                    Análisis detallado del rendimiento departamental y fiscalización en salud.
-                  </p>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-3">
-                  {/* Selector Periodo */}
-                  <div className="relative">
-                    <select
-                      value={filtros.periodo_mes || ''}
-                      onChange={(e) => handleFiltroChange('periodo_mes', e.target.value)}
-                      className="bg-slate-50 border border-slate-200 text-slate-800 text-xs font-bold rounded-xl px-3.5 py-2.5 pr-8 appearance-none focus:outline-none focus:ring-2 focus:ring-[#0077c8] cursor-pointer shadow-2xs"
-                    >
-                      <option value="">Periodo: Todo 2026</option>
-                      <option value="1">Periodo: Enero 2026</option>
-                      <option value="2">Periodo: Febrero 2026</option>
-                      <option value="3">Periodo: Marzo 2026</option>
-                      <option value="4">Periodo: Abril 2026</option>
-                      <option value="5">Periodo: Mayo 2026</option>
-                      <option value="6">Periodo: Junio 2026</option>
-                      <option value="7">Periodo: Julio 2026</option>
-                      <option value="8">Periodo: Agosto 2026</option>
-                      <option value="9">Periodo: Septiembre 2026</option>
-                      <option value="10">Periodo: Octubre 2026</option>
-                      <option value="11">Periodo: Noviembre 2026</option>
-                      <option value="12">Periodo: Diciembre 2026</option>
-                    </select>
-                    <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <div className="flex flex-col gap-4 bg-white p-5 sm:p-6 rounded-2xl border border-slate-200/80 shadow-xs">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div>
+                    <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
+                      Métricas e Indicadores
+                      {cargandoMetricas && (
+                        <RefreshCw className="w-4 h-4 text-[#0077c8] animate-spin" />
+                      )}
+                    </h2>
+                    <p className="text-xs text-slate-500 font-medium mt-0.5">
+                      Análisis departamental integral, seguimiento temporal y fiscalización técnica de laboratorios.
+                    </p>
                   </div>
 
-                  {/* Botón Descargar Informe */}
-                  <button
-                    type="button"
-                    onClick={handleDescargarInforme}
-                    className="inline-flex items-center space-x-2 bg-[#1e2d42] hover:bg-[#2b3d56] text-white text-xs font-bold px-4 py-2.5 rounded-xl transition cursor-pointer shadow-xs"
-                    title="Imprimir o exportar informe"
-                  >
-                    <Download className="w-4 h-4 text-cyan-300" />
-                    <span>Descargar Informe</span>
-                  </button>
+                  <div className="flex flex-wrap items-center gap-2.5">
+                    {/* Selector de Período Temporal Dinámico */}
+                    <div className="flex items-center space-x-1.5 bg-slate-100 p-1 rounded-xl border border-slate-200">
+                      <Calendar className="w-4 h-4 text-slate-400 ml-1.5 shrink-0" />
+                      <select
+                        value={filtros.periodo_predefinido}
+                        onChange={(e) => handleFiltroChange('periodo_predefinido', e.target.value)}
+                        className="bg-transparent text-slate-800 text-xs font-bold py-1 px-2 focus:outline-hidden cursor-pointer"
+                      >
+                        <option value="todos">Todo el Historial / 2026</option>
+                        <option value="este_mes">Este Mes</option>
+                        <option value="ultimos_30">Últimos 30 días</option>
+                        <option value="ultimos_7">Últimos 7 días</option>
+                        <option value="personalizado">Personalizado...</option>
+                      </select>
+                    </div>
+
+                    {/* Botón Descargar Informe Oficial en PDF */}
+                    <button
+                      type="button"
+                      disabled={generandoInformePdf}
+                      onClick={handleDescargarInforme}
+                      className="inline-flex items-center space-x-2 bg-[#0077c8] hover:bg-[#0060a8] text-white text-xs font-bold px-4 py-2.5 rounded-xl transition cursor-pointer shadow-xs disabled:opacity-60"
+                      title="Descargar Informe Ejecutivo Oficial en PDF"
+                    >
+                      {generandoInformePdf ? (
+                        <RefreshCw className="w-4 h-4 text-cyan-200 animate-spin" />
+                      ) : (
+                        <Download className="w-4 h-4 text-cyan-200" />
+                      )}
+                      <span>{generandoInformePdf ? 'Generando PDF...' : 'Descargar Informe PDF'}</span>
+                    </button>
+                  </div>
                 </div>
+
+                {/* Barra de Fechas si se selecciona Rango Personalizado */}
+                {filtros.periodo_predefinido === 'personalizado' && (
+                  <div className="flex flex-wrap items-center gap-3 p-3 bg-sky-50/70 rounded-xl border border-sky-100 text-xs text-slate-700 animate-fadeIn">
+                    <span className="font-bold text-sky-800 text-[11px] uppercase tracking-wider flex items-center gap-1">
+                      <Calendar className="w-3.5 h-3.5" />
+                      <span>Rango Personalizado:</span>
+                    </span>
+                    <div className="flex items-center space-x-1.5">
+                      <label className="text-[11px] text-slate-500 font-medium">Desde:</label>
+                      <input
+                        type="date"
+                        value={filtros.fecha_inicio}
+                        onChange={(e) => handleFiltroChange('fecha_inicio', e.target.value)}
+                        className="bg-white border border-slate-200 rounded-lg px-2.5 py-1 text-xs text-slate-700 font-medium focus:ring-2 focus:ring-[#0077c8] focus:outline-hidden"
+                      />
+                    </div>
+                    <div className="flex items-center space-x-1.5">
+                      <label className="text-[11px] text-slate-500 font-medium">Hasta:</label>
+                      <input
+                        type="date"
+                        value={filtros.fecha_fin}
+                        onChange={(e) => handleFiltroChange('fecha_fin', e.target.value)}
+                        className="bg-white border border-slate-200 rounded-lg px-2.5 py-1 text-xs text-slate-700 font-medium focus:ring-2 focus:ring-[#0077c8] focus:outline-hidden"
+                      />
+                    </div>
+                    {(filtros.fecha_inicio || filtros.fecha_fin) && (
+                      <button
+                        type="button"
+                        onClick={() => { handleFiltroChange('fecha_inicio', ''); handleFiltroChange('fecha_fin', ''); }}
+                        className="text-[10px] font-bold text-sky-700 hover:text-sky-900 underline ml-auto cursor-pointer"
+                      >
+                        Limpiar fechas
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* ============================================================= */}
-              {/* BARRA DE 9 FILTROS MULTIDIMENSIONALES REACTIVOS               */}
+              {/* BARRA DE FILTROS AVANZADOS MULTIDIMENSIONALES REACTIVOS       */}
               {/* ============================================================= */}
               <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs space-y-4">
                 <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                   <div className="flex items-center space-x-2 text-slate-800">
                     <Filter className="w-4 h-4 text-[#0077c8]" />
-                    <span className="text-xs font-black tracking-wide uppercase">Filtros Avanzados</span>
+                    <span className="text-xs font-black tracking-wide uppercase">Filtros Avanzados y Segmentación</span>
+                    
+                    {/* Contador de Filtros Activos */}
+                    {(() => {
+                      const activos = Object.entries(filtros).filter(([k, v]) => 
+                        Boolean(v) && k !== 'periodo_anio' && !(k === 'periodo_predefinido' && v === 'todos')
+                      ).length;
+                      return activos > 0 ? (
+                        <span className="ml-2 px-2 py-0.5 rounded-full bg-sky-100 text-sky-800 font-extrabold text-[10px]">
+                          {activos} {activos === 1 ? 'filtro activo' : 'filtros activos'}
+                        </span>
+                      ) : null;
+                    })()}
                   </div>
 
                   <button
@@ -1865,8 +1950,39 @@ export default function DirectorPage() {
                   </button>
                 </div>
 
-                {/* Grid de 9 Selectores */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 text-xs">
+                {/* Chips de Filtros Activos para Descarte Rápido */}
+                {(() => {
+                  const chips = Object.entries(filtros).filter(([k, v]) => 
+                    Boolean(v) && k !== 'periodo_anio' && !(k === 'periodo_predefinido' && v === 'todos')
+                  );
+                  if (chips.length === 0) return null;
+
+                  return (
+                    <div className="flex flex-wrap items-center gap-1.5 pb-2">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mr-1">Aplicados:</span>
+                      {chips.map(([key, val]) => (
+                        <span
+                          key={key}
+                          className="inline-flex items-center space-x-1 px-2.5 py-0.5 rounded-full bg-sky-50 text-sky-800 border border-sky-200 text-[11px] font-semibold"
+                        >
+                          <span className="capitalize">{key.replace('_', ' ')}:</span>
+                          <strong className="truncate max-w-[120px]">{String(val)}</strong>
+                          <button
+                            type="button"
+                            onClick={() => handleFiltroChange(key, key === 'periodo_predefinido' ? 'todos' : '')}
+                            className="hover:text-rose-600 ml-1 cursor-pointer"
+                            title={`Remover filtro ${key}`}
+                          >
+                            &times;
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  );
+                })()}
+
+                {/* Grid de Selectores */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 text-xs">
                   
                   {/* 1. Municipio */}
                   <div className="relative">
@@ -1877,15 +1993,70 @@ export default function DirectorPage() {
                         filtros.municipio ? 'border-[#0077c8] bg-sky-50/50 font-bold text-[#0077c8]' : 'border-slate-200'
                       }`}
                     >
-                      <option value="">Municipio ▾</option>
-                      {opcionesFiltros.municipios?.map((m) => (
-                        <option key={m} value={m}>{m}</option>
+                      <option value="">Municipio (Todos - 47) ▾</option>
+                      {REGIONES_MUNICIPIOS.map((reg) => (
+                        <optgroup key={reg.region} label={`${reg.icono} ${reg.region}`}>
+                          {reg.municipios.map((m) => (
+                            <option key={m} value={m}>{m}</option>
+                          ))}
+                        </optgroup>
                       ))}
                     </select>
                     <ChevronDown className="w-3 h-3 text-slate-400 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
                   </div>
 
-                  {/* 2. Tipo de Laboratorio */}
+                  {/* 2. Tipo de Trámite */}
+                  <div className="relative">
+                    <select
+                      value={filtros.tipo_tramite}
+                      onChange={(e) => handleFiltroChange('tipo_tramite', e.target.value)}
+                      className={`w-full bg-slate-50 border text-slate-800 rounded-xl px-3 py-2 pr-7 text-xs font-medium focus:ring-2 focus:ring-[#0077c8] cursor-pointer truncate ${
+                        filtros.tipo_tramite ? 'border-[#0077c8] bg-sky-50/50 font-bold text-[#0077c8]' : 'border-slate-200'
+                      }`}
+                    >
+                      <option value="">Tipo de Trámite ▾</option>
+                      {opcionesFiltros.tipos_tramite?.map((t) => (
+                        <option key={t} value={t}>{t}</option>
+                      ))}
+                    </select>
+                    <ChevronDown className="w-3 h-3 text-slate-400 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  </div>
+
+                  {/* 3. Supervisor Asignado */}
+                  <div className="relative">
+                    <select
+                      value={filtros.supervisor}
+                      onChange={(e) => handleFiltroChange('supervisor', e.target.value)}
+                      className={`w-full bg-slate-50 border text-slate-800 rounded-xl px-3 py-2 pr-7 text-xs font-medium focus:ring-2 focus:ring-[#0077c8] cursor-pointer truncate ${
+                        filtros.supervisor ? 'border-[#0077c8] bg-sky-50/50 font-bold text-[#0077c8]' : 'border-slate-200'
+                      }`}
+                    >
+                      <option value="">Supervisor Asignado ▾</option>
+                      {opcionesFiltros.supervisores?.map((s) => (
+                        <option key={s} value={s}>{s}</option>
+                      ))}
+                    </select>
+                    <ChevronDown className="w-3 h-3 text-slate-400 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  </div>
+
+                  {/* 4. Estado de Trámite */}
+                  <div className="relative">
+                    <select
+                      value={filtros.estado_tramite}
+                      onChange={(e) => handleFiltroChange('estado_tramite', e.target.value)}
+                      className={`w-full bg-slate-50 border text-slate-800 rounded-xl px-3 py-2 pr-7 text-xs font-medium focus:ring-2 focus:ring-[#0077c8] cursor-pointer truncate ${
+                        filtros.estado_tramite ? 'border-[#0077c8] bg-sky-50/50 font-bold text-[#0077c8]' : 'border-slate-200'
+                      }`}
+                    >
+                      <option value="">Estado del Trámite ▾</option>
+                      {opcionesFiltros.estados_tramite?.map((et) => (
+                        <option key={et} value={et}>{et}</option>
+                      ))}
+                    </select>
+                    <ChevronDown className="w-3 h-3 text-slate-400 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  </div>
+
+                  {/* 5. Tipo / Sector de Establecimiento */}
                   <div className="relative">
                     <select
                       value={filtros.tipo_laboratorio}
@@ -1894,7 +2065,7 @@ export default function DirectorPage() {
                         filtros.tipo_laboratorio ? 'border-[#0077c8] bg-sky-50/50 font-bold text-[#0077c8]' : 'border-slate-200'
                       }`}
                     >
-                      <option value="">Tipo de Laboratorio ▾</option>
+                      <option value="">Sector / Tipo de Lab ▾</option>
                       {opcionesFiltros.tipos?.map((t) => (
                         <option key={t} value={t}>{t}</option>
                       ))}
@@ -1902,7 +2073,7 @@ export default function DirectorPage() {
                     <ChevronDown className="w-3 h-3 text-slate-400 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
                   </div>
 
-                  {/* 3. Estado */}
+                  {/* 6. Estado Operativo del Establecimiento */}
                   <div className="relative">
                     <select
                       value={filtros.estado}
@@ -1911,7 +2082,7 @@ export default function DirectorPage() {
                         filtros.estado ? 'border-[#0077c8] bg-sky-50/50 font-bold text-[#0077c8]' : 'border-slate-200'
                       }`}
                     >
-                      <option value="">Estado ▾</option>
+                      <option value="">Estado Operativo ▾</option>
                       {opcionesFiltros.estados?.map((est) => (
                         <option key={est} value={est}>{est}</option>
                       ))}
@@ -1919,7 +2090,24 @@ export default function DirectorPage() {
                     <ChevronDown className="w-3 h-3 text-slate-400 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
                   </div>
 
-                  {/* 4. Nombre del Laboratorio */}
+                  {/* 7. Nivel */}
+                  <div className="relative">
+                    <select
+                      value={filtros.nivel}
+                      onChange={(e) => handleFiltroChange('nivel', e.target.value)}
+                      className={`w-full bg-slate-50 border text-slate-800 rounded-xl px-3 py-2 pr-7 text-xs font-medium focus:ring-2 focus:ring-[#0077c8] cursor-pointer truncate ${
+                        filtros.nivel ? 'border-[#0077c8] bg-sky-50/50 font-bold text-[#0077c8]' : 'border-slate-200'
+                      }`}
+                    >
+                      <option value="">Nivel de Complejidad ▾</option>
+                      {opcionesFiltros.niveles?.map((nv) => (
+                        <option key={nv} value={nv}>{nv}</option>
+                      ))}
+                    </select>
+                    <ChevronDown className="w-3 h-3 text-slate-400 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  </div>
+
+                  {/* 8. Nombre del Laboratorio */}
                   <div className="relative">
                     <select
                       value={filtros.nombre_laboratorio}
@@ -1936,24 +2124,7 @@ export default function DirectorPage() {
                     <ChevronDown className="w-3 h-3 text-slate-400 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
                   </div>
 
-                  {/* 5. Nivel */}
-                  <div className="relative">
-                    <select
-                      value={filtros.nivel}
-                      onChange={(e) => handleFiltroChange('nivel', e.target.value)}
-                      className={`w-full bg-slate-50 border text-slate-800 rounded-xl px-3 py-2 pr-7 text-xs font-medium focus:ring-2 focus:ring-[#0077c8] cursor-pointer truncate ${
-                        filtros.nivel ? 'border-[#0077c8] bg-sky-50/50 font-bold text-[#0077c8]' : 'border-slate-200'
-                      }`}
-                    >
-                      <option value="">Nivel ▾</option>
-                      {opcionesFiltros.niveles?.map((nv) => (
-                        <option key={nv} value={nv}>{nv}</option>
-                      ))}
-                    </select>
-                    <ChevronDown className="w-3 h-3 text-slate-400 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
-                  </div>
-
-                  {/* 6. Propietario */}
+                  {/* 9. Propietario */}
                   <div className="relative">
                     <select
                       value={filtros.propietario}
@@ -1962,7 +2133,7 @@ export default function DirectorPage() {
                         filtros.propietario ? 'border-[#0077c8] bg-sky-50/50 font-bold text-[#0077c8]' : 'border-slate-200'
                       }`}
                     >
-                      <option value="">Propietario ▾</option>
+                      <option value="">Propietario / Solicitante ▾</option>
                       {opcionesFiltros.propietarios?.map((p) => (
                         <option key={p} value={p}>{p}</option>
                       ))}
@@ -1970,7 +2141,7 @@ export default function DirectorPage() {
                     <ChevronDown className="w-3 h-3 text-slate-400 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
                   </div>
 
-                  {/* 7. Responsable del Laboratorio */}
+                  {/* 10. Responsable del Laboratorio */}
                   <div className="relative">
                     <select
                       value={filtros.responsable_laboratorio}
@@ -1979,7 +2150,7 @@ export default function DirectorPage() {
                         filtros.responsable_laboratorio ? 'border-[#0077c8] bg-sky-50/50 font-bold text-[#0077c8]' : 'border-slate-200'
                       }`}
                     >
-                      <option value="">Responsable del Lab ▾</option>
+                      <option value="">Regente / Director Técnico ▾</option>
                       {opcionesFiltros.responsables_laboratorio?.map((r) => (
                         <option key={r} value={r}>{r}</option>
                       ))}
@@ -1987,7 +2158,7 @@ export default function DirectorPage() {
                     <ChevronDown className="w-3 h-3 text-slate-400 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
                   </div>
 
-                  {/* 8. Responsables de Áreas */}
+                  {/* 11. Responsables de Áreas */}
                   <div className="relative">
                     <select
                       value={filtros.responsables_areas}
@@ -2004,8 +2175,8 @@ export default function DirectorPage() {
                     <ChevronDown className="w-3 h-3 text-slate-400 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
                   </div>
 
-                  {/* 9. Dirección */}
-                  <div className="relative sm:col-span-2 lg:col-span-2">
+                  {/* 12. Dirección */}
+                  <div className="relative">
                     <select
                       value={filtros.direccion}
                       onChange={(e) => handleFiltroChange('direccion', e.target.value)}
@@ -2013,7 +2184,7 @@ export default function DirectorPage() {
                         filtros.direccion ? 'border-[#0077c8] bg-sky-50/50 font-bold text-[#0077c8]' : 'border-slate-200'
                       }`}
                     >
-                      <option value="">Dirección / Ubicación ▾</option>
+                      <option value="">Dirección / Zona ▾</option>
                       {opcionesFiltros.direcciones?.map((d) => (
                         <option key={d} value={d}>{d}</option>
                       ))}
@@ -2241,21 +2412,115 @@ export default function DirectorPage() {
               {/* ============================================================= */}
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
 
-                {/* CUELLOS DE BOTELLA IDENTIFICADOS */}
+                {/* CENTRO DE ALERTAS Y CUELLOS DE BOTELLA OPERATIVOS */}
                 <div className="lg:col-span-6 bg-white rounded-2xl p-6 border border-slate-200/80 shadow-xs flex flex-col justify-between space-y-4">
-                  <h3 className="text-base font-bold text-slate-900 tracking-tight border-b border-slate-100 pb-3 flex items-center justify-between">
-                    <span>Cuellos de Botella Identificados</span>
-                    <AlertTriangle className="w-4 h-4 text-rose-500" />
-                  </h3>
+                  <div>
+                    <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                      <div className="flex items-center space-x-2">
+                        <AlertTriangle className="w-4 h-4 text-rose-500 shrink-0" />
+                        <h3 className="text-base font-bold text-slate-900 tracking-tight">
+                          Alertas Operativas y Cuellos de Botella
+                        </h3>
+                      </div>
+                      {datosMetricas?.cuellos_botella?.cumplimiento_pct !== undefined && (
+                        <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold ${
+                          datosMetricas.cuellos_botella.cumplimiento_pct >= 80
+                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/60'
+                            : datosMetricas.cuellos_botella.cumplimiento_pct >= 50
+                            ? 'bg-amber-50 text-amber-700 border border-amber-200/60'
+                            : 'bg-rose-50 text-rose-700 border border-rose-200/60'
+                        }`}>
+                          {datosMetricas.cuellos_botella.cumplimiento_pct}% en plazo
+                        </span>
+                      )}
+                    </div>
 
-                  <div className="space-y-3">
-                    {(!datosMetricas?.cuellos_botella || datosMetricas.cuellos_botella.length === 0) ? (
-                      <p className="text-xs text-slate-400 py-6 text-center">Sin cuellos de botella detectados.</p>
-                    ) : (
+                    {/* Barra de Cumplimiento Normativo */}
+                    {datosMetricas?.cuellos_botella?.cumplimiento_pct !== undefined && (
+                      <div className="mt-3 bg-slate-50 rounded-xl p-2.5 border border-slate-100 flex items-center justify-between">
+                        <div className="flex items-center space-x-2">
+                          <ShieldCheck className="w-3.5 h-3.5 text-teal-600 shrink-0" />
+                          <span className="text-[11px] font-semibold text-slate-600">Cumplimiento Normativo SEDES</span>
+                        </div>
+                        <div className="w-32 bg-slate-200 h-2 rounded-full overflow-hidden ml-3">
+                          <div
+                            style={{ width: `${datosMetricas.cuellos_botella.cumplimiento_pct}%` }}
+                            className={`h-full rounded-full transition-all duration-500 ${
+                              datosMetricas.cuellos_botella.cumplimiento_pct >= 80 ? 'bg-emerald-500' : datosMetricas.cuellos_botella.cumplimiento_pct >= 50 ? 'bg-amber-500' : 'bg-rose-500'
+                            }`}
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Grid de 4 Alertas Operativas */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {Array.isArray(datosMetricas?.cuellos_botella?.items) ? (
+                      datosMetricas.cuellos_botella.items.map((alerta) => {
+                        const isRose = alerta.color === 'rose';
+                        const isAmber = alerta.color === 'amber';
+                        const isSky = alerta.color === 'sky';
+
+                        const bgClass = isRose
+                          ? (alerta.conteo > 0 ? 'bg-rose-50/60 border-rose-200/80 hover:bg-rose-50' : 'bg-slate-50/60 border-slate-200/60')
+                          : isAmber
+                          ? (alerta.conteo > 0 ? 'bg-amber-50/60 border-amber-200/80 hover:bg-amber-50' : 'bg-slate-50/60 border-slate-200/60')
+                          : isSky
+                          ? (alerta.conteo > 0 ? 'bg-sky-50/60 border-sky-200/80 hover:bg-sky-50' : 'bg-slate-50/60 border-slate-200/60')
+                          : (alerta.conteo > 0 ? 'bg-teal-50/60 border-teal-200/80 hover:bg-teal-50' : 'bg-slate-50/60 border-slate-200/60');
+
+                        const badgeClass = isRose
+                          ? (alerta.conteo > 0 ? 'bg-rose-100 text-rose-700' : 'bg-slate-200/70 text-slate-600')
+                          : isAmber
+                          ? (alerta.conteo > 0 ? 'bg-amber-100 text-amber-800' : 'bg-slate-200/70 text-slate-600')
+                          : isSky
+                          ? (alerta.conteo > 0 ? 'bg-sky-100 text-sky-800' : 'bg-slate-200/70 text-slate-600')
+                          : (alerta.conteo > 0 ? 'bg-teal-100 text-teal-800' : 'bg-slate-200/70 text-slate-600');
+
+                        const iconColor = isRose
+                          ? (alerta.conteo > 0 ? 'text-rose-600' : 'text-slate-400')
+                          : isAmber
+                          ? (alerta.conteo > 0 ? 'text-amber-600' : 'text-slate-400')
+                          : isSky
+                          ? (alerta.conteo > 0 ? 'text-sky-600' : 'text-slate-400')
+                          : (alerta.conteo > 0 ? 'text-teal-600' : 'text-slate-400');
+
+                        const IconComponent =
+                          alerta.icono === 'Clock' ? Clock :
+                          alerta.icono === 'FileWarning' ? FileWarning :
+                          alerta.icono === 'ClipboardList' ? ClipboardList :
+                          FileCheck;
+
+                        return (
+                          <div
+                            key={alerta.id}
+                            className={`p-3.5 rounded-xl border transition-all flex flex-col justify-between ${bgClass}`}
+                          >
+                            <div className="flex items-start justify-between">
+                              <div className="flex items-center space-x-2">
+                                <div className={`p-1.5 rounded-lg bg-white shadow-2xs ${iconColor}`}>
+                                  <IconComponent className="w-4 h-4" />
+                                </div>
+                                <span className="text-xs font-bold text-slate-800 leading-tight">
+                                  {alerta.titulo}
+                                </span>
+                              </div>
+                              <span className={`text-sm font-black px-2 py-0.5 rounded-lg ${badgeClass}`}>
+                                {alerta.conteo}
+                              </span>
+                            </div>
+                            <p className="text-[11px] text-slate-500 font-medium mt-2 leading-tight">
+                              {alerta.subtexto}
+                            </p>
+                          </div>
+                        );
+                      })
+                    ) : Array.isArray(datosMetricas?.cuellos_botella) ? (
                       datosMetricas.cuellos_botella.map((cb) => {
                         const dotColor = cb.color === 'rose' ? 'bg-rose-500 ring-rose-200' : cb.color === 'amber' ? 'bg-amber-500 ring-amber-200' : 'bg-emerald-500 ring-emerald-200';
                         return (
-                          <div key={cb.id} className="flex items-start space-x-3 p-3 rounded-xl bg-slate-50/70 border border-slate-100">
+                          <div key={cb.id} className="flex items-start space-x-3 p-3 rounded-xl bg-slate-50/70 border border-slate-100 col-span-2">
                             <span className={`w-2.5 h-2.5 rounded-full mt-1 shrink-0 ring-4 ${dotColor}`} />
                             <p className="text-xs font-medium text-slate-700 leading-snug">
                               {cb.mensaje}
@@ -2263,6 +2528,8 @@ export default function DirectorPage() {
                           </div>
                         );
                       })
+                    ) : (
+                      <p className="text-xs text-slate-400 py-6 text-center col-span-2">Sin cuellos de botella detectados.</p>
                     )}
                   </div>
                 </div>
@@ -2310,139 +2577,304 @@ export default function DirectorPage() {
               {/* ============================================================= */}
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
 
-                {/* CANTIDAD POR MUNICIPIO (BARRAS AGRUPADAS CON TOOLTIPS INTERACTIVOS) */}
+                {/* DISTRIBUCIÓN TERRITORIAL DE LABORATORIOS (REGIONES + MUNICIPIOS) */}
                 <div className="lg:col-span-7 bg-white rounded-2xl p-6 border border-slate-200/80 shadow-xs flex flex-col justify-between space-y-4">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
-                    <div>
-                      <h3 className="text-base font-bold text-slate-900 tracking-tight">
-                        Cantidad por Municipio
-                      </h3>
-                      <p className="text-[11px] text-slate-400 font-medium">
-                        Pasa el cursor sobre cualquier barra para ver la cantidad exacta
-                      </p>
+                  {/* Cabecera con Selector de Pestañas Geográficas */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
+                    <div className="flex items-center space-x-2.5">
+                      <div className="p-2 rounded-xl bg-blue-50 text-[#0077c8] border border-blue-100/80">
+                        <MapPin className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <h3 className="text-base font-bold text-slate-900 tracking-tight">
+                          Distribución Territorial
+                        </h3>
+                        <p className="text-[11px] text-slate-400 font-medium">
+                          5 Macro-Regiones SEDES y 47 Municipios
+                        </p>
+                      </div>
                     </div>
 
-                    <div className="flex items-center space-x-4 text-xs font-bold">
-                      <div className="flex items-center space-x-1.5">
-                        <span className="w-2.5 h-2.5 rounded-xs bg-[#f97316]" />
-                        <span className="text-slate-700">Privados</span>
+                    {/* Toggle Pestañas: Regiones vs Municipios */}
+                    <div className="flex items-center space-x-2">
+                      <div className="bg-slate-100 p-0.5 rounded-xl flex items-center">
+                        <button
+                          type="button"
+                          onClick={() => setTabGeo('regiones')}
+                          className={`px-3 py-1 text-xs font-bold rounded-lg transition-all ${
+                            tabGeo === 'regiones'
+                              ? 'bg-[#0077c8] text-white shadow-xs'
+                              : 'text-slate-600 hover:text-slate-900'
+                          }`}
+                        >
+                          Macro-Regiones (5)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setTabGeo('municipios')}
+                          className={`px-3 py-1 text-xs font-bold rounded-lg transition-all ${
+                            tabGeo === 'municipios'
+                              ? 'bg-[#0077c8] text-white shadow-xs'
+                              : 'text-slate-600 hover:text-slate-900'
+                          }`}
+                        >
+                          Por Municipio
+                        </button>
                       </div>
-                      <div className="flex items-center space-x-1.5">
-                        <span className="w-2.5 h-2.5 rounded-xs bg-[#1e2d42]" />
-                        <span className="text-slate-700">Públicos</span>
+
+                      {/* Leyenda Privados / Públicos */}
+                      <div className="hidden xl:flex items-center space-x-3 text-[11px] font-bold pl-2 border-l border-slate-200">
+                        <div className="flex items-center space-x-1">
+                          <span className="w-2.5 h-2.5 rounded-xs bg-[#0077c8]" />
+                          <span className="text-slate-700">Privados</span>
+                        </div>
+                        <div className="flex items-center space-x-1">
+                          <span className="w-2.5 h-2.5 rounded-xs bg-[#22b8cf]" />
+                          <span className="text-slate-700">Públicos/Seguros</span>
+                        </div>
                       </div>
                     </div>
                   </div>
 
-                  {/* Indicador flotante en cabecera si hay hover */}
-                  <div className="h-6 flex items-center justify-end">
-                    {hoveredMunBar ? (
-                      <div className="bg-slate-900 text-white text-[11px] px-3 py-1 rounded-lg shadow-sm flex items-center space-x-2 animate-fadeIn">
-                        <span className="font-extrabold text-amber-300">{hoveredMunBar.municipio}:</span>
-                        <span>{hoveredMunBar.tipo}: <b>{hoveredMunBar.cantidad}</b></span>
-                        <span className="text-slate-400 text-[10px]">(Total mun: {hoveredMunBar.total})</span>
-                      </div>
-                    ) : (
-                      <span className="text-[11px] text-slate-400 italic">Desglose departamental</span>
-                    )}
-                  </div>
-
-                  {/* Gráfico de Barras Verticales Agrupadas con Tooltip Individual */}
-                  <div className="h-48 flex items-end justify-around gap-2 pt-2 px-2 pb-1 border-b border-slate-100/80">
-                    {(!datosMetricas?.cantidad_municipios || datosMetricas.cantidad_municipios.length === 0) ? (
-                      <p className="text-xs text-slate-400 py-12 text-center w-full">Sin datos municipales disponibles.</p>
-                    ) : (
-                      (() => {
-                        const maxMun = Math.max(...datosMetricas.cantidad_municipios.map(m => Math.max(m.privados, m.publicos)), 1);
-                        return datosMetricas.cantidad_municipios.map((m, idx) => {
-                          const hPriv = Math.max(10, (m.privados / maxMun) * 120);
-                          const hPub = Math.max(10, (m.publicos / maxMun) * 120);
+                  {/* CONTENIDO PESTAÑA 1: MACRO-REGIONES */}
+                  {tabGeo === 'regiones' && (
+                    <div className="space-y-3.5 my-auto">
+                      {(!datosMetricas?.distribucion_regiones || datosMetricas.distribucion_regiones.length === 0) ? (
+                        <p className="text-xs text-slate-400 py-8 text-center">No hay datos de distribución por región.</p>
+                      ) : (
+                        datosMetricas.distribucion_regiones.map((reg, idx) => {
+                          const maxRegTotal = Math.max(...datosMetricas.distribucion_regiones.map(r => r.total), 1);
+                          const barWidthPct = Math.max((reg.total / maxRegTotal) * 100, 6);
+                          const pctPriv = reg.total > 0 ? (reg.privados / reg.total) * 100 : 0;
+                          const pctPub = reg.total > 0 ? (reg.publicos / reg.total) * 100 : 0;
 
                           return (
-                            <div key={idx} className="flex flex-col items-center gap-2 flex-1 min-w-0">
-                              <div className="flex items-end gap-1.5 w-full justify-center">
-                                
-                                {/* Barra Privados con Tooltip */}
-                                <div className="relative flex flex-col items-center group/priv">
-                                  {/* Tooltip flotante individual al pasar el cursor */}
-                                  <div className="opacity-0 group-hover/priv:opacity-100 pointer-events-none transition-all duration-200 absolute -top-9 left-1/2 -translate-x-1/2 bg-[#f97316] text-white text-[10px] font-black px-2 py-0.5 rounded-md shadow-lg whitespace-nowrap z-30 flex items-center space-x-1">
-                                    <span>Privados:</span>
-                                    <span className="bg-white text-[#f97316] rounded-xs px-1 font-black">{m.privados}</span>
-                                    <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-[#f97316]" />
-                                  </div>
-
-                                  <div
-                                    style={{ height: `${hPriv}px` }}
-                                    onMouseEnter={() => setHoveredMunBar({ municipio: m.municipio, tipo: 'Privados', cantidad: m.privados, total: m.total })}
-                                    onMouseLeave={() => setHoveredMunBar(null)}
-                                    className="w-4 bg-[#f97316] rounded-t-sm transition-all duration-300 group-hover/priv:brightness-125 group-hover/priv:scale-y-105 origin-bottom cursor-pointer shadow-2xs"
-                                  />
+                            <div key={idx} className="space-y-1.5 p-2.5 rounded-xl bg-slate-50/50 hover:bg-blue-50/40 border border-slate-100 transition-colors">
+                              <div className="flex items-center justify-between text-xs">
+                                <div className="flex items-center space-x-2 min-w-0">
+                                  <span className="font-extrabold text-slate-800 truncate">
+                                    {reg.region}
+                                  </span>
+                                  <span className="text-[10px] text-slate-400 font-medium hidden sm:inline">
+                                    ({reg.municipios_count} municipio{reg.municipios_count === 1 ? '' : 's'} con laboratorios)
+                                  </span>
                                 </div>
-
-                                {/* Barra Públicos con Tooltip */}
-                                <div className="relative flex flex-col items-center group/pub">
-                                  {/* Tooltip flotante individual al pasar el cursor */}
-                                  <div className="opacity-0 group-hover/pub:opacity-100 pointer-events-none transition-all duration-200 absolute -top-9 left-1/2 -translate-x-1/2 bg-[#1e2d42] text-white text-[10px] font-black px-2 py-0.5 rounded-md shadow-lg whitespace-nowrap z-30 flex items-center space-x-1">
-                                    <span>Públicos:</span>
-                                    <span className="bg-cyan-400 text-slate-900 rounded-xs px-1 font-black">{m.publicos}</span>
-                                    <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-[#1e2d42]" />
-                                  </div>
-
-                                  <div
-                                    style={{ height: `${hPub}px` }}
-                                    onMouseEnter={() => setHoveredMunBar({ municipio: m.municipio, tipo: 'Públicos', cantidad: m.publicos, total: m.total })}
-                                    onMouseLeave={() => setHoveredMunBar(null)}
-                                    className="w-4 bg-[#1e2d42] rounded-t-sm transition-all duration-300 group-hover/pub:brightness-125 group-hover/pub:scale-y-105 origin-bottom cursor-pointer shadow-2xs"
-                                  />
+                                <div className="flex items-center space-x-2 shrink-0">
+                                  <span className="font-black text-slate-900">
+                                    {reg.total} <span className="font-normal text-slate-400">({reg.porcentaje}%)</span>
+                                  </span>
                                 </div>
-
                               </div>
 
-                              {/* Nombre del Municipio */}
-                              <span
-                                className={`text-[10px] truncate w-full text-center transition-colors cursor-pointer ${
-                                  hoveredMunBar?.municipio === m.municipio ? 'font-black text-[#0077c8]' : 'font-bold text-slate-500'
-                                }`}
-                                title={`${m.municipio} (Total: ${m.total})`}
-                              >
-                                {m.municipio}
-                              </span>
+                              {/* Barra Bicolor de Privados vs Públicos (Azul SEDES + Cyan Salud) */}
+                              <div className="w-full bg-slate-200/70 h-2.5 rounded-full overflow-hidden flex">
+                                {reg.total > 0 ? (
+                                  <div
+                                    style={{ width: `${barWidthPct}%` }}
+                                    className="h-full flex rounded-full overflow-hidden transition-all duration-500"
+                                  >
+                                    <div
+                                      style={{ width: `${pctPriv}%` }}
+                                      className="h-full bg-[#0077c8] transition-all"
+                                      title={`Privados: ${reg.privados}`}
+                                    />
+                                    <div
+                                      style={{ width: `${pctPub}%` }}
+                                      className="h-full bg-[#22b8cf] transition-all"
+                                      title={`Públicos: ${reg.publicos}`}
+                                    />
+                                  </div>
+                                ) : (
+                                  <div className="w-full h-full bg-slate-200/50" />
+                                )}
+                              </div>
+
+                              {/* Subtotales en texto corporativo */}
+                              <div className="flex items-center justify-between text-[10px] font-semibold text-slate-500 pt-0.5">
+                                <span>Privados: <b className="text-[#0077c8]">{reg.privados}</b></span>
+                                <span>Públicos / Seguros: <b className="text-[#0891b2]">{reg.publicos}</b></span>
+                              </div>
                             </div>
                           );
-                        });
-                      })()
-                    )}
-                  </div>
+                        })
+                      )}
+                    </div>
+                  )}
+
+                  {/* CONTENIDO PESTAÑA 2: POR MUNICIPIO */}
+                  {tabGeo === 'municipios' && (
+                    <div className="space-y-3">
+                      {/* Sub-barra de Búsqueda y Rango de Municipios */}
+                      <div className="flex flex-col sm:flex-row items-center justify-between gap-2 bg-slate-50/80 p-2 rounded-xl border border-slate-100">
+                        <div className="relative w-full sm:w-56">
+                          <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                          <input
+                            type="text"
+                            value={filtroMunBusqueda}
+                            onChange={(e) => setFiltroMunBusqueda(e.target.value)}
+                            placeholder="Buscar municipio..."
+                            className="w-full pl-8 pr-7 py-1 text-xs bg-white border border-slate-200 rounded-lg focus:outline-hidden focus:border-[#0077c8]"
+                          />
+                          {filtroMunBusqueda && (
+                            <button
+                              type="button"
+                              onClick={() => setFiltroMunBusqueda('')}
+                              className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          )}
+                        </div>
+
+                        {/* Selector de Rango */}
+                        <div className="flex items-center space-x-1.5 self-end sm:self-auto text-[11px] font-bold">
+                          <button
+                            type="button"
+                            onClick={() => setRangoMunVista('top5')}
+                            className={`px-2.5 py-0.5 rounded-md transition-all ${
+                              rangoMunVista === 'top5' ? 'bg-[#0077c8] text-white shadow-2xs' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
+                            }`}
+                          >
+                            Top 5
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setRangoMunVista('top10')}
+                            className={`px-2.5 py-0.5 rounded-md transition-all ${
+                              rangoMunVista === 'top10' ? 'bg-[#0077c8] text-white shadow-2xs' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
+                            }`}
+                          >
+                            Top 10
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setRangoMunVista('todos')}
+                            className={`px-2.5 py-0.5 rounded-md transition-all ${
+                              rangoMunVista === 'todos' ? 'bg-[#0077c8] text-white shadow-2xs' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
+                            }`}
+                          >
+                            Todos ({datosMetricas?.cantidad_municipios?.length || 0})
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Lista con Scroll de Municipios */}
+                      {(() => {
+                        const lista = datosMetricas?.cantidad_municipios || [];
+                        const filtrados = lista.filter((m) =>
+                          !filtroMunBusqueda || m.municipio.toLowerCase().includes(filtroMunBusqueda.toLowerCase().trim())
+                        );
+                        const mostrados = rangoMunVista === 'top5' ? filtrados.slice(0, 5) : rangoMunVista === 'top10' ? filtrados.slice(0, 10) : filtrados;
+
+                        if (mostrados.length === 0) {
+                          return (
+                            <p className="text-xs text-slate-400 py-10 text-center">
+                              No se encontraron municipios con el término "{filtroMunBusqueda}".
+                            </p>
+                          );
+                        }
+
+                        const maxMunTotal = Math.max(...lista.map(m => m.total), 1);
+
+                        return (
+                          <div className="max-h-56 overflow-y-auto pr-1 space-y-2 divide-y divide-slate-100">
+                            {mostrados.map((m, idx) => {
+                              const barWidth = Math.max((m.total / maxMunTotal) * 100, 8);
+                              const pctPriv = m.total > 0 ? (m.privados / m.total) * 100 : 0;
+                              const pctPub = m.total > 0 ? (m.publicos / m.total) * 100 : 0;
+
+                              return (
+                                <div key={m.municipio} className="pt-2 first:pt-0 flex flex-col space-y-1">
+                                  <div className="flex items-center justify-between text-xs">
+                                    <div className="flex items-center space-x-2 min-w-0">
+                                      <span className={`font-black text-[11px] w-5 ${idx === 0 ? 'text-amber-500' : idx === 1 ? 'text-slate-400' : idx === 2 ? 'text-amber-700' : 'text-slate-300'}`}>
+                                        #{idx + 1}
+                                      </span>
+                                      <span className="font-bold text-slate-800 truncate" title={m.municipio}>
+                                        {m.municipio}
+                                      </span>
+                                      {m.region && (
+                                        <span className="text-[10px] bg-blue-50/80 text-[#0077c8] border border-blue-100 font-semibold px-1.5 py-0.2 rounded-md">
+                                          {m.region}
+                                        </span>
+                                      )}
+                                    </div>
+
+                                    <div className="flex items-center space-x-2 shrink-0 text-xs">
+                                      <span className="text-[10px] font-bold text-[#0077c8] bg-blue-50 px-1.5 py-0.2 rounded border border-blue-200/60">
+                                        {m.privados} priv
+                                      </span>
+                                      <span className="text-[10px] font-bold text-cyan-800 bg-cyan-50 px-1.5 py-0.2 rounded border border-cyan-200/60">
+                                        {m.publicos} púb
+                                      </span>
+                                      <span className="font-extrabold text-slate-900 w-12 text-right text-xs">
+                                        {m.total} <span className="font-normal text-slate-400 text-[10px]">({m.porcentaje}%)</span>
+                                      </span>
+                                    </div>
+                                  </div>
+
+                                  {/* Barra Horizontal Proporcional Bicolor (Azul SEDES + Cyan) */}
+                                  <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden flex">
+                                    <div
+                                      style={{ width: `${barWidth}%` }}
+                                      className="h-full flex rounded-full overflow-hidden transition-all duration-500"
+                                    >
+                                      <div style={{ width: `${pctPriv}%` }} className="h-full bg-[#0077c8]" />
+                                      <div style={{ width: `${pctPub}%` }} className="h-full bg-[#22b8cf]" />
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  )}
                 </div>
 
                 {/* POR NIVEL DE LABORATORIO */}
                 <div className="lg:col-span-5 bg-white rounded-2xl p-6 border border-slate-200/80 shadow-xs flex flex-col justify-between space-y-4">
-                  <h3 className="text-base font-bold text-slate-900 tracking-tight border-b border-slate-100 pb-3">
-                    Por nivel de Laboratorio
-                  </h3>
+                  <div className="flex items-center space-x-2 border-b border-slate-100 pb-3">
+                    <div className="p-1.5 rounded-lg bg-blue-50 text-[#0077c8]">
+                      <FlaskConical className="w-4 h-4" />
+                    </div>
+                    <h3 className="text-base font-bold text-slate-900 tracking-tight">
+                      Por nivel de Laboratorio
+                    </h3>
+                  </div>
 
                   <div className="space-y-3.5 my-auto">
                     {(!datosMetricas?.por_nivel || datosMetricas.por_nivel.length === 0) ? (
                       <p className="text-xs text-slate-400 py-6 text-center">No hay registros con los filtros seleccionados.</p>
                     ) : (
                       datosMetricas.por_nivel.map((item, idx) => {
-                        const colors = ['bg-[#0077c8]', 'bg-[#1e2d42]', 'bg-[#f97316]', 'bg-[#22b8cf]'];
-                        const barColor = colors[idx % colors.length];
+                        const getNivelStyle = (nivel, i) => {
+                          const n = (nivel || '').toLowerCase();
+                          if (n.includes('ref')) return { bar: 'bg-[#0077c8]', badge: 'text-[#0077c8] bg-blue-50 border-blue-200/60' };
+                          if (n.includes('3')) return { bar: 'bg-[#22b8cf]', badge: 'text-cyan-800 bg-cyan-50 border-cyan-200/60' };
+                          if (n.includes('2')) return { bar: 'bg-[#0284c7]', badge: 'text-sky-800 bg-sky-50 border-sky-200/60' };
+                          if (n.includes('1')) return { bar: 'bg-[#1e2d42]', badge: 'text-slate-800 bg-slate-100 border-slate-200/60' };
+                          const palette = ['bg-[#0077c8]', 'bg-[#22b8cf]', 'bg-[#0284c7]', 'bg-[#1e2d42]'];
+                          return { bar: palette[i % palette.length], badge: 'text-slate-700 bg-slate-50 border-slate-200' };
+                        };
+
+                        const style = getNivelStyle(item.nivel, idx);
 
                         return (
                           <div key={idx} className="space-y-1.5">
                             <div className="flex items-center justify-between text-xs">
-                              <span className="font-bold text-slate-800">
+                              <span className="font-bold text-slate-800 truncate" title={item.nivel}>
                                 {item.nivel}
                               </span>
-                              <span className="font-extrabold text-slate-900">
+                              <span className="font-extrabold text-slate-900 shrink-0">
                                 {item.cantidad} <span className="font-normal text-slate-400">({item.porcentaje}%)</span>
                               </span>
                             </div>
                             <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
                               <div
                                 style={{ width: `${Math.max(item.porcentaje, 4)}%` }}
-                                className={`h-full ${barColor} rounded-full transition-all duration-500`}
+                                className={`h-full ${style.bar} rounded-full transition-all duration-500`}
                               />
                             </div>
                           </div>
@@ -2461,41 +2893,71 @@ export default function DirectorPage() {
 
                 {/* POR TIPO DE LABORATORIO (SECTOR) */}
                 <div className="lg:col-span-7 bg-white rounded-2xl p-6 border border-slate-200/80 shadow-xs flex flex-col justify-between space-y-4">
-                  <h3 className="text-base font-bold text-slate-900 tracking-tight border-b border-slate-100 pb-3">
-                    Por tipo de Laboratorio
-                  </h3>
+                  <div className="flex items-center space-x-2 border-b border-slate-100 pb-3">
+                    <div className="p-1.5 rounded-lg bg-cyan-50 text-cyan-700">
+                      <Layers className="w-4 h-4" />
+                    </div>
+                    <h3 className="text-base font-bold text-slate-900 tracking-tight">
+                      Por tipo de Laboratorio
+                    </h3>
+                  </div>
 
                   <div className="space-y-3 my-auto">
                     {(!datosMetricas?.por_tipo_laboratorio || datosMetricas.por_tipo_laboratorio.length === 0) ? (
                       <p className="text-xs text-slate-400 py-6 text-center">Sin datos de tipología disponibles.</p>
                     ) : (
-                      datosMetricas.por_tipo_laboratorio.map((item, idx) => (
-                        <div key={idx} className="space-y-1">
-                          <div className="flex items-center justify-between text-xs">
-                            <span className="font-bold text-slate-800">
-                              {item.sector}
-                            </span>
-                            <span className="font-extrabold text-slate-900">
-                              {item.cantidad} <span className="font-normal text-slate-400">({item.porcentaje}%)</span>
-                            </span>
+                      datosMetricas.por_tipo_laboratorio.map((item, idx) => {
+                        const getSectorColor = (sector, i) => {
+                          const s = (sector || '').toLowerCase();
+                          if (s.includes('privad')) return 'bg-[#0077c8]';
+                          if (s.includes('públic') || s.includes('public')) return 'bg-[#22b8cf]';
+                          if (s.includes('seguro') || s.includes('caja')) return 'bg-[#1e2d42]';
+                          if (s.includes('iglesia')) return 'bg-teal-600';
+                          if (s.includes('ong')) return 'bg-indigo-600';
+                          if (s.includes('armad') || s.includes('militar')) return 'bg-slate-600';
+                          if (s.includes('universidad')) return 'bg-sky-600';
+                          const palette = ['bg-[#0077c8]', 'bg-[#22b8cf]', 'bg-[#1e2d42]', 'bg-teal-600', 'bg-indigo-600', 'bg-sky-600', 'bg-slate-600'];
+                          return palette[i % palette.length];
+                        };
+
+                        const barColor = getSectorColor(item.sector, idx);
+
+                        return (
+                          <div key={idx} className="space-y-1">
+                            <div className="flex items-center justify-between text-xs">
+                              <div className="flex items-center space-x-2 min-w-0">
+                                <span className={`w-2 h-2 rounded-full shrink-0 ${barColor}`} />
+                                <span className="font-bold text-slate-800 truncate" title={item.sector}>
+                                  {item.sector}
+                                </span>
+                              </div>
+                              <span className="font-extrabold text-slate-900 shrink-0">
+                                {item.cantidad} <span className="font-normal text-slate-400">({item.porcentaje}%)</span>
+                              </span>
+                            </div>
+                            <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                              <div
+                                style={{ width: `${Math.max(item.porcentaje, 2)}%` }}
+                                className={`h-full ${barColor} rounded-full transition-all duration-500`}
+                              />
+                            </div>
                           </div>
-                          <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
-                            <div
-                              style={{ width: `${Math.max(item.porcentaje, 2)}%` }}
-                              className="h-full bg-[#f97316] rounded-full transition-all duration-500"
-                            />
-                          </div>
-                        </div>
-                      ))
+                        );
+                      })
                     )}
                   </div>
                 </div>
 
                 {/* ESTADO / SITUACIÓN DEL LABORATORIO (DONUT MULTI-SEGMENTO) */}
                 <div className="lg:col-span-5 bg-white rounded-2xl p-6 border border-slate-200/80 shadow-xs flex flex-col justify-between space-y-4">
-                  <h3 className="text-base font-bold text-slate-900 tracking-tight border-b border-slate-100 pb-3">
-                    Estado / Situación del Laboratorio
-                  </h3>
+                  <div className="flex items-center space-x-2 border-b border-slate-100 pb-3">
+                    <div className="p-1.5 rounded-lg bg-emerald-50 text-emerald-700">
+                      <Activity className="w-4 h-4" />
+                    </div>
+                    <h3 className="text-base font-bold text-slate-900 tracking-tight">
+                      Estado / Situación del Laboratorio
+                    </h3>
+                  </div>
 
                   <div className="flex flex-col sm:flex-row items-center justify-center gap-6 my-auto py-2">
                     {/* SVG Donut */}
@@ -2541,7 +3003,7 @@ export default function DirectorPage() {
                               {totalSit}
                             </span>
                             <span className="text-[10px] font-bold text-slate-400 uppercase">
-                              Total
+                              Establecimientos
                             </span>
                           </div>
                         </div>
@@ -2549,14 +3011,14 @@ export default function DirectorPage() {
                     })()}
 
                     {/* Leyenda Detallada */}
-                    <div className="space-y-1.5 text-xs">
+                    <div className="space-y-2 text-xs">
                       {datosMetricas?.estado_situacion?.items?.map((item, idx) => (
                         <div key={idx} className="flex items-center justify-between gap-4">
                           <div className="flex items-center space-x-2 min-w-0">
-                            <span style={{ backgroundColor: item.color }} className="w-2.5 h-2.5 rounded-full shrink-0" />
+                            <span style={{ backgroundColor: item.color }} className="w-2.5 h-2.5 rounded-full shrink-0 ring-2 ring-slate-100" />
                             <span className="font-bold text-slate-700 truncate">{item.label}</span>
                           </div>
-                          <span className="font-extrabold text-slate-900">
+                          <span className="font-extrabold text-slate-900 shrink-0">
                             {item.cantidad} <span className="font-normal text-slate-400">({item.porcentaje}%)</span>
                           </span>
                         </div>
@@ -2568,16 +3030,6 @@ export default function DirectorPage() {
               </div>
 
             </div>
-          )}
-
-          {/* =================================================================== */}
-          {/* SECCIÓN 3: EDITAR PLANTILLAS DE DOCUMENTOS OFICIALES               */}
-          {/* =================================================================== */}
-          {seccionActiva === 'editar-documentos' && (
-            <EditarPlantillasView
-              usuario={usuarioLogueado}
-              mostrarToast={mostrarToast}
-            />
           )}
 
         </main>

@@ -1,4 +1,6 @@
 import uuid
+import re
+import json
 from datetime import datetime, date, timedelta
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -219,18 +221,99 @@ def obtener_metricas_consola(db: Session = Depends(get_db)):
 # ENDPOINTS PARA MÉTRICAS E INDICADORES (CON FILTROS DINÁMICOS REACTIVOS)
 # ==============================================================================
 
+# Catálogo Oficial de los 47 Municipios de Cochabamba clasificados por sus 5 Regiones
+MUNICIPIOS_COCHABAMBA_OFICIALES = [
+    # Región Metropolitana
+    'Cercado', 'Sacaba', 'Quillacollo', 'Colcapirhua', 'Tiquipaya', 'Vinto', 'Sipe Sipe',
+    # Valle Alto
+    'Punata', 'Cliza', 'Tarata', 'Arani', 'Arbieto', 'Tolata', 'San Benito', 'Toco', 'Villa Rivero', 'Tacachi', 'Cuchumuela', 'Anzaldo', 'Santiváñez',
+    # Trópico de Cochabamba
+    'Villa Tunari', 'Shinahota', 'Chimoré', 'Puerto Villarroel', 'Entre Ríos',
+    # Cono Sur
+    'Aiquile', 'Mizque', 'Totora', 'Pasorapa', 'Omereque', 'Pocona', 'Pojo', 'Vacas', 'Alalay', 'Vila Vila',
+    # Zona Andina y Valles
+    'Capinota', 'Arque', 'Tapacarí', 'Bolívar', 'Independencia', 'Morochata', 'Cocapata', 'Sicaya', 'Tacopaya', 'Colomi', 'Sacabamba', 'Tiraque'
+]
+
+MAPA_MUNICIPIO_REGION = {
+    # Región Metropolitana
+    'Cercado': 'Región Metropolitana',
+    'Cochabamba': 'Región Metropolitana',
+    'Sacaba': 'Región Metropolitana',
+    'Quillacollo': 'Región Metropolitana',
+    'Colcapirhua': 'Región Metropolitana',
+    'Tiquipaya': 'Región Metropolitana',
+    'Vinto': 'Región Metropolitana',
+    'Sipe Sipe': 'Región Metropolitana',
+
+    # Valle Alto
+    'Punata': 'Valle Alto',
+    'Cliza': 'Valle Alto',
+    'Tarata': 'Valle Alto',
+    'Arani': 'Valle Alto',
+    'Arbieto': 'Valle Alto',
+    'Tolata': 'Valle Alto',
+    'San Benito': 'Valle Alto',
+    'Toco': 'Valle Alto',
+    'Villa Rivero': 'Valle Alto',
+    'Tacachi': 'Valle Alto',
+    'Cuchumuela': 'Valle Alto',
+    'Villa Gualberto Villarroel': 'Valle Alto',
+    'Anzaldo': 'Valle Alto',
+    'Santiváñez': 'Valle Alto',
+    'Santivañez': 'Valle Alto',
+
+    # Trópico
+    'Villa Tunari': 'Trópico',
+    'Shinahota': 'Trópico',
+    'Chimoré': 'Trópico',
+    'Chimore': 'Trópico',
+    'Puerto Villarroel': 'Trópico',
+    'Entre Ríos': 'Trópico',
+    'Entre Rios': 'Trópico',
+
+    # Cono Sur
+    'Aiquile': 'Cono Sur',
+    'Mizque': 'Cono Sur',
+    'Totora': 'Cono Sur',
+    'Pasorapa': 'Cono Sur',
+    'Omereque': 'Cono Sur',
+    'Pocona': 'Cono Sur',
+    'Pojo': 'Cono Sur',
+    'Vacas': 'Cono Sur',
+    'Alalay': 'Cono Sur',
+    'Vila Vila': 'Cono Sur',
+
+    # Zona Andina y Valles
+    'Capinota': 'Zona Andina y Valles',
+    'Arque': 'Zona Andina y Valles',
+    'Tapacarí': 'Zona Andina y Valles',
+    'Tapacari': 'Zona Andina y Valles',
+    'Bolívar': 'Zona Andina y Valles',
+    'Bolivar': 'Zona Andina y Valles',
+    'Independencia': 'Zona Andina y Valles',
+    'Morochata': 'Zona Andina y Valles',
+    'Cocapata': 'Zona Andina y Valles',
+    'Sicaya': 'Zona Andina y Valles',
+    'Tacopaya': 'Zona Andina y Valles',
+    'Colomi': 'Zona Andina y Valles',
+    'Sacabamba': 'Zona Andina y Valles',
+    'Tiraque': 'Zona Andina y Valles'
+}
+
 @router.get("/filtros-opciones", summary="Obtener opciones únicas existentes en la base de datos para los filtros")
 def obtener_opciones_filtros(db: Session = Depends(get_db)):
     """
     Retorna listas de valores únicos reales desde la base de datos PostgreSQL
-    para poblar dinámicamente los 9 selectores de filtros.
+    para poblar dinámicamente los selectores de filtros.
     """
-    # Municipios
+    # Municipios (unión del catálogo completo de 47 municipios + registros de la base de datos)
     municipios_raw = db.query(models.Establecimiento.municipio).filter(
         models.Establecimiento.estado == True,
         models.Establecimiento.municipio.isnot(None)
     ).distinct().all()
-    municipios = sorted(list(set([m[0].strip().title() for m in municipios_raw if m[0] and m[0].strip()])))
+    municipios_bd = [m[0].strip().title() for m in municipios_raw if m[0] and m[0].strip()]
+    municipios = sorted(list(set(MUNICIPIOS_COCHABAMBA_OFICIALES + municipios_bd)))
 
     # Tipos de Establecimiento / Laboratorio
     tipos_raw = db.query(models.Establecimiento.tipo).filter(
@@ -239,12 +322,33 @@ def obtener_opciones_filtros(db: Session = Depends(get_db)):
     ).distinct().all()
     tipos = sorted(list(set([t[0].strip() for t in tipos_raw if t[0] and t[0].strip()])))
 
-    # Estados
+    # Estados del Establecimiento
     estados_estab_raw = db.query(models.Establecimiento.estado_operativo).filter(
         models.Establecimiento.estado == True,
         models.Establecimiento.estado_operativo.isnot(None)
     ).distinct().all()
     estados = sorted(list(set([e[0].strip() for e in estados_estab_raw if e[0] and e[0].strip()])))
+
+    # Tipos de Trámite
+    tipos_tramite_raw = db.query(models.Tramite.tipo_tramite).filter(
+        models.Tramite.estado == True,
+        models.Tramite.tipo_tramite.isnot(None)
+    ).distinct().all()
+    tipos_tramite = sorted(list(set([t[0].strip() for t in tipos_tramite_raw if t[0] and t[0].strip()])))
+
+    # Estados de Trámite
+    estados_tramite_raw = db.query(models.Tramite.estado_tramite).filter(
+        models.Tramite.estado == True,
+        models.Tramite.estado_tramite.isnot(None)
+    ).distinct().all()
+    estados_tramite = sorted(list(set([e[0].strip() for e in estados_tramite_raw if e[0] and e[0].strip()])))
+
+    # Supervisores Registrados
+    sups_db = db.query(models.Usuario).join(models.Role).filter(
+        models.Role.nombre.ilike("%supervisor%"),
+        models.Usuario.estado == True
+    ).order_by(models.Usuario.apellidos.asc()).all()
+    supervisores = sorted(list(set([f"{s.nombres} {s.apellidos}".strip() for s in sups_db if s.nombres or s.apellidos])))
 
     # Nombres de Establecimientos
     nombres_raw = db.query(models.Establecimiento.nombre_comercial).filter(
@@ -274,12 +378,61 @@ def obtener_opciones_filtros(db: Session = Depends(get_db)):
     ).distinct().all()
     responsables_lab = sorted(list(set([r[0].strip() for r in resp_lab_raw if r[0] and r[0].strip()])))
 
-    # Responsables de Áreas
+    # Responsables de Áreas (Extracción exclusiva de los nombres de los profesionales)
     resp_areas_raw = db.query(models.Establecimiento.responsables_areas).filter(
         models.Establecimiento.estado == True,
         models.Establecimiento.responsables_areas.isnot(None)
     ).distinct().all()
-    responsables_areas = sorted(list(set([ra[0].strip() for ra in resp_areas_raw if ra[0] and ra[0].strip()])))
+
+    nombres_responsables_areas = set()
+    for ra in resp_areas_raw:
+        texto = ra[0] if ra else None
+        if not texto or not isinstance(texto, str):
+            continue
+        texto = texto.strip()
+        if not texto:
+            continue
+
+        # Formato JSON
+        if (texto.startswith('{') and texto.endswith('}')) or (texto.startswith('[') and texto.endswith(']')):
+            try:
+                data = json.loads(texto)
+                if isinstance(data, dict):
+                    for area, val in data.items():
+                        if isinstance(val, dict) and 'nombre' in val:
+                            nom = str(val['nombre']).strip()
+                            if nom:
+                                nombres_responsables_areas.add(nom)
+                        elif isinstance(val, str) and val.strip():
+                            nombres_responsables_areas.add(val.strip())
+                elif isinstance(data, list):
+                    for item in data:
+                        if isinstance(item, dict) and 'nombre' in item:
+                            nom = str(item['nombre']).strip()
+                            if nom:
+                                nombres_responsables_areas.add(nom)
+                continue
+            except Exception:
+                pass
+
+        # Formato texto estructurado con delimitadores ';'
+        partes = [p.strip() for p in texto.split(';') if p.strip()]
+        for parte in partes:
+            if ':' in parte:
+                _, resto = parte.split(':', 1)
+                resto = resto.strip()
+                nom = re.sub(r'\(CI.*?\)', '', resto, flags=re.IGNORECASE).strip()
+                nom = re.sub(r'\(C\.I\..*?\)', '', nom, flags=re.IGNORECASE).strip()
+                nom = re.sub(r'\(.*?\)', '', nom).strip(' ,;:')
+                if nom and len(nom) > 1:
+                    nombres_responsables_areas.add(nom)
+            elif '(' in parte and 'CI' in parte.upper():
+                nom = re.sub(r'\(CI.*?\)', '', parte, flags=re.IGNORECASE).strip()
+                nom = re.sub(r'\(.*?\)', '', nom).strip(' ,;:')
+                if nom:
+                    nombres_responsables_areas.add(nom)
+
+    responsables_areas = sorted(list(nombres_responsables_areas))
 
     # Direcciones / Zonas
     dirs_raw = db.query(models.Establecimiento.direccion).filter(
@@ -292,6 +445,9 @@ def obtener_opciones_filtros(db: Session = Depends(get_db)):
         "municipios": municipios,
         "tipos": tipos,
         "estados": estados,
+        "tipos_tramite": tipos_tramite,
+        "estados_tramite": estados_tramite,
+        "supervisores": supervisores,
         "nombres": nombres,
         "niveles": niveles,
         "propietarios": propietarios,
@@ -303,11 +459,17 @@ def obtener_opciones_filtros(db: Session = Depends(get_db)):
 
 @router.get("/metricas-indicadores", summary="Obtener métricas, indicadores y analíticas avanzadas con filtros dinámicos")
 def obtener_metricas_indicadores(
+    periodo_predefinido: Optional[str] = Query(None, description="Período: 'todos', 'este_mes', 'ultimos_30', 'ultimos_7', 'personalizado'"),
+    fecha_inicio: Optional[str] = Query(None, description="Fecha inicio YYYY-MM-DD para rango personalizado"),
+    fecha_fin: Optional[str] = Query(None, description="Fecha fin YYYY-MM-DD para rango personalizado"),
     periodo_anio: Optional[int] = Query(2026, description="Año del periodo"),
     periodo_mes: Optional[int] = Query(None, description="Mes del periodo (1-12)"),
     municipio: Optional[str] = Query(None, description="Filtro por Municipio"),
     tipo_laboratorio: Optional[str] = Query(None, description="Filtro por Tipo de Laboratorio"),
+    tipo_tramite: Optional[str] = Query(None, description="Filtro por Tipo de Trámite"),
     estado: Optional[str] = Query(None, description="Filtro por Estado Operativo / Trámite"),
+    estado_tramite: Optional[str] = Query(None, description="Filtro por Estado de Trámite"),
+    supervisor: Optional[str] = Query(None, description="Filtro por Supervisor Asignado"),
     nombre_laboratorio: Optional[str] = Query(None, description="Filtro por Nombre del Laboratorio"),
     nivel: Optional[str] = Query(None, description="Filtro por Nivel"),
     propietario: Optional[str] = Query(None, description="Filtro por Nombre del Propietario"),
@@ -320,6 +482,39 @@ def obtener_metricas_indicadores(
     Calcula dinámicamente todas las métricas analíticas e indicadores macro
     a partir de la base de datos PostgreSQL aplicando los filtros suministrados.
     """
+    # Normalizar parámetros para invocaciones HTTP y llamadas directas en Python
+    def _val(x):
+        if x is None or not isinstance(x, str) or str(x).startswith("Query(") or str(x).startswith("annotation="):
+            return None
+        s = str(x).strip()
+        return s if s != "" else None
+
+    def _val_int(x):
+        if x is None or str(x).startswith("Query(") or str(x).startswith("annotation="):
+            return None
+        try:
+            return int(x)
+        except Exception:
+            return None
+
+    periodo_predefinido = _val(periodo_predefinido)
+    fecha_inicio = _val(fecha_inicio)
+    fecha_fin = _val(fecha_fin)
+    periodo_anio = _val_int(periodo_anio)
+    periodo_mes = _val_int(periodo_mes)
+    municipio = _val(municipio)
+    tipo_laboratorio = _val(tipo_laboratorio)
+    tipo_tramite = _val(tipo_tramite)
+    estado = _val(estado)
+    estado_tramite = _val(estado_tramite)
+    supervisor = _val(supervisor)
+    nombre_laboratorio = _val(nombre_laboratorio)
+    nivel = _val(nivel)
+    propietario = _val(propietario)
+    responsable_laboratorio = _val(responsable_laboratorio)
+    responsables_areas = _val(responsables_areas)
+    direccion = _val(direccion)
+
     ahora = datetime.now()
 
     # --- 1. CONSTRUCCIÓN DE CONSULTA BASE DE ESTABLECIMIENTOS FILTRADOS ---
@@ -365,10 +560,59 @@ def obtener_metricas_indicadores(
     if len(estab_ids) > 0 or (municipio or tipo_laboratorio or estado or nombre_laboratorio or nivel or propietario or responsable_laboratorio or responsables_areas or direccion):
         query_trm = query_trm.filter(models.Tramite.establecimiento_id.in_(estab_ids if estab_ids else [uuid.uuid4()]))
 
-    if periodo_anio:
-        query_trm = query_trm.filter(func.extract('year', models.Tramite.fecha_creacion) == periodo_anio)
-    if periodo_mes:
-        query_trm = query_trm.filter(func.extract('month', models.Tramite.fecha_creacion) == periodo_mes)
+    # Filtro de Tipo de Trámite
+    if tipo_tramite:
+        query_trm = query_trm.filter(models.Tramite.tipo_tramite.ilike(f"%{tipo_tramite}%"))
+
+    # Filtro de Estado del Trámite
+    if estado_tramite:
+        query_trm = query_trm.filter(models.Tramite.estado_tramite.ilike(f"%{estado_tramite}%"))
+
+    # Filtro de Supervisor Asignado
+    if supervisor:
+        query_trm = query_trm.join(models.Usuario, models.Tramite.supervisor_asignado_id == models.Usuario.id, isouter=True).filter(
+            or_(
+                models.Usuario.nombres.ilike(f"%{supervisor}%"),
+                models.Usuario.apellidos.ilike(f"%{supervisor}%"),
+                func.concat(models.Usuario.nombres, " ", models.Usuario.apellidos).ilike(f"%{supervisor}%")
+            )
+        )
+
+    # Filtro Temporal Dinámico
+    if periodo_predefinido == "este_mes":
+        f_inicio = datetime(ahora.year, ahora.month, 1, 0, 0, 0)
+        if ahora.month == 12:
+            f_fin = datetime(ahora.year + 1, 1, 1, 0, 0, 0) - timedelta(seconds=1)
+        else:
+            f_fin = datetime(ahora.year, ahora.month + 1, 1, 0, 0, 0) - timedelta(seconds=1)
+        query_trm = query_trm.filter(models.Tramite.fecha_creacion >= f_inicio, models.Tramite.fecha_creacion <= f_fin)
+    elif periodo_predefinido == "ultimos_30":
+        f_inicio = ahora - timedelta(days=30)
+        query_trm = query_trm.filter(models.Tramite.fecha_creacion >= f_inicio, models.Tramite.fecha_creacion <= ahora)
+    elif periodo_predefinido == "ultimos_7":
+        f_inicio = ahora - timedelta(days=7)
+        query_trm = query_trm.filter(models.Tramite.fecha_creacion >= f_inicio, models.Tramite.fecha_creacion <= ahora)
+    elif periodo_predefinido == "personalizado":
+        if fecha_inicio:
+            try:
+                dt_ini = datetime.strptime(fecha_inicio, "%Y-%m-%d")
+                query_trm = query_trm.filter(models.Tramite.fecha_creacion >= dt_ini)
+            except Exception:
+                pass
+        if fecha_fin:
+            try:
+                dt_fin = datetime.strptime(fecha_fin, "%Y-%m-%d").replace(hour=23, minute=59, second=59)
+                query_trm = query_trm.filter(models.Tramite.fecha_creacion <= dt_fin)
+            except Exception:
+                pass
+    elif periodo_predefinido == "todos":
+        # No date boundary filter applied, or defaults to year if specified
+        pass
+    else:
+        if periodo_anio:
+            query_trm = query_trm.filter(func.extract('year', models.Tramite.fecha_creacion) == periodo_anio)
+        if periodo_mes:
+            query_trm = query_trm.filter(func.extract('month', models.Tramite.fecha_creacion) == periodo_mes)
 
     tramites_filtrados = query_trm.all()
     total_tramites = len(tramites_filtrados)
@@ -430,27 +674,11 @@ def obtener_metricas_indicadores(
             "porcentaje": round((cant / total_estabs) * 100)
         })
 
-    # --- 6. CUELLOS DE BOTELLA OPERATIVOS IDENTIFICADOS ---
-    cuellos_botella = []
+    # --- 6. CUELLOS DE BOTELLA Y ALERTAS OPERATIVAS IDENTIFICADAS ---
+    # 1. Trámites demorados (>15 días sin resolución)
+    tramites_demorados = sum(1 for t in tramites_filtrados if t.fecha_creacion and (ahora - t.fecha_creacion).days > 15 and t.estado_tramite not in ["Aprobado", "Finalizado", "Rechazado"])
     
-    # 1. Trámites > 30 días sin resolución
-    tramites_demorados = sum(1 for t in tramites_filtrados if t.fecha_creacion and (ahora - t.fecha_creacion).days > 30 and t.estado_tramite not in ["Aprobado", "Finalizado", "Rechazado"])
-    if tramites_demorados > 0:
-        cuellos_botella.append({
-            "id": "cb-1",
-            "nivel": "alto",
-            "color": "rose",
-            "mensaje": f"{tramites_demorados} trámite(s) llevan más de 30 días sin resolución"
-        })
-    else:
-        cuellos_botella.append({
-            "id": "cb-1",
-            "nivel": "optimo",
-            "color": "emerald",
-            "mensaje": "Todos los trámites en curso están dentro del plazo normativo (<30 días)"
-        })
-
-    # 2. Documentos observados pendientes
+    # 2. Documentos observados pendientes de subsanación
     trm_ids_filtrados = [t.id for t in tramites_filtrados]
     docs_observados_count = db.query(models.TramiteDocumento).filter(
         models.TramiteDocumento.estado == True,
@@ -458,35 +686,72 @@ def obtener_metricas_indicadores(
         models.TramiteDocumento.tramite_id.in_(trm_ids_filtrados) if trm_ids_filtrados else False
     ).count() if trm_ids_filtrados else 0
 
-    if docs_observados_count > 0:
-        cuellos_botella.append({
-            "id": "cb-2",
-            "nivel": "medio",
-            "color": "amber",
-            "mensaje": f"{docs_observados_count} documento(s) con observaciones pendientes de subsanación"
-        })
-
-    # 3. Inspecciones pendientes o reprogramadas
-    inspecciones_pendientes = db.query(models.Inspeccion).filter(
+    # 3. Inspecciones pendientes o en proceso
+    inspecciones_pendientes_count = db.query(models.Inspeccion).filter(
         models.Inspeccion.estado == True,
-        models.Inspeccion.estado_inspeccion.in_(["Pendiente", "Reprogramada"]),
+        models.Inspeccion.estado_inspeccion.in_(["Pendiente", "Reprogramada", "Asignada", "En Proceso"]),
         models.Inspeccion.tramite_id.in_(trm_ids_filtrados) if trm_ids_filtrados else True
     ).count()
 
-    if inspecciones_pendientes > 0:
-        cuellos_botella.append({
-            "id": "cb-3",
-            "nivel": "info",
-            "color": "amber",
-            "mensaje": f"{inspecciones_pendientes} inspección(es) de campo pendientes o reprogramadas"
-        })
-    else:
-        cuellos_botella.append({
-            "id": "cb-3",
-            "nivel": "optimo",
-            "color": "emerald",
-            "mensaje": "Inspecciones de campo al día y calendarizadas"
-        })
+    # 4. Resoluciones listas para firma de Dirección General
+    resoluciones_listas_count = sum(
+        1 for t in tramites_filtrados 
+        if ("resoluci" in (t.estado_tramite or "").lower() or "aprobada" in (t.estado_tramite or "").lower() or "informe" in (t.estado_tramite or "").lower())
+        and t.estado_tramite not in ["Aprobado", "Finalizado", "Rechazado"]
+    )
+
+    # % Cumplimiento normativo
+    cumplimiento_pct = round(((total_tramites - tramites_demorados) / total_tramites) * 100) if total_tramites > 0 else 100
+    total_alertas_activas = (1 if tramites_demorados > 0 else 0) + (1 if docs_observados_count > 0 else 0) + (1 if inspecciones_pendientes_count > 0 else 0) + (1 if resoluciones_listas_count > 0 else 0)
+
+    alertas_items = [
+        {
+            "id": "alerta-demora",
+            "tipo": "demora",
+            "titulo": "Fuera de Plazo (>15 días)",
+            "conteo": tramites_demorados,
+            "subtexto": f"{tramites_demorados} trámite(s) con retraso normativo" if tramites_demorados > 0 else "Sin trámites con demora",
+            "nivel": "critico" if tramites_demorados > 0 else "optimo",
+            "color": "rose" if tramites_demorados > 0 else "emerald",
+            "icono": "Clock"
+        },
+        {
+            "id": "alerta-observaciones",
+            "tipo": "observaciones",
+            "titulo": "Docs. con Observación",
+            "conteo": docs_observados_count,
+            "subtexto": f"{docs_observados_count} doc(s) en espera de subsanación" if docs_observados_count > 0 else "Documentación conforme",
+            "nivel": "advertencia" if docs_observados_count > 0 else "optimo",
+            "color": "amber" if docs_observados_count > 0 else "emerald",
+            "icono": "FileWarning"
+        },
+        {
+            "id": "alerta-inspecciones",
+            "tipo": "inspecciones",
+            "titulo": "Inspecciones en Curso",
+            "conteo": inspecciones_pendientes_count,
+            "subtexto": f"{inspecciones_pendientes_count} inspección(es) asignadas / en proceso" if inspecciones_pendientes_count > 0 else "Inspecciones al día",
+            "nivel": "info" if inspecciones_pendientes_count > 0 else "optimo",
+            "color": "sky" if inspecciones_pendientes_count > 0 else "emerald",
+            "icono": "ClipboardList"
+        },
+        {
+            "id": "alerta-resoluciones",
+            "tipo": "resoluciones",
+            "titulo": "Listos para Firma",
+            "conteo": resoluciones_listas_count,
+            "subtexto": f"{resoluciones_listas_count} expediente(s) con dictamen favorable" if resoluciones_listas_count > 0 else "Sin resoluciones pendientes",
+            "nivel": "prioritario" if resoluciones_listas_count > 0 else "optimo",
+            "color": "teal" if resoluciones_listas_count > 0 else "emerald",
+            "icono": "FileCheck"
+        }
+    ]
+
+    cuellos_botella = {
+        "cumplimiento_pct": cumplimiento_pct,
+        "total_alertas_activas": total_alertas_activas,
+        "items": alertas_items
+    }
 
     # --- 7. RANKING DE SUPERVISORES CON DESEMPEÑO REAL ---
     supervisores_db = db.query(models.Usuario).join(models.Role).filter(
@@ -530,21 +795,71 @@ def obtener_metricas_indicadores(
 
     ranking_supervisores.sort(key=lambda x: x["actas"], reverse=True)
 
-    # --- 8. CANTIDAD POR MUNICIPIO (PÚBLICOS VS PRIVADOS) ---
+    # --- 8. CANTIDAD POR MUNICIPIO (PÚBLICOS VS PRIVADOS) Y POR REGIONES ---
     muns_conteo = {}
+    
+    # 5 macro-regiones SEDES oficiales
+    regiones_dict = {
+        "Región Metropolitana": {"region": "Región Metropolitana", "total": 0, "privados": 0, "publicos": 0, "municipios_activos": set()},
+        "Valle Alto": {"region": "Valle Alto", "total": 0, "privados": 0, "publicos": 0, "municipios_activos": set()},
+        "Trópico": {"region": "Trópico", "total": 0, "privados": 0, "publicos": 0, "municipios_activos": set()},
+        "Cono Sur": {"region": "Cono Sur", "total": 0, "privados": 0, "publicos": 0, "municipios_activos": set()},
+        "Zona Andina y Valles": {"region": "Zona Andina y Valles", "total": 0, "privados": 0, "publicos": 0, "municipios_activos": set()}
+    }
+
+    total_estabs_depto = max(len(establecimientos_filtrados), 1)
+
     for e in establecimientos_filtrados:
         mun = (e.municipio or "Cercado").strip().title()
+        reg_nombre = MAPA_MUNICIPIO_REGION.get(mun, "Región Metropolitana")
+        
         if mun not in muns_conteo:
-            muns_conteo[mun] = {"municipio": mun, "privados": 0, "publicos": 0, "total": 0}
+            muns_conteo[mun] = {
+                "municipio": mun,
+                "region": reg_nombre,
+                "privados": 0,
+                "publicos": 0,
+                "total": 0,
+                "porcentaje": 0
+            }
         
         tipo_str = (e.tipo or "").lower()
-        if "público" in tipo_str or "publico" in tipo_str or "seguro" in tipo_str:
+        es_publico = "público" in tipo_str or "publico" in tipo_str or "seguro" in tipo_str
+        
+        if es_publico:
             muns_conteo[mun]["publicos"] += 1
         else:
             muns_conteo[mun]["privados"] += 1
         muns_conteo[mun]["total"] += 1
 
-    cantidad_municipios = sorted(list(muns_conteo.values()), key=lambda x: x["total"], reverse=True)[:8]
+        if reg_nombre in regiones_dict:
+            regiones_dict[reg_nombre]["total"] += 1
+            if es_publico:
+                regiones_dict[reg_nombre]["publicos"] += 1
+            else:
+                regiones_dict[reg_nombre]["privados"] += 1
+            regiones_dict[reg_nombre]["municipios_activos"].add(mun)
+
+    # Calcular porcentaje por municipio
+    for m_val in muns_conteo.values():
+        m_val["porcentaje"] = round((m_val["total"] / total_estabs_depto) * 100, 1)
+
+    # Ordenar municipios por total desc (todos los que tienen registros)
+    cantidad_municipios = sorted(list(muns_conteo.values()), key=lambda x: x["total"], reverse=True)
+
+    # Distribución por 5 macro-regiones
+    distribucion_regiones = []
+    for reg_k, reg_v in regiones_dict.items():
+        pct = round((reg_v["total"] / total_estabs_depto) * 100, 1)
+        distribucion_regiones.append({
+            "region": reg_v["region"],
+            "total": reg_v["total"],
+            "privados": reg_v["privados"],
+            "publicos": reg_v["publicos"],
+            "porcentaje": pct,
+            "municipios_count": len(reg_v["municipios_activos"])
+        })
+    distribucion_regiones.sort(key=lambda x: x["total"], reverse=True)
 
     # --- 9. POR NIVEL DE LABORATORIO ---
     niveles_conteo = {"1er Nivel": 0, "2do Nivel": 0, "3er Nivel": 0, "De Referencia": 0}
@@ -635,10 +950,10 @@ def obtener_metricas_indicadores(
         "total": sum(situacion_conteo.values()),
         "items": [
             {"label": "Funcionando", "color": "#10b981", "cantidad": situacion_conteo["Funcionando"], "porcentaje": round((situacion_conteo["Funcionando"] / total_situacion) * 100)},
-            {"label": "No Funcionando", "color": "#ef4444", "cantidad": situacion_conteo["No Funcionando"], "porcentaje": round((situacion_conteo["No Funcionando"] / total_situacion) * 100)},
-            {"label": "Cerrado", "color": "#64748b", "cantidad": situacion_conteo["Cerrado"], "porcentaje": round((situacion_conteo["Cerrado"] / total_situacion) * 100)},
+            {"label": "Renovación / En Trámite", "color": "#0077c8", "cantidad": situacion_conteo["Renovación"], "porcentaje": round((situacion_conteo["Renovación"] / total_situacion) * 100)},
             {"label": "En Refacción", "color": "#f59e0b", "cantidad": situacion_conteo["En Refacción"], "porcentaje": round((situacion_conteo["En Refacción"] / total_situacion) * 100)},
-            {"label": "Renovación", "color": "#06b6d4", "cantidad": situacion_conteo["Renovación"], "porcentaje": round((situacion_conteo["Renovación"] / total_situacion) * 100)}
+            {"label": "No Funcionando", "color": "#ef4444", "cantidad": situacion_conteo["No Funcionando"], "porcentaje": round((situacion_conteo["No Funcionando"] / total_situacion) * 100)},
+            {"label": "Cerrado Definitivo", "color": "#94a3b8", "cantidad": situacion_conteo["Cerrado"], "porcentaje": round((situacion_conteo["Cerrado"] / total_situacion) * 100)}
         ]
     }
 
@@ -662,6 +977,7 @@ def obtener_metricas_indicadores(
         "cuellos_botella": cuellos_botella,
         "ranking_supervisores": ranking_supervisores,
         "cantidad_municipios": cantidad_municipios,
+        "distribucion_regiones": distribucion_regiones,
         "por_nivel": por_nivel,
         "por_tipo_laboratorio": por_tipo_laboratorio,
         "estado_situacion": estado_situacion
