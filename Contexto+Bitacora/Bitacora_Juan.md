@@ -799,7 +799,45 @@ Optimizar la experiencia del Propietario en el portal de trámites y el sistema 
 * **FastAPI & SQLAlchemy:** Consultas SQL dinámicas con filtrado automático de notificaciones activas vs obsoletas y trazabilidad de estados de establecimientos.
 
 ---
+---
+
+## [2026-10-01] Corrección y Depuración del Módulo de Asesoría Legal (Abogado): Eliminación de Parpadeo y Cargas Fantasma de Informes, Filtrado Estricto de Pendientes y Desacoplamiento de Sincronización en Frontend
+
+### 📌 Objetivo
+1. **Eliminar el Error de Parpadeo / Aparición y Desaparición de Informes:** Resolver el bucle reactivo donde expedientes ya aprobados (como *"Lab ejemplo 5"*) se previsualizaban en el panel derecho del Asesor Legal durante fracciones de segundo y luego desaparecían al coincidir con el polling y foco de ventana.
+2. **Filtrado Estricto de Informes Recibidos en Backend:** Modificar el endpoint `GET /api/abogado/informes` para que devuelva exclusivamente trámites formalmente derivados a Asesoría Legal (`"Derivado a Asesoría Legal"` o `"En Asesoría Legal"`) y con resolución pendiente de elaboración, excluyendo trámites en borrador de coordinación (`"En Informe Técnico"`) y trámites con resolución ya remitida/aprobada (`"Enviado a Coordinador"`, `"Aprobado"`, `"Emitido"`).
+3. **Eliminación de Fallbacks Indeseados en Detalle de Informe:** Remover en `GET /api/abogado/informe/{tramite_id}` la consulta de respaldo que devolvía el primer trámite de la base de datos cuando no se enviaba un ID válido, reemplazándolo por respuestas HTTP defensivas (400 / 404).
+4. **Desacoplamiento de Selección en Frontend (`AbogadoPage.jsx`):** Asegurar que la selección de trámite activo dependa únicamente de los elementos reales en `listaCardsMostrada`. Si no existen informes pendientes (0 pendientes), el panel derecho se mantiene limpio con el estado vacío oficial (*"Sin informes técnicos pendientes"*), liberando adecuadamente las referencias y URLs Blob del visor PDF.
+
+---
+
+### 🛠️ Archivos Modificados
+
+#### 1. `backend/abogado.py` [MODIFICADO]
+* **Depuración de `listar_informes_recibidos` (`GET /api/abogado/informes`):**
+  * Se acotaron los `estados_validos` a `["Derivado a Asesoría Legal", "En Asesoría Legal"]`.
+  * Se añadió una condición de exclusión para descartar del listado de pendientes cualquier trámite cuya resolución administrativa ya figure en estado `"Enviado a Coordinador"`, `"Emitido"` o `"Aprobado"`.
+  * El conteo de pendientes (`total_pendientes`) ahora refleja fielmente solo los trámites que requieren redacción de resolución por parte del Asesor Legal.
+* **Refuerzo de `obtener_detalle_informe` (`GET /api/abogado/informe/{tramite_id}`):**
+  * Validación temprana para IDs nulos, vacíos o no definidos (`null`, `undefined`), retornando `HTTP 400`.
+  * Eliminación del fallback que consultaba el primer trámite histórico de la base de datos, retornando `HTTP 404` si el ID solicitado no existe.
+
+#### 2. `frontend/src/pages/AbogadoPage.jsx` [MODIFICADO / CORREGIDO]
+* **Corrección en `cargarInformes`:**
+  * Se removió la auto-selección ciega `setTramiteSeleccionadoId(lista[0].id)` que sobreescribía el estado antes de que `listaCardsMostrada` filtrara los elementos no pendientes.
+* **Control de Ciclo de Vida y Limpieza de Visor PDF:**
+  * En el `useEffect` dependiente de `tramiteSeleccionadoId`, se añadió la revocación de URLs de objeto (`URL.revokeObjectURL`) y reseteo completo de estados (`detalleInforme`, `borradorResolucion`, `pdfInformeBlobUrl`, `pdfResolucionBlobUrl`) cuando el ID es `null`.
+* **Sincronización Idempotente de `listaCardsMostrada`:**
+  * Si `listaCardsMostrada` tiene longitud 0, se limpian todos los estados y se muestra de forma persistente y estable la pantalla de *"Sin informes técnicos pendientes"*, erradicando el parpadeo en polling (cada 20s) y al alternar pestañas.
+* **Estandarización del Logo SI_Lab en Barra Lateral:**
+  * Se reemplazó el enlace `<Link to="/">` por un encabezado institucional no cliqueable (`select-none`), homogeneizando el comportamiento con las demás consolas del sistema (Coordinador, Director, Admin, Supervisor, Propietario) para evitar redirecciones accidentales fuera de la sesión activa.
+
+---
+
+### 🎨 Tecnologías y Componentes Aplicados
+* **React 19 & Hooks:** `useMemo`, `useCallback`, `useEffect` con limpieza rigurosa de referencias `useRef` para blobs binarios.
+* **FastAPI & SQLAlchemy:** Consultas SQL parametrizadas con exclusión de estados finales y validaciones HTTP RESTful.
+* **jsPDF & Visor Embebido:** Gestión segura de URLs Blob creadas en tiempo de ejecución para evitar fugas de memoria y renders fantasmas.
+
+---
 *Bitácora actualizada por: Juan*
-
-
-

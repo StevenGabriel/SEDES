@@ -265,16 +265,6 @@ export default function AbogadoPage() {
         const data = await res.json();
         const lista = data.informes || [];
         setInformes(lista);
-        if (lista.length > 0) {
-          setTramiteSeleccionadoId(prev => {
-            const existe = lista.find(x => x.id === prev);
-            return existe ? prev : lista[0].id;
-          });
-        } else {
-          setTramiteSeleccionadoId(null);
-          setDetalleInforme(null);
-          setBorradorResolucion(null);
-        }
       }
     } catch (err) {
       console.warn('Error al cargar informes:', err);
@@ -470,6 +460,19 @@ export default function AbogadoPage() {
     if (tramiteSeleccionadoId) {
       cargarDetalleInforme(tramiteSeleccionadoId);
       cargarBorradorResolucion(tramiteSeleccionadoId);
+    } else {
+      if (pdfInformeUrlRef.current) {
+        URL.revokeObjectURL(pdfInformeUrlRef.current);
+        pdfInformeUrlRef.current = null;
+      }
+      if (pdfResolucionUrlRef.current) {
+        URL.revokeObjectURL(pdfResolucionUrlRef.current);
+        pdfResolucionUrlRef.current = null;
+      }
+      setPdfInformeBlobUrl(null);
+      setPdfResolucionBlobUrl(null);
+      setDetalleInforme(null);
+      setBorradorResolucion(null);
     }
   }, [tramiteSeleccionadoId, cargarDetalleInforme, cargarBorradorResolucion]);
 
@@ -1036,14 +1039,14 @@ export default function AbogadoPage() {
 
           {/* Logo SI_Lab */}
           <div className="flex items-center justify-between">
-            <Link to="/" className="flex items-center space-x-3 group cursor-pointer" title="Ir a la página principal">
-              <div className="bg-white/20 p-2.5 rounded-2xl backdrop-blur-md border border-white/30 group-hover:bg-white/30 transition shadow-inner">
+            <div className="flex items-center space-x-3 select-none">
+              <div className="bg-white/20 p-2.5 rounded-2xl backdrop-blur-md border border-white/30 shadow-inner">
                 <FlaskConical className="w-6 h-6 text-white" />
               </div>
               <span className="font-black text-2xl tracking-tight text-white flex items-center">
                 SI<span className="text-cyan-200 font-extrabold">_Lab</span>
               </span>
-            </Link>
+            </div>
 
             <button
               onClick={() => setSidebarOpen(false)}
