@@ -33,22 +33,29 @@ export default function RegisterPage() {
     if (errorMessage) setErrorMessage('');
   };
 
-  // Cálculo de fuerza de contraseña (Seguridad)
+  // Cálculo de fuerza de contraseña (Seguridad en tiempo real)
   const calculatePasswordStrength = (pass) => {
-    if (!pass) return { score: 0, text: 'Ingrese contraseña', color: 'text-slate-400', barColor: 'bg-slate-200' };
-    let score = 0;
-    if (pass.length >= 6) score += 1;
+    if (!pass || pass.length === 0) {
+      return { score: 0, text: 'Ingrese contraseña', color: 'text-slate-400', barColor: 'bg-slate-200' };
+    }
+
+    // Si tiene menos de 6 caracteres, siempre es Débil
+    if (pass.length < 6) {
+      return { score: 1, text: 'Débil (mínimo 6 caracteres)', color: 'text-rose-500', barColor: 'bg-rose-500' };
+    }
+
+    let score = 1; // Cumple con longitud básica >= 6
     if (pass.length >= 8) score += 1;
-    if (/[A-Z]/.test(pass) && /[0-9]/.test(pass)) score += 1;
+    if (/[A-Z]/.test(pass) && /[a-z]/.test(pass) && /[0-9]/.test(pass)) score += 1;
     if (/[^A-Za-z0-9]/.test(pass) || pass.length >= 10) score += 1;
 
     switch (score) {
       case 1:
-        return { score: 1, text: 'Débil', color: 'text-red-500', barColor: 'bg-red-500' };
+        return { score: 1, text: 'Débil', color: 'text-rose-500', barColor: 'bg-rose-500' };
       case 2:
         return { score: 2, text: 'Media', color: 'text-amber-500', barColor: 'bg-amber-500' };
       case 3:
-        return { score: 3, text: 'Segura', color: 'text-emerald-600', barColor: 'bg-emerald-500' };
+        return { score: 3, text: 'Segura', color: 'text-emerald-500', barColor: 'bg-emerald-500' };
       case 4:
       default:
         return { score: 4, text: 'Muy Segura', color: 'text-emerald-700', barColor: 'bg-emerald-600' };
