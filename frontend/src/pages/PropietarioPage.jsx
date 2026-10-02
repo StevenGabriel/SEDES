@@ -2777,19 +2777,13 @@ export default function PropietarioPage() {
                     </div>
                   </div>
 
-                  <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
+                  <div className="flex items-center justify-center pt-2">
                     <Link
                       to="/propietario/mis-establecimientos"
                       onClick={() => setSolicitudEnviadaExito(false)}
-                      className="w-full sm:w-auto bg-[#005596] hover:bg-[#003e6d] text-white text-xs font-bold px-6 py-3 rounded-xl transition shadow-md cursor-pointer"
+                      className="w-full sm:w-auto bg-[#005596] hover:bg-[#003e6d] text-white text-xs font-bold px-6 py-3 rounded-xl transition shadow-md cursor-pointer text-center"
                     >
                       Ir a Mis Establecimientos
-                    </Link>
-                    <Link
-                      to="/"
-                      className="w-full sm:w-auto bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold px-6 py-3 rounded-xl transition cursor-pointer"
-                    >
-                      Ver en Landing Page (Mapa)
                     </Link>
                   </div>
                 </div>
