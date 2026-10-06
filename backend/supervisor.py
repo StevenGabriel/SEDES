@@ -2,6 +2,8 @@ import math
 import os
 import shutil
 import uuid
+import json
+import urllib.request
 from datetime import datetime, date, timedelta, timezone
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status, UploadFile, File, Form
@@ -154,8 +156,8 @@ def parsear_fecha_hora(fecha_str: str, hora_str: str) -> datetime:
     return datetime(año, mes, dia, hora, minuto, 0)
 
 # Coordenadas Oficiales SEDES Cochabamba (Oficina Central)
-SEDES_CBBA_LAT = -17.39352
-SEDES_CBBA_LNG = -66.15705
+SEDES_CBBA_LAT = -17.388206704500057
+SEDES_CBBA_LNG = -66.14927830050517
 SEDES_CBBA_DIRECCION = "Av. Aniceto Arce #2875, Cochabamba"
 
 def calcular_distancia_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
@@ -202,6 +204,137 @@ def buscar_supervisor_por_id_o_nombre(identificador: str, db: Session) -> Option
 
     return None
 
+def verificar_conflicto_horario(
+    supervisor_id: uuid.UUID,
+    fecha_inicio: datetime,
+    fecha_fin: datetime,
+    inspeccion_id_excluir: Optional[uuid.UUID],
+    db: Session
+) -> Optional[dict]:
+    """
+    Verifica si existe solapamiento con alguna inspección ya programada del supervisor.
+    Dos intervalos [A_ini, A_fin] y [B_ini, B_fin] se solapan si:
+    max(A_ini, B_ini) < min(A_fin, B_fin)
+    """
+    if not supervisor_id:
+        return None
+
+    fecha_dia = fecha_inicio.date()
+    query = db.query(models.Inspeccion).join(models.Tramite).filter(
+        models.Inspeccion.estado == True,
+        models.Inspeccion.estado_inspeccion.in_(["Programada", "Reprogramada"]),
+        models.Inspeccion.fecha_programada.isnot(None),
+        cast(models.Inspeccion.fecha_programada, Date) == fecha_dia,
+        or_(
+            models.Inspeccion.supervisor_id == supervisor_id,
+            models.Tramite.supervisor_asignado_id == supervisor_id
+        )
+    )
+    if inspeccion_id_excluir:
+        query = query.filter(models.Inspeccion.id != inspeccion_id_excluir)
+    
+    inspecciones_del_dia = query.all()
+    
+    for otra_insp in inspecciones_del_dia:
+        otra_ini = otra_insp.fecha_programada
+        # Por defecto 90 minutos de duración de inspección técnica
+        otra_fin = otra_ini + timedelta(minutes=90)
+        
+        if max(fecha_inicio, otra_ini) < min(fecha_fin, otra_fin):
+            estab_nom = "Establecimiento"
+            if otra_insp.tramite and otra_insp.tramite.establecimiento:
+                estab_nom = otra_insp.tramite.establecimiento.nombre_comercial
+            return {
+                "conflicto": True,
+                "otra_inspeccion_id": str(otra_insp.id),
+                "establecimiento": estab_nom,
+                "hora_inicio": otra_ini.strftime("%H:%M"),
+                "hora_fin": otra_fin.strftime("%H:%M"),
+                "fecha": otra_ini.strftime("%d/%m/%Y")
+            }
+    return None
+
+def conciliar_inspecciones_vencidas_no_realizadas(
+    supervisor_id: Optional[uuid.UUID],
+    db: Session
+) -> int:
+    """
+    Identifica inspecciones programadas para fechas pasadas (días anteriores o jornada concluida)
+    que no fueron completadas con acta, y las devuelve automáticamente a estado 'Pendiente'
+    para que puedan ser reprogramadas / reasignadas libremente.
+    """
+    ahora = ahora_bolivia()
+    hoy = ahora.date()
+    
+    # Inspecciones de días anteriores no completadas
+    # O del mismo día si ya concluyó la jornada laboral (después de las 19:00)
+    query = db.query(models.Inspeccion).join(models.Tramite).filter(
+        models.Inspeccion.estado == True,
+        models.Inspeccion.estado_inspeccion.in_(["Programada", "Reprogramada"]),
+        models.Inspeccion.fecha_programada.isnot(None)
+    )
+    
+    if supervisor_id:
+        query = query.filter(
+            or_(
+                models.Inspeccion.supervisor_id == supervisor_id,
+                models.Tramite.supervisor_asignado_id == supervisor_id
+            )
+        )
+    
+    todas_candidatas = query.all()
+    revertidas = 0
+    
+    for insp in todas_candidatas:
+        fecha_prog = insp.fecha_programada
+        es_dia_anterior = fecha_prog.date() < hoy
+        es_mismo_dia_vencido = (fecha_prog.date() == hoy and ahora.hour >= 19)
+        
+        if es_dia_anterior or es_mismo_dia_vencido:
+            trm = insp.tramite
+            estab_nombre = trm.establecimiento.nombre_comercial if (trm and trm.establecimiento) else "Establecimiento"
+            f_str = fecha_prog.strftime("%d/%m/%Y a las %H:%M")
+            
+            # 1. Devolver inspección a estado Pendiente
+            insp.estado_inspeccion = "Pendiente"
+            
+            # 2. Devolver trámite a estado Pendiente
+            if trm:
+                trm.estado_tramite = "Pendiente"
+                
+                try:
+                    nuevo_log = models.HistorialActividad(
+                        id=uuid.uuid4(),
+                        codigo_tramite=f"TRM-{str(trm.id)[:8].upper()}",
+                        establecimiento=estab_nombre,
+                        accion=f"Inspección programada para el {f_str} no fue realizada durante la jornada. Devuelta automáticamente a la lista de inspecciones pendientes para su reprogramación.",
+                        responsable="Sistema Automático SEDES",
+                        estado_resultado="Reasignación Requerida",
+                        estado_badge="bg-amber-50 text-amber-700 border-amber-200",
+                        fecha_hora_formato=ahora.strftime("%d %b %Y - %H:%M")
+                    )
+                    db.add(nuevo_log)
+                except Exception as e_hist:
+                    print(f"Error al registrar historial de inspección no realizada: {e_hist}")
+
+            if insp.supervisor_id:
+                try:
+                    crear_notificacion_db(
+                        db,
+                        usuario_id=insp.supervisor_id,
+                        titulo="📋 Inspección no realizada retornó a Pendientes",
+                        mensaje=f"La inspección técnica programada para '{estab_nombre}' el {f_str} no fue completada en su fecha y ha retornado a su lista de Inspecciones Pendientes para ser reprogramada."
+                    )
+                except Exception as e_not:
+                    print(f"Error al notificar vencimiento a supervisor: {e_not}")
+                    
+            revertidas += 1
+            
+    if revertidas > 0:
+        db.commit()
+        
+    return revertidas
+
 # ==============================================================================
 # ENDPOINTS
 # ==============================================================================
@@ -222,6 +355,12 @@ def obtener_agenda_supervisor(
     supervisor = buscar_supervisor_por_id_o_nombre(supervisor_id, db)
     if not supervisor:
         raise HTTPException(status_code=404, detail="No se encontró el supervisor técnico especificado.")
+
+    # Conciliación automática de inspecciones no realizadas de días pasados
+    try:
+        conciliar_inspecciones_vencidas_no_realizadas(supervisor.id, db)
+    except Exception as e_conc:
+        print(f"Aviso en conciliación automática de inspecciones: {e_conc}")
 
     hoy = ahora_bolivia().date()
     lunes_hoy = obtener_lunes_de_semana(hoy, 0)
@@ -466,6 +605,29 @@ def agendar_inspeccion(
         if sup_default:
             sup_id = sup_default.id
 
+    # Validación estricta de solapamiento de horarios (No permitir 2 inspecciones simultáneas)
+    duracion = payload.duracion_minutos or 90
+    if payload.hora_fin:
+        try:
+            fecha_fin_dt = parsear_fecha_hora(payload.fecha, payload.hora_fin)
+        except Exception:
+            fecha_fin_dt = fecha_prog_dt + timedelta(minutes=duracion)
+    else:
+        fecha_fin_dt = fecha_prog_dt + timedelta(minutes=duracion)
+
+    conflicto = verificar_conflicto_horario(
+        supervisor_id=sup_id,
+        fecha_inicio=fecha_prog_dt,
+        fecha_fin=fecha_fin_dt,
+        inspeccion_id_excluir=insp.id if insp else None,
+        db=db
+    )
+    if conflicto:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Conflicto de horario: Ya tiene programada una inspección para '{conflicto['establecimiento']}' el {conflicto['fecha']} de {conflicto['hora_inicio']} a {conflicto['hora_fin']}. Por favor seleccione un horario antes de las {conflicto['hora_inicio']} o a partir de las {conflicto['hora_fin']}."
+        )
+
     if not insp:
         insp = models.Inspeccion(
             id=uuid.uuid4(),
@@ -566,6 +728,29 @@ def reprogramar_inspeccion(
             detail=f"No es posible reprogramar una inspección en una fecha u hora pasada ({nueva_fecha_dt.strftime('%d/%m/%Y %H:%M')}). Por favor seleccione una fecha y horario actual o posterior."
         )
 
+    # Validación estricta de solapamiento de horarios (No permitir 2 inspecciones simultáneas)
+    duracion = payload.duracion_minutos or 90
+    if payload.hora_fin:
+        try:
+            nueva_fin_dt = parsear_fecha_hora(payload.fecha, payload.hora_fin)
+        except Exception:
+            nueva_fin_dt = nueva_fecha_dt + timedelta(minutes=duracion)
+    else:
+        nueva_fin_dt = nueva_fecha_dt + timedelta(minutes=duracion)
+
+    conflicto = verificar_conflicto_horario(
+        supervisor_id=insp.supervisor_id,
+        fecha_inicio=nueva_fecha_dt,
+        fecha_fin=nueva_fin_dt,
+        inspeccion_id_excluir=insp.id,
+        db=db
+    )
+    if conflicto:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Conflicto de horario: Ya tiene programada una inspección para '{conflicto['establecimiento']}' el {conflicto['fecha']} de {conflicto['hora_inicio']} a {conflicto['hora_fin']}. Por favor seleccione un horario antes de las {conflicto['hora_inicio']} o a partir de las {conflicto['hora_fin']}."
+        )
+
     insp.fecha_programada = nueva_fecha_dt
     insp.estado_inspeccion = "Reprogramada"
 
@@ -654,6 +839,12 @@ def obtener_rutas_supervisor(
     supervisor = buscar_supervisor_por_id_o_nombre(supervisor_id, db)
     if not supervisor:
         raise HTTPException(status_code=404, detail="No se encontró el supervisor técnico especificado.")
+
+    # Conciliación automática de inspecciones no realizadas de días pasados
+    try:
+        conciliar_inspecciones_vencidas_no_realizadas(supervisor.id, db)
+    except Exception as e_conc:
+        print(f"Aviso en conciliación automática de inspecciones: {e_conc}")
 
     # Determinar fecha objetivo
     if fecha and isinstance(fecha, str):
@@ -853,6 +1044,22 @@ def obtener_rutas_supervisor(
         }
     }
 
+@router.get("/osrm-route", summary="Proxy OSRM de cálculo de ruta vial por calles")
+def obtener_geometria_osrm(
+    coordinates: str = Query(..., description="Coordenadas en formato lng1,lat1;lng2,lat2...")
+):
+    """
+    Proxy backend para obtener geometría de ruta vial real por calles sin bloqueos de navegador.
+    """
+    try:
+        url = f"https://router.project-osrm.org/route/v1/driving/{coordinates}?overview=full&geometries=geojson"
+        req = urllib.request.Request(url, headers={"User-Agent": "SEDES-Lab-Routing/1.0"})
+        with urllib.request.urlopen(req, timeout=10) as response:
+            data = json.loads(response.read().decode())
+            return data
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Error consultando servicio de rutas OSRM: {e}")
+
 # ==============================================================================
 # ENDPOINTS: ACTAS EMITIDAS DE INSPECCIÓN
 # ==============================================================================
@@ -918,10 +1125,10 @@ def obtener_actas_supervisor(
         # Mapear resultado estándar a partir del veredicto real
         veredicto = insp.veredicto_final or "Favorable"
         v_low = veredicto.lower()
-        if "favorable" in v_low or "aprob" in v_low:
-            res_std = "Aprobado"
-        elif "desfavorable" in v_low or "rechaz" in v_low:
+        if "desfav" in v_low or "rechaz" in v_low:
             res_std = "Rechazado"
+        elif "favorable" in v_low or "aprob" in v_low:
+            res_std = "Aprobado"
         else:
             res_std = "Con Observaciones"
 
@@ -1071,15 +1278,15 @@ def registrar_acta_inspeccion(
         )
 
     # Normalizar resultado
-    res_input = payload.resultado.strip()
-    if "aprob" in res_input.lower() or "favorable" in res_input.lower():
-        veredicto_db = "Favorable"
-        estado_trm = "Aprobado"
-        badge_color = "bg-emerald-50 text-emerald-700 border-emerald-200"
-    elif "rechaz" in res_input.lower() or "desfav" in res_input.lower():
+    res_input = payload.resultado.strip().lower()
+    if "rechaz" in res_input or "desfav" in res_input:
         veredicto_db = "Desfavorable"
         estado_trm = "Rechazado"
         badge_color = "bg-rose-50 text-rose-700 border-rose-200"
+    elif "aprob" in res_input or "favorable" in res_input:
+        veredicto_db = "Favorable"
+        estado_trm = "Aprobado"
+        badge_color = "bg-emerald-50 text-emerald-700 border-emerald-200"
     else:
         veredicto_db = "Con Observaciones"
         estado_trm = "Observado"
@@ -1098,14 +1305,18 @@ def registrar_acta_inspeccion(
 
     pdf_o_codigo = payload.archivo_pdf_firmado_url or cod_acta
 
-    # Calcular fecha de vencimiento según plazo
+    # Calcular fecha de vencimiento según dictamen y plazo
     f_insp_base = insp.fecha_programada.date() if (insp and insp.fecha_programada) else ahora_dt.date()
-    plazo_txt = (payload.plazo_subsanacion or "1 año").strip()
-    if "día" in plazo_txt.lower():
-        cant_dias = int(''.join(c for c in plazo_txt if c.isdigit()) or '30')
-        f_venc = f_insp_base + timedelta(days=cant_dias)
+    if veredicto_db == "Desfavorable" or "rechaz" in res_input.lower():
+        plazo_txt = None
+        f_venc = None
     else:
-        f_venc = f_insp_base + timedelta(days=365)
+        plazo_txt = (payload.plazo_subsanacion or "1 año").strip()
+        if "día" in plazo_txt.lower():
+            cant_dias = int(''.join(c for c in plazo_txt if c.isdigit()) or '30')
+            f_venc = f_insp_base + timedelta(days=cant_dias)
+        else:
+            f_venc = f_insp_base + timedelta(days=365)
 
     if insp:
         insp.estado_inspeccion = "Completada"

@@ -8,11 +8,19 @@ const originalFetch = window.fetch;
 window.fetch = async function (resource, config = {}) {
   const token = localStorage.getItem('token');
   
-  // Clonar o inicializar headers
   const headers = new Headers(config.headers || {});
+  const urlStr = typeof resource === 'string' ? resource : resource?.url || '';
   
-  // Inyectar el token JWT si está disponible y no se especificó previamente
-  if (token && !headers.has('Authorization')) {
+  // Solo inyectar Authorization en rutas internas de nuestro backend API
+  const isInternalBackend = (
+    urlStr.startsWith('/') ||
+    urlStr.includes('localhost:8000') ||
+    urlStr.includes('127.0.0.1:8000') ||
+    urlStr.includes('/api/')
+  ) && !urlStr.includes('project-osrm.org') && !urlStr.includes('openstreetmap.org') && !urlStr.includes('google.com');
+
+  // Inyectar el token JWT únicamente hacia nuestro backend
+  if (token && isInternalBackend && !headers.has('Authorization')) {
     headers.set('Authorization', `Bearer ${token}`);
   }
   

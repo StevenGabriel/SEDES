@@ -22,12 +22,12 @@ import {
   Car
 } from 'lucide-react';
 
-// Coordenadas fijas de la oficina central de SEDES Cochabamba
+// Coordenadas fijas oficiales de la oficina central de SEDES Cochabamba
 const SEDES_ORIGEN = {
   nombre: 'Inicio (Oficina SEDES)',
   direccion: 'Av. Aniceto Arce #2875, Cochabamba',
-  lat: -17.39352,
-  lng: -66.15705
+  lat: -17.388206704500057,
+  lng: -66.14927830050517
 };
 
 export default function RutasInspeccionView({ usuario, onCambiarSeccion, mostrarToast }) {
@@ -323,44 +323,78 @@ export default function RutasInspeccionView({ usuario, onCambiarSeccion, mostrar
     if (puntosRuta.length > 1) {
       // Construir URL de waypoints OSRM: lng,lat;lng,lat...
       const waypoints = puntosRuta.map(pt => `${pt[1]},${pt[0]}`).join(';');
-      const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${waypoints}?overview=full&geometries=geojson`;
+      
+      const cargarGeometriaVial = async () => {
+        let data = null;
 
-      fetch(osrmUrl)
-        .then(res => res.json())
-        .then(data => {
-          if (data.code === 'Ok' && data.routes && data.routes.length > 0) {
-            const ruta = data.routes[0];
-            const coordinates = ruta.geometry.coordinates.map(coord => [coord[1], coord[0]]); // Invertir [lng, lat] a [lat, lng]
-
-            // Dibujar ruta exacta por calles con estilo vial
-            polylineRef.current = L.polyline(coordinates, {
-              color: '#0284c7',
-              weight: 4.5,
-              opacity: 0.9,
-              dashArray: '8, 8',
-              lineCap: 'round',
-              lineJoin: 'round'
-            }).addTo(map);
-
-            // Actualizar métricas reales viales
-            setMetricasViales({
-              distancia_km: (ruta.distance / 1000).toFixed(1),
-              tiempo_min: Math.max(5, Math.round(ruta.duration / 60))
-            });
-
-            // Ajustar vista
-            map.fitBounds(polylineRef.current.getBounds(), {
-              padding: [50, 50],
-              maxZoom: 15
-            });
-          } else {
-            throw new Error('OSRM fallback');
+        // 1. Intentar primero a través del proxy del Backend (evita bloqueos de adblocker/CORS del navegador)
+        try {
+          const backendRes = await fetch(`http://localhost:8000/api/supervisor/osrm-route?coordinates=${encodeURIComponent(waypoints)}`);
+          if (backendRes.ok) {
+            data = await backendRes.json();
           }
-        })
-        .catch(() => {
-          // Fallback en caso de que OSRM no responda: Línea directa
+        } catch (e1) {
+          console.warn('Proxy OSRM backend falló, intentando directo...', e1);
+        }
+
+        // 2. Si el backend no respondió, intentar directamente con OSRM
+        if (!data || data.code !== 'Ok' || !data.routes || data.routes.length === 0) {
+          try {
+            const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${waypoints}?overview=full&geometries=geojson`;
+            const directRes = await fetch(osrmUrl);
+            if (directRes.ok) {
+              data = await directRes.json();
+            }
+          } catch (e2) {
+            console.warn('OSRM directo falló:', e2);
+          }
+        }
+
+        // Limpiar polilíneas previas si existían
+        if (polylineRef.current) {
+          map.removeLayer(polylineRef.current);
+          polylineRef.current = null;
+        }
+
+        if (data && data.code === 'Ok' && data.routes && data.routes.length > 0) {
+          const ruta = data.routes[0];
+          const coordinates = ruta.geometry.coordinates.map(coord => [coord[1], coord[0]]); // Invertir [lng, lat] a [lat, lng]
+
+          // Dibujar ruta exacta por calles con estilo vial continuo (Google Maps Style)
+          const casingPolyline = L.polyline(coordinates, {
+            color: '#0369a1',
+            weight: 7,
+            opacity: 0.85,
+            lineCap: 'round',
+            lineJoin: 'round'
+          });
+
+          const mainPolyline = L.polyline(coordinates, {
+            color: '#0284c7',
+            weight: 4.5,
+            opacity: 1,
+            lineCap: 'round',
+            lineJoin: 'round'
+          });
+
+          const routeLayerGroup = L.layerGroup([casingPolyline, mainPolyline]).addTo(map);
+          polylineRef.current = routeLayerGroup;
+
+          // Actualizar métricas reales viales
+          setMetricasViales({
+            distancia_km: (ruta.distance / 1000).toFixed(1),
+            tiempo_min: Math.max(5, Math.round(ruta.duration / 60))
+          });
+
+          // Ajustar vista abarcando toda la ruta
+          map.fitBounds(mainPolyline.getBounds(), {
+            padding: [50, 50],
+            maxZoom: 15
+          });
+        } else {
+          // Fallback a línea directa si los servicios de enrutamiento no responden
           polylineRef.current = L.polyline(puntosRuta, {
-            color: '#1b2533',
+            color: '#0284c7',
             weight: 3.5,
             opacity: 0.85,
             dashArray: '6, 8',
@@ -372,7 +406,10 @@ export default function RutasInspeccionView({ usuario, onCambiarSeccion, mostrar
             padding: [50, 50],
             maxZoom: 15
           });
-        });
+        }
+      };
+
+      cargarGeometriaVial();
     } else {
       map.setView([origenActual.lat, origenActual.lng], 14);
     }
