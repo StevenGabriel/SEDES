@@ -9,10 +9,12 @@ from sqlalchemy import desc, func
 
 from database import get_db
 import models
+from auth_dependencies import require_roles
 
 router = APIRouter(
     prefix="/api/coordinador",
-    tags=["Coordinador SEDES"]
+    tags=["Coordinador SEDES"],
+    dependencies=[Depends(require_roles(["Coordinador SEDES", "Coordinador"]))]
 )
 
 # ==============================================================================

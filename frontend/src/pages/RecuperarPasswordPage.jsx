@@ -1,13 +1,12 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { FlaskConical, ArrowLeft, Mail, CheckCircle2, AlertCircle, Clock, ExternalLink } from 'lucide-react';
+import { FlaskConical, ArrowLeft, Mail, CheckCircle2, AlertCircle, Clock } from 'lucide-react';
 
 export default function RecuperarPasswordPage() {
   const [email, setEmail] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isSent, setIsSent] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
-  const [devLink, setDevLink] = useState('');
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -30,10 +29,6 @@ export default function RecuperarPasswordPage() {
       }
 
       setIsSent(true);
-      if (data.dev_link) {
-        setDevLink(data.dev_link);
-      }
-
     } catch (err) {
       setErrorMessage(err.message || 'No se pudo conectar con el servidor.');
     } finally {
@@ -191,21 +186,6 @@ export default function RecuperarPasswordPage() {
                   <strong>Tiempo límite:</strong> El enlace tiene una duración de <strong>10 minutos</strong> por motivos de seguridad.
                 </span>
               </div>
-
-              {/* Botón de acceso directo en entorno de desarrollo */}
-              {devLink && (
-                <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-xl text-left">
-                  <p className="text-[11px] font-bold text-blue-900 mb-1 flex items-center gap-1">
-                    <ExternalLink className="w-3.5 h-3.5" /> Acceso Directo de Prueba (Dev):
-                  </p>
-                  <a
-                    href={devLink}
-                    className="text-xs text-[#0073c6] font-semibold hover:underline break-all block"
-                  >
-                    Abrir enlace de restablecimiento (10 min)
-                  </a>
-                </div>
-              )}
 
               <div className="pt-4">
                 <button

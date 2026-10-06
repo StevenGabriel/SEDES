@@ -8,10 +8,12 @@ from sqlalchemy import desc
 
 from database import get_db
 import models
+from auth_dependencies import get_current_user
 
 router = APIRouter(
     prefix="/api/notificaciones",
-    tags=["Notificaciones del Sistema"]
+    tags=["Notificaciones del Sistema"],
+    dependencies=[Depends(get_current_user)]
 )
 
 # ==============================================================================
@@ -98,13 +100,13 @@ def obtener_notificaciones_usuario(
         models.Notificacion.estado == True
     ).order_by(desc(models.Notificacion.fecha_creacion)).limit(limite).all()
 
-    # Desactivar notificaciones de observación para laboratorios que ya NO están observados
+    # Desactivar notificaciones de observación SOLO para datos de establecimientos que ya fueron subsanados
     notifs_validas = []
     hubo_limpieza = False
     for n in notificaciones_db:
         tit_low = (n.titulo or "").lower()
         msg_low = (n.mensaje or "").lower()
-        if "observad" in tit_low or ("observad" in msg_low and "establecimiento" in msg_low):
+        if "datos del establecimiento observad" in tit_low:
             # Verificar si corresponde a un establecimiento del usuario que ya fue validado/subsanado
             es_obsoleto = False
             for nom_estab, esta_obs in estab_obs_map.items():

@@ -1346,6 +1346,7 @@ export default function CoordinadorPage() {
 
   const handleLogout = () => {
     localStorage.removeItem('usuario');
+    localStorage.removeItem('token');
     navigate('/login');
   };
 
@@ -1641,27 +1642,7 @@ export default function CoordinadorPage() {
                     {/* Pie del Dropdown */}
                     <div className="px-4 py-2.5 bg-slate-50 border-t border-slate-200 text-center text-[11px] text-slate-500 font-medium flex items-center justify-between">
                       <span>Total: <strong>{notificaciones.length}</strong> {notificaciones.length === 1 ? 'notificación' : 'notificaciones'}</span>
-                      <div className="flex items-center space-x-3">
-                        {notificaciones.length > 0 && (
-                          <button
-                            type="button"
-                            onClick={handleLimpiarTodasNotificaciones}
-                            className="text-rose-600 hover:text-rose-800 hover:underline font-bold text-[11px] flex items-center space-x-1 cursor-pointer"
-                            title="Eliminar todas las notificaciones"
-                          >
-                            <Trash2 className="w-3 h-3" />
-                            <span>Limpiar todo</span>
-                          </button>
-                        )}
-                        <button
-                          type="button"
-                          onClick={cargarNotificaciones}
-                          className="text-[#0077c8] hover:underline font-bold text-[11px] flex items-center space-x-1 cursor-pointer"
-                        >
-                          <RefreshCw className="w-3 h-3" />
-                          <span>Actualizar</span>
-                        </button>
-                      </div>
+                      <span className="text-[10px] text-slate-400">Actualizado automáticamente</span>
                     </div>
                   </div>
                 </>

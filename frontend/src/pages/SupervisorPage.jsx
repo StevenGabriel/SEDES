@@ -223,6 +223,7 @@ export default function SupervisorPage() {
 
   const handleLogout = () => {
     localStorage.removeItem('usuario');
+    localStorage.removeItem('token');
     navigate('/login');
   };
 

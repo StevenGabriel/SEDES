@@ -9,10 +9,12 @@ from sqlalchemy import desc, func, or_
 
 from database import get_db
 import models
+from auth_dependencies import require_roles
 
 router = APIRouter(
     prefix="/api/director",
-    tags=["Director General SEDES"]
+    tags=["Director General SEDES"],
+    dependencies=[Depends(require_roles(["Director General", "Director"]))]
 )
 
 @router.get("/consola", summary="Obtener métricas ejecutivas, rendimiento y trazabilidad para la consola de dirección")

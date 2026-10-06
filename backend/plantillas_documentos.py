@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from database import get_db
 import models
+from auth_dependencies import get_current_user, require_roles
 
 router = APIRouter(
     prefix="/api/plantillas-documentos",
@@ -45,7 +46,7 @@ class ActualizarPlantillaSchema(BaseModel):
     contenido: Dict[str, Any]
     actualizado_por: Optional[str] = "Dirección General SEDES"
 
-@router.get("/{codigo}", summary="Obtener la configuración y párrafos de una plantilla de documento oficial")
+@router.get("/{codigo}", summary="Obtener la configuración y párrafos de una plantilla de documento oficial", dependencies=[Depends(get_current_user)])
 def obtener_plantilla(codigo: str, db: Session = Depends(get_db)):
     """
     Retorna el contenido estructurado de la plantilla solicitada.
@@ -89,7 +90,7 @@ def obtener_plantilla(codigo: str, db: Session = Depends(get_db)):
         "fecha_modificacion": plantilla_db.fecha_modificacion.isoformat() if plantilla_db.fecha_modificacion else None
     }
 
-@router.put("/{codigo}", summary="Actualizar o guardar una plantilla de documento oficial")
+@router.put("/{codigo}", summary="Actualizar o guardar una plantilla de documento oficial", dependencies=[Depends(require_roles(["Administrador"]))])
 def guardar_plantilla(codigo: str, body: ActualizarPlantillaSchema, db: Session = Depends(get_db)):
     """
     Guarda o actualiza la plantilla para que todos los usuarios (incluyendo el Coordinador)
@@ -134,7 +135,7 @@ def guardar_plantilla(codigo: str, body: ActualizarPlantillaSchema, db: Session 
         "fecha_modificacion": plantilla_db.fecha_modificacion.isoformat() if plantilla_db.fecha_modificacion else None
     }
 
-@router.post("/{codigo}/restablecer", summary="Restablecer una plantilla a los valores predeterminados de fábrica")
+@router.post("/{codigo}/restablecer", summary="Restablecer una plantilla a los valores predeterminados de fábrica", dependencies=[Depends(require_roles(["Administrador"]))])
 def restablecer_plantilla(codigo: str, db: Session = Depends(get_db)):
     """
     Elimina las personalizaciones guardadas y restablece los textos al formato oficial por defecto.

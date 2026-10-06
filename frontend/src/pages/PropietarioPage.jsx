@@ -856,6 +856,7 @@ export default function PropietarioPage() {
 
   const handleCerrarSesion = () => {
     localStorage.removeItem('usuario');
+    localStorage.removeItem('token');
     navigate('/login');
   };
 
@@ -1731,25 +1732,7 @@ export default function PropietarioPage() {
                       {/* Pie del Dropdown */}
                       <div className="px-4 py-2.5 bg-slate-50 border-t border-slate-200 text-center text-[11px] text-slate-500 font-medium flex items-center justify-between">
                         <span>Total: <strong>{notificaciones.length}</strong> {notificaciones.length === 1 ? 'notificación' : 'notificaciones'}</span>
-                        <div className="flex items-center space-x-3">
-                          {notificaciones.length > 0 && (
-                            <button
-                              onClick={handleLimpiarTodasNotificaciones}
-                              className="text-rose-600 hover:text-rose-800 hover:underline font-bold text-[11px] flex items-center space-x-1 cursor-pointer"
-                              title="Eliminar todas las notificaciones"
-                            >
-                              <Trash2 className="w-3 h-3" />
-                              <span>Limpiar todo</span>
-                            </button>
-                          )}
-                          <button
-                            onClick={() => usuario?.id && fetchNotificaciones(usuario.id)}
-                            className="text-[#0077c8] hover:underline font-bold text-[11px] flex items-center space-x-1 cursor-pointer"
-                          >
-                            <RefreshCw className="w-3 h-3" />
-                            <span>Actualizar</span>
-                          </button>
-                        </div>
+                        <span className="text-[10px] text-slate-400">Actualizado automáticamente</span>
                       </div>
                     </div>
                   </>
@@ -1933,7 +1916,7 @@ export default function PropietarioPage() {
                                 <div className="flex items-start space-x-2 text-rose-950">
                                   <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
                                   <div>
-                                    <span className="font-black text-xs block">⚠️ Datos del Establecimiento Observados por Coordinación:</span>
+                                    <span className="font-black text-xs block">Datos del Establecimiento Observados por Coordinación:</span>
                                     <p className="text-xs text-rose-800 mt-0.5 font-medium">
                                       {lab.observaciones.replace('OBSERVADO:', '').trim()}
                                     </p>
@@ -2026,18 +2009,8 @@ export default function PropietarioPage() {
                             <span>Ver Establecimiento</span>
                           </button>
 
-                          {/* Botón 3: Editar Página / Subsanar Datos */}
-                          {lab.observaciones && lab.observaciones.startsWith('OBSERVADO') ? (
-                            <button
-                              type="button"
-                              onClick={() => handleAbrirEditar(lab, true)}
-                              className="w-full sm:w-auto bg-rose-600 hover:bg-rose-700 text-white text-xs font-black px-4 py-2.5 rounded-xl transition flex items-center justify-center space-x-1.5 shadow-sm cursor-pointer active:scale-98 animate-pulse"
-                              title="Subsanar los datos observados por el Coordinador"
-                            >
-                              <Edit3 className="w-3.5 h-3.5 text-white" />
-                              <span>Subsanar Datos</span>
-                            </button>
-                          ) : (
+                          {/* Botón 3: Editar Página (Solo cuando no está observado, ya que cuando está observado el botón se ubica dentro de la alerta) */}
+                          {(!lab.observaciones || !lab.observaciones.startsWith('OBSERVADO')) && (
                             <button
                               type="button"
                               onClick={() => handleAbrirEditar(lab, false)}

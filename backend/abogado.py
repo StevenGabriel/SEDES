@@ -9,10 +9,12 @@ from sqlalchemy import desc, func, or_
 from database import get_db
 import models
 from notificaciones import crear_notificacion_db, notificar_a_rol_db
+from auth_dependencies import require_roles
 
 router = APIRouter(
     prefix="/api/abogado",
-    tags=["Asesor Legal / Abogado SEDES"]
+    tags=["Asesor Legal / Abogado SEDES"],
+    dependencies=[Depends(require_roles(["Asesor Legal", "Abogado", "Coordinador SEDES"]))]
 )
 
 MESES_ESPANOL = [

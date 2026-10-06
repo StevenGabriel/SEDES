@@ -7,6 +7,7 @@ from datetime import datetime
 
 from database import get_db
 import models
+from auth_dependencies import require_roles
 
 router = APIRouter(tags=["Catálogo de Requisitos Normativos"])
 
@@ -405,12 +406,12 @@ def listar_requisitos_publicos(db: Session = Depends(get_db)):
 # ENDPOINTS ADMINISTRATIVOS (/api/admin/requisitos)
 # ==============================================================================
 
-@router.get("/api/admin/requisitos", response_model=List[SeccionRequisitosOut])
+@router.get("/api/admin/requisitos", response_model=List[SeccionRequisitosOut], dependencies=[Depends(require_roles(["Administrador"]))])
 def listar_requisitos_admin(db: Session = Depends(get_db)):
     """Lista completa de secciones y requisitos para el panel de administración."""
     return obtener_secciones_agrupadas(db, solo_activos=False)
 
-@router.post("/api/admin/requisitos", status_code=status.HTTP_201_CREATED)
+@router.post("/api/admin/requisitos", status_code=status.HTTP_201_CREATED, dependencies=[Depends(require_roles(["Administrador"]))])
 def crear_requisito(payload: RequisitoCreate, db: Session = Depends(get_db)):
     """Crear un nuevo requisito dentro de una sección normativa."""
     texto_limpio = payload.texto.strip()
@@ -457,7 +458,7 @@ def crear_requisito(payload: RequisitoCreate, db: Session = Depends(get_db)):
         }
     }
 
-@router.put("/api/admin/requisitos/{requisito_id}")
+@router.put("/api/admin/requisitos/{requisito_id}", dependencies=[Depends(require_roles(["Administrador"]))])
 def actualizar_requisito(requisito_id: int, payload: RequisitoUpdate, db: Session = Depends(get_db)):
     """Modificar un requisito existente (texto, obligatorio/opcional, etc.)."""
     requisito = db.query(models.CatalogoRequisito).filter(models.CatalogoRequisito.id == requisito_id).first()
@@ -502,7 +503,7 @@ def actualizar_requisito(requisito_id: int, payload: RequisitoUpdate, db: Sessio
         }
     }
 
-@router.delete("/api/admin/requisitos/{requisito_id}")
+@router.delete("/api/admin/requisitos/{requisito_id}", dependencies=[Depends(require_roles(["Administrador"]))])
 def eliminar_requisito(requisito_id: int, db: Session = Depends(get_db)):
     """Eliminar o desactivar un requisito normativo."""
     requisito = db.query(models.CatalogoRequisito).filter(models.CatalogoRequisito.id == requisito_id).first()
@@ -514,7 +515,7 @@ def eliminar_requisito(requisito_id: int, db: Session = Depends(get_db)):
 
     return {"mensaje": "Requisito eliminado exitosamente del catálogo."}
 
-@router.post("/api/admin/requisitos/secciones", status_code=status.HTTP_201_CREATED)
+@router.post("/api/admin/requisitos/secciones", status_code=status.HTTP_201_CREATED, dependencies=[Depends(require_roles(["Administrador"]))])
 def crear_seccion_requisitos(payload: SeccionCreate, db: Session = Depends(get_db)):
     """Crear una nueva sección normativa con un requisito base inicial."""
     codigo_limpio = payload.codigo.strip()
