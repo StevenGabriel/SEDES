@@ -13,6 +13,7 @@ import CoordinadorPage from './pages/CoordinadorPage';
 import AdminPage from './pages/AdminPage';
 import DirectorPage from './pages/DirectorPage';
 import AbogadoPage from './pages/AbogadoPage';
+import NotFoundPage from './pages/NotFoundPage';
 
 function App() {
   return (
@@ -55,7 +56,7 @@ function App() {
       <Route path="/adminpage" element={<Navigate to="/admin/usuarios" replace />} />
       <Route path="/administrador" element={<Navigate to="/admin/usuarios" replace />} />
       <Route path="/administrador/:seccion" element={<AdminPage />} />
-      <Route path="*" element={<Navigate to="/" replace />} />
+      <Route path="*" element={<NotFoundPage />} />
     </Routes>
   );
 }

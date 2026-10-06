@@ -1,0 +1,42 @@
+# robots.txt para SEDES Lab - Portal Oficial de Laboratorios
+# Servicio Departamental de Salud (SEDES Cochabamba)
+
+User-agent: *
+# Páginas públicas que SÍ deben indexarse en Google / Bing
+Allow: /$
+Allow: /requisitos
+Allow: /landingpage
+Allow: /login
+Allow: /register
+Allow: /registro
+Allow: /recuperar-password
+
+# Paneles administrativos y áreas privadas que NO deben indexarse
+Disallow: /admin
+Disallow: /admin/
+Disallow: /adminpage
+Disallow: /administrador
+Disallow: /administrador/
+Disallow: /director
+Disallow: /director/
+Disallow: /directorpage
+Disallow: /coordinador
+Disallow: /coordinador/
+Disallow: /coordinadorpage
+Disallow: /supervisor
+Disallow: /supervisor/
+Disallow: /abogado
+Disallow: /abogado/
+Disallow: /abogadopage
+Disallow: /asesor-legal
+Disallow: /propietario
+Disallow: /propietario/
+Disallow: /propietariopage
+Disallow: /dashboard
+Disallow: /restablecer-password
+Disallow: /restablecer-contrasena
+Disallow: /api/
+Disallow: /uploads/cuentas/
+
+# Sitemap
+Sitemap: https://sedes.gob.bo/sitemap.xml

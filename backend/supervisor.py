@@ -13,10 +13,13 @@ from geoalchemy2.functions import ST_X, ST_Y
 from database import get_db
 import models
 from notificaciones import crear_notificacion_db
+from auth_dependencies import require_roles
+from file_security import validate_and_save_upload
 
 router = APIRouter(
     prefix="/api/supervisor",
-    tags=["Supervisor SEDES"]
+    tags=["Supervisor SEDES"],
+    dependencies=[Depends(require_roles(["Supervisor Técnico", "Supervisor", "Coordinador SEDES"]))]
 )
 
 # Zona horaria de Bolivia (UTC-4) — se usa para validaciones de fecha/hora
@@ -1221,43 +1224,34 @@ async def subir_acta_firmada(
 ):
     """
     Guarda el archivo PDF o imagen escaneada del formulario de inspección con firmas y sellos reales.
-    Almacena el archivo en uploads/actas/ y retorna la URL pública.
+    Almacena el archivo de forma validada y segura en uploads/actas/ y retorna la URL pública.
     """
-    try:
-        dir_destino = os.path.join("uploads", "actas")
-        os.makedirs(dir_destino, exist_ok=True)
-        
-        ext = file.filename.split(".")[-1].lower() if "." in file.filename else "pdf"
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        nombre_guardado = f"acta_firmada_{timestamp}_{uuid.uuid4().hex[:8]}.{ext}"
-        ruta_archivo = os.path.join(dir_destino, nombre_guardado)
-        
-        with open(ruta_archivo, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
+    nombre_guardado, _ = await validate_and_save_upload(
+        upload_file=file,
+        target_dir=os.path.join("uploads", "actas"),
+        category="all",
+        max_size_mb=15,
+        prefix="acta_firmada"
+    )
+    
+    archivo_url = f"/uploads/actas/{nombre_guardado}"
+    
+    # Si se envió inspeccion_id, actualizar directamente
+    if inspeccion_id:
+        try:
+            i_uuid = uuid.UUID(inspeccion_id)
+            insp = db.query(models.Inspeccion).filter(models.Inspeccion.id == i_uuid).first()
+            if insp:
+                insp.acta_pdf_url = archivo_url
+                db.commit()
+        except Exception:
+            pass
             
-        archivo_url = f"/uploads/actas/{nombre_guardado}"
-        
-        # Si se envió inspeccion_id, actualizar directamente
-        if inspeccion_id:
-            try:
-                i_uuid = uuid.UUID(inspeccion_id)
-                insp = db.query(models.Inspeccion).filter(models.Inspeccion.id == i_uuid).first()
-                if insp:
-                    insp.acta_pdf_url = archivo_url
-                    db.commit()
-            except Exception:
-                pass
-                
-        return {
-            "url": archivo_url,
-            "nombre_archivo": file.filename,
-            "mensaje": "Documento con firmas cargado exitosamente."
-        }
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error al subir el archivo firmado: {str(e)}"
-        )
+    return {
+        "url": archivo_url,
+        "nombre_archivo": file.filename,
+        "mensaje": "Documento con firmas cargado exitosamente."
+    }
 
 # ==============================================================================
 # ENDPOINTS: CITACIONES EMITIDAS POR INFRACCIÓN / RECHAZO
@@ -1689,28 +1683,19 @@ async def subir_evidencia_citacion(
     Almacena fotografía o documento de evidencia de la infracción en uploads/citaciones/.
     Retorna la URL pública del archivo.
     """
-    try:
-        dir_destino = os.path.join("uploads", "citaciones")
-        os.makedirs(dir_destino, exist_ok=True)
+    nombre_guardado, _ = await validate_and_save_upload(
+        upload_file=file,
+        target_dir=os.path.join("uploads", "citaciones"),
+        category="all",
+        max_size_mb=15,
+        prefix="evidencia_citacion"
+    )
 
-        ext = file.filename.split(".")[-1].lower() if "." in file.filename else "jpg"
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        nombre_guardado = f"evidencia_citacion_{timestamp}_{uuid.uuid4().hex[:8]}.{ext}"
-        ruta_archivo = os.path.join(dir_destino, nombre_guardado)
+    archivo_url = f"/uploads/citaciones/{nombre_guardado}"
 
-        with open(ruta_archivo, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
-
-        archivo_url = f"/uploads/citaciones/{nombre_guardado}"
-
-        return {
-            "url": archivo_url,
-            "nombre_archivo": file.filename,
-            "mensaje": "Evidencia cargada exitosamente."
-        }
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error al subir evidencia: {str(e)}"
-        )
+    return {
+        "url": archivo_url,
+        "nombre_archivo": file.filename,
+        "mensaje": "Evidencia cargada exitosamente."
+    }
 

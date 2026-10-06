@@ -1,5 +1,5 @@
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Query, Request
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
 import uuid
@@ -10,8 +10,14 @@ from database import get_db
 from security import hash_password
 from tokens import generate_password_reset_token
 from email_service import send_user_invitation_email
+from auth_dependencies import require_roles
+from security_logger import log_security_event, extract_client_ip
 
-router = APIRouter(prefix="/api/admin/usuarios", tags=["Gestión de Usuarios - Admin"])
+router = APIRouter(
+    prefix="/api/admin/usuarios",
+    tags=["Gestión de Usuarios - Admin"],
+    dependencies=[Depends(require_roles(["Administrador"]))]
+)
 
 def get_rol_badge_color(rol_nombre: str) -> str:
     rol_lower = rol_nombre.lower()
@@ -127,15 +133,23 @@ def crear_usuario(
 
     # Generar token de activación y enviar correo de bienvenida
     token = generate_password_reset_token(nuevo.email, str(nuevo.id))
-    resultado_email = send_user_invitation_email(
+    send_user_invitation_email(
         to_email=nuevo.email,
         nombres=nuevo.nombres,
         rol=rol_obj.nombre,
         token=token
     )
 
+    log_security_event(
+        event_type="ADMIN_USER_CREATE",
+        action="Creación de Usuario Institucional",
+        outcome="SUCCESS",
+        detail=f"Usuario institucional '{nuevo.nombres} {nuevo.apellidos}' creado con rol '{rol_obj.nombre}'.",
+        email=nuevo.email,
+        user_id=str(nuevo.id)
+    )
+
     respuesta = serializar_usuario(nuevo)
-    respuesta.dev_link = resultado_email.get("activation_link")
     respuesta.mensaje = f"Usuario registrado exitosamente y correo de activación enviado a {nuevo.email}"
 
     return respuesta
@@ -192,6 +206,16 @@ def actualizar_usuario(
 
     db.commit()
     db.refresh(usuario)
+
+    log_security_event(
+        event_type="ADMIN_USER_UPDATE",
+        action="Actualización de Usuario",
+        outcome="SUCCESS",
+        detail=f"Datos del usuario '{usuario.nombres} {usuario.apellidos}' actualizados.",
+        email=usuario.email,
+        user_id=str(usuario.id)
+    )
+
     return serializar_usuario(usuario)
 
 # ==============================================================================
@@ -214,6 +238,17 @@ def toggle_estado_usuario(
     usuario.estado = not usuario.estado
     db.commit()
     db.refresh(usuario)
+
+    nuevo_estado_str = "Activo" if usuario.estado else "Inactivo"
+    log_security_event(
+        event_type="ADMIN_USER_STATUS_TOGGLE",
+        action="Cambio de Estado de Cuenta",
+        outcome="SUCCESS",
+        detail=f"Estado de cuenta de '{usuario.email}' cambiado a {nuevo_estado_str}.",
+        email=usuario.email,
+        user_id=str(usuario.id)
+    )
+
     return serializar_usuario(usuario)
 
 # ==============================================================================
@@ -233,6 +268,17 @@ def eliminar_usuario(
     if not usuario:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Usuario no encontrado.")
 
+    email_del = usuario.email
     db.delete(usuario)
     db.commit()
+
+    log_security_event(
+        event_type="ADMIN_USER_DELETE",
+        action="Eliminación de Usuario",
+        outcome="SUCCESS",
+        detail=f"Usuario '{email_del}' eliminado permanentemente del sistema.",
+        email=email_del,
+        user_id=str(u_uuid)
+    )
+
     return {"mensaje": f"Usuario {usuario.nombres} {usuario.apellidos} eliminado correctamente."}

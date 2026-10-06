@@ -11,8 +11,13 @@ import uuid
 from database import get_db
 import models
 import schemas
+from auth_dependencies import get_current_user
 
-router = APIRouter(prefix="/api/establecimientos", tags=["Establecimientos y Laboratorios"])
+router = APIRouter(
+    prefix="/api/establecimientos",
+    tags=["Establecimientos y Laboratorios"],
+    dependencies=[Depends(get_current_user)]
+)
 
 def serializar_establecimiento(e: models.Establecimiento, db: Session) -> dict:
     lat = None
@@ -478,6 +483,8 @@ def actualizar_establecimiento(
         "establecimiento": serializar_establecimiento(estab, db)
     }
 
+from file_security import validate_and_save_upload
+
 @router.post(
     "/{id}/imagen",
     summary="Subir y actualizar la fotografía oficial del establecimiento"
@@ -506,30 +513,17 @@ async def subir_imagen_establecimiento(
             detail="Establecimiento no encontrado."
         )
 
-    # Validar extensión del archivo
-    extension = os.path.splitext(file.filename)[1].lower()
-    if extension not in [".jpg", ".jpeg", ".png", ".webp"]:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Formato no permitido. Solo se aceptan imágenes JPG, PNG o WEBP."
-        )
-
-    # Crear nombre único para la imagen
-    os.makedirs("uploads", exist_ok=True)
-    nombre_archivo = f"lab_{estab.id}_{uuid.uuid4().hex[:8]}{extension}"
-    ruta_destino = os.path.join("uploads", nombre_archivo)
-
-    try:
-        with open(ruta_destino, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
-    except Exception as err:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error al guardar la imagen: {str(err)}"
-        )
+    # Validar formato de imagen, magic bytes y guardar de forma segura
+    nombre_archivo, _ = await validate_and_save_upload(
+        upload_file=file,
+        target_dir="uploads",
+        category="image",
+        max_size_mb=10,
+        prefix=f"lab_{estab.id}"
+    )
 
     # Guardar URL accesible
-    url_publica = f"http://localhost:8000/uploads/{nombre_archivo}"
+    url_publica = f"/uploads/{nombre_archivo}"
     estab.imagen_url = url_publica
     db.commit()
     db.refresh(estab)

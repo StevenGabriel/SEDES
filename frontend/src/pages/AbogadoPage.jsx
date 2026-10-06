@@ -985,6 +985,7 @@ export default function AbogadoPage() {
 
   const handleCerrarSesion = () => {
     localStorage.removeItem('usuario');
+    localStorage.removeItem('token');
     navigate('/login');
   };
 

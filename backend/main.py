@@ -19,13 +19,18 @@ import director
 import abogado
 import plantillas_documentos
 
+import os
+import logging
+
+logger = logging.getLogger("main")
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Inicializar PostGIS, crear tablas y poblar datos base al arrancar
     try:
         init_database()
     except Exception as e:
-        print(f"Advertencia al inicializar la base de datos: {e}")
+        logger.error(f"Advertencia al inicializar la base de datos: {e}")
     yield
 
 app = FastAPI(
@@ -35,12 +40,19 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# Habilitar CORS para permitir peticiones desde el frontend (React + Vite)
+# Configuración segura de CORS
+# Permite especificar orígenes mediante ALLOWED_ORIGINS separado por comas
+allowed_origins_env = os.getenv(
+    "ALLOWED_ORIGINS",
+    "http://localhost:5173,http://localhost:5174,http://127.0.0.1:5173,http://127.0.0.1:5174"
+)
+ALLOWED_ORIGINS = [origin.strip() for origin in allowed_origins_env.split(",") if origin.strip()]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
 
@@ -88,7 +100,8 @@ def verificar_base_datos(db: Session = Depends(get_db)):
             "requisitos_catalogo": requisitos_count
         }
     except Exception as e:
+        logger.error(f"Error al verificar la base de datos: {e}")
         return {
             "status": "Error",
-            "detalle": str(e)
+            "detalle": "Error interno al verificar el estado de la base de datos."
         }

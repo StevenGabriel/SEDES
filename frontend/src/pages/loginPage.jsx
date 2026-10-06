@@ -36,8 +36,11 @@ export default function LoginPage() {
         throw new Error(data.detail || 'Error al iniciar sesión.');
       }
 
-      // Guardar información del usuario en almacenamiento local
+      // Guardar información del usuario y token JWT en almacenamiento local
       localStorage.setItem('usuario', JSON.stringify(data.usuario));
+      if (data.access_token) {
+        localStorage.setItem('token', data.access_token);
+      }
       if (rememberMe) {
         localStorage.setItem('recordarEmail', email.trim());
       } else {

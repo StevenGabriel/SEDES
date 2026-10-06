@@ -114,12 +114,13 @@ class UsuarioResponse(BaseModel):
 
 class LoginResponse(BaseModel):
     mensaje: str
+    access_token: str
+    token_type: str = "bearer"
     usuario: UsuarioResponse
 
 class MensajeRespuesta(BaseModel):
     mensaje: str
     usuario: Optional[UsuarioResponse] = None
-    dev_link: Optional[str] = None
 
 # ==============================================================================
 # SCHEMAS PARA GESTIÓN DE USUARIOS (PANEL ADMINISTRADOR)
@@ -164,6 +165,5 @@ class UsuarioAdminResponse(BaseModel):
     estado: str
     avatar: str
     fecha_creacion: Optional[str] = None
-    dev_link: Optional[str] = None
     mensaje: Optional[str] = None
 

@@ -4013,5 +4013,232 @@ Reemplazar la llamada genérica al diálogo de impresión del navegador (`window
 * **Compilación Frontend:** `npm run build` ejecutado exitosamente con 0 errores (dist generado en 1.43s).
 * **Descarga Automática:** Generación directa del archivo `Informe_Ejecutivo_Metricas_SEDES_YYYY-MM-DD.pdf`.
 
+---
 
+## [2026-10-06] Fortalecimiento de Seguridad - Fase 1: Remediación Inmediata de Fugas de Tokens y CORS
 
+### 📌 Objetivo
+Ejecutar la **Fase 1 del Plan Integral de Seguridad** del sistema SEDES Lab, mitigando de forma inmediata la vulnerabilidad crítica de *Account Takeover* (fuga de tokens de restablecimiento y activación en respuestas HTTP JSON), restringiendo el acceso de orígenes cruzados (CORS) a una lista blanca explícita y sanitizando las respuestas de diagnóstico de base de datos para prevenir fuga de información de infraestructura.
+
+---
+
+### 🛠️ Archivos Creados y Modificados
+
+#### 1. `backend/schemas.py` [MODIFICADO]
+* **Eliminación de `dev_link`:**
+  * Se removió el campo `dev_link: Optional[str] = None` del esquema `MensajeRespuesta`.
+  * Se removió el campo `dev_link: Optional[str] = None` del esquema `UsuarioAdminResponse`.
+  * Garantiza que ningún endpoint serialice ni exponga tokens criptográficos de recuperación o activación en las respuestas HTTP hacia clientes externos.
+
+#### 2. `backend/auth.py` [MODIFICADO]
+* **Protección de Enlace de Recuperación:**
+  * En el endpoint `POST /api/auth/solicitar-reset-password`, se eliminó la asignación y retorno de `dev_link`. El token generado únicamente se despacha a través del servicio de correo institucional o se registra en los logs seguros del servidor.
+  * Se mantiene la respuesta genérica unificada para prevenir la enumeración maliciosa de correos.
+
+#### 3. `backend/admin_usuarios.py` [MODIFICADO]
+* **Protección de Enlace de Activación:**
+  * En el endpoint `POST /api/admin/usuarios/`, se eliminó la inclusión de `dev_link` en el objeto de respuesta del usuario creado.
+
+#### 4. `frontend/src/pages/RecuperarPasswordPage.jsx` [MODIFICADO]
+* **Limpieza de Interfaz:**
+  * Se removió el estado local `devLink` y el banner de acceso directo de pruebas, asegurando que los usuarios sigan el flujo seguro de validación a través de su bandeja de correo electrónico.
+
+#### 5. `backend/main.py` [MODIFICADO]
+* **Restricción Estricta de CORS:**
+  * Sustitución del comodín inseguro `allow_origins=["*"]` por una lista blanca explícita configurable mediante la variable de entorno `ALLOWED_ORIGINS` (por defecto `http://localhost:5173`, `http://localhost:5174`, `http://127.0.0.1:5173`, `http://127.0.0.1:5174`).
+  * Se limitaron los métodos HTTP permitidos a `["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]`.
+* **Sanitización del Endpoint de Diagnóstico `/health/db`:**
+  * En caso de error de conexión a la base de datos, el error detallado se captura y registra en los logs internos del servidor (`logger.error`), retornando al cliente un mensaje genérico sin exponer credenciales ni estructura interna.
+
+---
+
+### 📊 Verificación y Pruebas Realizadas
+* **Validación de Sintaxis Python:** `python -m py_compile` ejecutado exitosamente en todos los módulos modificados del backend (`main.py`, `auth.py`, `schemas.py`, `admin_usuarios.py`).
+* **Compilación Frontend:** `npm run build` ejecutado exitosamente con 0 errores (dist generado en 3.00s).
+
+---
+
+## [2026-10-06] Fortalecimiento de Seguridad - Fase 2: Autenticación Robusta con JWT y Control de Acceso Basado en Roles (RBAC)
+
+### 📌 Objetivo
+Implementar la **Fase 2 del Plan Integral de Seguridad**, dotando al sistema de una arquitectura completa de autenticación mediante **JSON Web Tokens (JWT HS256)** y un esquema estricto de **Control de Acceso Basado en Roles (RBAC)** en FastAPI. Proteger todos los routers institucionales (Administración, Coordinación, Supervisión, Dirección, Área Legal, Trámites, Establecimientos y Notificaciones) e integrar el interceptor de peticiones en el cliente React/Vite para la transmisión segura del token Bearer.
+
+---
+
+### 🛠️ Archivos Creados y Modificados
+
+#### 1. `backend/security.py` [MODIFICADO]
+* **Generación y Validación JWT:**
+  * Implementación de `create_access_token(data, expires_delta)` con algoritmo `HS256`, fecha de emisión `iat` y vigencia configurable `exp` (24 horas por defecto).
+  * Implementación de `decode_access_token(token)` con captura de `JWTError` y validación de firma criptográfica.
+
+#### 2. `backend/auth_dependencies.py` [NUEVO]
+* **Módulo Centralizado de Dependencias de Seguridad y RBAC:**
+  * `get_current_user`: Extrae el token `HTTPBearer`, valida su autenticidad y recupera al usuario activo desde la base de datos PostgreSQL.
+  * `get_current_active_user`: Verifica el estado habilitado de la cuenta de usuario.
+  * `require_roles(allowed_roles)`: Fábrica de dependencias que compara el rol institucional del usuario con los permisos requeridos en cada endpoint, garantizando además acceso global al super-rol `Administrador`.
+
+#### 3. `backend/schemas.py` & `backend/auth.py` [MODIFICADOS]
+* **Retorno de Token en Inicio de Sesión:**
+  * Modificación de `LoginResponse` para incluir `access_token` y `token_type = "bearer"`.
+  * Creación del endpoint `GET /api/auth/me` para la recuperación del perfil autenticado.
+
+#### 4. `backend/admin_usuarios.py`, `coordinador.py`, `supervisor.py`, `director.py`, `abogado.py`, `requisitos.py`, `plantillas_documentos.py`, `tramites.py`, `establecimientos.py`, `notificaciones.py` [MODIFICADOS]
+* **Protección Estricta por Rol:**
+  * `APIRouter(/api/admin/usuarios)` ➡️ Requiere rol `Administrador`.
+  * `APIRouter(/api/coordinador)` ➡️ Requiere roles `Coordinador SEDES` / `Coordinador`.
+  * `APIRouter(/api/supervisor)` ➡️ Requiere roles `Supervisor Técnico` / `Supervisor` / `Coordinador SEDES`.
+  * `APIRouter(/api/director)` ➡️ Requiere roles `Director General` / `Director`.
+  * `APIRouter(/api/abogado)` ➡️ Requiere roles `Asesor Legal` / `Abogado` / `Coordinador SEDES`.
+  * `/api/admin/requisitos` y gestión de plantillas ➡️ Requiere rol `Administrador`.
+  * `/api/tramites`, `/api/establecimientos`, `/api/notificaciones` ➡️ Requiere usuario autenticado (`get_current_user`).
+
+#### 5. `frontend/src/services/authInterceptor.js` [NUEVO] & `frontend/src/main.jsx` [MODIFICADO]
+* **Interceptor Global de Fetch:**
+  * Inyección automática del encabezado `Authorization: Bearer <token>` en todas las peticiones `window.fetch` salientes.
+  * Manejo transparente de sesión en todos los módulos y componentes del frontend.
+
+#### 6. `frontend/src/pages/LoginPage.jsx` y Vistas del Sistema [MODIFICADOS]
+* **Gestión Segura de Tokens en Frontend:**
+  * Almacenamiento de `access_token` en `localStorage` al iniciar sesión.
+  * Eliminación de `token` y `usuario` en los flujos de cierre de sesión en `AdminPage`, `CoordinadorPage`, `SupervisorPage`, `DirectorPage`, `AbogadoPage` y `PropietarioPage`.
+
+---
+
+### 📊 Verificación y Pruebas Realizadas
+* **Sintaxis Python:** `python -m py_compile` ejecutado exitosamente en todos los módulos del backend (15 archivos validados).
+* **Compilación Frontend:** `npm run build` ejecutado exitosamente con 0 errores (dist generado en 1.01s).
+
+---
+
+## [2026-10-06] Fortalecimiento de Seguridad - Fase 3: Seguridad de Archivos, Validación de Magic Bytes y Prevención de Path Traversal
+
+### 📌 Objetivo
+Ejecutar la **Fase 3 del Plan Integral de Seguridad**, implementando un mecanismo estricto de saneamiento y validación binaria para todas las cargas de archivos en el sistema. Proteger al servidor contra la subida de ejecutables disfrazados (MIME sniffing bypass), desbordamiento de almacenamiento (DoS por tamaño de archivo) y ataques de salto de directorio (*Directory / Path Traversal*).
+
+---
+
+### 🛠️ Archivos Creados y Modificados
+
+#### 1. `backend/file_security.py` [NUEVO]
+* **Módulo Especializado de Validación Binaria y Carga Segura:**
+  * `verify_magic_bytes(header, ext)`: Inspección obligatoria de las firmas binarias reales de los primeros bytes:
+    * **PDF:** `b"%PDF"`
+    * **PNG:** `b"\x89PNG\r\n\x1a\n"`
+    * **JPEG/JPG:** `b"\xff\xd8\xff"`
+    * **WebP:** `b"RIFF" ... b"WEBP"`
+  * `sanitize_filename_slug(name)`: Eliminación de caracteres peligrosos o caracteres de escape de ruta (`../`, `\`, etc.) conservando únicamente caracteres alfanuméricos seguros.
+  * `validate_and_save_upload(upload_file, target_dir, category, max_size_mb, prefix)`:
+    * Control estricto de tamaño máximo configurable (10 MB a 20 MB).
+    * Verificación contra archivos vacíos (0 bytes).
+    * Asignación de nombres únicos basados en UUIDs criptográficos.
+    * Verificación de confinamiento de ruta (`os.path.commonpath`) para mitigar cualquier intento de *Path Traversal*.
+
+#### 2. `backend/establecimientos.py` [MODIFICADO]
+* **Carga Segura de Fotografías de Establecimientos:**
+  * En `POST /api/establecimientos/{id}/imagen`, validación estricta de imágenes reales (JPEG/PNG/WebP) y límite de 10 MB antes del guardado.
+
+#### 3. `backend/supervisor.py` [MODIFICADO]
+* **Carga Segura de Actas y Evidencias de Infracción:**
+  * En `POST /api/supervisor/subir-acta-firmada`: Validación binaria para actas escaneadas o PDF oficiales (máx 15 MB).
+  * En `POST /api/supervisor/subir-evidencia-citacion`: Validación de imágenes o documentos de respaldo fotográfico (máx 15 MB).
+
+#### 4. `backend/tramites.py` [MODIFICADO]
+* **Carga y Subsanación de Requisitos y Trámites de Rehabilitación:**
+  * En `POST /api/tramites/{id}/documentos`: Validación obligatoria de PDF genuinos (máx 20 MB).
+  * En `POST /api/tramites/{id}/documentos/{doc_id}/subsanar`: Validación binaria del documento subsanado.
+  * En `POST /api/tramites/rehabilitacion`: Validación independiente y secuencial de los 3 documentos obligatorios (*EMSA*, *COZBES* y *Memorial*).
+
+---
+
+### 📊 Verificación y Pruebas Realizadas
+* **Sintaxis Python:** `python -m py_compile` ejecutado exitosamente en todos los módulos de subida y seguridad (16 archivos validados).
+* **Compilación Frontend:** `npm run build` ejecutado exitosamente con 0 errores (dist generado en 924ms).
+
+---
+
+## [2026-10-06] Fortalecimiento de Seguridad - Fase 4: Rate Limiting y Auditoría de Eventos de Seguridad
+
+### 📌 Objetivo
+Completar la **Fase 4 del Plan Integral de Seguridad**, implementando un mecanismo de control de tasa de peticiones (*Rate Limiting*) por ventana deslizante en memoria para proteger los endpoints de autenticación contra ataques de fuerza bruta y ataques automatizados de denegación de servicio. Establecer un sistema de **auditoría estructurada de eventos de seguridad** para registrar intentos de inicio de sesión, bloqueos, recuperaciones de contraseña y acciones administrativas críticas.
+
+---
+
+### 🛠️ Archivos Creados y Modificados
+
+#### 1. `backend/rate_limiter.py` [NUEVO]
+* **Módulo de Rate Limiting por Ventana Deslizante (Sliding Window):**
+  * `InMemoryRateLimiter`: Control de frecuencia en memoria por IP de origen (`X-Forwarded-For` o cliente directo).
+  * `create_rate_limiter(max_requests, window_seconds, name)`: Generador de dependencias FastAPI que emite respuestas `HTTP 429 Too Many Requests` con la cabecera `Retry-After` cuando se sobrepasa el límite.
+  * **Limitadores Activos:**
+    * `login_rate_limiter`: Máximo 5 intentos por minuto por IP.
+    * `reset_rate_limiter`: Máximo 3 solicitudes cada 5 minutos por IP.
+    * `register_rate_limiter`: Máximo 5 registros cada 5 minutos por IP.
+
+#### 2. `backend/security_logger.py` [NUEVO]
+* **Módulo de Registro Estructurado de Eventos de Seguridad:**
+  * `log_security_event(event_type, action, outcome, detail, email, user_id, ip_address)`: Formateador uniforme de logs de seguridad con niveles `INFO` (éxitos) y `WARNING` (fallos / bloqueos).
+  * `extract_client_ip(request)`: Extracción segura de la dirección IP real.
+
+#### 3. `backend/auth.py` [MODIFICADO]
+* **Protección y Registro en Autenticación:**
+  * Integración de `login_rate_limiter` en `POST /api/auth/login`.
+  * Integración de `register_rate_limiter` en `POST /api/auth/register`.
+  * Integración de `reset_rate_limiter` en `POST /api/auth/solicitar-reset-password` y `POST /api/auth/confirmar-reset-password`.
+  * Registro de auditoría para:
+    * Inicios de sesión exitosos (`AUTH_LOGIN_SUCCESS`).
+    * Fallos por contraseña incorrecta (`AUTH_LOGIN_FAILED`).
+    * Bloqueos por cuenta desactivada (`AUTH_LOGIN_BLOCKED`).
+    * Solicitudes y confirmaciones de restablecimiento de contraseña (`AUTH_RESET_REQUESTED`, `AUTH_RESET_CONFIRM_SUCCESS`).
+
+#### 4. `backend/admin_usuarios.py` [MODIFICADO]
+* **Auditoría de Acciones de Administración:**
+  * Registro de creación de nuevos funcionarios institucionales (`ADMIN_USER_CREATE`).
+  * Registro de edición de perfiles y roles (`ADMIN_USER_UPDATE`).
+  * Registro de activación/inactivación de cuentas (`ADMIN_USER_STATUS_TOGGLE`).
+  * Registro de eliminación de usuarios (`ADMIN_USER_DELETE`).
+
+---
+
+### 📊 Verificación y Pruebas Realizadas
+* **Sintaxis Python:** `python -m py_compile` ejecutado exitosamente en todos los módulos del backend (18 archivos validados).
+* **Compilación Frontend:** `npm run build` ejecutado exitosamente con 0 errores (dist generado en 905ms).
+
+---
+
+## [2026-10-06] Optimización Pre-Lanzamiento: SEO, Open Graph, Página 404 y Control de Indexación
+
+### 📌 Objetivo
+Preparar la plataforma institucional para su despliegue y lanzamiento oficial, configurando las directivas de indexación de motores de búsqueda (*robots.txt*), metadatos de posicionamiento y previsualización en redes sociales (*Open Graph* y *Twitter Cards*), canonización de URLs e implementación de una **Página de Error 404 personalizada** con identidad gráfica de SEDES Cochabamba.
+
+---
+
+### 🛠️ Archivos Creados y Modificados
+
+#### 1. `frontend/public/robots.txt` [NUEVO]
+* **Reglas de Indexación Selectiva:**
+  * **Páginas Permitidas (Indexables en Google / Bing):** Página de inicio (`/`), Catálogo de Requisitos (`/requisitos`), Registro de Propietarios (`/registro`) e Inicio de Sesión (`/login`).
+  * **Paneles Privados Bloqueados (`Disallow`):** Rutas administrativas y operativas de funcionarios (`/admin/`, `/director/`, `/coordinador/`, `/supervisor/`, `/abogado/`, `/propietario/`, `/api/`).
+
+#### 2. `frontend/index.html` [MODIFICADO]
+* **Metadatos y Tarjetas Sociales:**
+  * Configuración del idioma oficial `<html lang="es">`.
+  * Metaetiquetas primarias: Título institucional, descripción oficial, palabras clave representativas y etiqueta de color de tema (`#0073c6`).
+  * Enlace canónico `<link rel="canonical" href="https://sedes.gob.bo/" />`.
+  * **Open Graph (WhatsApp, Facebook, Telegram):** `og:title`, `og:description`, `og:image`, `og:url` y `og:locale = "es_BO"`.
+  * **Twitter Cards:** `twitter:card = "summary_large_image"`, título, descripción y miniatura institucional.
+
+#### 3. `frontend/src/pages/NotFoundPage.jsx` [NUEVO]
+* **Vista 404 Institucional:**
+  * Cabecera oficial con logotipo `SI_Lab` y enlaces rápidos.
+  * Gráfico 404 con badge de alerta y mensaje explicativo sobre enlaces reubicados o inexistentes.
+  * Botones de acción directa: *Regresar Atrás*, *Ir al Inicio (Landing)* y *Ver Requisitos*.
+
+#### 4. `frontend/src/App.jsx` [MODIFICADO]
+* **Enrutamiento de Rutas Inexistentes:**
+  * Sustitución de redirección ciega por el componente `<Route path="*" element={<NotFoundPage />} />`.
+
+---
+
+### 📊 Verificación y Pruebas Realizadas
+* **Compilación Frontend:** `npm run build` ejecutado exitosamente con 0 errores (dist generado en 953ms).

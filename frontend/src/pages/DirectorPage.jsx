@@ -846,6 +846,7 @@ export default function DirectorPage() {
 
   const handleLogout = () => {
     localStorage.removeItem('usuario');
+    localStorage.removeItem('token');
     navigate('/login');
   };
 

@@ -8,8 +8,14 @@ from sqlalchemy import or_
 
 from database import get_db
 import models
+from auth_dependencies import get_current_user
+from file_security import validate_and_save_upload
 
-router = APIRouter(prefix="/api/tramites", tags=["Trámites y Documentos"])
+router = APIRouter(
+    prefix="/api/tramites",
+    tags=["Trámites y Documentos"],
+    dependencies=[Depends(get_current_user)]
+)
 
 # Directorio base para almacenar documentos
 UPLOAD_BASE_DIR = os.path.join(os.getcwd(), "uploads")
@@ -64,13 +70,6 @@ async def subir_documento_tramite(
             detail="Trámite no encontrado."
         )
 
-    # Validar que sea un PDF
-    if not file.filename.lower().endswith(".pdf"):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Solo se admiten documentos en formato PDF."
-        )
-
     # Resolver el requisito_id numérico en catalogo_requisitos
     req_db = None
     if requisito_id.isdigit():
@@ -79,7 +78,6 @@ async def subir_documento_tramite(
         ).first()
     
     if not req_db:
-        # Si vino una clave no numérica (ej: 'req-2.1-1' o texto), buscar por coincidencia o primer activo
         req_db = db.query(models.CatalogoRequisito).filter(
             models.CatalogoRequisito.estado == True,
             models.CatalogoRequisito.es_subtitulo == False
@@ -94,13 +92,14 @@ async def subir_documento_tramite(
     # Carpeta física organizada por cuenta de usuario y trámite
     tramite_folder, web_prefix = obtener_ruta_almacenamiento_tramite(db, tramite)
 
-    # Sanitizar y generar nombre de archivo seguro
-    clean_name = "".join(c for c in file.filename if c.isalnum() or c in "._- ")
-    filename = f"req_{req_db.id}_{uuid.uuid4().hex[:8]}_{clean_name}"
-    file_path = os.path.join(tramite_folder, filename)
-
-    with open(file_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
+    # Validar formato PDF, magic bytes y almacenar de forma segura
+    filename, _ = await validate_and_save_upload(
+        upload_file=file,
+        target_dir=tramite_folder,
+        category="pdf",
+        max_size_mb=20,
+        prefix=f"req_{req_db.id}"
+    )
 
     archivo_url = f"{web_prefix}/{filename}"
 
@@ -282,12 +281,14 @@ async def subsanar_documento_tramite(
     # Carpeta física organizada por cuenta de usuario y trámite
     tramite_folder, web_prefix = obtener_ruta_almacenamiento_tramite(db, tramite)
 
-    clean_name = "".join(c for c in file.filename if c.isalnum() or c in "._- ")
-    filename = f"req_{doc.requisito_id}_{uuid.uuid4().hex[:8]}_{clean_name}"
-    file_path = os.path.join(tramite_folder, filename)
-
-    with open(file_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
+    # Validar formato PDF, magic bytes y almacenar de forma segura
+    filename, _ = await validate_and_save_upload(
+        upload_file=file,
+        target_dir=tramite_folder,
+        category="pdf",
+        max_size_mb=20,
+        prefix=f"req_{doc.requisito_id}"
+    )
 
     archivo_url = f"{web_prefix}/{filename}"
 
@@ -400,7 +401,6 @@ async def crear_tramite_rehabilitacion(
     # Carpeta física
     tramite_folder, web_prefix = obtener_ruta_almacenamiento_tramite(db, nuevo_tramite)
 
-    # Requisitos a guardar
     docs_info = [
         (file_emsa, "Contrato de recojo de residuos infecciosos (EMSA)", "emsa"),
         (file_cozbes, "Certificado de bioseguridad (COZBES)", "cozbes"),
@@ -410,12 +410,14 @@ async def crear_tramite_rehabilitacion(
     docs_creados = []
     for f, req_nombre, prefix in docs_info:
         req_db = obtener_o_crear_requisito(db, req_nombre, "2.3", "REHABILITACIÓN Y BIOSEGURIDAD")
-        clean_name = "".join(c for c in f.filename if c.isalnum() or c in "._- ")
-        filename = f"{prefix}_{req_db.id}_{uuid.uuid4().hex[:8]}_{clean_name}"
-        file_path = os.path.join(tramite_folder, filename)
-
-        with open(file_path, "wb") as buffer:
-            shutil.copyfileobj(f.file, buffer)
+        
+        filename, _ = await validate_and_save_upload(
+            upload_file=f,
+            target_dir=tramite_folder,
+            category="pdf",
+            max_size_mb=20,
+            prefix=f"{prefix}_{req_db.id}"
+        )
 
         archivo_url = f"{web_prefix}/{filename}"
 
