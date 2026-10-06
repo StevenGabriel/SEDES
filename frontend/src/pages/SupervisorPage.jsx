@@ -385,21 +385,73 @@ export default function SupervisorPage() {
     return d < ahora;
   };
 
+  // Helper para verificar solapamiento de horario contra eventos ya agendados en la semana
+  const detectarConflictoHorarioLocal = (fechaIso, hInicio, hFin = null, excluirInspeccionId = null) => {
+    if (!fechaIso || !hInicio) return null;
+    const fechaNorm = normalizarAFechaIso(fechaIso);
+    
+    // Parsear hora de inicio en minutos desde las 00:00
+    const [h1, m1] = (hInicio || '09:00').split(':').map(Number);
+    const startMin = (h1 || 0) * 60 + (m1 || 0);
+    
+    let endMin = startMin + 90;
+    if (hFin) {
+      const [h2, m2] = hFin.split(':').map(Number);
+      const calcEnd = (h2 || 0) * 60 + (m2 || 0);
+      if (calcEnd > startMin) endMin = calcEnd;
+    }
+
+    for (const evt of eventosSemana) {
+      if (excluirInspeccionId && (evt.id === excluirInspeccionId || evt.inspeccion_id === excluirInspeccionId)) {
+        continue;
+      }
+      if (evt.estado_inspeccion === 'Completada') {
+        continue;
+      }
+      const evtFecha = normalizarAFechaIso(evt.fecha);
+      if (evtFecha === fechaNorm) {
+        const evtStart = evt.startMinutes !== undefined ? evt.startMinutes : (() => {
+          const [eh, em] = (evt.horaInicio || '09:00').split(':').map(Number);
+          return (eh || 0) * 60 + (em || 0);
+        })();
+        const evtEnd = evtStart + (evt.durationMinutes || 90);
+
+        // Conflicto de intervalos: max(A_ini, B_ini) < min(A_fin, B_fin)
+        if (Math.max(startMin, evtStart) < Math.min(endMin, evtEnd)) {
+          return {
+            establecimiento: evt.establecimiento || 'Establecimiento',
+            horaInicio: evt.horaInicio,
+            horaFin: evt.horaFin,
+            fecha: evt.fecha
+          };
+        }
+      }
+    }
+    return null;
+  };
+
   // Abrir modal para programar una inspección pendiente
   const handleAbrirProgramar = (item, diaSugerido = null, horaSugerida = null) => {
     setTramiteSeleccionado(item);
     const fechaHoy = hoyLocalIso();
     
+    let diaFinal = fechaHoy;
     if (diaSugerido && diaSugerido >= fechaHoy) {
-      setFormFecha(diaSugerido);
+      diaFinal = diaSugerido;
     } else if (semanaInfo.dias && semanaInfo.dias.length > 0) {
       const primerDiaFuturo = semanaInfo.dias.find(d => d.fecha_iso >= fechaHoy);
-      setFormFecha(primerDiaFuturo ? primerDiaFuturo.fecha_iso : fechaHoy);
-    } else {
-      setFormFecha(fechaHoy);
+      diaFinal = primerDiaFuturo ? primerDiaFuturo.fecha_iso : fechaHoy;
     }
+    setFormFecha(diaFinal);
 
-    const hInicio = horaSugerida || '09:00';
+    let hInicio = horaSugerida || '09:00';
+    
+    // Si la hora sugerida tiene conflicto, buscar si hay que ajustar
+    const conflicto = detectarConflictoHorarioLocal(diaFinal, hInicio);
+    if (conflicto) {
+      // Ajustar sugerencia a la hora final del conflicto
+      hInicio = conflicto.horaFin || hInicio;
+    }
     setFormHora(hInicio);
 
     // Calcular hora de fin por defecto (1 hora y media después)
@@ -438,6 +490,16 @@ export default function SupervisorPage() {
     // Validación de horario de finalización
     if (formHoraFin && formHoraFin <= formHora) {
       mostrarToast('La hora de finalización debe ser posterior a la hora de inicio.', 'warning');
+      return;
+    }
+
+    // Validación estricta contra solapamiento de inspecciones (no permitir 2 al mismo tiempo)
+    const conflicto = detectarConflictoHorarioLocal(formFecha, formHora, formHoraFin);
+    if (conflicto) {
+      mostrarToast(
+        `Conflicto de horario: Ya tiene una inspección para "${conflicto.establecimiento}" de ${conflicto.horaInicio} a ${conflicto.horaFin}. Debe agendar antes de las ${conflicto.horaInicio} o a partir de las ${conflicto.horaFin}.`,
+        'warning'
+      );
       return;
     }
 
@@ -505,6 +567,21 @@ export default function SupervisorPage() {
     // Validación estricta contra fechas u horas pasadas al reprogramar
     if (esFechaHoraPasada(reprogramarFecha, reprogramarHora)) {
       mostrarToast('No es posible reprogramar una inspección en una fecha u hora pasada.', 'warning');
+      return;
+    }
+
+    // Validación estricta contra solapamiento de inspecciones al reprogramar
+    const conflicto = detectarConflictoHorarioLocal(
+      reprogramarFecha, 
+      reprogramarHora, 
+      null, 
+      inspeccionSeleccionada.inspeccion_id || inspeccionSeleccionada.id
+    );
+    if (conflicto) {
+      mostrarToast(
+        `Conflicto de horario: Ya tiene una inspección para "${conflicto.establecimiento}" de ${conflicto.horaInicio} a ${conflicto.horaFin}. Debe reprogramar antes de las ${conflicto.horaInicio} o a partir de las ${conflicto.horaFin}.`,
+        'warning'
+      );
       return;
     }
 
@@ -1053,6 +1130,16 @@ export default function SupervisorPage() {
                                     mostrarToast('No es posible seleccionar un horario que ya ha transcurrido.', 'warning');
                                     return;
                                   }
+                                  const conflicto = dia.fecha_iso ? detectarConflictoHorarioLocal(dia.fecha_iso, hora) : null;
+                                  if (conflicto) {
+                                    mostrarToast(`A las ${hora} ya está programada la inspección para "${conflicto.establecimiento}" (${conflicto.horaInicio} a ${conflicto.horaFin}). Puede agendar a partir de las ${conflicto.horaFin}.`, 'warning');
+                                    if (inspeccionesPendientes.length > 0) {
+                                      handleAbrirProgramar(inspeccionesPendientes[0], dia.fecha_iso, conflicto.horaFin);
+                                    } else {
+                                      handleAbrirProgramar(null, dia.fecha_iso, conflicto.horaFin);
+                                    }
+                                    return;
+                                  }
                                   if (inspeccionesPendientes.length > 0) {
                                     handleAbrirProgramar(inspeccionesPendientes[0], dia.fecha_iso, hora);
                                   } else {
@@ -1325,6 +1412,26 @@ export default function SupervisorPage() {
               </div>
             ) : (
               <form onSubmit={handleGuardarReprogramacion} className="space-y-4 text-xs">
+                {(() => {
+                  const conflictoReprog = detectarConflictoHorarioLocal(
+                    reprogramarFecha, 
+                    reprogramarHora, 
+                    null, 
+                    inspeccionSeleccionada?.inspeccion_id || inspeccionSeleccionada?.id
+                  );
+                  return conflictoReprog ? (
+                    <div className="p-3 bg-amber-50 rounded-2xl border border-amber-200 text-amber-900 text-xs flex items-start space-x-2.5 animate-fadeIn">
+                      <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                      <div>
+                        <p className="font-extrabold text-amber-950">Conflicto de horario detectado:</p>
+                        <p className="text-[11px] text-amber-800 leading-snug mt-0.5">
+                          Ya tiene programada la inspección para <strong>{conflictoReprog.establecimiento}</strong> de <strong>{conflictoReprog.horaInicio}</strong> a <strong>{conflictoReprog.horaFin}</strong> en esta misma fecha. Debe elegir una hora antes de las {conflictoReprog.horaInicio} o a partir de las {conflictoReprog.horaFin}.
+                        </p>
+                      </div>
+                    </div>
+                  ) : null;
+                })()}
+
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1.5">
                     <label className="font-bold text-slate-700">Nueva Fecha</label>
@@ -1370,7 +1477,13 @@ export default function SupervisorPage() {
                   </button>
                   <button
                     type="submit"
-                    className="bg-[#005596] hover:bg-[#003e6d] text-white text-xs font-bold px-5 py-2.5 rounded-xl transition shadow-md cursor-pointer"
+                    disabled={Boolean(detectarConflictoHorarioLocal(
+                      reprogramarFecha, 
+                      reprogramarHora, 
+                      null, 
+                      inspeccionSeleccionada?.inspeccion_id || inspeccionSeleccionada?.id
+                    ))}
+                    className="bg-[#005596] hover:bg-[#003e6d] text-white text-xs font-bold px-5 py-2.5 rounded-xl transition shadow-md cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Confirmar Cambio
                   </button>
@@ -1406,6 +1519,22 @@ export default function SupervisorPage() {
 
             <form onSubmit={handleGuardarAgendamiento} className="space-y-6 text-xs">
               
+              {/* Notificación de conflicto de horario si existe */}
+              {(() => {
+                const conflictoAg = detectarConflictoHorarioLocal(formFecha, formHora, formHoraFin);
+                return conflictoAg ? (
+                  <div className="p-3 bg-amber-50 rounded-2xl border border-amber-200 text-amber-900 text-xs flex items-start space-x-2.5 animate-fadeIn">
+                    <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                    <div>
+                      <p className="font-extrabold text-amber-950">Conflicto de horario detectado:</p>
+                      <p className="text-[11px] text-amber-800 leading-snug mt-0.5">
+                        Ya tiene programada la inspección para <strong>{conflictoAg.establecimiento}</strong> de <strong>{conflictoAg.horaInicio}</strong> a <strong>{conflictoAg.horaFin}</strong> en esta misma fecha. Debe programar antes de las {conflictoAg.horaInicio} o a partir de las {conflictoAg.horaFin}.
+                      </p>
+                    </div>
+                  </div>
+                ) : null;
+              })()}
+
               {/* ------------------------------------------------------------- */}
               {/* SECCIÓN 1: DATOS DEL ESTABLECIMIENTO                          */}
               {/* ------------------------------------------------------------- */}
@@ -1545,8 +1674,8 @@ export default function SupervisorPage() {
                 </button>
                 <button
                   type="submit"
-                  disabled={guardandoAgendamiento || !tramiteSeleccionado}
-                  className="bg-[#1b2533] hover:bg-[#111827] text-white text-xs font-bold px-7 py-2.5 rounded-xl transition shadow-md cursor-pointer flex items-center space-x-2 disabled:opacity-50"
+                  disabled={guardandoAgendamiento || !tramiteSeleccionado || Boolean(detectarConflictoHorarioLocal(formFecha, formHora, formHoraFin))}
+                  className="bg-[#1b2533] hover:bg-[#111827] text-white text-xs font-bold px-7 py-2.5 rounded-xl transition shadow-md cursor-pointer flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {guardandoAgendamiento ? (
                     <>

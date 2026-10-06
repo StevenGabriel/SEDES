@@ -910,12 +910,11 @@ export default function NuevaActaFormView({ usuario, onVolver, onActaGuardada, m
   };
 
   // 2. Calcular porcentaje de cumplimiento en tiempo real
-  const { puntajeTotal, maxPuntaje, porcentaje, conteoSI, conteoNO, conteoNA } = useMemo(() => {
+  const { puntajeTotal, maxPuntaje, porcentaje, conteoSI, conteoNO } = useMemo(() => {
     let total = 0;
     let max = 0;
     let si = 0;
     let no = 0;
-    let na = 0;
 
     SECCIONES_FORMULARIO.forEach(sec => {
       sec.criterios.forEach(crit => {
@@ -924,30 +923,39 @@ export default function NuevaActaFormView({ usuario, onVolver, onActaGuardada, m
           total += crit.pesoItem;
           max += crit.pesoItem;
           si++;
-        } else if (estado === 'NO') {
+        } else {
           max += crit.pesoItem;
           no++;
-        } else {
-          // 'NA' no penaliza el total máximo
-          na++;
         }
       });
     });
 
     const pct = max > 0 ? Math.round((total / max) * 100) : 100;
-    return { puntajeTotal: total, maxPuntaje: max, porcentaje: pct, conteoSI: si, conteoNO: no, conteoNA: na };
+    return { puntajeTotal: total, maxPuntaje: max, porcentaje: pct, conteoSI: si, conteoNO: no };
   }, [evaluaciones]);
 
   // Actualizar dictamen sugerido automáticamente según porcentaje
   useEffect(() => {
     if (porcentaje >= 80) {
       setResultadoFinal('Aprobado');
+      setConclusionesGenerales(prev => {
+        if (!prev || prev.includes('no cumple con los requerimientos') || prev.includes('Reglamento General de Habilitación')) {
+          return 'El establecimiento cumple con los requerimientos técnicos y sanitarios establecidos en el Reglamento General de Habilitación de Laboratorios (R.M. 0202) del SEDES Cochabamba.';
+        }
+        return prev;
+      });
     } else {
       setResultadoFinal('Rechazado');
+      setConclusionesGenerales(prev => {
+        if (!prev || prev.includes('cumple con los requerimientos') || prev.includes('Reglamento General de Habilitación')) {
+          return 'El establecimiento no cumple con los requerimientos técnicos y sanitarios mínimos exigidos por el Reglamento General de Habilitación (R.M. 0202). Se remite el presente informe a la Coordinación Departamental de Laboratorios para su reasignación y trámite correspondiente.';
+        }
+        return prev;
+      });
     }
   }, [porcentaje]);
 
-  // Cambiar evaluación de un criterio (SI, NO, NA)
+  // Cambiar evaluación de un criterio (SI, NO)
   const handleCambiarEvaluacion = (criterioId, valor) => {
     setEvaluaciones(prev => ({ ...prev, [criterioId]: valor }));
   };
@@ -1351,10 +1359,12 @@ export default function NuevaActaFormView({ usuario, onVolver, onActaGuardada, m
 
       let obsCompuesta = conclusionesGenerales.trim();
       if (noCumplidos.length > 0) {
-        obsCompuesta += `\n\nAspectos observados a subsanar:\n${noCumplidos.join('\n')}`;
+        obsCompuesta += `\n\nAspectos observados:\n${noCumplidos.join('\n')}`;
       }
-      if (plazoSubsanacion && plazoSubsanacion.trim()) {
-        obsCompuesta += `\n\nPlazo para Subsanación: ${plazoSubsanacion.trim()} (Fecha de vencimiento del acta: 1 año).`;
+      if (resultadoFinal === 'Aprobado') {
+        if (plazoSubsanacion && plazoSubsanacion.trim()) {
+          obsCompuesta += `\n\nVigencia del Acta: ${plazoSubsanacion.trim()} (Vence el ${fechaVencimientoCalculada}).`;
+        }
       }
 
       const response = await fetch('http://localhost:8000/api/supervisor/registrar-acta', {
@@ -1366,7 +1376,7 @@ export default function NuevaActaFormView({ usuario, onVolver, onActaGuardada, m
           resultado: resultadoFinal,
           tipo_inspeccion: tipoTramite,
           observaciones: obsCompuesta,
-          plazo_subsanacion: plazoSubsanacion || '1 año',
+          plazo_subsanacion: resultadoFinal === 'Aprobado' ? (plazoSubsanacion || '1 año') : null,
           numero_acta: numActaGenerado,
           archivo_pdf_firmado_url: urlFirmado,
           cumple_infraestructura: porcentaje >= 70,
@@ -1639,7 +1649,7 @@ export default function NuevaActaFormView({ usuario, onVolver, onActaGuardada, m
                           </p>
                         </td>
 
-                        {/* Botones de Evaluación: SÍ / NO / NA */}
+                        {/* Botones de Evaluación: SÍ / NO */}
                         <td className="px-4 py-3.5 text-center">
                           <div className="inline-flex items-center p-1 bg-slate-100 rounded-xl space-x-1 border border-slate-200 shadow-2xs">
 
@@ -1648,7 +1658,7 @@ export default function NuevaActaFormView({ usuario, onVolver, onActaGuardada, m
                               type="button"
                               onClick={() => handleCambiarEvaluacion(crit.id, 'SI')}
                               className={`
-                                px-2.5 py-1 rounded-lg text-[11px] font-black transition cursor-pointer
+                                px-3 py-1 rounded-lg text-[11px] font-black transition cursor-pointer
                                 ${evalActual === 'SI'
                                   ? 'bg-emerald-600 text-white shadow-2xs'
                                   : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200'
@@ -1664,7 +1674,7 @@ export default function NuevaActaFormView({ usuario, onVolver, onActaGuardada, m
                               type="button"
                               onClick={() => handleCambiarEvaluacion(crit.id, 'NO')}
                               className={`
-                                px-2.5 py-1 rounded-lg text-[11px] font-black transition cursor-pointer
+                                px-3 py-1 rounded-lg text-[11px] font-black transition cursor-pointer
                                 ${evalActual === 'NO'
                                   ? 'bg-rose-600 text-white shadow-2xs'
                                   : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200'
@@ -1673,22 +1683,6 @@ export default function NuevaActaFormView({ usuario, onVolver, onActaGuardada, m
                               title="No cumple con el requisito (NO)"
                             >
                               NO
-                            </button>
-
-                            {/* NA */}
-                            <button
-                              type="button"
-                              onClick={() => handleCambiarEvaluacion(crit.id, 'NA')}
-                              className={`
-                                px-2 py-1 rounded-lg text-[11px] font-black transition cursor-pointer
-                                ${evalActual === 'NA'
-                                  ? 'bg-slate-700 text-white shadow-2xs'
-                                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200'
-                                }
-                              `}
-                              title="No aplica a este nivel (N/A)"
-                            >
-                              N/A
                             </button>
 
                           </div>
@@ -1896,7 +1890,7 @@ export default function NuevaActaFormView({ usuario, onVolver, onActaGuardada, m
         </div>
 
         {/* Resumen de Cumplimiento */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs font-bold">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs font-bold">
 
           <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center space-x-3 text-emerald-900">
             <CheckCircle2 className="w-6 h-6 text-emerald-600 shrink-0" />
@@ -1914,14 +1908,6 @@ export default function NuevaActaFormView({ usuario, onVolver, onActaGuardada, m
             </div>
           </div>
 
-          <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 flex items-center space-x-3 text-slate-700">
-            <Info className="w-6 h-6 text-slate-400 shrink-0" />
-            <div>
-              <p className="text-[10px] uppercase text-slate-500">No Aplican (N/A)</p>
-              <p className="text-lg font-black">{conteoNA} ítems</p>
-            </div>
-          </div>
-
         </div>
 
         {/* Selección del Veredicto Final */}
@@ -1934,7 +1920,15 @@ export default function NuevaActaFormView({ usuario, onVolver, onActaGuardada, m
             {/* Aprobado */}
             <button
               type="button"
-              onClick={() => setResultadoFinal('Aprobado')}
+              onClick={() => {
+                setResultadoFinal('Aprobado');
+                setConclusionesGenerales(prev => {
+                  if (!prev || prev.includes('no cumple con los requerimientos') || prev.includes('Reglamento General de Habilitación')) {
+                    return 'El establecimiento cumple con los requerimientos técnicos y sanitarios establecidos en el Reglamento General de Habilitación de Laboratorios (R.M. 0202) del SEDES Cochabamba.';
+                  }
+                  return prev;
+                });
+              }}
               className={`
                 p-4 rounded-2xl border text-left transition cursor-pointer flex items-start space-x-3
                 ${resultadoFinal === 'Aprobado'
@@ -1953,7 +1947,15 @@ export default function NuevaActaFormView({ usuario, onVolver, onActaGuardada, m
             {/* Rechazado */}
             <button
               type="button"
-              onClick={() => setResultadoFinal('Rechazado')}
+              onClick={() => {
+                setResultadoFinal('Rechazado');
+                setConclusionesGenerales(prev => {
+                  if (!prev || prev.includes('cumple con los requerimientos') || prev.includes('Reglamento General de Habilitación')) {
+                    return 'El establecimiento no cumple con los requerimientos técnicos y sanitarios mínimos exigidos por el Reglamento General de Habilitación (R.M. 0202). Se remite el presente informe a la Coordinación Departamental de Laboratorios para su reasignación y trámite correspondiente.';
+                  }
+                  return prev;
+                });
+              }}
               className={`
                 p-4 rounded-2xl border text-left transition cursor-pointer flex items-start space-x-3
                 ${resultadoFinal === 'Rechazado'
@@ -1972,87 +1974,99 @@ export default function NuevaActaFormView({ usuario, onVolver, onActaGuardada, m
           </div>
         </div>
 
-        {/* Campo Oficial: Plazo para Subsanación (Vencimiento del Acta) */}
-        <div className="p-5 bg-slate-50 rounded-2xl border border-slate-200 space-y-3.5 text-xs">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-            <label className="text-[11px] font-extrabold text-slate-800 uppercase tracking-wider flex items-center space-x-2">
-              <Clock className="w-4 h-4 text-[#0060a8]" />
-              <span>Plazo de Subsanación / Vigencia del Acta:</span>
-            </label>
-            <span className="text-[11px] font-bold text-[#0060a8] bg-white px-3 py-1 rounded-full border border-slate-200 shadow-2xs self-start sm:self-auto">
-              Vence el: <strong className="text-slate-900">{fechaVencimientoCalculada}</strong>
-            </span>
-          </div>
-
-          {/* Botones de selección de modo de plazo */}
-          <div className="flex flex-wrap items-center gap-2 pt-1">
-            <button
-              type="button"
-              onClick={() => setTipoPlazo('1_anio')}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center space-x-2 cursor-pointer ${
-                tipoPlazo === '1_anio'
-                  ? 'bg-[#0060a8] text-white shadow-xs'
-                  : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-100'
-              }`}
-            >
-              <Check className={`w-4 h-4 ${tipoPlazo === '1_anio' ? 'opacity-100' : 'opacity-0'}`} />
-              <span>1 año (Vigencia Estándar)</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setTipoPlazo('personalizado')}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center space-x-2 cursor-pointer ${
-                tipoPlazo === 'personalizado'
-                  ? 'bg-[#0060a8] text-white shadow-xs'
-                  : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-100'
-              }`}
-            >
-              <Edit3 className={`w-3.5 h-3.5 ${tipoPlazo === 'personalizado' ? 'opacity-100' : 'opacity-60'}`} />
-              <span>Personalizado en días</span>
-            </button>
-          </div>
-
-          {/* Selector de días si es personalizado */}
-          {tipoPlazo === 'personalizado' && (
-            <div className="p-3.5 bg-white rounded-xl border border-blue-200 space-y-2.5 animate-fadeIn">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-[11px] font-bold text-slate-600">Opciones rápidas:</span>
-                {[15, 30, 45, 60, 90, 180].map((d) => (
-                  <button
-                    key={d}
-                    type="button"
-                    onClick={() => setDiasPersonalizados(String(d))}
-                    className={`px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
-                      diasPersonalizados === String(d)
-                        ? 'bg-blue-100 text-[#0060a8] border border-blue-300'
-                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                    }`}
-                  >
-                    {d} días
-                  </button>
-                ))}
-              </div>
-
-              <div className="flex items-center space-x-2 pt-1">
-                <span className="text-[11px] font-bold text-slate-700">Cantidad de días:</span>
-                <input
-                  type="number"
-                  min={1}
-                  max={730}
-                  value={diasPersonalizados}
-                  onChange={(e) => setDiasPersonalizados(e.target.value)}
-                  className="w-24 px-3 py-1.5 bg-slate-50 border border-slate-300 rounded-lg font-bold text-slate-800 focus:bg-white focus:ring-2 focus:ring-[#0060a8] outline-none text-center"
-                />
-                <span className="text-xs font-semibold text-slate-500">días calendario</span>
-              </div>
+        {/* Vigencia del Acta (Solo cuando el dictamen es Aprobado) */}
+        {resultadoFinal === 'Aprobado' ? (
+          <div className="p-5 bg-slate-50 rounded-2xl border border-slate-200 space-y-3.5 text-xs animate-fadeIn">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <label className="text-[11px] font-extrabold text-slate-800 uppercase tracking-wider flex items-center space-x-2">
+                <Clock className="w-4 h-4 text-[#0060a8]" />
+                <span>Vigencia del Acta de Habilitación:</span>
+              </label>
+              <span className="text-[11px] font-bold text-[#0060a8] bg-white px-3 py-1 rounded-full border border-slate-200 shadow-2xs self-start sm:self-auto">
+                Vence el: <strong className="text-slate-900">{fechaVencimientoCalculada}</strong>
+              </span>
             </div>
-          )}
 
-          <p className="text-[11px] text-slate-500 font-medium leading-relaxed">
-            Plazo oficial concedido al establecimiento. Al llegar a los 30 días y 15 días previos al vencimiento ({fechaVencimientoCalculada}), el sistema notificará automáticamente al propietario para la renovación/rehabilitación.
-          </p>
-        </div>
+            {/* Botones de selección de modo de plazo */}
+            <div className="flex flex-wrap items-center gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => setTipoPlazo('1_anio')}
+                className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center space-x-2 cursor-pointer ${
+                  tipoPlazo === '1_anio'
+                    ? 'bg-[#0060a8] text-white shadow-xs'
+                    : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-100'
+                }`}
+              >
+                <Check className={`w-4 h-4 ${tipoPlazo === '1_anio' ? 'opacity-100' : 'opacity-0'}`} />
+                <span>1 año (Vigencia Estándar)</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setTipoPlazo('personalizado')}
+                className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center space-x-2 cursor-pointer ${
+                  tipoPlazo === 'personalizado'
+                    ? 'bg-[#0060a8] text-white shadow-xs'
+                    : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-100'
+                }`}
+              >
+                <Edit3 className={`w-3.5 h-3.5 ${tipoPlazo === 'personalizado' ? 'opacity-100' : 'opacity-60'}`} />
+                <span>Personalizado en días</span>
+              </button>
+            </div>
+
+            {/* Selector de días si es personalizado */}
+            {tipoPlazo === 'personalizado' && (
+              <div className="p-3.5 bg-white rounded-xl border border-blue-200 space-y-2.5 animate-fadeIn">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-[11px] font-bold text-slate-600">Opciones rápidas:</span>
+                  {[15, 30, 45, 60, 90, 180].map((d) => (
+                    <button
+                      key={d}
+                      type="button"
+                      onClick={() => setDiasPersonalizados(String(d))}
+                      className={`px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
+                        diasPersonalizados === String(d)
+                          ? 'bg-blue-100 text-[#0060a8] border border-blue-300'
+                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                      }`}
+                    >
+                      {d} días
+                    </button>
+                  ))}
+                </div>
+
+                <div className="flex items-center space-x-2 pt-1">
+                  <span className="text-[11px] font-bold text-slate-700">Cantidad de días:</span>
+                  <input
+                    type="number"
+                    min={1}
+                    max={730}
+                    value={diasPersonalizados}
+                    onChange={(e) => setDiasPersonalizados(e.target.value)}
+                    className="w-24 px-3 py-1.5 bg-slate-50 border border-slate-300 rounded-lg font-bold text-slate-800 focus:bg-white focus:ring-2 focus:ring-[#0060a8] outline-none text-center"
+                  />
+                  <span className="text-xs font-semibold text-slate-500">días calendario</span>
+                </div>
+              </div>
+            )}
+
+            <p className="text-[11px] text-slate-500 font-medium leading-relaxed">
+              Vigencia oficial concedida al establecimiento. Al llegar a los 30 días y 15 días previos al vencimiento ({fechaVencimientoCalculada}), el sistema notificará automáticamente al propietario para su renovación.
+            </p>
+          </div>
+        ) : (
+          <div className="p-4 bg-rose-50/60 rounded-2xl border border-rose-200/70 flex items-start space-x-3 text-xs text-rose-900 animate-fadeIn">
+            <AlertCircle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
+            <div className="space-y-0.5">
+              <p className="font-extrabold text-rose-950">Inspección Rechazada (Desfavorable)</p>
+              <p className="text-[11px] text-rose-700 leading-relaxed font-medium">
+                Al rechazar el acta no se asigna plazo de subsanación ni vigencia directa. La coordinación evaluará el caso y definirá la reasignación o programación de una nueva inspección.
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Conclusiones Técnicas */}
         <div className="space-y-1.5">

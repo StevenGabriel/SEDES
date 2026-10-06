@@ -676,9 +676,6 @@ export default function CitacionesEmitidasView({ usuario, mostrarToast }) {
                   <p className="text-xs font-bold text-slate-900">
                     Alerta 5 días antes
                   </p>
-                  <p className="text-[11px] text-slate-500">
-                    Notificación automática al supervisor y al establecimiento.
-                  </p>
                 </div>
                 <button
                   type="button"
@@ -703,9 +700,6 @@ export default function CitacionesEmitidasView({ usuario, mostrarToast }) {
                   <p className="text-xs font-bold text-slate-900">
                     Alerta 10 días antes
                   </p>
-                  <p className="text-[11px] text-slate-500">
-                    Recordatorio de subsanación y seguimiento de acciones.
-                  </p>
                 </div>
                 <button
                   type="button"
@@ -729,9 +723,6 @@ export default function CitacionesEmitidasView({ usuario, mostrarToast }) {
                 <div className="space-y-0.5 pr-4">
                   <p className="text-xs font-bold text-slate-900">
                     Alerta 15 días antes
-                  </p>
-                  <p className="text-[11px] text-slate-500">
-                    Preparación de multas o sanciones administrativas.
                   </p>
                 </div>
                 <button
