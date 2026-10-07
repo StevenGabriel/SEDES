@@ -41,7 +41,77 @@ export const cargarImagenComoPng = (url, maxWidth = 300, maxHeight = 300) => {
 // Helper para parsear responsables de áreas de especialidad
 export const parsearResponsablesAreas = (rawRespAreas) => {
   if (!rawRespAreas) return [];
-  if (Array.isArray(rawRespAreas)) return rawRespAreas;
+  if (Array.isArray(rawRespAreas)) {
+    return rawRespAreas.map(item => {
+      if (typeof item === 'object' && item !== null) {
+        return {
+          area: item.area || item.nombre_area || item.especialidad || '',
+          nombre: item.nombre || item.responsable || item.profesional || '',
+          ci: item.ci || item.ci_responsable || item.documento || ''
+        };
+      }
+      return { area: String(item), nombre: '', ci: '' };
+    }).filter(a => a.area || a.nombre);
+  }
+
+  let parsed = rawRespAreas;
+
+  // Si es un string que parece JSON, intentar parsearlo
+  if (typeof rawRespAreas === 'string') {
+    const trimmed = rawRespAreas.trim();
+    if ((trimmed.startsWith('{') && trimmed.endsWith('}')) || (trimmed.startsWith('[') && trimmed.endsWith(']'))) {
+      try {
+        parsed = JSON.parse(trimmed);
+      } catch (e) {
+        // No es JSON válido, continuar con parseo por texto
+      }
+    }
+  }
+
+  // Si parsed ahora es un Array
+  if (Array.isArray(parsed)) {
+    return parsed.map(item => {
+      if (typeof item === 'object' && item !== null) {
+        return {
+          area: item.area || item.nombre_area || item.especialidad || '',
+          nombre: item.nombre || item.responsable || item.profesional || '',
+          ci: item.ci || item.ci_responsable || item.documento || ''
+        };
+      }
+      return { area: String(item), nombre: '', ci: '' };
+    }).filter(a => a.area || a.nombre);
+  }
+
+  // Si parsed es un Objeto tipo { "Clínico General": { "nombre": "...", "ci": "..." }, ... }
+  if (typeof parsed === 'object' && parsed !== null) {
+    const resultado = [];
+    for (const [area, val] of Object.entries(parsed)) {
+      if (!val) continue;
+      if (typeof val === 'object') {
+        const nombre = val.nombre || val.responsable || val.profesional || '';
+        const ci = val.ci || val.ci_responsable || val.documento || '';
+        if (area || nombre) {
+          resultado.push({
+            area: area.trim(),
+            nombre: typeof nombre === 'string' ? nombre.trim() : String(nombre),
+            ci: typeof ci === 'string' ? ci.trim() : String(ci || '')
+          });
+        }
+      } else if (typeof val === 'string') {
+        const valStr = val.trim();
+        const ciMatch = valStr.match(/\((?:CI:?|C\.I\.?:?|Nro\.?:?)?\s*([^)]+)\)/i) || valStr.match(/con C\.?I\.?\s*(?:Nro\.?)?\s*([0-9a-zA-Z\s]+)/i);
+        const ci = ciMatch ? ciMatch[1].trim() : '';
+        const nombre = valStr.replace(/\((?:CI:?|C\.I\.?:?|Nro\.?:?)?\s*([^)]+)\)/i, '').replace(/con C\.?I\.?\s*(?:Nro\.?)?\s*([0-9a-zA-Z\s]+)/i, '').trim();
+        resultado.push({
+          area: area.trim(),
+          nombre: nombre || valStr,
+          ci
+        });
+      }
+    }
+    if (resultado.length > 0) return resultado;
+  }
+
   if (typeof rawRespAreas !== 'string') return [];
 
   const str = rawRespAreas.trim();
@@ -364,21 +434,32 @@ export async function generarComunicacionInternaPDF(tramite, opciones = {}) {
   doc.setFontSize(8.5);
   doc.setTextColor(30, 30, 30);
 
-  doc.text(`REPRESENTANTE LEGAL: ${propietarioNombre}`, marginX, curY);
-  curY += 4.5;
-  doc.text(`REGENTE: ${regenteNombre} con C.I. Nro. ${ciRegente}`, marginX, curY);
-  curY += 4.5;
+  const lineRep = `REPRESENTANTE LEGAL: ${propietarioNombre}`;
+  const splitRep = doc.splitTextToSize(lineRep, contentWidth);
+  doc.text(splitRep, marginX, curY);
+  curY += splitRep.length * 4.2 + 0.5;
+
+  const lineReg = `REGENTE: ${regenteNombre} con C.I. Nro. ${ciRegente}`;
+  const splitReg = doc.splitTextToSize(lineReg, contentWidth);
+  doc.text(splitReg, marginX, curY);
+  curY += splitReg.length * 4.2 + 0.5;
 
   // Responsables de Áreas de Especialidad
   const validAreas = (listaRespAreas || []).filter(a => a.nombre && a.nombre.trim());
   validAreas.forEach(a => {
     const ciTxt = a.ci ? ` con C.I. Nro. ${a.ci}` : '';
-    doc.text(`RESPONSABLE DE ${a.area.toUpperCase()}: ${a.nombre.toUpperCase()}${ciTxt}`, marginX, curY);
-    curY += 4.5;
+    const areaUpper = (a.area || '').toUpperCase();
+    const nombreUpper = (a.nombre || '').toUpperCase();
+    const lineArea = `RESPONSABLE DE ${areaUpper}: ${nombreUpper}${ciTxt}`;
+    const splitArea = doc.splitTextToSize(lineArea, contentWidth);
+    doc.text(splitArea, marginX, curY);
+    curY += splitArea.length * 4.2 + 0.5;
   });
 
-  doc.text(`UBICACIÓN ACTUAL DEL ESTABLECIMIENTO: ${direccion}, ${municipio}`, marginX, curY);
-  curY += 6;
+  const lineUbi = `UBICACIÓN ACTUAL DEL ESTABLECIMIENTO: ${direccion}, ${municipio}`;
+  const splitUbi = doc.splitTextToSize(lineUbi, contentWidth);
+  doc.text(splitUbi, marginX, curY);
+  curY += splitUbi.length * 4.2 + 2;
 
   // 1. REQUISITOS LEGALES
   doc.setFont('helvetica', 'bold');
