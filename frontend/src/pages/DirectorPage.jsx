@@ -124,7 +124,7 @@ export default function DirectorPage() {
     kpis: {
       tramites_en_curso: { valor: 0, subtexto: '+0 esta semana' },
       tiempo_promedio: { valor: '0 días', subtexto: 'Sin trámites concluidos aún' },
-      alertas_criticas: { valor: 0, subtexto: '0 observados / 0 docs obs.' }
+      alertas_criticas: { valor: 0, subtexto: '0 citaciones / 0 actas rechazadas' }
     },
     rendimiento_supervisores: [],
     distribucion_tramites: {

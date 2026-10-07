@@ -2920,6 +2920,21 @@ export default function CoordinadorPage() {
                               <span>{notificandoReingreso ? 'Enviando Notificación...' : 'Notificar al Propietario para Reingreso de Requisitos'}</span>
                             </button>
 
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSupervisoresSeleccionados(prev => ({
+                                  ...prev,
+                                  [tramiteActual.id]: tramiteActual.supervisorAsignado || ''
+                                }));
+                                navigate('/coordinador/asignar-supervisores');
+                              }}
+                              className="px-4 py-2.5 bg-[#0077c8] hover:bg-[#0064a7] active:scale-95 text-white rounded-xl text-xs font-bold shadow-xs transition flex items-center space-x-2 cursor-pointer"
+                            >
+                              <UserCheck className="w-3.5 h-3.5" />
+                              <span>Habilitar Re-Inspección / Asignar Inspector</span>
+                            </button>
+
                             {tramiteActual.acta_pdf_url && (
                               <a
                                 href={tramiteActual.acta_pdf_url.startsWith('http') ? tramiteActual.acta_pdf_url : `http://localhost:8000/${tramiteActual.acta_pdf_url.replace(/^\/+/, '')}`}
@@ -3204,7 +3219,14 @@ export default function CoordinadorPage() {
 
                           {/* Establecimiento */}
                           <td className="py-4 font-bold text-slate-800">
-                            <div>{item.establecimiento}</div>
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <span>{item.establecimiento}</span>
+                              {item.esReinspeccion && (
+                                <span className="inline-block bg-rose-50 text-rose-700 font-extrabold px-2 py-0.5 rounded-full text-[10px] border border-rose-200 shadow-2xs">
+                                  Re-Inspección
+                                </span>
+                              )}
+                            </div>
                             <span className="text-[10px] text-slate-400 font-normal">{item.municipio}</span>
                           </td>
 
@@ -3266,13 +3288,13 @@ export default function CoordinadorPage() {
                               <button
                                 onClick={() => handleAsignarSupervisor(item.codigo)}
                                 disabled={!(supervisoresSeleccionados[item.codigo] || (item.tramite_uuid ? supervisoresSeleccionados[item.tramite_uuid] : null) || item.supervisorAsignado)}
-                                className={`font-bold text-xs px-5 py-1.5 rounded-lg transition-all shadow-xs active:scale-95 ${
+                                className={`font-bold text-xs px-4 py-1.5 rounded-lg transition-all shadow-xs active:scale-95 ${
                                   (supervisoresSeleccionados[item.codigo] || (item.tramite_uuid ? supervisoresSeleccionados[item.tramite_uuid] : null) || item.supervisorAsignado)
-                                    ? 'bg-[#19324d] hover:bg-[#102235] text-white cursor-pointer'
+                                    ? (item.esReinspeccion ? 'bg-amber-600 hover:bg-amber-700 text-white cursor-pointer shadow-amber-600/20' : 'bg-[#19324d] hover:bg-[#102235] text-white cursor-pointer')
                                     : 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed'
                                 }`}
                               >
-                                Asignar
+                                {item.esReinspeccion ? 'Asignar Re-Inspección' : 'Asignar'}
                               </button>
                             )}
                           </td>

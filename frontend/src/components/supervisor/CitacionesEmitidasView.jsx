@@ -27,6 +27,7 @@ import {
   FileCheck2,
   BellRing,
   Share2,
+  RotateCcw,
   ExternalLink
 } from 'lucide-react';
 
@@ -80,6 +81,7 @@ export default function CitacionesEmitidasView({ usuario, mostrarToast }) {
   const [alerta10Dias, setAlerta10Dias] = useState(false);
   const [alerta15Dias, setAlerta15Dias] = useState(false);
 
+  const [itemsPorPagina, setItemsPorPagina] = useState(10);
   const [guardandoCitacion, setGuardandoCitacion] = useState(false);
 
   // Helper para ID de supervisor
@@ -92,7 +94,7 @@ export default function CitacionesEmitidasView({ usuario, mostrarToast }) {
     const supId = getSupervisorId();
     if (!silencioso) setCargando(true);
     try {
-      let url = `http://localhost:8000/api/supervisor/${encodeURIComponent(supId)}/citaciones?page=${page}&limit=6`;
+      let url = `http://localhost:8000/api/supervisor/${encodeURIComponent(supId)}/citaciones?page=${page}&limit=${itemsPorPagina}`;
 
       if (busqueda.trim()) {
         url += `&search=${encodeURIComponent(busqueda.trim())}`;
@@ -115,7 +117,7 @@ export default function CitacionesEmitidasView({ usuario, mostrarToast }) {
     } finally {
       if (!silencioso) setCargando(false);
     }
-  }, [usuario?.id, usuario?.email, busqueda, filtroResultado, filtroMes]);
+  }, [usuario?.id, usuario?.email, busqueda, filtroResultado, filtroMes, itemsPorPagina]);
 
   useEffect(() => {
     cargarCitaciones(1);
@@ -853,21 +855,8 @@ export default function CitacionesEmitidasView({ usuario, mostrarToast }) {
           />
         </div>
 
-        {/* Dropdown Resultado */}
-        <div className="relative min-w-[170px]">
-          <select
-            value={filtroResultado}
-            onChange={(e) => setFiltroResultado(e.target.value)}
-            className="w-full bg-slate-50/70 hover:bg-slate-50 border border-slate-200/80 rounded-xl px-3.5 py-2.5 text-slate-800 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-[#0073c6] cursor-pointer appearance-none pr-8"
-          >
-            <option value="Todos">Resultado: Todos</option>
-            <option value="Rechazado">Resultado: Rechazado</option>
-          </select>
-          <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-        </div>
-
         {/* Dropdown Mes */}
-        <div className="relative min-w-[180px]">
+        <div className="relative min-w-[200px]">
           <div className="flex items-center">
             <select
               value={filtroMes}
@@ -886,17 +875,22 @@ export default function CitacionesEmitidasView({ usuario, mostrarToast }) {
           </div>
         </div>
 
-        {/* Botón Filtrar */}
-        <button
-          type="button"
-          onClick={() => {
-            setBusqueda(busquedaInput);
-            cargarCitaciones(1);
-          }}
-          className="px-6 py-2.5 bg-[#1b2533] hover:bg-[#111827] text-white rounded-xl text-xs font-bold transition shadow-2xs cursor-pointer flex items-center justify-center space-x-1.5"
-        >
-          <span>Filtrar</span>
-        </button>
+        {/* Botón Limpiar filtros (solo si hay búsqueda o mes aplicado) */}
+        {(busquedaInput || filtroMes !== 'Todos') && (
+          <button
+            type="button"
+            onClick={() => {
+              setBusquedaInput('');
+              setBusqueda('');
+              setFiltroMes('Todos');
+            }}
+            className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition cursor-pointer flex items-center justify-center space-x-1.5 shrink-0"
+            title="Restablecer filtros"
+          >
+            <RotateCcw className="w-3.5 h-3.5 text-slate-500" />
+            <span>Limpiar filtros</span>
+          </button>
+        )}
       </div>
 
       {/* 3. Tarjeta de Tabla: Historial de Citaciones */}
@@ -1005,10 +999,27 @@ export default function CitacionesEmitidasView({ usuario, mostrarToast }) {
         {paginacion.total_registros > 0 && (
           <div className="px-6 py-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
             
-            {/* Texto "Mostrando 1-6 de 24 citacion" */}
-            <span className="text-slate-500 font-medium">
-              Mostrando {paginacion.mostrando_desde}-{paginacion.mostrando_hasta} de {paginacion.total_registros} citacion{paginacion.total_registros === 1 ? '' : 'es'}
-            </span>
+            {/* Texto y Selector de cantidad por vista */}
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-slate-500 font-medium">
+                Mostrando {paginacion.mostrando_desde}-{paginacion.mostrando_hasta} de {paginacion.total_registros} citacion{paginacion.total_registros === 1 ? '' : 'es'}
+              </span>
+              <div className="flex items-center space-x-1.5 pl-2 sm:border-l sm:border-slate-200">
+                <span className="text-[11px] font-semibold text-slate-400">Mostrar:</span>
+                <select
+                  value={itemsPorPagina}
+                  onChange={(e) => {
+                    setItemsPorPagina(Number(e.target.value));
+                    cargarCitaciones(1);
+                  }}
+                  className="px-2.5 py-1 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-700 hover:border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#0060a8]/20 focus:border-[#0060a8] cursor-pointer shadow-2xs transition"
+                >
+                  <option value={10}>10 por vista</option>
+                  <option value={25}>25 por vista</option>
+                  <option value={50}>50 por vista</option>
+                </select>
+              </div>
+            </div>
 
             {/* Botones de Paginación (< 1 2 3 4 >) */}
             <div className="flex items-center space-x-1">
@@ -1016,7 +1027,7 @@ export default function CitacionesEmitidasView({ usuario, mostrarToast }) {
                 type="button"
                 onClick={() => cargarCitaciones(paginacion.pagina_actual - 1)}
                 disabled={paginacion.pagina_actual <= 1}
-                className="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-30 disabled:pointer-events-none transition cursor-pointer"
+                className="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-30 disabled:pointer-events-none transition cursor-pointer shadow-2xs"
                 title="Página anterior"
               >
                 <ChevronLeft className="w-4 h-4" />
@@ -1031,7 +1042,7 @@ export default function CitacionesEmitidasView({ usuario, mostrarToast }) {
                     w-8 h-8 rounded-lg text-xs font-bold transition cursor-pointer flex items-center justify-center
                     ${pageNum === paginacion.pagina_actual
                       ? 'bg-[#1b2533] text-white shadow-2xs'
-                      : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'
+                      : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 shadow-2xs'
                     }
                   `}
                 >
@@ -1043,7 +1054,7 @@ export default function CitacionesEmitidasView({ usuario, mostrarToast }) {
                 type="button"
                 onClick={() => cargarCitaciones(paginacion.pagina_actual + 1)}
                 disabled={paginacion.pagina_actual >= paginacion.total_paginas}
-                className="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-30 disabled:pointer-events-none transition cursor-pointer"
+                className="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-30 disabled:pointer-events-none transition cursor-pointer shadow-2xs"
                 title="Página siguiente"
               >
                 <ChevronRight className="w-4 h-4" />

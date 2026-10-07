@@ -23,6 +23,7 @@ import {
   Award,
   RefreshCw,
   X,
+  RotateCcw,
   FileSpreadsheet,
   ExternalLink
 } from 'lucide-react';
@@ -64,13 +65,15 @@ export default function ActasEmitidasView({ usuario, mostrarToast }) {
   const [formCheckBioseguridad, setFormCheckBioseguridad] = useState(true);
   const [guardandoActa, setGuardandoActa] = useState(false);
 
+  const [itemsPorPagina, setItemsPorPagina] = useState(10);
+
   // Cargar lista de actas desde el backend
   const cargarActas = useCallback(async (page = 1, silencioso = false) => {
     const supId = usuario?.id || usuario?.email || (usuario?.nombres ? `${usuario.nombres} ${usuario.apellidos}` : '');
     if (!supId) return;
     if (!silencioso) setCargando(true);
     try {
-      let url = `http://localhost:8000/api/supervisor/${encodeURIComponent(supId)}/actas?page=${page}&limit=6`;
+      let url = `http://localhost:8000/api/supervisor/${encodeURIComponent(supId)}/actas?page=${page}&limit=${itemsPorPagina}`;
 
       if (busqueda.trim()) {
         url += `&search=${encodeURIComponent(busqueda.trim())}`;
@@ -93,7 +96,7 @@ export default function ActasEmitidasView({ usuario, mostrarToast }) {
     } finally {
       if (!silencioso) setCargando(false);
     }
-  }, [usuario?.id, usuario?.email, busqueda, filtroResultado, filtroMes]);
+  }, [usuario?.id, usuario?.email, busqueda, filtroResultado, filtroMes, itemsPorPagina]);
 
   useEffect(() => {
     cargarActas(1);
@@ -299,9 +302,9 @@ export default function ActasEmitidasView({ usuario, mostrarToast }) {
       </div>
 
       {/* ===================================================================== */}
-      {/* 2. TARJETAS DE MÉTRICAS / KPIS (3 TARJETAS FIGMA)                     */}
+      {/* 2. TARJETAS DE MÉTRICAS / KPIS (APROBADOS Y RECHAZADOS)               */}
       {/* ===================================================================== */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
 
         {/* KPI 1: Aprobados */}
         <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-2xs space-y-3 relative overflow-hidden">
@@ -324,28 +327,7 @@ export default function ActasEmitidasView({ usuario, mostrarToast }) {
           </div>
         </div>
 
-        {/* KPI 2: Con Observaciones */}
-        <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-2xs space-y-3 relative overflow-hidden">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-600 uppercase">
-              Con Observaciones
-            </span>
-            <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 border border-amber-200 flex items-center justify-center">
-              <AlertTriangle className="w-4 h-4" />
-            </div>
-          </div>
-
-          <div>
-            <div className="text-3xl font-black text-slate-900 tracking-tight">
-              {kpis.con_observaciones}
-            </div>
-            <div className="text-xs font-bold text-amber-600 mt-1 flex items-center space-x-1">
-              <span>+{kpis.con_observaciones_mes} este mes</span>
-            </div>
-          </div>
-        </div>
-
-        {/* KPI 3: Rechazados */}
+        {/* KPI 2: Rechazados */}
         <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-2xs space-y-3 relative overflow-hidden">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-600">
@@ -401,7 +383,6 @@ export default function ActasEmitidasView({ usuario, mostrarToast }) {
             >
               <option value="Todos">Resultado: Todos</option>
               <option value="Aprobado">Aprobado</option>
-              <option value="Con Observaciones">Con Observaciones</option>
               <option value="Rechazado">Rechazado</option>
             </select>
             <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
@@ -424,14 +405,22 @@ export default function ActasEmitidasView({ usuario, mostrarToast }) {
             <CalendarIcon className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
           </div>
 
-          {/* Botón Filtrar */}
-          <button
-            type="submit"
-            className="px-6 py-2.5 bg-[#1b2533] hover:bg-[#111827] text-white font-bold text-xs rounded-2xl transition shadow-2xs cursor-pointer flex items-center justify-center space-x-1.5"
-          >
-            <Filter className="w-3.5 h-3.5" />
-            <span>Filtrar</span>
-          </button>
+          {/* Botón Limpiar filtros (se muestra cuando hay algún filtro o búsqueda activa) */}
+          {(busqueda || filtroResultado !== 'Todos' || filtroMes !== 'Todos') && (
+            <button
+              type="button"
+              onClick={() => {
+                setBusqueda('');
+                setFiltroResultado('Todos');
+                setFiltroMes('Todos');
+              }}
+              className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-2xl transition cursor-pointer flex items-center justify-center space-x-1.5 shrink-0"
+              title="Restablecer todos los filtros"
+            >
+              <RotateCcw className="w-3.5 h-3.5 text-slate-500" />
+              <span>Limpiar filtros</span>
+            </button>
+          )}
 
         </form>
       </div>
@@ -576,8 +565,25 @@ export default function ActasEmitidasView({ usuario, mostrarToast }) {
 
         {/* Paginador Inferior */}
         <div className="px-6 py-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-500 font-medium">
-          <div>
-            Mostrando {paginacion.mostrando_desde}-{paginacion.mostrando_hasta} de {paginacion.total_registros} actas
+          <div className="flex flex-wrap items-center gap-2">
+            <span>
+              Mostrando {paginacion.mostrando_desde}-{paginacion.mostrando_hasta} de {paginacion.total_registros} {paginacion.total_registros === 1 ? 'acta' : 'actas'}
+            </span>
+            <div className="flex items-center space-x-1.5 pl-2 sm:border-l sm:border-slate-200">
+              <span className="text-[11px] font-semibold text-slate-400">Mostrar:</span>
+              <select
+                value={itemsPorPagina}
+                onChange={(e) => {
+                  setItemsPorPagina(Number(e.target.value));
+                  cargarActas(1);
+                }}
+                className="px-2.5 py-1 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-700 hover:border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#0060a8]/20 focus:border-[#0060a8] cursor-pointer shadow-2xs transition"
+              >
+                <option value={10}>10 por vista</option>
+                <option value={25}>25 por vista</option>
+                <option value={50}>50 por vista</option>
+              </select>
+            </div>
           </div>
 
           <div className="flex items-center space-x-1.5">
@@ -585,7 +591,8 @@ export default function ActasEmitidasView({ usuario, mostrarToast }) {
               type="button"
               disabled={paginacion.pagina_actual <= 1}
               onClick={() => cargarActas(paginacion.pagina_actual - 1)}
-              className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:pointer-events-none transition cursor-pointer"
+              className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:pointer-events-none transition cursor-pointer shadow-2xs"
+              title="Página anterior"
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
@@ -598,10 +605,10 @@ export default function ActasEmitidasView({ usuario, mostrarToast }) {
                   type="button"
                   onClick={() => cargarActas(num)}
                   className={`
-                    w-8 h-8 rounded-lg font-bold text-xs transition cursor-pointer
+                    w-8 h-8 rounded-lg font-bold text-xs transition cursor-pointer flex items-center justify-center
                     ${isActive
                       ? 'bg-[#1b2533] text-white shadow-2xs'
-                      : 'bg-white hover:bg-slate-100 border border-slate-200 text-slate-700'
+                      : 'bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 shadow-2xs'
                     }
                   `}
                 >
@@ -614,7 +621,8 @@ export default function ActasEmitidasView({ usuario, mostrarToast }) {
               type="button"
               disabled={paginacion.pagina_actual >= paginacion.total_paginas}
               onClick={() => cargarActas(paginacion.pagina_actual + 1)}
-              className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:pointer-events-none transition cursor-pointer"
+              className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:pointer-events-none transition cursor-pointer shadow-2xs"
+              title="Página siguiente"
             >
               <ChevronRight className="w-4 h-4" />
             </button>

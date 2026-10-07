@@ -60,18 +60,21 @@ def obtener_metricas_consola(db: Session = Depends(get_db)):
 
     tiempo_promedio = round(dias_totales / conteo_cerrados) if conteo_cerrados > 0 else 0
 
-    # Alertas críticas reales (documentos observados/rechazados o trámites con retraso/observación)
-    docs_observados = db.query(models.TramiteDocumento).filter(
-        models.TramiteDocumento.estado == True,
-        models.TramiteDocumento.estado_validacion.in_(["Observado", "Rechazado"])
-    ).count()
-    
-    tramites_vencidos = db.query(models.Tramite).filter(
-        models.Tramite.estado == True,
-        models.Tramite.estado_tramite.ilike("%observad%")
+    # Alertas críticas reales: Citaciones de infracción emitidas + Actas/Inspecciones desfavorables o rechazadas en campo
+    citaciones_count = db.query(models.CitacionInfraccion).filter(
+        models.CitacionInfraccion.estado == True
     ).count()
 
-    alertas_criticas = docs_observados + tramites_vencidos
+    actas_desfavorables_count = db.query(models.Inspeccion).filter(
+        models.Inspeccion.estado == True,
+        models.Inspeccion.estado_inspeccion == "Completada",
+        or_(
+            models.Inspeccion.veredicto_final.ilike("%desfavorable%"),
+            models.Inspeccion.veredicto_final.ilike("%rechazad%")
+        )
+    ).count()
+
+    alertas_criticas = citaciones_count + actas_desfavorables_count
 
     # 2. DISTRIBUCIÓN POR TIPOS REAL (Aperturas vs Renovaciones)
     aperturas_count = db.query(models.Tramite).filter(
@@ -205,7 +208,7 @@ def obtener_metricas_consola(db: Session = Depends(get_db)):
             },
             "alertas_criticas": {
                 "valor": alertas_criticas,
-                "subtexto": f"{tramites_vencidos} observados / {docs_observados} docs obs."
+                "subtexto": f"{citaciones_count} citación(es) / {actas_desfavorables_count} acta(s) rechazada(s)" if alertas_criticas > 0 else "Sin citaciones ni actas rechazadas"
             }
         },
         "rendimiento_supervisores": rendimiento_supervisores,

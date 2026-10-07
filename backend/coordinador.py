@@ -1321,7 +1321,7 @@ def listar_supervisores_campo(db: Session = Depends(get_db)):
 
 @router.get("/tramites-asignacion", summary="Listar trámites reales para asignación de supervisor")
 def listar_tramites_asignacion(db: Session = Depends(get_db)):
-    """Retorna los trámites reales que requieren supervisión técnica."""
+    """Retorna los trámites reales que requieren supervisión técnica o re-inspección."""
     tramites = db.query(models.Tramite).filter(
         models.Tramite.estado == True
     ).order_by(models.Tramite.fecha_creacion.desc()).all()
@@ -1335,7 +1335,23 @@ def listar_tramites_asignacion(db: Session = Depends(get_db)):
         )
         sup_nombre = f"{sup.nombres} {sup.apellidos}" if sup else ""
 
-        esta_asignado = bool(t.supervisor_asignado_id)
+        # Obtener última inspección del trámite
+        insp = db.query(models.Inspeccion).filter(
+            models.Inspeccion.tramite_id == t.id,
+            models.Inspeccion.estado == True
+        ).order_by(models.Inspeccion.fecha_creacion.desc()).first()
+
+        # Comprobar si la última inspección concluyó con veredicto Desfavorable / Rechazado
+        es_acta_rechazada = bool(
+            insp and insp.estado_inspeccion == "Completada" and 
+            any(pal in (insp.veredicto_final or "").lower() for pal in ["desfavorable", "rechazad"])
+        )
+        requiere_reinspeccion = es_acta_rechazada or "reingreso" in (t.estado_tramite or "").lower() or "re-inspección" in (t.estado_tramite or "").lower()
+
+        # Si el trámite tiene una inspección activa pendiente de ejecución (Pendiente, Programada, Reprogramada), está asignado.
+        # Si la última inspección ya se completó y fue rechazada, o el trámite necesita re-inspección y aún no se creó una nueva inspección pendiente, yaAsignado es False.
+        tiene_insp_activa = bool(insp and insp.estado_inspeccion in ["Pendiente", "Programada", "Reprogramada"])
+        esta_asignado = bool(t.supervisor_asignado_id) and tiene_insp_activa and not es_acta_rechazada
 
         resultados.append({
             "codigo": f"TRM-{str(t.id)[:8].upper()}",
@@ -1347,7 +1363,8 @@ def listar_tramites_asignacion(db: Session = Depends(get_db)):
             "fechaIngreso": f_ingreso,
             "supervisorAsignado": sup_nombre,
             "supervisor_id": str(sup.id) if sup else "",
-            "yaAsignado": esta_asignado
+            "yaAsignado": esta_asignado,
+            "esReinspeccion": requiere_reinspeccion
         })
 
     return {
@@ -1360,7 +1377,7 @@ def asignar_supervisor(
     payload: AsignarSupervisorRequest,
     db: Session = Depends(get_db)
 ):
-    """Asigna un supervisor al trámite en la base de datos relacional y programa inspección."""
+    """Asigna o reasigna un supervisor al trámite en la base de datos relacional y habilita la inspección/re-inspección."""
     tramite = None
     try:
         t_uuid = uuid.UUID(payload.codigo_tramite)
@@ -1378,15 +1395,6 @@ def asignar_supervisor(
 
     if not tramite:
         raise HTTPException(status_code=404, detail="Trámite no encontrado en la base de datos.")
-
-    # Validar que no haya sido asignado previamente
-    if tramite.supervisor_asignado_id is not None:
-        sup_actual = tramite.supervisor_asignado
-        sup_act_nombre = f"{sup_actual.nombres} {sup_actual.apellidos}" if sup_actual else "un supervisor oficial"
-        raise HTTPException(
-            status_code=400,
-            detail=f"El trámite ya fue asignado previamente a {sup_act_nombre} y no puede ser reasignado."
-        )
 
     # Buscar supervisor por ID o por nombre
     supervisor = None
@@ -1406,18 +1414,16 @@ def asignar_supervisor(
     if not supervisor:
         raise HTTPException(status_code=404, detail="Supervisor institucional no encontrado.")
 
-    # Asignar supervisor y actualizar estado
-    tramite.supervisor_asignado_id = supervisor.id
-    if tramite.estado_tramite in ["Pendiente", "Esperando Revisión"]:
-        tramite.estado_tramite = "Inspección Programada"
-
-    # Crear registro de inspección inicial si no existe
+    # Obtener la última inspección registrada
     insp_existente = db.query(models.Inspeccion).filter(
         models.Inspeccion.tramite_id == tramite.id,
         models.Inspeccion.estado == True
-    ).first()
+    ).order_by(models.Inspeccion.fecha_creacion.desc()).first()
 
-    if not insp_existente:
+    es_reinspeccion = False
+    if insp_existente and (insp_existente.estado_inspeccion == "Completada" or any(pal in (insp_existente.veredicto_final or "").lower() for pal in ["desfavorable", "rechazad"])):
+        # La inspección previa ya fue completada (por ejemplo con rechazo). Creamos una NUEVA inspección para la re-inspección técnica
+        es_reinspeccion = True
         nueva_insp = models.Inspeccion(
             id=uuid.uuid4(),
             tramite_id=tramite.id,
@@ -1427,6 +1433,25 @@ def asignar_supervisor(
             veredicto_final="Pendiente de Inspección"
         )
         db.add(nueva_insp)
+    elif not insp_existente:
+        nueva_insp = models.Inspeccion(
+            id=uuid.uuid4(),
+            tramite_id=tramite.id,
+            supervisor_id=supervisor.id,
+            fecha_programada=datetime.now(),
+            estado_inspeccion="Pendiente",
+            veredicto_final="Pendiente de Inspección"
+        )
+        db.add(nueva_insp)
+    else:
+        # Actualizar la inspección pendiente existente con el supervisor seleccionado
+        insp_existente.supervisor_id = supervisor.id
+        insp_existente.estado_inspeccion = "Pendiente"
+        insp_existente.veredicto_final = "Pendiente de Inspección"
+
+    # Asignar supervisor y actualizar estado del trámite
+    tramite.supervisor_asignado_id = supervisor.id
+    tramite.estado_tramite = "Re-Inspección Programada" if es_reinspeccion else "Inspección Programada"
 
     db.commit()
     db.refresh(tramite)
@@ -1437,11 +1462,16 @@ def asignar_supervisor(
     ahora_formato = datetime.now().strftime("%d %b %Y - %H:%M")
 
     # Registrar en auditoría
+    accion_auditoria = (
+        f"Re-inspección técnica habilitada y asignada a {sup_nombre} tras subsanación de requisitos."
+        if es_reinspeccion else
+        f"Trámite asignado a {sup_nombre} para auditoría e inspección técnica in situ."
+    )
     nuevo_log = models.HistorialActividad(
         id=uuid.uuid4(),
         codigo_tramite=cod_trm,
         establecimiento=estab_nombre,
-        accion=f"Trámite asignado a {sup_nombre} para auditoría e inspección técnica in situ.",
+        accion=accion_auditoria,
         responsable=payload.responsable or "Dra. Claudia Morales V.",
         estado_resultado="Asignado",
         estado_badge="bg-sky-50 text-sky-700 border-sky-200",
@@ -1455,25 +1485,32 @@ def asignar_supervisor(
         crear_notificacion_db(
             db,
             usuario_id=supervisor.id,
-            titulo="📋 Nuevo Trámite Asignado",
-            mensaje=f"Se le ha asignado el trámite {cod_trm} de '{estab_nombre}' ({tramite.establecimiento.municipio}) para auditoría e inspección técnica in situ."
+            titulo="📋 Re-Inspección Técnica Asignada" if es_reinspeccion else "📋 Nuevo Trámite Asignado",
+            mensaje=(
+                f"Se le ha asignado la RE-INSPECCIÓN in situ de '{estab_nombre}' ({cod_trm}). Por favor coordine la visita en su agenda."
+                if es_reinspeccion else
+                f"Se le ha asignado el trámite {cod_trm} de '{estab_nombre}' para auditoría e inspección técnica in situ."
+            )
         )
         if tramite.establecimiento and tramite.establecimiento.propietario_id:
             crear_notificacion_db(
                 db,
                 usuario_id=tramite.establecimiento.propietario_id,
-                titulo="Supervisor Técnico Asignado",
-                mensaje=f"Se ha asignado a {sup_nombre} como supervisor técnico para la fiscalización de su establecimiento '{estab_nombre}'."
+                titulo="📅 Re-Inspección de Campo Habilitada" if es_reinspeccion else "📅 Supervisor Asignado",
+                mensaje=(
+                    f"Su trámite para '{estab_nombre}' ha sido habilitado para una nueva re-inspección técnica in situ con el inspector {sup_nombre}."
+                    if es_reinspeccion else
+                    f"Se ha asignado al inspector {sup_nombre} para la fiscalización in situ de su establecimiento."
+                )
             )
     except Exception as e:
-        print(f"Error al notificar asignación de supervisor: {e}")
+        print(f"Error al notificar asignación/reinspección: {e}")
 
     db.commit()
 
     return {
-        "mensaje": f"Trámite {cod_trm} asignado exitosamente a {sup_nombre}.",
-        "tramite_id": str(tramite.id),
-        "supervisor_nombre": sup_nombre
+        "mensaje": f"¡Trámite {cod_trm} asignado exitosamente a {sup_nombre}!",
+        "tramite": serializar_tramite_coordinador(tramite, db)
     }
 
 # ==============================================================================
