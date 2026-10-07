@@ -1346,10 +1346,27 @@ def listar_tramites_asignacion(db: Session = Depends(get_db)):
             insp and insp.estado_inspeccion == "Completada" and 
             any(pal in (insp.veredicto_final or "").lower() for pal in ["desfavorable", "rechazad"])
         )
-        requiere_reinspeccion = es_acta_rechazada or "reingreso" in (t.estado_tramite or "").lower() or "re-inspección" in (t.estado_tramite or "").lower()
 
-        # Si el trámite tiene una inspección activa pendiente de ejecución (Pendiente, Programada, Reprogramada), está asignado.
-        # Si la última inspección ya se completó y fue rechazada, o el trámite necesita re-inspección y aún no se creó una nueva inspección pendiente, yaAsignado es False.
+        # Comprobar si la última inspección fue APROBADA / FAVORABLE
+        es_acta_aprobada = bool(
+            insp and insp.estado_inspeccion == "Completada" and 
+            any(pal in (insp.veredicto_final or "").lower() for pal in ["favorable", "aprob"])
+        )
+
+        # Si el trámite ya avanzó a etapas posteriores o si su acta ya fue aprobada
+        ya_concluido = es_acta_aprobada or any(pal in (t.estado_tramite or "").lower() for pal in ["informe", "derivado", "legal", "aprobado", "finalizado", "resolución", "resolucion"])
+
+        # Requiere re-inspección únicamente si la última acta fue rechazada y no se ha aprobado
+        requiere_reinspeccion = es_acta_rechazada and not ya_concluido
+
+        # Excluir trámites que ya concluyeron la etapa de inspección favorablemente o fueron cerrados
+        if ya_concluido and not requiere_reinspeccion:
+            continue
+
+        if any(pal in (t.estado_tramite or "").lower() for pal in ["cancelado", "anulado", "rechazado definitivo"]):
+            continue
+
+        # Si el trámite tiene supervisor asignado y (tiene inspección activa o ya concluyó favorablemente), está asignado
         tiene_insp_activa = bool(insp and insp.estado_inspeccion in ["Pendiente", "Programada", "Reprogramada"])
         esta_asignado = bool(t.supervisor_asignado_id) and tiene_insp_activa and not es_acta_rechazada
 
