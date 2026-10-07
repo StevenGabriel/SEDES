@@ -208,15 +208,16 @@ def verificar_conflicto_horario(
     supervisor_id: uuid.UUID,
     fecha_inicio: datetime,
     fecha_fin: datetime,
-    inspeccion_id_excluir: Optional[uuid.UUID],
-    db: Session
+    inspeccion_id_excluir: Optional[uuid.UUID] = None,
+    tramite_id_excluir: Optional[uuid.UUID] = None,
+    db: Session = None
 ) -> Optional[dict]:
     """
     Verifica si existe solapamiento con alguna inspección ya programada del supervisor.
     Dos intervalos [A_ini, A_fin] y [B_ini, B_fin] se solapan si:
     max(A_ini, B_ini) < min(A_fin, B_fin)
     """
-    if not supervisor_id:
+    if not supervisor_id or not db:
         return None
 
     fecha_dia = fecha_inicio.date()
@@ -224,6 +225,7 @@ def verificar_conflicto_horario(
         models.Inspeccion.estado == True,
         models.Inspeccion.estado_inspeccion.in_(["Programada", "Reprogramada"]),
         models.Inspeccion.fecha_programada.isnot(None),
+        models.Inspeccion.veredicto_final.is_(None) | ~models.Inspeccion.veredicto_final.in_(["Favorable", "Desfavorable", "Aprobado", "Rechazado"]),
         cast(models.Inspeccion.fecha_programada, Date) == fecha_dia,
         or_(
             models.Inspeccion.supervisor_id == supervisor_id,
@@ -232,6 +234,8 @@ def verificar_conflicto_horario(
     )
     if inspeccion_id_excluir:
         query = query.filter(models.Inspeccion.id != inspeccion_id_excluir)
+    if tramite_id_excluir:
+        query = query.filter(models.Inspeccion.tramite_id != tramite_id_excluir)
     
     inspecciones_del_dia = query.all()
     
@@ -585,11 +589,11 @@ def agendar_inspeccion(
             detail=f"No es posible agendar una inspección en una fecha u hora pasada ({fecha_prog_dt.strftime('%d/%m/%Y %H:%M')}). Por favor seleccione una fecha y horario actual o posterior."
         )
 
-    # 3. Buscar o crear inspección
+    # 3. Buscar o crear inspección (ordenada por fecha de creación más reciente)
     insp = db.query(models.Inspeccion).filter(
         models.Inspeccion.tramite_id == tramite.id,
         models.Inspeccion.estado == True
-    ).first()
+    ).order_by(models.Inspeccion.fecha_creacion.desc()).first()
 
     sup_id = tramite.supervisor_asignado_id
     if payload.supervisor_id:
@@ -620,6 +624,7 @@ def agendar_inspeccion(
         fecha_inicio=fecha_prog_dt,
         fecha_fin=fecha_fin_dt,
         inspeccion_id_excluir=insp.id if insp else None,
+        tramite_id_excluir=tramite.id,
         db=db
     )
     if conflicto:
@@ -628,7 +633,7 @@ def agendar_inspeccion(
             detail=f"Conflicto de horario: Ya tiene programada una inspección para '{conflicto['establecimiento']}' el {conflicto['fecha']} de {conflicto['hora_inicio']} a {conflicto['hora_fin']}. Por favor seleccione un horario antes de las {conflicto['hora_inicio']} o a partir de las {conflicto['hora_fin']}."
         )
 
-    if not insp:
+    if not insp or insp.estado_inspeccion == "Completada":
         insp = models.Inspeccion(
             id=uuid.uuid4(),
             tramite_id=tramite.id,
@@ -641,6 +646,7 @@ def agendar_inspeccion(
     else:
         insp.fecha_programada = fecha_prog_dt
         insp.estado_inspeccion = "Programada"
+        insp.veredicto_final = "Pendiente de Inspección"
         if sup_id:
             insp.supervisor_id = sup_id
 
@@ -743,6 +749,7 @@ def reprogramar_inspeccion(
         fecha_inicio=nueva_fecha_dt,
         fecha_fin=nueva_fin_dt,
         inspeccion_id_excluir=insp.id,
+        tramite_id_excluir=insp.tramite_id,
         db=db
     )
     if conflicto:
@@ -863,7 +870,7 @@ def obtener_rutas_supervisor(
     fecha_badge = f"Día: {dia_nombre} {fecha_target.day} {mes_nombre[:3]}"
 
     # Buscar todas las inspecciones programadas para esa fecha pertenecientes a este supervisor
-    inspecciones_dia = db.query(models.Inspeccion).join(models.Tramite).filter(
+    inspecciones_raw = db.query(models.Inspeccion).join(models.Tramite).filter(
         cast(models.Inspeccion.fecha_programada, Date) == fecha_target,
         models.Inspeccion.estado == True,
         models.Inspeccion.estado_inspeccion.in_(["Programada", "Reprogramada", "Completada"]),
@@ -872,6 +879,15 @@ def obtener_rutas_supervisor(
             models.Tramite.supervisor_asignado_id == supervisor.id
         )
     ).order_by(models.Inspeccion.fecha_programada.asc()).all()
+
+    # Deduplicar por trámite para la ruta del día: si existe una inspección activa pendiente/programada, priorizarla sobre una ya concluida
+    inspecciones_map = {}
+    for insp in sorted(inspecciones_raw, key=lambda x: (0 if x.estado_inspeccion in ["Programada", "Reprogramada"] else 1, -(x.fecha_creacion.timestamp() if x.fecha_creacion else 0))):
+        tid = insp.tramite_id or insp.id
+        if tid not in inspecciones_map:
+            inspecciones_map[tid] = insp
+
+    inspecciones_dia = sorted(list(inspecciones_map.values()), key=lambda x: x.fecha_programada or datetime.min)
 
     # Obtener lista de todas las fechas con inspecciones programadas para este supervisor
     todas_inspecciones = db.query(models.Inspeccion).join(models.Tramite).filter(
@@ -1088,10 +1104,7 @@ def obtener_actas_supervisor(
     query = db.query(models.Inspeccion).join(models.Tramite).join(models.Establecimiento).filter(
         models.Inspeccion.estado == True,
         models.Inspeccion.estado_inspeccion == "Completada",
-        or_(
-            models.Inspeccion.supervisor_id == supervisor.id,
-            models.Tramite.supervisor_asignado_id == supervisor.id
-        )
+        models.Inspeccion.supervisor_id == supervisor.id
     )
 
     # Ordenar por fecha programada / modificación descendente

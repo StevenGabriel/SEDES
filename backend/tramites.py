@@ -304,22 +304,13 @@ async def subsanar_documento_tramite(
         estab_nom = estab.nombre_comercial if estab else "Establecimiento"
         req_nom = doc.requisito.nombre_documento if doc.requisito else "Requisito"
 
-        # Notificar a Coordinación
+        # Notificar exclusivamente a Coordinación (responsable de revisión documental)
         notificar_a_rol_db(
             db,
             rol_nombre="Coordinador",
             titulo="📄 Documento Subsanado para Revisión",
             mensaje=f"El establecimiento '{estab_nom}' ha vuelto a subir y subsanar el documento '{req_nom}' para nueva verificación."
         )
-
-        # Notificar al Supervisor si está asignado
-        if doc.tramite and doc.tramite.supervisor_asignado_id:
-            crear_notificacion_db(
-                db,
-                usuario_id=doc.tramite.supervisor_asignado_id,
-                titulo="📄 Documento Subsanado por Propietario",
-                mensaje=f"El establecimiento '{estab_nom}' ha subsanado el documento '{req_nom}' y está listo para evaluación."
-            )
     except Exception as e:
         print(f"Error al notificar subsanación: {e}")
 
