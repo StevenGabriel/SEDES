@@ -844,7 +844,7 @@ export default function NuevaActaFormView({ usuario, onVolver, onActaGuardada, m
   // Modal de confirmación para limpiar formulario
   const [modalLimpiarOpen, setModalLimpiarOpen] = useState(false);
 
-  // 1. Cargar inspecciones desde el backend
+  // 1. Cargar inspecciones desde el backend (estrictamente filtradas para la fecha de hoy)
   useEffect(() => {
     const cargarInspecciones = async () => {
       const supId = usuario?.id || usuario?.email || (usuario?.nombres ? `${usuario.nombres} ${usuario.apellidos}` : '');
@@ -853,12 +853,18 @@ export default function NuevaActaFormView({ usuario, onVolver, onActaGuardada, m
         const res = await fetch(`http://localhost:8000/api/supervisor/${encodeURIComponent(supId)}/agenda`);
         if (res.ok) {
           const data = await res.json();
-          const rawLista = [...(data.eventos || []), ...(data.pendientes || [])];
-          // Filtrar exclusivamente inspecciones pendientes que NO hayan sido completadas
-          const lista = rawLista.filter(item => item.estado_inspeccion !== 'Completada');
-          setInspeccionesDisponibles(lista);
-          if (lista.length > 0) {
-            const first = lista[0];
+          // Obtener la fecha local de hoy en formato YYYY-MM-DD
+          const hoyStr = new Date().toLocaleDateString('en-CA');
+
+          // Filtrar EXCLUSIVAMENTE inspecciones programadas en agenda para el día de HOY que no hayan sido completadas
+          const listaHoy = (data.eventos || []).filter(item => {
+            const fechaItem = (item.fecha || item.fecha_programada || '').slice(0, 10);
+            return fechaItem === hoyStr && item.estado_inspeccion !== 'Completada';
+          });
+
+          setInspeccionesDisponibles(listaHoy);
+          if (listaHoy.length > 0) {
+            const first = listaHoy[0];
             setInspeccionSeleccionadaId(first.inspeccion_id || first.id || '');
             setEstablecimientoNombre(first.establecimiento || first.nombre || '');
             setPropietarioNombre(first.responsable_laboratorio || first.propietario || 'Responsable Técnico');
@@ -866,18 +872,15 @@ export default function NuevaActaFormView({ usuario, onVolver, onActaGuardada, m
             setDireccionTexto(first.direccion || 'Cochabamba');
             setMunicipioTexto(first.municipio || 'CERCADO');
             setCodigoTramite(first.codigo_tramite || first.codigo || 'TRM-001');
-            if (first.fecha) {
-              setFechaInspeccion(String(first.fecha).slice(0, 10));
-            } else if (first.fecha_programada) {
-              setFechaInspeccion(String(first.fecha_programada).slice(0, 10));
-            } else {
-              setFechaInspeccion(new Date().toISOString().slice(0, 10));
-            }
+            setFechaInspeccion(hoyStr);
           } else {
             setInspeccionSeleccionadaId('');
             setEstablecimientoNombre('');
             setPropietarioNombre('');
+            setDireccionTexto('');
+            setMunicipioTexto('');
             setCodigoTramite('');
+            setFechaInspeccion(hoyStr);
           }
         }
       } catch (err) {
@@ -904,7 +907,7 @@ export default function NuevaActaFormView({ usuario, onVolver, onActaGuardada, m
       } else if (item.fecha_programada) {
         setFechaInspeccion(String(item.fecha_programada).slice(0, 10));
       } else {
-        setFechaInspeccion(new Date().toISOString().slice(0, 10));
+        setFechaInspeccion(new Date().toLocaleDateString('en-CA'));
       }
     }
   };
@@ -1271,6 +1274,12 @@ export default function NuevaActaFormView({ usuario, onVolver, onActaGuardada, m
   const handleEmitirActa = async (e) => {
     e.preventDefault();
 
+    // 0. Validación de inspección asignada para hoy
+    if (inspeccionesDisponibles.length === 0 || !inspeccionSeleccionadaId) {
+      mostrarToast?.('No puede emitir el acta: No cuenta con una inspección técnica programada para el día de hoy en su Agenda.', 'warning');
+      return;
+    }
+
     // 1. Validación obligatoria: Documento con firmas autorizadas
     if (!archivoFirmado && !archivoFirmadoUrl) {
       mostrarToast?.('Es obligatorio subir el documento firmado del acta (PDF o escaneado) en la Sección 3 para poder emitir el acta oficial.', 'warning');
@@ -1453,6 +1462,23 @@ export default function NuevaActaFormView({ usuario, onVolver, onActaGuardada, m
 
       </div>
 
+      {/* Banner de alerta informativa si no hay inspecciones programadas para hoy */}
+      {inspeccionesDisponibles.length === 0 && (
+        <div className="bg-amber-50/90 border-2 border-amber-300 rounded-3xl p-5 sm:p-6 flex items-start space-x-4 shadow-sm animate-fadeIn">
+          <div className="w-10 h-10 rounded-2xl bg-amber-100 border border-amber-300 flex items-center justify-center text-amber-700 shrink-0">
+            <AlertTriangle className="w-5 h-5" />
+          </div>
+          <div className="space-y-1">
+            <h4 className="text-sm font-black text-amber-900 tracking-tight">
+              No tiene inspecciones técnicas programadas para el día de hoy
+            </h4>
+            <p className="text-xs text-amber-800 font-medium leading-relaxed">
+              Para poder emitir un acta técnica oficial, la inspección del establecimiento debe estar previamente asignada y agendada en la sección <strong className="text-amber-950 font-black">"Mi Agenda"</strong> con fecha de hoy ({new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}).
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* ===================================================================== */}
       {/* 2. SECCIÓN: DATOS GENERALES DEL ESTABLECIMIENTO                       */}
       {/* ===================================================================== */}
@@ -1491,8 +1517,8 @@ export default function NuevaActaFormView({ usuario, onVolver, onActaGuardada, m
               <input
                 type="text"
                 readOnly
-                value={establecimientoNombre || 'Laboratorio Clínico Registrado'}
-                className="w-full px-4 py-2.5 bg-slate-100/90 border border-slate-200 rounded-2xl font-bold text-slate-700 cursor-not-allowed select-none outline-none"
+                value="No hay inspecciones programadas para el día de hoy"
+                className="w-full px-4 py-2.5 bg-amber-50/60 border border-amber-200 rounded-2xl font-bold text-amber-800 cursor-not-allowed select-none outline-none"
               />
             )}
           </div>
@@ -2096,8 +2122,9 @@ export default function NuevaActaFormView({ usuario, onVolver, onActaGuardada, m
           <button
             type="button"
             onClick={handleEmitirActa}
-            disabled={guardando}
-            className="px-8 py-3 rounded-2xl bg-[#1b2533] hover:bg-[#111827] text-white font-black text-xs sm:text-sm transition shadow-lg hover:shadow-xl inline-flex items-center space-x-2 cursor-pointer disabled:opacity-50"
+            disabled={guardando || inspeccionesDisponibles.length === 0}
+            title={inspeccionesDisponibles.length === 0 ? 'No tiene inspecciones programadas para hoy en Mi Agenda' : 'Emitir Acta Oficial'}
+            className="px-8 py-3 rounded-2xl bg-[#1b2533] hover:bg-[#111827] text-white font-black text-xs sm:text-sm transition shadow-lg hover:shadow-xl inline-flex items-center space-x-2 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {guardando ? (
               <>

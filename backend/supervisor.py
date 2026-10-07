@@ -1503,38 +1503,18 @@ def obtener_citaciones_supervisor(
         models.CitacionInfraccion.fecha_creacion.desc()
     ).all()
 
-    # 2. Obtener también inspecciones con veredicto Desfavorable / Rechazado realizadas por este supervisor si las hay
-    inspecciones_rechazadas = db.query(models.Inspeccion).join(models.Tramite).join(models.Establecimiento).filter(
-        models.Inspeccion.estado == True,
-        or_(
-            models.Inspeccion.supervisor_id == supervisor.id,
-            models.Tramite.supervisor_asignado_id == supervisor.id
-        ),
-        or_(
-            models.Inspeccion.veredicto_final.ilike("%desfavorable%"),
-            models.Inspeccion.veredicto_final.ilike("%rechaz%"),
-            models.Inspeccion.estado_inspeccion.ilike("%rechaz%")
-        )
-    ).all()
-
     citaciones_list = []
     meses_dict = {}
     ahora_dt = ahora_bolivia()
     mes_actual_key = f"{ahora_dt.year}-{ahora_dt.month:02d}"
 
-    # IDs de inspecciones ya asociadas a citaciones para no duplicar
-    insp_ids_asociadas = set()
-
     for idx, cit in enumerate(citaciones_db, start=1):
-        if cit.inspeccion_id:
-            insp_ids_asociadas.add(str(cit.inspeccion_id))
-
         estab = cit.establecimiento
         prop = estab.propietario if estab else None
         c_sup = cit.supervisor or supervisor
         nombre_inspector = f"{c_sup.nombres} {c_sup.apellidos}" if c_sup else sup_nombre
 
-        f_date = cit.fecha_emision or cit.fecha_creacion.date() if cit.fecha_creacion else ahora_dt.date()
+        f_date = cit.fecha_emision or (cit.fecha_creacion.date() if cit.fecha_creacion else ahora_dt.date())
         mes_nombre = MESES_ESPANOL[f_date.month - 1]
         mes_txt_abr = mes_nombre[:3]
         f_formateada = f"{f_date.day:02d} {mes_txt_abr} {f_date.year}"
@@ -1588,53 +1568,6 @@ def obtener_citaciones_supervisor(
             "alerta_10_dias": bool(cit.alerta_10_dias),
             "alerta_15_dias": bool(cit.alerta_15_dias),
             "alerta_enviada": bool(cit.alerta_enviada)
-        })
-
-    # Si hay inspecciones con veredicto Desfavorable / Rechazado no registradas en citaciones, incorporarlas
-    for insp in inspecciones_rechazadas:
-        if str(insp.id) in insp_ids_asociadas:
-            continue
-        trm = insp.tramite
-        estab = trm.establecimiento if trm else None
-        prop = estab.propietario if estab else None
-        i_sup = insp.supervisor or supervisor
-        nombre_inspector = f"{i_sup.nombres} {i_sup.apellidos}" if i_sup else sup_nombre
-
-        f_dt = insp.fecha_programada or insp.fecha_creacion or ahora_dt
-        mes_nombre = MESES_ESPANOL[f_dt.month - 1]
-        mes_txt_abr = mes_nombre[:3]
-        f_formateada = f"{f_dt.day:02d} {mes_txt_abr} {f_dt.year}"
-        mes_key = f"{f_dt.year}-{f_dt.month:02d}"
-
-        if mes_key not in meses_dict:
-            meses_dict[mes_key] = f"{mes_nombre} {f_dt.year}"
-
-        cod_cit = f"CT-{f_dt.year}-{str(insp.id)[:8].upper()}"
-
-        citaciones_list.append({
-            "id": f"insp-{insp.id}",
-            "citacion_id": str(insp.id),
-            "inspeccion_id": str(insp.id),
-            "establecimiento_id": str(estab.id) if estab else None,
-            "numero_citacion": cod_cit,
-            "codigo_citacion": cod_cit,
-            "fecha_iso": f_dt.date().isoformat(),
-            "fecha_formateada": f_formateada,
-            "mes_año_key": mes_key,
-            "establecimiento": estab.nombre_comercial if estab else "Establecimiento",
-            "tipo_inspeccion": trm.tipo_tramite if (trm and trm.tipo_tramite) else "Inspección de Verificación",
-            "resultado": "Rechazado",
-            "motivo_citacion": insp.veredicto_final or "Inspección con veredicto Desfavorable / Rechazado por incumplimiento de requisitos técnicos y normativos.",
-            "evidencia_foto_url": insp.acta_pdf_url if (insp.acta_pdf_url and ("/" in insp.acta_pdf_url or "." in insp.acta_pdf_url)) else None,
-            "supervisor": nombre_inspector,
-            "direccion": estab.direccion if estab else "Cochabamba",
-            "municipio": estab.municipio if (estab and estab.municipio) else "CERCADO",
-            "propietario": f"{prop.nombres} {prop.apellidos}" if (prop and prop.nombres) else "Responsable",
-            "telefono": estab.telefono if estab else "+591 4 4250000",
-            "alerta_5_dias": True,
-            "alerta_10_dias": False,
-            "alerta_15_dias": False,
-            "alerta_enviada": False
         })
 
     # Filtrar resultados

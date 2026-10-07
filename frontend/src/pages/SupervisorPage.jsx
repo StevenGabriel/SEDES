@@ -15,6 +15,7 @@ import {
   ChevronRight, 
   Clock, 
   Building2, 
+  CheckCircle,
   CheckCircle2, 
   AlertCircle, 
   Search, 
@@ -33,7 +34,8 @@ import {
   ChevronDown,
   CalendarDays,
   Sparkles,
-  ArrowRight
+  ArrowRight,
+  Trash2
 } from 'lucide-react';
 
 import logoL1 from '../assets/L1.png';
@@ -208,6 +210,109 @@ export default function SupervisorPage() {
       setToast(null);
     }, 4500);
   }, []);
+
+  // Estado de Notificaciones en Tiempo Real
+  const [notificaciones, setNotificaciones] = useState([]);
+  const [notifNoLeidas, setNotifNoLeidas] = useState(0);
+  const [notifDropdownOpen, setNotifDropdownOpen] = useState(false);
+
+  // Cargar notificaciones desde Backend
+  const cargarNotificaciones = useCallback(async () => {
+    try {
+      let notifsUsuario = [];
+      if (usuario?.id) {
+        const resUser = await fetch(`http://localhost:8000/api/notificaciones/usuario/${usuario.id}`);
+        if (resUser.ok) {
+          const dataUser = await resUser.json();
+          notifsUsuario = dataUser.notificaciones || [];
+        }
+      }
+
+      // Notificaciones dirigidas al rol Supervisor
+      const resRol = await fetch('http://localhost:8000/api/notificaciones/rol/Supervisor');
+      let notifsRol = [];
+      if (resRol.ok) {
+        const dataRol = await resRol.json();
+        notifsRol = dataRol.notificaciones || [];
+      }
+
+      // Combinar sin duplicar
+      const combinadas = [...notifsUsuario];
+      const idsExistentes = new Set(notifsUsuario.map(n => n.id));
+      for (const nr of notifsRol) {
+        if (!idsExistentes.has(nr.id)) {
+          combinadas.push(nr);
+          idsExistentes.add(nr.id);
+        }
+      }
+
+      // Ordenar por fecha más reciente
+      combinadas.sort((a, b) => new Date(b.fecha_creacion || b.fecha || 0) - new Date(a.fecha_creacion || a.fecha || 0));
+
+      setNotificaciones(combinadas);
+      setNotifNoLeidas(combinadas.filter(n => !n.leido).length);
+    } catch (e) {
+      console.warn('Error al cargar notificaciones de supervisor:', e);
+    }
+  }, [usuario?.id]);
+
+  useEffect(() => {
+    cargarNotificaciones();
+    const interval = setInterval(cargarNotificaciones, 25000);
+    return () => clearInterval(interval);
+  }, [cargarNotificaciones]);
+
+  const handleMarcarNotifLeida = async (notifId) => {
+    try {
+      await fetch(`http://localhost:8000/api/notificaciones/${notifId}/leer`, { method: 'PATCH' });
+      setNotificaciones(prev => prev.map(n => n.id === notifId ? { ...n, leido: true } : n));
+      setNotifNoLeidas(prev => Math.max(0, prev - 1));
+    } catch (e) {
+      console.warn('Error al marcar notificación leída:', e);
+    }
+  };
+
+  const handleMarcarTodasNotifsLeidas = async () => {
+    try {
+      if (usuario?.id) {
+        await fetch(`http://localhost:8000/api/notificaciones/usuario/${usuario.id}/leer-todas`, { method: 'PATCH' });
+      }
+      await fetch('http://localhost:8000/api/notificaciones/rol/Supervisor/leer-todas', { method: 'PATCH' });
+    } catch (e) {
+      console.warn('Error al marcar todas leídas:', e);
+    }
+    setNotificaciones(prev => prev.map(n => ({ ...n, leido: true })));
+    setNotifNoLeidas(0);
+  };
+
+  const handleLimpiarTodasNotificaciones = async () => {
+    try {
+      if (usuario?.id) {
+        await fetch(`http://localhost:8000/api/notificaciones/usuario/${usuario.id}/limpiar`, { method: 'DELETE' });
+      }
+      await fetch('http://localhost:8000/api/notificaciones/rol/Supervisor/limpiar', { method: 'DELETE' });
+      setNotificaciones([]);
+      setNotifNoLeidas(0);
+    } catch (e) {
+      console.warn('Error al limpiar todas las notificaciones:', e);
+    }
+  };
+
+  const handleEliminarNotificacion = async (notifId, e) => {
+    if (e) e.stopPropagation();
+    try {
+      await fetch(`http://localhost:8000/api/notificaciones/${notifId}`, { method: 'DELETE' });
+      setNotificaciones(prev => {
+        const item = prev.find(n => n.id === notifId);
+        if (item && !item.leido) {
+          setNotifNoLeidas(c => Math.max(0, c - 1));
+        }
+        return prev.filter(n => n.id !== notifId);
+      });
+    } catch (err) {
+      console.warn('Error al eliminar notificación:', err);
+    }
+  };
 
   // 1. Cargar usuario logueado
   useEffect(() => {
@@ -755,27 +860,190 @@ export default function SupervisorPage() {
               {/* Botón Refrescar */}
               <button
                 type="button"
-                onClick={cargarAgendaBackend}
+                onClick={() => {
+                  cargarAgendaBackend();
+                  cargarNotificaciones();
+                }}
                 disabled={cargando}
                 className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition cursor-pointer"
-                title="Actualizar agenda"
+                title="Actualizar agenda y notificaciones"
               >
                 <RefreshCw className={`w-4 h-4 ${cargando ? 'animate-spin text-[#0060a8]' : ''}`} />
               </button>
 
-              {/* Campana de Notificaciones con Badge */}
-              <button 
-                type="button" 
-                className="relative p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition cursor-pointer"
-                title="Notificaciones de inspección"
-              >
-                <Bell className="w-5 h-5" />
-                {inspeccionesPendientes.length > 0 && (
-                  <span className="absolute top-1.5 right-1.5 w-4 h-4 bg-red-500 text-white rounded-full text-[10px] font-extrabold flex items-center justify-center ring-2 ring-white">
-                    {inspeccionesPendientes.length}
-                  </span>
+              {/* Campana de Notificaciones con Dropdown Interactivo */}
+              <div className="relative">
+                <button 
+                  type="button" 
+                  onClick={() => setNotifDropdownOpen(prev => !prev)}
+                  className={`relative p-2 rounded-full transition cursor-pointer ${
+                    notifDropdownOpen 
+                      ? 'bg-blue-100 text-[#0060a8]' 
+                      : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100'
+                  }`}
+                  title="Notificaciones y avisos técnicos"
+                >
+                  <Bell className="w-5 h-5" />
+                  {notifNoLeidas > 0 && (
+                    <span className="absolute top-1.5 right-1.5 w-4 h-4 bg-red-500 text-white rounded-full text-[10px] font-extrabold flex items-center justify-center ring-2 ring-white animate-pulse">
+                      {notifNoLeidas}
+                    </span>
+                  )}
+                </button>
+
+                {/* Menú Desplegable de Notificaciones */}
+                {notifDropdownOpen && (
+                  <>
+                    <div
+                      className="fixed inset-0 z-40"
+                      onClick={() => setNotifDropdownOpen(false)}
+                    />
+                    <div className="absolute right-0 mt-2 w-80 sm:w-96 md:w-[440px] max-w-[92vw] bg-white rounded-2xl shadow-2xl border border-slate-200/90 z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150 ring-1 ring-black/5">
+                      
+                      {/* Cabecera del Dropdown */}
+                      <div className="px-5 py-4 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 text-white flex items-center justify-between border-b border-slate-700/60 shadow-xs">
+                        <div className="flex items-center space-x-2.5">
+                          <div className="w-8 h-8 rounded-xl bg-[#0060a8]/30 text-blue-300 flex items-center justify-center border border-blue-400/30">
+                            <Bell className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <div className="flex items-center space-x-2">
+                              <span className="font-extrabold text-xs tracking-wider uppercase">Notificaciones</span>
+                              {notifNoLeidas > 0 && (
+                                <span className="bg-rose-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full shadow-xs">
+                                  {notifNoLeidas} {notifNoLeidas === 1 ? 'nueva' : 'nuevas'}
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-[11px] text-slate-400 font-normal">Avisos y asignaciones técnicas en campo</p>
+                          </div>
+                        </div>
+
+                        {notificaciones.length > 0 && (
+                          <div className="flex items-center space-x-1.5">
+                            {notifNoLeidas > 0 && (
+                              <button
+                                type="button"
+                                onClick={handleMarcarTodasNotifsLeidas}
+                                className="text-[11px] text-blue-300 hover:text-white hover:bg-white/10 px-2 py-1 rounded-lg transition font-semibold flex items-center space-x-1 cursor-pointer"
+                                title="Marcar todas como leídas"
+                              >
+                                <CheckCircle2 className="w-3.5 h-3.5" />
+                                <span className="hidden sm:inline">Leídas</span>
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              onClick={handleLimpiarTodasNotificaciones}
+                              className="text-[11px] text-rose-300 hover:text-rose-100 hover:bg-rose-500/20 px-2 py-1 rounded-lg transition font-semibold flex items-center space-x-1 cursor-pointer border border-rose-500/30"
+                              title="Limpiar todas las notificaciones"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                              <span>Limpiar</span>
+                            </button>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Lista de Notificaciones */}
+                      <div className="max-h-[380px] overflow-y-auto divide-y divide-slate-100">
+                        {notificaciones.length === 0 ? (
+                          <div className="p-8 text-center text-slate-400">
+                            <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto mb-3 text-slate-400">
+                              <CheckCircle className="w-6 h-6 text-slate-400" />
+                            </div>
+                            <p className="font-bold text-sm text-slate-700">Sin notificaciones</p>
+                            <p className="text-xs text-slate-400 mt-1 max-w-xs mx-auto">No hay avisos pendientes en su bandeja de supervisor.</p>
+                          </div>
+                        ) : (
+                          notificaciones.map((notif) => {
+                            const esObs = notif.titulo?.toLowerCase().includes('observad') || notif.titulo?.toLowerCase().includes('rechaz') || notif.titulo?.toLowerCase().includes('citaci');
+                            const esAprob = notif.titulo?.toLowerCase().includes('aprobad') || notif.titulo?.toLowerCase().includes('completad');
+                            const esAsign = notif.titulo?.toLowerCase().includes('asignad') || notif.titulo?.toLowerCase().includes('inspecci') || notif.titulo?.toLowerCase().includes('agenda');
+
+                            const fechaMostrar = notif.tiempoRelativo || notif.fecha || (notif.fecha_creacion ? new Date(notif.fecha_creacion).toLocaleDateString('es-BO', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : 'Reciente');
+                            const fechaTooltip = notif.fecha || (notif.fecha_creacion ? new Date(notif.fecha_creacion).toLocaleString('es-BO') : '');
+
+                            return (
+                              <div
+                                key={notif.id}
+                                onClick={() => handleMarcarNotifLeida(notif.id)}
+                                className={`group p-3.5 sm:p-4 transition cursor-pointer flex items-start gap-3 relative ${
+                                  notif.leido 
+                                    ? 'bg-white hover:bg-slate-50 opacity-80 hover:opacity-100' 
+                                    : 'bg-blue-50/60 hover:bg-blue-50/90 border-l-4 border-l-[#0060a8]'
+                                }`}
+                              >
+                                {/* Icono contextual */}
+                                <div className={`w-8 h-8 rounded-xl shrink-0 flex items-center justify-center ${
+                                  esObs 
+                                    ? 'bg-rose-100 text-rose-600 border border-rose-200'
+                                    : esAprob
+                                      ? 'bg-emerald-100 text-emerald-600 border border-emerald-200'
+                                      : esAsign
+                                        ? 'bg-blue-100 text-[#0060a8] border border-blue-200'
+                                        : 'bg-slate-100 text-slate-600 border border-slate-200'
+                                }`}>
+                                  {esObs && <AlertTriangle className="w-4 h-4" />}
+                                  {esAprob && <CheckCircle2 className="w-4 h-4" />}
+                                  {esAsign && <CalendarIcon className="w-4 h-4" />}
+                                  {!esObs && !esAprob && !esAsign && <Bell className="w-4 h-4" />}
+                                </div>
+
+                                {/* Contenido */}
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-start justify-between gap-2">
+                                    <p className={`text-xs text-slate-900 leading-snug break-words ${notif.leido ? 'font-semibold' : 'font-extrabold'}`}>
+                                      {notif.titulo}
+                                    </p>
+                                    <div className="flex items-center space-x-1 shrink-0">
+                                      {!notif.leido && (
+                                        <span className="w-2 h-2 rounded-full bg-[#0060a8] ring-2 ring-blue-200 shrink-0 mt-1" />
+                                      )}
+                                      <button
+                                        type="button"
+                                        onClick={(e) => handleEliminarNotificacion(notif.id, e)}
+                                        className="opacity-0 group-hover:opacity-100 hover:text-rose-600 hover:bg-rose-50 p-1 rounded-md transition text-slate-400 cursor-pointer"
+                                        title="Eliminar esta notificación"
+                                      >
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                      </button>
+                                    </div>
+                                  </div>
+
+                                  <p className="text-[11px] text-slate-600 mt-1 leading-relaxed break-words font-normal">
+                                    {notif.mensaje}
+                                  </p>
+
+                                  <div className="flex items-center justify-between mt-2 pt-1 border-t border-slate-100/80">
+                                    <div className="flex items-center space-x-1 text-[10px] font-medium text-slate-400" title={fechaTooltip}>
+                                      <Clock className="w-3 h-3 text-slate-400" />
+                                      <span>{fechaMostrar}</span>
+                                    </div>
+
+                                    {!notif.leido && (
+                                      <span className="text-[10px] font-bold text-[#0060a8] hover:underline">
+                                        Marcar como leída
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })
+                        )}
+                      </div>
+
+                      {/* Pie del Dropdown */}
+                      <div className="px-4 py-2.5 bg-slate-50 border-t border-slate-200 text-center text-[11px] text-slate-500 font-medium flex items-center justify-between">
+                        <span>Total: <strong>{notificaciones.length}</strong> {notificaciones.length === 1 ? 'notificación' : 'notificaciones'}</span>
+                        <span className="text-[10px] text-slate-400">Actualizado automáticamente</span>
+                      </div>
+
+                    </div>
+                  </>
                 )}
-              </button>
+              </div>
 
               {/* Perfil del Supervisor */}
               <div className="flex items-center space-x-3 pl-2 sm:pl-4 border-l border-slate-200">
