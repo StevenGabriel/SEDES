@@ -6,8 +6,6 @@ services:
       POSTGRES_USER: admin
       POSTGRES_PASSWORD: password123
       POSTGRES_DB: sedes_db
-    ports:
-      - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
@@ -18,8 +16,8 @@ services:
       - DATABASE_URL=postgresql://admin:password123@db:5432/sedes_db
       - SECRET_KEY=sedes_cochabamba_jwt_secret_key_2026_production
       - ALLOWED_ORIGINS=*
-    ports:
-      - "8000:8000"
+    expose:
+      - "8000"
     volumes:
       - uploads_data:/app/uploads
     depends_on:
@@ -28,8 +26,8 @@ services:
   frontend:
     build: ./frontend
     restart: unless-stopped
-    ports:
-      - "5173:5173"
+    expose:
+      - "5173"
     depends_on:
       - backend
 
