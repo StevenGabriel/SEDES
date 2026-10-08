@@ -29,8 +29,14 @@ window.fetch = async function (resource, config = {}) {
     headers,
   };
 
+  const baseUrl = import.meta.env.VITE_API_URL;
+  let finalResource = resource;
+  if (baseUrl && typeof resource === 'string' && (resource.includes('localhost:8000') || resource.includes('127.0.0.1:8000'))) {
+    finalResource = resource.replace(/https?:\/\/(?:localhost|127\.0\.0\.1):8000/, baseUrl.replace(/\/+$/, ''));
+  }
+
   try {
-    const response = await originalFetch(resource, modifiedConfig);
+    const response = await originalFetch(finalResource, modifiedConfig);
 
     // Detección de token expirado o inválido (401 Unauthorized)
     if (response.status === 401) {
