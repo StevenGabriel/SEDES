@@ -326,7 +326,7 @@ def conciliar_inspecciones_vencidas_no_realizadas(
                     crear_notificacion_db(
                         db,
                         usuario_id=insp.supervisor_id,
-                        titulo="📋 Inspección no realizada retornó a Pendientes",
+                        titulo="Inspección no realizada retornó a Pendientes",
                         mensaje=f"La inspección técnica programada para '{estab_nombre}' el {f_str} no fue completada en su fecha y ha retornado a su lista de Inspecciones Pendientes para ser reprogramada."
                     )
                 except Exception as e_not:
@@ -682,7 +682,7 @@ def agendar_inspeccion(
             crear_notificacion_db(
                 db,
                 usuario_id=tramite.establecimiento.propietario_id,
-                titulo="📅 Inspección Técnica Programada",
+                titulo="Inspección Técnica Programada",
                 mensaje=f"Su trámite de {tramite.tipo_tramite} para '{estab_nombre}' ha sido agendado para inspección in-situ el día {f_str} por {sup_nombre}."
             )
     except Exception as e:
@@ -787,7 +787,7 @@ def reprogramar_inspeccion(
                 crear_notificacion_db(
                     db,
                     usuario_id=tramite.establecimiento.propietario_id,
-                    titulo="⚠️ Inspección Técnica Reprogramada",
+                    titulo="Inspección Técnica Reprogramada",
                     mensaje=f"La inspección técnica para '{estab_nombre}' ha sido reprogramada para el día {f_str}."
                 )
         except Exception as e:
@@ -1423,7 +1423,7 @@ def registrar_acta_inspeccion(
             crear_notificacion_db(
                 db,
                 usuario_id=insp.tramite.establecimiento.propietario_id,
-                titulo=f"📋 Acta de Inspección Emitida ({veredicto_db})",
+                titulo=f"Acta de Inspección Emitida ({veredicto_db})",
                 mensaje=f"Se ha emitido el acta oficial {cod_acta} para '{estab_nombre}' con resultado: {veredicto_db}. Observaciones: {payload.observaciones}"
             )
         except Exception as e:
@@ -1814,7 +1814,7 @@ def registrar_citacion_infraccion(
             crear_notificacion_db(
                 db,
                 usuario_id=estab.propietario_id,
-                titulo=f"⚠️ Citación Sanitaria Emitida: {cod_citacion}",
+                titulo=f"Citación Sanitaria Emitida: {cod_citacion}",
                 mensaje=f"Se ha emitido la citación oficial {cod_citacion} para '{estab_nombre}' el {f_str} por el supervisor {sup_nombre}. Motivo: {payload.motivo_citacion.strip()}"
             )
         except Exception as e:

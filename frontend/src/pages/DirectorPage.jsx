@@ -1196,27 +1196,53 @@ export default function DirectorPage() {
                           <p className="text-[11px] text-slate-400 mt-0.5">No hay eventos que requieran su atención inmediata.</p>
                         </div>
                       ) : (
-                        notificaciones.map((notif) => (
-                          <div
-                            key={notif.id}
-                            onClick={() => handleMarcarNotifLeida(notif.id)}
-                            className={`p-3.5 transition cursor-pointer flex items-start gap-3 ${
-                              notif.leido ? 'bg-white hover:bg-slate-50 opacity-80' : 'bg-sky-50/60 hover:bg-sky-50/90 border-l-4 border-l-[#0077c8]'
-                            }`}
-                          >
-                            <div className="p-2 rounded-xl bg-blue-100 text-blue-700 shrink-0">
-                              <Bell className="w-4 h-4" />
+                        notificaciones.map((notif) => {
+                          const titLower = (notif.titulo || '').toLowerCase();
+                          const esObs = titLower.includes('observad') || titLower.includes('rechaz') || titLower.includes('sancion') || titLower.includes('citaci');
+                          const esAprob = titLower.includes('aprobad') || titLower.includes('validad') || titLower.includes('resoluci') || titLower.includes('emitid');
+                          const esInsp = titLower.includes('inspecci') || titLower.includes('agenda') || titLower.includes('visita');
+                          const esLegal = titLower.includes('legal') || titLower.includes('informe') || titLower.includes('abogado');
+                          const esDoc = titLower.includes('tramite') || titLower.includes('trámite') || titLower.includes('solicitud') || titLower.includes('documento');
+
+                          return (
+                            <div
+                              key={notif.id}
+                              onClick={() => handleMarcarNotifLeida(notif.id)}
+                              className={`p-3.5 transition cursor-pointer flex items-start gap-3 ${
+                                notif.leido ? 'bg-white hover:bg-slate-50 opacity-80' : 'bg-sky-50/60 hover:bg-sky-50/90 border-l-4 border-l-[#0077c8]'
+                              }`}
+                            >
+                              <div className={`w-8 h-8 rounded-xl shrink-0 flex items-center justify-center ${
+                                esObs
+                                  ? 'bg-rose-100 text-rose-700 border border-rose-200'
+                                  : esAprob
+                                    ? 'bg-emerald-100 text-emerald-700 border border-emerald-200'
+                                    : esLegal
+                                      ? 'bg-amber-100 text-amber-700 border border-amber-200'
+                                      : esInsp
+                                        ? 'bg-indigo-100 text-indigo-700 border border-indigo-200'
+                                        : esDoc
+                                          ? 'bg-blue-100 text-blue-700 border border-blue-200'
+                                          : 'bg-slate-100 text-slate-700 border border-slate-200'
+                              }`}>
+                                {esObs && <AlertTriangle className="w-4 h-4" />}
+                                {esAprob && <CheckCircle2 className="w-4 h-4" />}
+                                {esLegal && <ShieldCheck className="w-4 h-4" />}
+                                {esInsp && <Calendar className="w-4 h-4" />}
+                                {esDoc && !esObs && !esAprob && !esLegal && !esInsp && <FileText className="w-4 h-4" />}
+                                {!esObs && !esAprob && !esLegal && !esInsp && !esDoc && <Bell className="w-4 h-4" />}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className={`text-xs text-slate-900 leading-snug ${notif.leido ? 'font-medium' : 'font-bold'}`}>
+                                  {notif.titulo}
+                                </p>
+                                <p className="text-[11px] text-slate-500 line-clamp-2 mt-0.5">
+                                  {notif.mensaje}
+                                </p>
+                              </div>
                             </div>
-                            <div className="flex-1 min-w-0">
-                              <p className={`text-xs text-slate-900 leading-snug ${notif.leido ? 'font-medium' : 'font-bold'}`}>
-                                {notif.titulo}
-                              </p>
-                              <p className="text-[11px] text-slate-500 line-clamp-2 mt-0.5">
-                                {notif.mensaje}
-                              </p>
-                            </div>
-                          </div>
-                        ))
+                          );
+                        })
                       )}
                     </div>
                   </div>

@@ -772,7 +772,7 @@ def enviar_resolucion_coordinador(payload: EnviarCoordinadorRequest, db: Session
     notificar_a_rol_db(
         db,
         "Coordinador",
-        f"⚖️ Resolución Lista para Firma: {estab_nombre}",
+        f"Resolución Lista para Firma: {estab_nombre}",
         f"El Asesor Legal ({payload.abogado_nombre}) ha revisado y remitido la Resolución Administrativa {num_res} para el trámite {cod_trm} ({estab_nombre})."
     )
 

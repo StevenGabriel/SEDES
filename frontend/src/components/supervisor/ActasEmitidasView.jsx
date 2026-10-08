@@ -674,8 +674,14 @@ export default function ActasEmitidasView({ usuario, mostrarToast }) {
                   <p className="text-[10px] font-bold uppercase tracking-wider opacity-80">Resultado Técnico</p>
                   <p className="text-base font-black mt-0.5">{actaSeleccionada.resultado}</p>
                 </div>
-                <div className="text-2xl">
-                  {actaSeleccionada.resultado === 'Aprobado' ? '✅' : actaSeleccionada.resultado === 'Con Observaciones' ? '⚠️' : '❌'}
+                <div className="shrink-0 flex items-center justify-center">
+                  {actaSeleccionada.resultado === 'Aprobado' ? (
+                    <CheckCircle2 className="w-7 h-7 text-emerald-600" />
+                  ) : actaSeleccionada.resultado === 'Con Observaciones' ? (
+                    <AlertTriangle className="w-7 h-7 text-amber-600" />
+                  ) : (
+                    <XCircle className="w-7 h-7 text-rose-600" />
+                  )}
                 </div>
               </div>
 
