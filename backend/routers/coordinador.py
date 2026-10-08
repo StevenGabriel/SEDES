@@ -7,9 +7,9 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import desc, func
 
-from database import get_db
-import models
-from auth_dependencies import require_roles
+from core.database import get_db
+import models.models as models
+from core.auth_dependencies import require_roles
 
 router = APIRouter(
     prefix="/api/coordinador",
@@ -924,7 +924,9 @@ def aprobar_tramite(
             try:
                 resol.vigencia_anios = int(str(payload.vigencia_anios).split()[0])
             except Exception:
-                resol.vigencia_anios = 5
+                resol.vigencia_anios = 1
+        else:
+            resol.vigencia_anios = 1
 
     db.commit()
     db.refresh(tramite)
@@ -1346,10 +1348,27 @@ def listar_tramites_asignacion(db: Session = Depends(get_db)):
             insp and insp.estado_inspeccion == "Completada" and 
             any(pal in (insp.veredicto_final or "").lower() for pal in ["desfavorable", "rechazad"])
         )
-        requiere_reinspeccion = es_acta_rechazada or "reingreso" in (t.estado_tramite or "").lower() or "re-inspección" in (t.estado_tramite or "").lower()
 
-        # Si el trámite tiene una inspección activa pendiente de ejecución (Pendiente, Programada, Reprogramada), está asignado.
-        # Si la última inspección ya se completó y fue rechazada, o el trámite necesita re-inspección y aún no se creó una nueva inspección pendiente, yaAsignado es False.
+        # Comprobar si la última inspección fue APROBADA / FAVORABLE
+        es_acta_aprobada = bool(
+            insp and insp.estado_inspeccion == "Completada" and 
+            any(pal in (insp.veredicto_final or "").lower() for pal in ["favorable", "aprob"])
+        )
+
+        # Si el trámite ya avanzó a etapas posteriores o si su acta ya fue aprobada
+        ya_concluido = es_acta_aprobada or any(pal in (t.estado_tramite or "").lower() for pal in ["informe", "derivado", "legal", "aprobado", "finalizado", "resolución", "resolucion"])
+
+        # Requiere re-inspección únicamente si la última acta fue rechazada y no se ha aprobado
+        requiere_reinspeccion = es_acta_rechazada and not ya_concluido
+
+        # Excluir trámites que ya concluyeron la etapa de inspección favorablemente o fueron cerrados
+        if ya_concluido and not requiere_reinspeccion:
+            continue
+
+        if any(pal in (t.estado_tramite or "").lower() for pal in ["cancelado", "anulado", "rechazado definitivo"]):
+            continue
+
+        # Si el trámite tiene supervisor asignado y (tiene inspección activa o ya concluyó favorablemente), está asignado
         tiene_insp_activa = bool(insp and insp.estado_inspeccion in ["Pendiente", "Programada", "Reprogramada"])
         esta_asignado = bool(t.supervisor_asignado_id) and tiene_insp_activa and not es_acta_rechazada
 

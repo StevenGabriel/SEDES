@@ -8,15 +8,14 @@ from sqlalchemy import or_, func
 from geoalchemy2.functions import ST_X, ST_Y
 import uuid
 
-from database import get_db
-import models
-import schemas
-from auth_dependencies import get_current_user
+from core.database import get_db
+import models.models as models
+import schemas.schemas as schemas
+from core.auth_dependencies import get_current_user
 
 router = APIRouter(
     prefix="/api/establecimientos",
-    tags=["Establecimientos y Laboratorios"],
-    dependencies=[Depends(get_current_user)]
+    tags=["Establecimientos y Laboratorios"]
 )
 
 def serializar_establecimiento(e: models.Establecimiento, db: Session) -> dict:
@@ -148,7 +147,8 @@ def serializar_establecimiento(e: models.Establecimiento, db: Session) -> dict:
 @router.post(
     "",
     status_code=status.HTTP_201_CREATED,
-    summary="Registrar una nueva solicitud de apertura de establecimiento"
+    summary="Registrar una nueva solicitud de apertura de establecimiento",
+    dependencies=[Depends(get_current_user)]
 )
 def crear_establecimiento(
     datos: schemas.EstablecimientoCreate,
@@ -291,7 +291,8 @@ def listar_establecimientos(
 
 @router.get(
     "/propietario/{propietario_id}",
-    summary="Obtener los establecimientos registrados pertenecientes a un propietario"
+    summary="Obtener los establecimientos registrados pertenecientes a un propietario",
+    dependencies=[Depends(get_current_user)]
 )
 def obtener_establecimientos_propietario(
     propietario_id: str,
@@ -364,7 +365,8 @@ def obtener_detalle_establecimiento(
 
 @router.put(
     "/{id}",
-    summary="Editar información pública de la página de un laboratorio"
+    summary="Editar información pública de la página de un laboratorio",
+    dependencies=[Depends(get_current_user)]
 )
 def actualizar_establecimiento(
     id: str,
@@ -483,11 +485,12 @@ def actualizar_establecimiento(
         "establecimiento": serializar_establecimiento(estab, db)
     }
 
-from file_security import validate_and_save_upload
+from core.file_security import validate_and_save_upload
 
 @router.post(
     "/{id}/imagen",
-    summary="Subir y actualizar la fotografía oficial del establecimiento"
+    summary="Subir y actualizar la fotografía oficial del establecimiento",
+    dependencies=[Depends(get_current_user)]
 )
 async def subir_imagen_establecimiento(
     id: str,

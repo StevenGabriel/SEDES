@@ -1,14 +1,14 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Request
 from sqlalchemy.orm import Session
-import models
-import schemas
-from database import get_db
-from security import hash_password, verify_password, create_access_token
-from tokens import generate_password_reset_token, verify_password_reset_token
-from email_service import send_password_reset_email
-from auth_dependencies import get_current_user
-from rate_limiter import login_rate_limiter, reset_rate_limiter, register_rate_limiter
-from security_logger import log_security_event, extract_client_ip
+import models.models as models
+import schemas.schemas as schemas
+from core.database import get_db
+from core.security import hash_password, verify_password, create_access_token
+from core.tokens import generate_password_reset_token, verify_password_reset_token
+from core.email_service import send_password_reset_email
+from core.auth_dependencies import get_current_user
+from core.rate_limiter import login_rate_limiter, reset_rate_limiter, register_rate_limiter
+from core.security_logger import log_security_event, extract_client_ip
 
 router = APIRouter(prefix="/api/auth", tags=["Autenticación"])
 

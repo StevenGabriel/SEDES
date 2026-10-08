@@ -6,10 +6,10 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import desc, func, or_
 
-from database import get_db
-import models
-from notificaciones import crear_notificacion_db, notificar_a_rol_db
-from auth_dependencies import require_roles
+from core.database import get_db
+import models.models as models
+from services.notificaciones import crear_notificacion_db, notificar_a_rol_db
+from core.auth_dependencies import require_roles
 
 router = APIRouter(
     prefix="/api/abogado",

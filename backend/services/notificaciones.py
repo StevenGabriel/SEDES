@@ -6,9 +6,9 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
 
-from database import get_db
-import models
-from auth_dependencies import get_current_user
+from core.database import get_db
+import models.models as models
+from core.auth_dependencies import get_current_user
 
 router = APIRouter(
     prefix="/api/notificaciones",

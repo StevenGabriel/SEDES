@@ -1,0 +1,9 @@
+from .auth import router as auth_router
+from .establecimientos import router as establecimientos_router
+from .admin_usuarios import router as admin_usuarios_router
+from .requisitos import router as requisitos_router
+from .coordinador import router as coordinador_router
+from .tramites import router as tramites_router
+from .supervisor import router as supervisor_router
+from .director import router as director_router
+from .abogado import router as abogado_router

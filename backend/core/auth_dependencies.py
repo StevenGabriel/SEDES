@@ -4,9 +4,9 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 import uuid
 
-import models
-from database import get_db
-from security import decode_access_token
+import models.models as models
+from core.database import get_db
+from core.security import decode_access_token
 
 # Esquema de autenticación Bearer para Swagger UI y clientes API
 security_bearer = HTTPBearer(auto_error=False)
