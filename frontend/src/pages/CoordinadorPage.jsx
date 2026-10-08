@@ -310,6 +310,7 @@ export default function CoordinadorPage() {
   // Modales
   const [modalReinspeccionOpen, setModalReinspeccionOpen] = useState(false);
   const [modalAprobacionOpen, setModalAprobacionOpen] = useState(false);
+  const [tramiteAprobando, setTramiteAprobando] = useState(null);
   const [modalObservarDocOpen, setModalObservarDocOpen] = useState(false);
   const [motivoObservacionDoc, setMotivoObservacionDoc] = useState('');
   const [modalObservarDatosOpen, setModalObservarDatosOpen] = useState(false);
@@ -338,8 +339,8 @@ export default function CoordinadorPage() {
   });
 
   const [aprobacionData, setAprobacionData] = useState({
-    codigoResolucion: `RES-ADM-SEDES-2026/${Math.floor(1000 + Math.random() * 9000)}`,
-    vigenciaAnios: '3 años',
+    codigoResolucion: `RA-2026-${Math.floor(1000 + Math.random() * 9000)}`,
+    vigenciaAnios: '1 año',
     observacionFinal: 'Establecimiento cumple satisfactoriamente con todos los requisitos normativos del SEDES Cochabamba.'
   });
 
@@ -604,8 +605,8 @@ export default function CoordinadorPage() {
     });
   }, [tramites]);
 
-  // Trámite seleccionado actualmente en la Bandeja de Entrada
-  const tramiteActual = tramitesBandeja.find(t => t.id === tramiteSeleccionadoId) || (tramitesBandeja.length > 0 ? tramitesBandeja[0] : null);
+  // Trámite seleccionado actualmente en la Bandeja de Entrada o en Informe Técnico
+  const tramiteActual = tramites.find(t => t.id === tramiteSeleccionadoId || t.tramite_uuid === tramiteSeleccionadoId) || tramitesBandeja.find(t => t.id === tramiteSeleccionadoId) || (tramitesBandeja.length > 0 ? tramitesBandeja[0] : (tramites.length > 0 ? tramites[0] : null));
 
   // Lógica y reglas de habilitación para Aprobación del Trámite
   const docsList = tramiteActual?.documentos || [];
@@ -1094,23 +1095,25 @@ export default function CoordinadorPage() {
   // Confirmar aprobación final del trámite
   const handleConfirmarAprobacion = async (e) => {
     e.preventDefault();
-    if (!tramiteActual) return;
+    const tTarget = tramiteAprobando || tramiteActual;
+    if (!tTarget) return;
 
     try {
-      const response = await fetch(`http://localhost:8000/api/coordinador/tramites/${tramiteActual.tramite_uuid || tramiteActual.id}/aprobar`, {
+      const response = await fetch(`http://localhost:8000/api/coordinador/tramites/${tTarget.tramite_uuid || tTarget.id}/aprobar`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           codigo_resolucion: aprobacionData.codigoResolucion,
-          vigencia_anios: aprobacionData.vigenciaAnios,
+          vigencia_anios: aprobacionData.vigenciaAnios || '1 año',
           observacion_final: aprobacionData.observacionFinal,
           responsable: nombreCoordinador
         })
       });
 
       if (response.ok) {
-        mostrarToast(`¡Trámite ${tramiteActual.id} (${tramiteActual.establecimiento}) APROBADO exitosamente! Resolución: ${aprobacionData.codigoResolucion}.`, 'success');
+        mostrarToast(`¡Trámite ${tTarget.id} (${tTarget.establecimiento}) APROBADO exitosamente! Resolución: ${aprobacionData.codigoResolucion}.`, 'success');
         setModalAprobacionOpen(false);
+        setTramiteAprobando(null);
         await cargarDatosBackend(true);
         recargarHistorial();
         navigate('/coordinador/historial-trazabilidad');
@@ -3615,13 +3618,13 @@ export default function CoordinadorPage() {
             mostrarToast={mostrarToast}
             onAprobarFinal={(tramiteParaAprobar) => {
               if (tramiteParaAprobar) {
+                setTramiteAprobando(tramiteParaAprobar);
                 setTramiteSeleccionadoId(tramiteParaAprobar.id);
-                if (tramiteParaAprobar.resolucion_numero) {
-                  setAprobacionData(prev => ({
-                    ...prev,
-                    codigoResolucion: tramiteParaAprobar.resolucion_numero
-                  }));
-                }
+                setAprobacionData(prev => ({
+                  ...prev,
+                  codigoResolucion: tramiteParaAprobar.resolucion_numero || prev.codigoResolucion,
+                  vigenciaAnios: '1 año'
+                }));
               }
               setModalAprobacionOpen(true);
             }}
@@ -3806,40 +3809,36 @@ export default function CoordinadorPage() {
               <div className="p-3.5 bg-emerald-50 rounded-xl border border-emerald-200 text-emerald-900">
                 <p className="font-bold text-xs mb-1">¡Dictamen Favorable de Coordinación!</p>
                 <p className="text-[11px] text-emerald-800">
-                  Al confirmar, se emitirá la Resolución Administrativa y se habilitará oficialmente el establecimiento <strong>{tramiteActual?.establecimiento}</strong> en la red de salud de Cochabamba.
+                  Al confirmar, se emitirá la Resolución Administrativa y se habilitará oficialmente el establecimiento <strong>{(tramiteAprobando || tramiteActual)?.establecimiento}</strong> en la red de salud de Cochabamba.
                 </p>
               </div>
 
               <div>
                 <label className="font-bold text-slate-700 block mb-1">Código de Resolución Administrativa</label>
-                <input
-                  type="text"
-                  value={aprobacionData.codigoResolucion}
-                  onChange={(e) => setAprobacionData({ ...aprobacionData, codigoResolucion: e.target.value })}
-                  className="w-full p-2.5 border border-slate-300 rounded-xl font-mono font-bold text-slate-800 focus:ring-2 focus:ring-emerald-500"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="font-bold text-slate-700 block mb-1">Periodo de Vigencia</label>
-                  <select
-                    value={aprobacionData.vigenciaAnios}
-                    onChange={(e) => setAprobacionData({ ...aprobacionData, vigenciaAnios: e.target.value })}
-                    className="w-full p-2.5 border border-slate-300 rounded-xl bg-white font-medium text-slate-800 focus:ring-2 focus:ring-emerald-500"
-                  >
-                    <option value="3 años">3 años (Laboratorios Nivel 1 y 2)</option>
-                    <option value="5 años">5 años (Clínicas y Policlínicos)</option>
-                    <option value="1 año">1 año (Apertura Provisoria)</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="font-bold text-slate-700 block mb-1">Firma Digital Coordinadora</label>
-                  <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-semibold text-slate-700 truncate">
-                    {nombreCoordinador}
+                <div className="relative">
+                  <input
+                    type="text"
+                    readOnly
+                    disabled
+                    value={aprobacionData.codigoResolucion}
+                    className="w-full p-2.5 border border-slate-200 bg-slate-100 rounded-xl font-mono font-bold text-slate-700 cursor-not-allowed select-all"
+                  />
+                  <div className="absolute right-3 top-2.5 text-[11px] font-bold text-slate-400 bg-slate-200 px-2 py-0.5 rounded-md">
+                    Bloqueado
                   </div>
                 </div>
+                <p className="text-[10px] text-slate-400 mt-1 font-medium">Asignado formalmente según el correlativo del Área Legal del SEDES.</p>
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Periodo de Vigencia</label>
+                <input
+                  type="text"
+                  readOnly
+                  disabled
+                  value="1 año (Vigencia Oficial Normativa)"
+                  className="w-full p-2.5 border border-slate-200 bg-slate-100 rounded-xl font-semibold text-slate-700 cursor-not-allowed"
+                />
               </div>
 
               <div>

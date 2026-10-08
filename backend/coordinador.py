@@ -924,7 +924,9 @@ def aprobar_tramite(
             try:
                 resol.vigencia_anios = int(str(payload.vigencia_anios).split()[0])
             except Exception:
-                resol.vigencia_anios = 5
+                resol.vigencia_anios = 1
+        else:
+            resol.vigencia_anios = 1
 
     db.commit()
     db.refresh(tramite)

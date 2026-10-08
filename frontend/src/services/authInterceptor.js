@@ -41,7 +41,8 @@ window.fetch = async function (resource, config = {}) {
         urlStr.includes('/api/auth/solicitar-reset-password') ||
         urlStr.includes('/api/auth/verificar-token-reset') ||
         urlStr.includes('/api/auth/reset-password') ||
-        urlStr.includes('/api/requisitos/publico')
+        urlStr.includes('/api/requisitos/publico') ||
+        (urlStr.includes('/api/establecimientos') && !urlStr.includes('/propietario/'))
       );
 
       if (!isPublicAuthRoute && token) {
