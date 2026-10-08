@@ -35,12 +35,20 @@ window.fetch = async function (resource, config = {}) {
     if (baseUrl) {
       finalResource = resource.replace(/https?:\/\/(?:localhost|127\.0\.0\.1):8000/, baseUrl.replace(/\/+$/, ''));
     } else if (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
-      // Detección automática en producción: si estamos en sedes.76.13.233.96.traefik.me -> api-sedes.76.13.233.96.traefik.me
+      // Detección automática en producción:
+      // Si estamos en: sedeslaboratorios.umaunivalle.com -> api.sedeslaboratorios.umaunivalle.com
+      // Si estamos en: sedes.76.13.233.96.traefik.me -> api-sedes.76.13.233.96.traefik.me
       const currentHost = window.location.hostname;
       const protocol = window.location.protocol;
-      let targetApiHost = currentHost.startsWith('sedes.') 
-        ? currentHost.replace('sedes.', 'api-sedes.') 
-        : `api-${currentHost}`;
+      let targetApiHost = currentHost;
+      
+      if (currentHost.startsWith('sedeslaboratorios.')) {
+        targetApiHost = `api.${currentHost}`;
+      } else if (currentHost.startsWith('sedes.')) {
+        targetApiHost = currentHost.replace('sedes.', 'api-sedes.');
+      } else if (!currentHost.startsWith('api.') && !currentHost.startsWith('api-')) {
+        targetApiHost = `api.${currentHost}`;
+      }
       
       finalResource = resource.replace(/https?:\/\/(?:localhost|127\.0\.0\.1):8000/, `${protocol}//${targetApiHost}`);
     }
