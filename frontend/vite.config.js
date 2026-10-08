@@ -11,6 +11,7 @@ export default defineConfig({
   server: {
     host: true, // Esto abre el puerto hacia Docker
     port: 5173,
+    allowedHosts: true, // Permite cualquier host o dominio de proxy inverso (Dokploy, Traefik, dominios personalizados)
     watch: {
       usePolling: true // Vital para que el hot-reload funcione en Windows
     }
