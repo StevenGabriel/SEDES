@@ -8,10 +8,10 @@ from sqlalchemy import or_, func
 from geoalchemy2.functions import ST_X, ST_Y
 import uuid
 
-from database import get_db
-import models
-import schemas
-from auth_dependencies import get_current_user
+from core.database import get_db
+import models.models as models
+import schemas.schemas as schemas
+from core.auth_dependencies import get_current_user
 
 router = APIRouter(
     prefix="/api/establecimientos",
@@ -485,7 +485,7 @@ def actualizar_establecimiento(
         "establecimiento": serializar_establecimiento(estab, db)
     }
 
-from file_security import validate_and_save_upload
+from core.file_security import validate_and_save_upload
 
 @router.post(
     "/{id}/imagen",

@@ -3,8 +3,11 @@ from pathlib import Path
 from sqlalchemy import create_engine
 from sqlalchemy.orm import declarative_base, sessionmaker
 
-# Cargar variables de entorno desde .env si existe
-env_path = Path(__file__).resolve().parent / ".env"
+# Cargar variables de entorno desde .env si existe en backend/ o core/
+backend_root_env = Path(__file__).resolve().parent.parent / ".env"
+core_env = Path(__file__).resolve().parent / ".env"
+env_path = backend_root_env if backend_root_env.exists() else core_env
+
 if env_path.exists():
     try:
         from dotenv import load_dotenv

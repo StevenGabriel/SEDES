@@ -7,8 +7,8 @@ from sqlalchemy import text
 from geoalchemy2 import WKTElement
 from geoalchemy2.functions import ST_AsText
 
-from database import engine, SessionLocal, Base
-import models
+from core.database import engine, SessionLocal, Base
+import models.models as models
 
 BACKUP_DIR = Path(__file__).resolve().parent / 'backups'
 BACKUP_DIR.mkdir(parents=True, exist_ok=True)

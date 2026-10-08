@@ -1,7 +1,7 @@
 import uuid
-from database import SessionLocal
-from models import Role, Usuario
-from security import hash_password
+from core.database import SessionLocal
+from models.models import Role, Usuario
+from core.security import hash_password
 
 def crear_supervisor():
     db = SessionLocal()

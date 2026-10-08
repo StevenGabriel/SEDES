@@ -1,26 +1,35 @@
+import os
+import sys
+import logging
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 
-from database import get_db, engine
-from init_db import init_database
-import models
-import auth
-import establecimientos
-import admin_usuarios
-import requisitos
-import coordinador
-import tramites
-import notificaciones
-import supervisor
-import director
-import abogado
-import plantillas_documentos
+# Asegurar path de backend
+backend_dir = os.path.dirname(os.path.abspath(__file__))
+if backend_dir not in sys.path:
+    sys.path.insert(0, backend_dir)
 
-import os
-import logging
+from core.database import get_db, engine
+from services.init_db import init_database
+import models.models as models
+
+# Routers
+from routers import (
+    auth,
+    establecimientos,
+    admin_usuarios,
+    requisitos,
+    coordinador,
+    tramites,
+    supervisor,
+    director,
+    abogado
+)
+from services import notificaciones, plantillas_documentos
 
 logger = logging.getLogger("main")
 
@@ -36,12 +45,11 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="API SEDES Lab",
     description="Backend oficial del Sistema de Gestión y Trámites de Laboratorios - SEDES Cochabamba",
-    version="1.0.0",
+    version="2.0.0",
     lifespan=lifespan
 )
 
 # Configuración segura de CORS
-# Permite especificar orígenes mediante ALLOWED_ORIGINS separado por comas
 allowed_origins_env = os.getenv(
     "ALLOWED_ORIGINS",
     "http://localhost:5173,http://localhost:5174,http://127.0.0.1:5173,http://127.0.0.1:5174"
@@ -55,9 +63,6 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
-
-from fastapi.staticfiles import StaticFiles
-import os
 
 # Crear directorio de subidas si no existe y servir archivos estáticos
 os.makedirs("uploads", exist_ok=True)
@@ -80,8 +85,10 @@ app.include_router(plantillas_documentos.router)
 def leer_raiz():
     return {
         "sistema": "SEDES Lab - API Backend",
+        "version": "2.0.0",
+        "arquitectura": "MVC Modular por Capas",
         "estado": "Online",
-        "mensaje": "¡El backend del SEDES está funcionando perfectamente!"
+        "mensaje": "¡El backend del SEDES está funcionando perfectamente con su nueva estructura modular!"
     }
 
 @app.get("/health/db", tags=["Diagnóstico"])

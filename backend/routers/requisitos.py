@@ -5,9 +5,9 @@ from typing import List, Optional
 from pydantic import BaseModel
 from datetime import datetime
 
-from database import get_db
-import models
-from auth_dependencies import require_roles
+from core.database import get_db
+import models.models as models
+from core.auth_dependencies import require_roles
 
 router = APIRouter(tags=["Catálogo de Requisitos Normativos"])
 

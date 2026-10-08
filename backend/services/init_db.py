@@ -1,10 +1,10 @@
 import logging
 from sqlalchemy import text
 from geoalchemy2 import WKTElement
-from database import engine, Base, SessionLocal
-from models import Role, Usuario, Establecimiento, CatalogoRequisito, PlantillaDocumento
+from core.database import engine, Base, SessionLocal
+from models.models import Role, Usuario, Establecimiento, CatalogoRequisito, PlantillaDocumento
 import json
-from security import hash_password
+from core.security import hash_password
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

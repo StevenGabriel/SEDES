@@ -6,10 +6,10 @@ from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File,
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
 
-from database import get_db
-import models
-from auth_dependencies import get_current_user
-from file_security import validate_and_save_upload
+from core.database import get_db
+import models.models as models
+from core.auth_dependencies import get_current_user
+from core.file_security import validate_and_save_upload
 
 router = APIRouter(
     prefix="/api/tramites",

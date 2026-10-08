@@ -12,11 +12,11 @@ from sqlalchemy.orm import Session
 from sqlalchemy import desc, func, or_, cast, Date
 from geoalchemy2.functions import ST_X, ST_Y
 
-from database import get_db
-import models
-from notificaciones import crear_notificacion_db
-from auth_dependencies import require_roles
-from file_security import validate_and_save_upload
+from core.database import get_db
+import models.models as models
+from services.notificaciones import crear_notificacion_db
+from core.auth_dependencies import require_roles
+from core.file_security import validate_and_save_upload
 
 router = APIRouter(
     prefix="/api/supervisor",

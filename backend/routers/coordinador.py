@@ -7,9 +7,9 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import desc, func
 
-from database import get_db
-import models
-from auth_dependencies import require_roles
+from core.database import get_db
+import models.models as models
+from core.auth_dependencies import require_roles
 
 router = APIRouter(
     prefix="/api/coordinador",

@@ -4,14 +4,14 @@ from sqlalchemy.orm import Session
 from sqlalchemy import desc
 import uuid
 
-import models
-import schemas
-from database import get_db
-from security import hash_password
-from tokens import generate_password_reset_token
-from email_service import send_user_invitation_email
-from auth_dependencies import require_roles
-from security_logger import log_security_event, extract_client_ip
+import models.models as models
+import schemas.schemas as schemas
+from core.database import get_db
+from core.security import hash_password
+from core.tokens import generate_password_reset_token
+from core.email_service import send_user_invitation_email
+from core.auth_dependencies import require_roles
+from core.security_logger import log_security_event, extract_client_ip
 
 router = APIRouter(
     prefix="/api/admin/usuarios",

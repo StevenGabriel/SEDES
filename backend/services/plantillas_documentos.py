@@ -5,9 +5,9 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from database import get_db
-import models
-from auth_dependencies import get_current_user, require_roles
+from core.database import get_db
+import models.models as models
+from core.auth_dependencies import get_current_user, require_roles
 
 router = APIRouter(
     prefix="/api/plantillas-documentos",

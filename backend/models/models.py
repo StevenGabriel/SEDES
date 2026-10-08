@@ -15,7 +15,7 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from geoalchemy2 import Geometry
 
-from database import Base
+from core.database import Base
 
 # ==============================================================================
 # 1. TABLA: ROLES
