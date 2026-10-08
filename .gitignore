@@ -48,3 +48,8 @@ Thumbs.db
 # Database / Local storage
 *.sqlite3
 postgres_data/
+
+# Internal documentation & context
+Contexto+Bitacora/
+Contexto+Bitacora
+
