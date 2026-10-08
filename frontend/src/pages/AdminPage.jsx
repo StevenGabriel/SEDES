@@ -1491,21 +1491,8 @@ export default function AdminPage() {
               </div>
             </div>
 
-            {/* Perfil del Usuario & Notificaciones */}
+            {/* Perfil del Usuario */}
             <div className="flex items-center space-x-3 sm:space-x-5">
-              
-              {/* Campana de Notificaciones con Badge */}
-              <button 
-                type="button" 
-                className="relative p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition cursor-pointer"
-                title="Notificaciones"
-              >
-                <Bell className="w-5 h-5" />
-                <span className="absolute top-1.5 right-1.5 w-4 h-4 bg-red-500 text-white rounded-full text-[10px] font-extrabold flex items-center justify-center ring-2 ring-white">
-                  2
-                </span>
-              </button>
-
               {/* Perfil del Administrador */}
               <div className="flex items-center space-x-3 pl-2 sm:pl-4 border-l border-slate-200">
                 <div className="text-right hidden sm:block">
