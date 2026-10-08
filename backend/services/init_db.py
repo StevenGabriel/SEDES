@@ -77,7 +77,7 @@ def init_database(reset_tables: bool = False, poblar_laboratorios_demo: bool = F
         rol_supervisor = db.query(Role).filter(Role.nombre == "Supervisor").first()
 
         # 4. Poblar catálogo base completo de requisitos estructurados por secciones 2.1 a 2.5
-        from requisitos import DEFAULT_SECCIONES_DATA
+        from routers.requisitos import DEFAULT_SECCIONES_DATA
         if db.query(CatalogoRequisito).count() == 0 or db.query(CatalogoRequisito).filter(CatalogoRequisito.seccion_codigo.isnot(None)).count() == 0:
             db.query(CatalogoRequisito).delete()
             for sec in DEFAULT_SECCIONES_DATA:
@@ -202,10 +202,13 @@ def init_database(reset_tables: bool = False, poblar_laboratorios_demo: bool = F
                 usuario_existente.telefono = p["telefono"]
                 usuario_existente.estado = p.get("estado", True)
 
-        # 4. Inicializar Plantilla Oficial de Comunicación Interna
+        db.commit()
+        logger.info("✅ Cuentas del personal administrativo SEDES creadas / actualizadas.")
+
+        # 6. Inicializar Plantilla Oficial de Comunicación Interna
         plantilla_codelab = db.query(PlantillaDocumento).filter(PlantillaDocumento.codigo == "COMUNICACION_INTERNA_CODELAB").first()
         if not plantilla_codelab:
-            from plantillas_documentos import PLANTILLA_DEFAULT_CODELAB
+            from services.plantillas_documentos import PLANTILLA_DEFAULT_CODELAB
             db.add(PlantillaDocumento(
                 codigo="COMUNICACION_INTERNA_CODELAB",
                 nombre="Comunicación Interna / Informe Técnico CODELAB",
