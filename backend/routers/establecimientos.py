@@ -210,7 +210,7 @@ def crear_establecimiento(
 
     # Generar Notificaciones en PostgreSQL
     try:
-        from notificaciones import crear_notificacion_db, notificar_a_rol_db
+        from services.notificaciones import crear_notificacion_db, notificar_a_rol_db
         # Notificar al propietario
         crear_notificacion_db(
             db,
@@ -434,7 +434,7 @@ def actualizar_establecimiento(
         
         # Registrar en HistorialActividad y notificar al Coordinador
         try:
-            from notificaciones import notificar_a_rol_db
+            from services.notificaciones import notificar_a_rol_db
             prop_nombre = f"{estab.propietario.nombres} {estab.propietario.apellidos}" if estab.propietario else "Solicitante"
             
             # Buscar trámite relacionado para el código

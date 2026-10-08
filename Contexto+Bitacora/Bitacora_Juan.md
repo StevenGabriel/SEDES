@@ -2,6 +2,50 @@
 
 ---
 
+## [2026-10-08] Resolución de Diagnósticos de Importación en Backend y Formalización Institucional del Sistema de Notificaciones (Eliminación de Emojis e Iconografía Vectorial por Rol)
+
+### 📌 Objetivos
+1. **Subsanación de Diagnósticos y Rutas de Importación en Python Backend:** Corregir las excepciones `Import "notificaciones" could not be resolved` y prevenir fallos silenciosos de `ModuleNotFoundError` en el flujo de generación de notificaciones, actualizando las importaciones al paquete estándar `from services.notificaciones import crear_notificacion_db, notificar_a_rol_db`.
+2. **Configuración de Entorno de Análisis de Código en el IDE (Pyrefly / Pylance):** Configurar `extraPaths` en `.vscode/settings.json` y `pyrightconfig.json` para que el servidor de lenguaje reconozca automáticamente la estructura modular de `SEDES/backend/` (`core`, `models`, `services`, `routers`), eliminando los 19 falsos positivos en el panel de problemas.
+3. **Formalización y Limpieza de Emojis en Notificaciones del Backend:** Eliminar emojis informales (`✓`, `🎉`, `❌`, `📅`, `📑`, `📋`, `📄`, `✅`, `⚠️`, `⚖️`) en todos los títulos y cuerpos de notificaciones emitidos por los controladores (`coordinador.py`, `supervisor.py`, `tramites.py` y `abogado.py`), garantizando un lenguaje institucional, técnico y sobrio acorde a la normativa de SEDES.
+4. **Estandarización de Iconografía Vectorial Formal en el Frontend:** Reemplazar iconos genéricos y emojis por componentes SVG vectoriales de Lucide React con contenedores temáticos elegantes y distintivos para cada rol (**Coordinador**, **Supervisor**, **Director**, **Propietario** y **Asesor Legal**), garantizando coherencia visual en los paneles desplegables de notificaciones y en las tarjetas de resultados técnicos de actas.
+
+---
+
+### 🛠️ Archivos Modificados y Creados
+
+#### 1. `backend/routers/coordinador.py` [MODIFICADO]
+* **Corrección de Importaciones:** Sustitución de `from notificaciones import crear_notificacion_db` por `from services.notificaciones import crear_notificacion_db` en todos los bloques transaccionales (validación de datos de establecimiento, aprobación de requisitos, agendamiento de inspecciones, derivación legal y aprobación final de trámites).
+* **Textos Institucionales:** Supresión de emojis en títulos (`"Datos del Establecimiento Validados"`, `"Inspección Técnica Agendada"`, `"Trámite Aprobado y Resolución Emitida"`, `"Inspección de Campo Rechazada"`, `"Nuevo Informe Técnico Recibido"`, `"Re-Inspección Técnica Asignada"`).
+
+#### 2. `backend/routers/supervisor.py` [MODIFICADO]
+* **Limpieza de Títulos:** Remoción de emojis en avisos de inspecciones pendientes, citas reprogramadas, actas oficiales emitidas y citaciones sanitarias.
+
+#### 3. `backend/routers/tramites.py` & `backend/routers/establecimientos.py` [MODIFICADO]
+* **Importaciones de Servicios:** Actualización a `from services.notificaciones import crear_notificacion_db, notificar_a_rol_db`.
+* **Depuración de Títulos:** Formalización de avisos de documentos subsanados y solicitudes de rehabilitación.
+
+#### 4. `backend/routers/abogado.py` [MODIFICADO]
+* **Notificación de Remisión:** Supresión del emoji de balanza (`⚖️`) en el título de resoluciones administrativas listas para firma del Coordinador.
+
+#### 5. `frontend/src/pages/DirectorPage.jsx` [MODIFICADO]
+* **Iconografía Dinámica Formal:** Implementación de iconos vectoriales contextuales (`CheckCircle2`, `AlertTriangle`, `Calendar`, `FileText`, `ShieldCheck`, `Bell`) en el menú desplegable de notificaciones del Director General con fondos y bordes temáticos.
+
+#### 6. `frontend/src/components/supervisor/ActasEmitidasView.jsx` [MODIFICADO]
+* **Resultados Técnicos Vectoriales:** Sustitución de emojis (`✅`, `⚠️`, `❌`) en la tarjeta de resultado técnico por componentes Lucide (`CheckCircle2` verde, `AlertTriangle` ámbar y `XCircle` rojo).
+
+#### 7. `.vscode/settings.json` & `pyrightconfig.json` [CREADOS / CONFIGURADOS]
+* **Resolución de Módulos para el Editor:** Inclusión de directivas `python.analysis.extraPaths` y `pyrightconfig.json` apuntando a `SEDES/backend` para la resolución inmediata de módulos en tiempo de desarrollo.
+
+---
+
+### 📊 Verificación y Pruebas Realizadas
+* **Compilación de Módulos Backend:** Ejecución exitosa de `python -m compileall routers services models core` (0 errores de sintaxis o importación).
+* **Depuración del Panel Problems:** Eliminación de advertencias y errores de importación en el IDE.
+* **Inspección Visual de Notificaciones:** Confirmación de títulos limpios e iconos formales en los paneles de Coordinación, Supervisión, Dirección, Propietarios y Asesoría Legal.
+
+---
+
 ## [2026-09-21] Sincronización en Tiempo Real de Modificaciones en el PDF de Resolución Administrativa y Gestión de Pestañas
 
 ### 📌 Objetivos

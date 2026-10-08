@@ -602,7 +602,7 @@ def validar_datos_establecimiento(
 
     # Notificar al propietario y actualizar notificaciones
     try:
-        from notificaciones import crear_notificacion_db
+        from services.notificaciones import crear_notificacion_db
         if estab.propietario_id:
             # Desactivar notificaciones de observación previas de este establecimiento
             notifs_previas = db.query(models.Notificacion).filter(
@@ -626,7 +626,7 @@ def validar_datos_establecimiento(
                 crear_notificacion_db(
                     db,
                     usuario_id=estab.propietario_id,
-                    titulo=f"✓ Datos del Establecimiento Validados - {estab.nombre_comercial}",
+                    titulo=f"Datos del Establecimiento Validados - {estab.nombre_comercial}",
                     mensaje=f"Los datos de registro de su establecimiento '{estab.nombre_comercial}' han sido revisados y aprobados por Coordinación."
                 )
     except Exception as e:
@@ -716,7 +716,7 @@ def validar_documento_legal(
 
     # Notificar al propietario en tiempo real solo cuando el documento es Observado o Rechazado
     try:
-        from notificaciones import crear_notificacion_db
+        from services.notificaciones import crear_notificacion_db
         if tramite and tramite.establecimiento and tramite.establecimiento.propietario_id:
             prop_id = tramite.establecimiento.propietario_id
             if payload.estado in ["Observado", "Rechazado"]:
@@ -811,19 +811,19 @@ def agendar_reinspeccion(
 
     # Notificar al supervisor y al propietario
     try:
-        from notificaciones import crear_notificacion_db
+        from services.notificaciones import crear_notificacion_db
         if supervisor:
             crear_notificacion_db(
                 db,
                 usuario_id=supervisor.id,
-                titulo="📅 Inspección Técnica Agendada",
+                titulo="Inspección Técnica Agendada",
                 mensaje=f"Se le ha programado visita de inspección in situ en '{estab_nombre}' para el {payload.fecha} a las {payload.hora}. Motivo: {payload.motivo}"
             )
         if tramite.establecimiento and tramite.establecimiento.propietario_id:
             crear_notificacion_db(
                 db,
                 usuario_id=tramite.establecimiento.propietario_id,
-                titulo="📅 Visita de Inspección Programada",
+                titulo="Visita de Inspección Programada",
                 mensaje=f"Se ha agendado la inspección de campo de su establecimiento '{estab_nombre}' para el día {payload.fecha} a las {payload.hora} con el inspector {payload.supervisor}."
             )
     except Exception as e:
@@ -949,13 +949,13 @@ def aprobar_tramite(
 
     # Notificar al propietario de la aprobación final
     try:
-        from notificaciones import crear_notificacion_db
+        from services.notificaciones import crear_notificacion_db
         if tramite.establecimiento and tramite.establecimiento.propietario_id:
             crear_notificacion_db(
                 db,
                 usuario_id=tramite.establecimiento.propietario_id,
-                titulo="🎉 ¡Trámite Aprobado y Resolución Emitida!",
-                mensaje=f"¡Felicitaciones! Su trámite para '{estab_nombre}' ha sido APROBADO oficialmente por Coordinación SEDES bajo la Resolución {payload.codigo_resolucion} (Vigencia: {payload.vigencia_anios})."
+                titulo="Trámite Aprobado y Resolución Emitida",
+                mensaje=f"Su trámite para '{estab_nombre}' ha sido APROBADO oficialmente por Coordinación SEDES bajo la Resolución {payload.codigo_resolucion} (Vigencia: {payload.vigencia_anios})."
             )
     except Exception as e:
         print(f"Error al notificar aprobación: {e}")
@@ -1028,12 +1028,12 @@ def notificar_reingreso_requisitos(
 
     # Notificación al propietario
     try:
-        from notificaciones import crear_notificacion_db
+        from services.notificaciones import crear_notificacion_db
         if tramite.establecimiento and tramite.establecimiento.propietario_id:
             crear_notificacion_db(
                 db,
                 usuario_id=tramite.establecimiento.propietario_id,
-                titulo="❌ Inspección de Campo Rechazada - Reingreso de Requisitos Requerido",
+                titulo="Inspección de Campo Rechazada - Reingreso de Requisitos Requerido",
                 mensaje=f"La fiscalización técnica in-situ para '{estab_nombre}' ha sido RECHAZADA. Motivo: {motivo}. Debe ingresar a la plataforma y volver a subir todos sus requisitos actualizados para reiniciar la evaluación de su trámite."
             )
     except Exception as e:
@@ -1242,13 +1242,13 @@ def derivar_area_legal(
 
     # Notificar a los asesores legales y al propietario
     try:
-        from notificaciones import crear_notificacion_db
+        from services.notificaciones import crear_notificacion_db
         abogados = db.query(models.Usuario).join(models.Role).filter(models.Role.nombre.ilike("%Abogado%")).all()
         for ab in abogados:
             crear_notificacion_db(
                 db,
                 usuario_id=ab.id,
-                titulo=f"📑 Nuevo Informe Técnico Recibido: {estab_nombre}",
+                titulo=f"Nuevo Informe Técnico Recibido: {estab_nombre}",
                 mensaje=f"Se ha derivado el Informe Técnico {cite} para '{estab_nombre}' ({cod_trm}) con dictamen favorable para la emisión de Resolución Administrativa."
             )
     except Exception as e:
@@ -1500,11 +1500,11 @@ def asignar_supervisor(
 
     # Notificar al supervisor y al propietario
     try:
-        from notificaciones import crear_notificacion_db
+        from services.notificaciones import crear_notificacion_db
         crear_notificacion_db(
             db,
             usuario_id=supervisor.id,
-            titulo="📋 Re-Inspección Técnica Asignada" if es_reinspeccion else "📋 Nuevo Trámite Asignado",
+            titulo="Re-Inspección Técnica Asignada" if es_reinspeccion else "Nuevo Trámite Asignado",
             mensaje=(
                 f"Se le ha asignado la RE-INSPECCIÓN in situ de '{estab_nombre}' ({cod_trm}). Por favor coordine la visita en su agenda."
                 if es_reinspeccion else
@@ -1515,7 +1515,7 @@ def asignar_supervisor(
             crear_notificacion_db(
                 db,
                 usuario_id=tramite.establecimiento.propietario_id,
-                titulo="📅 Re-Inspección de Campo Habilitada" if es_reinspeccion else "📅 Supervisor Asignado",
+                titulo="Re-Inspección de Campo Habilitada" if es_reinspeccion else "Supervisor Asignado",
                 mensaje=(
                     f"Su trámite para '{estab_nombre}' ha sido habilitado para una nueva re-inspección técnica in situ con el inspector {sup_nombre}."
                     if es_reinspeccion else

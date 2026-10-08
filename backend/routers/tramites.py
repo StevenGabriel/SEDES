@@ -299,7 +299,7 @@ async def subsanar_documento_tramite(
 
     # Notificar a Coordinadores y Supervisor asignado
     try:
-        from notificaciones import crear_notificacion_db, notificar_a_rol_db
+        from services.notificaciones import crear_notificacion_db, notificar_a_rol_db
         estab = doc.tramite.establecimiento if doc.tramite else None
         estab_nom = estab.nombre_comercial if estab else "Establecimiento"
         req_nom = doc.requisito.nombre_documento if doc.requisito else "Requisito"
@@ -308,7 +308,7 @@ async def subsanar_documento_tramite(
         notificar_a_rol_db(
             db,
             rol_nombre="Coordinador",
-            titulo="📄 Documento Subsanado para Revisión",
+            titulo="Documento Subsanado para Revisión",
             mensaje=f"El establecimiento '{estab_nom}' ha vuelto a subir y subsanar el documento '{req_nom}' para nueva verificación."
         )
     except Exception as e:
@@ -427,13 +427,13 @@ async def crear_tramite_rehabilitacion(
 
     # Notificaciones
     try:
-        from notificaciones import crear_notificacion_db, notificar_a_rol_db
+        from services.notificaciones import crear_notificacion_db, notificar_a_rol_db
         cod_trm = f"TRM-{str(nuevo_tramite.id)[:8].upper()}"
 
         notificar_a_rol_db(
             db,
             rol_nombre="Coordinador",
-            titulo=f"📄 Nueva Solicitud de Rehabilitación - {estab.nombre_comercial}",
+            titulo=f"Nueva Solicitud de Rehabilitación - {estab.nombre_comercial}",
             mensaje=f"El establecimiento '{estab.nombre_comercial}' ha ingresado su solicitud de rehabilitación ({cod_trm}) con los 3 documentos requeridos (EMSA, COZBES y Memorial) para revisión y asignación de inspección."
         )
 
@@ -441,7 +441,7 @@ async def crear_tramite_rehabilitacion(
             crear_notificacion_db(
                 db,
                 usuario_id=estab.propietario_id,
-                titulo=f"✅ Solicitud de Rehabilitación Ingresada ({cod_trm})",
+                titulo=f"Solicitud de Rehabilitación Ingresada ({cod_trm})",
                 mensaje=f"Su trámite de rehabilitación para '{estab.nombre_comercial}' fue registrado con éxito. Se encuentra en la bandeja del Coordinador para su verificación."
             )
     except Exception as e:
