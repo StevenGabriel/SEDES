@@ -281,12 +281,17 @@ export default function CoordinadorPage() {
   // Lista de trámites y trámite activo seleccionado
   const [tramites, setTramites] = useState([]);
   const [tramiteSeleccionadoId, setTramiteSeleccionadoId] = useState(null);
+  const tramiteSeleccionadoIdRef = useRef(null);
+  tramiteSeleccionadoIdRef.current = tramiteSeleccionadoId;
 
   // Pestaña activa en el panel de detalle: 'datos' | 'legal' | 'campo'
   const [tabActiva, setTabActiva] = useState('datos');
 
   // Documento legal seleccionado para visualizar en el visor interactivo
   const [docSeleccionadoId, setDocSeleccionadoId] = useState(null);
+  const docSeleccionadoIdRef = useRef(null);
+  docSeleccionadoIdRef.current = docSeleccionadoId;
+
   const [seccionFiltroDoc, setSeccionFiltroDoc] = useState('Todas');
   const [busquedaDoc, setBusquedaDoc] = useState('');
 
@@ -446,16 +451,18 @@ export default function CoordinadorPage() {
         setTramites(trms);
         if (trms.length > 0) {
           setTramiteSeleccionadoId(prev => {
-            const exists = trms.find(t => t.id === prev);
-            return exists ? prev : trms[0].id;
+            const currentId = prev || tramiteSeleccionadoIdRef.current;
+            const exists = trms.find(t => t.id === currentId || t.tramite_uuid === currentId);
+            return exists ? (exists.id || exists.tramite_uuid) : trms[0].id;
           });
           setDocSeleccionadoId(prevDoc => {
-            if (prevDoc) {
-              const currentTramite = trms.find(t => t.id === tramiteSeleccionadoId) || trms[0];
-              const exists = currentTramite?.documentos?.some(d => d.id === prevDoc);
-              if (exists) return prevDoc;
+            const activeDocId = prevDoc || docSeleccionadoIdRef.current;
+            const activeTramiteId = tramiteSeleccionadoIdRef.current;
+            const currentTramite = trms.find(t => t.id === activeTramiteId || t.tramite_uuid === activeTramiteId) || trms[0];
+            if (activeDocId && currentTramite?.documentos?.some(d => d.id === activeDocId)) {
+              return activeDocId;
             }
-            return trms[0]?.documentos?.[0]?.id || null;
+            return currentTramite?.documentos?.[0]?.id || null;
           });
         }
       }
