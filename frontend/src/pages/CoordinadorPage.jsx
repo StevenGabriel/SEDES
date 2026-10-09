@@ -57,6 +57,7 @@ import RealMapPicker from '../components/common/RealMapPicker';
 import InformeTecnicoView from '../components/coordinador/InformeTecnicoView';
 import { generarResolucionAdministrativaPDF } from '../components/abogado/ResolucionAdministrativaPDF';
 import { generarComunicacionInternaPDF } from '../components/coordinador/ComunicacionInternaPDF';
+import { formatApiUrl } from '../services/authInterceptor';
 
 // 8 Especialidades Oficiales del SEDES (según normativa y formulario de apertura)
 const ESPECIALIDADES_OFICIALES = [
@@ -2667,7 +2668,7 @@ export default function CoordinadorPage() {
                               {docActual.archivo_url && (
                                 <>
                                   <a
-                                    href={`http://localhost:8000${docActual.archivo_url}`}
+                                    href={formatApiUrl(docActual.archivo_url)}
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-white text-slate-700 border border-slate-300 hover:bg-slate-50 transition shadow-2xs cursor-pointer"
@@ -2677,7 +2678,7 @@ export default function CoordinadorPage() {
                                     <span>Abrir PDF</span>
                                   </a>
                                   <a
-                                    href={`http://localhost:8000${docActual.archivo_url}`}
+                                    href={formatApiUrl(docActual.archivo_url)}
                                     download
                                     className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-[#19324d] text-white hover:bg-[#102235] transition shadow-2xs cursor-pointer"
                                     title="Descargar documento PDF original"
@@ -2698,7 +2699,7 @@ export default function CoordinadorPage() {
                                 <span className="text-cyan-300 text-[11px]">PDF Oficial Cargado</span>
                               </div>
                               <iframe
-                                src={`http://localhost:8000${docActual.archivo_url}#toolbar=1&navpanes=0`}
+                                src={`${formatApiUrl(docActual.archivo_url)}#toolbar=1&navpanes=0`}
                                 className="w-full h-[540px] border-0 bg-slate-100"
                                 title={docActual.nombre}
                               />

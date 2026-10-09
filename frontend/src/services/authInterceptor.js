@@ -81,4 +81,42 @@ window.fetch = async function (resource, config = {}) {
   }
 };
 
+export function getApiBaseUrl() {
+  const baseUrl = import.meta.env.VITE_API_URL;
+  if (baseUrl) return baseUrl.replace(/\/+$/, '');
+  
+  if (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+    const currentHost = window.location.hostname;
+    const protocol = window.location.protocol;
+    let targetApiHost = currentHost;
+    
+    if (currentHost.startsWith('sedeslaboratorios.')) {
+      targetApiHost = `api.${currentHost}`;
+    } else if (currentHost.startsWith('sedes.')) {
+      targetApiHost = currentHost.replace('sedes.', 'api-sedes.');
+    } else if (!currentHost.startsWith('api.') && !currentHost.startsWith('api-')) {
+      targetApiHost = `api.${currentHost}`;
+    }
+    return `${protocol}//${targetApiHost}`;
+  }
+  return 'http://localhost:8000';
+}
+
+export function formatApiUrl(url) {
+  if (!url) return '';
+  const apiBase = getApiBaseUrl();
+  if (url.startsWith('http://localhost:8000') || url.startsWith('http://127.0.0.1:8000')) {
+    return url.replace(/https?:\/\/(?:localhost|127\.0\.0\.1):8000/, apiBase);
+  }
+  if (url.startsWith('/')) {
+    return `${apiBase}${url}`;
+  }
+  return url;
+}
+
+if (typeof window !== 'undefined') {
+  window.getApiBaseUrl = getApiBaseUrl;
+  window.formatApiUrl = formatApiUrl;
+}
+
 export default window.fetch;
