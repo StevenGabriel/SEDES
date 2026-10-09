@@ -115,9 +115,30 @@ export function formatApiUrl(url) {
   return `${apiBase}${cleanPath}`;
 }
 
+export async function descargarArchivo(url, nombreArchivo = 'documento.pdf') {
+  try {
+    const finalUrl = formatApiUrl(url);
+    const response = await fetch(finalUrl);
+    if (!response.ok) throw new Error('Error al descargar archivo');
+    const blob = await response.blob();
+    const blobUrl = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = blobUrl;
+    link.download = nombreArchivo;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(blobUrl);
+  } catch (error) {
+    console.warn('Fallo descarga directa via Blob, abriendo enlace:', error);
+    window.open(formatApiUrl(url), '_blank');
+  }
+}
+
 if (typeof window !== 'undefined') {
   window.getApiBaseUrl = getApiBaseUrl;
   window.formatApiUrl = formatApiUrl;
+  window.descargarArchivo = descargarArchivo;
 }
 
 export default window.fetch;

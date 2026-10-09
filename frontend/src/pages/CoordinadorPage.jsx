@@ -57,7 +57,7 @@ import RealMapPicker from '../components/common/RealMapPicker';
 import InformeTecnicoView from '../components/coordinador/InformeTecnicoView';
 import { generarResolucionAdministrativaPDF } from '../components/abogado/ResolucionAdministrativaPDF';
 import { generarComunicacionInternaPDF } from '../components/coordinador/ComunicacionInternaPDF';
-import { formatApiUrl } from '../services/authInterceptor';
+import { formatApiUrl, descargarArchivo } from '../services/authInterceptor';
 
 // 8 Especialidades Oficiales del SEDES (según normativa y formulario de apertura)
 const ESPECIALIDADES_OFICIALES = [
@@ -2688,15 +2688,15 @@ export default function CoordinadorPage() {
                                     <ExternalLink className="w-3.5 h-3.5 text-[#0077c8]" />
                                     <span>Abrir PDF</span>
                                   </a>
-                                  <a
-                                    href={formatApiUrl(docActual.archivo_url)}
-                                    download
-                                    className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-[#19324d] text-white hover:bg-[#102235] transition shadow-2xs cursor-pointer"
-                                    title="Descargar documento PDF original"
+                                  <button
+                                    type="button"
+                                    onClick={() => descargarArchivo(docActual.archivo_url, `${docActual.nombre.replace(/\s+/g, '_')}.pdf`)}
+                                    className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-[#19324d] text-white hover:bg-[#102235] transition shadow-2xs cursor-pointer active:scale-95"
+                                    title="Descargar documento PDF original a su equipo"
                                   >
                                     <Download className="w-3.5 h-3.5" />
                                     <span>Descargar</span>
-                                  </a>
+                                  </button>
                                 </>
                               )}
                             </div>
@@ -3003,14 +3003,15 @@ export default function CoordinadorPage() {
                                     <ExternalLink className="w-3.5 h-3.5 text-emerald-700" />
                                     <span>Abrir en Pestaña</span>
                                   </a>
-                                  <a
-                                    href={formatApiUrl(tramiteActual.acta_pdf_url)}
-                                    download
-                                    className="inline-flex items-center space-x-1.5 px-3.5 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold shadow-xs transition cursor-pointer"
+                                  <button
+                                    type="button"
+                                    onClick={() => descargarArchivo(tramiteActual.acta_pdf_url, `Acta_Inspeccion_${tramiteActual.establecimiento.replace(/\s+/g, '_')}.pdf`)}
+                                    className="inline-flex items-center space-x-1.5 px-3.5 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold shadow-xs transition cursor-pointer active:scale-95"
+                                    title="Descargar archivo PDF directamente a su equipo"
                                   >
                                     <Download className="w-3.5 h-3.5" />
                                     <span>Descargar PDF</span>
-                                  </a>
+                                  </button>
                                 </div>
                               </div>
 
