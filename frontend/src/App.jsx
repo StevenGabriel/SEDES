@@ -1,5 +1,5 @@
-import React from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import LandingPage from './pages/LandingPage';
 import RequisitosPage from './pages/RequisitosPage';
 import LoginPage from './pages/loginPage';
@@ -15,9 +15,72 @@ import DirectorPage from './pages/DirectorPage';
 import AbogadoPage from './pages/AbogadoPage';
 import NotFoundPage from './pages/NotFoundPage';
 
+/**
+ * Componente que sincroniza la sesión activa en tiempo real entre pestañas del mismo navegador.
+ * Evita que existan 2 roles o usuarios distintos abiertos al mismo tiempo en diferentes pestañas.
+ */
+function SessionSyncHandler() {
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  useEffect(() => {
+    const handleStorageChange = (e) => {
+      // Si otra pestaña cerró sesión o inició sesión con otro usuario/token
+      if (e.key === 'token' || e.key === 'usuario') {
+        const token = localStorage.getItem('token');
+        const usuarioStr = localStorage.getItem('usuario');
+
+        // Si se cerró la sesión en otra pestaña
+        if (!token || !usuarioStr) {
+          const publicRoutes = ['/', '/landingpage', '/requisitos', '/login', '/loginpage', '/register', '/registerpage', '/registro', '/recuperar-password', '/recuperar-contrasena', '/restablecer-password', '/restablecer-contrasena'];
+          const isPublic = publicRoutes.includes(location.pathname) || location.pathname.startsWith('/laboratorio/');
+          if (!isPublic) {
+            navigate('/login');
+          }
+          return;
+        }
+
+        // Si se cambió de usuario en otra pestaña, redirigir al panel correspondiente del nuevo usuario
+        try {
+          const nuevoUsuario = JSON.parse(usuarioStr);
+          const rol = (nuevoUsuario.rol_nombre || nuevoUsuario.rol || '').toLowerCase();
+          const currentPath = location.pathname.toLowerCase();
+
+          const rolMatch = (
+            (rol.includes('admin') && currentPath.startsWith('/admin')) ||
+            (rol.includes('director') && currentPath.startsWith('/director')) ||
+            ((rol.includes('abogado') || rol.includes('legal')) && currentPath.startsWith('/abogado')) ||
+            (rol.includes('supervisor') && currentPath.startsWith('/supervisor')) ||
+            (rol.includes('coordinador') && currentPath.startsWith('/coordinador')) ||
+            (rol.includes('propietario') && currentPath.startsWith('/propietario'))
+          );
+
+          if (!rolMatch && !['/', '/landingpage', '/requisitos'].includes(currentPath)) {
+            if (rol.includes('admin')) navigate('/admin');
+            else if (rol.includes('director')) navigate('/director');
+            else if (rol.includes('abogado') || rol.includes('legal')) navigate('/abogado/informes-recibidos');
+            else if (rol.includes('supervisor')) navigate('/supervisor');
+            else if (rol.includes('coordinador')) navigate('/coordinador');
+            else if (rol.includes('propietario')) navigate('/propietario');
+          }
+        } catch (err) {
+          console.error('Error al sincronizar sesión entre pestañas:', err);
+        }
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, [location.pathname, navigate]);
+
+  return null;
+}
+
 function App() {
   return (
-    <Routes>
+    <>
+      <SessionSyncHandler />
+      <Routes>
       <Route path="/" element={<LandingPage />} />
       <Route path="/landingpage" element={<LandingPage />} />
       <Route path="/requisitos" element={<RequisitosPage />} />
@@ -58,6 +121,7 @@ function App() {
       <Route path="/administrador/:seccion" element={<AdminPage />} />
       <Route path="*" element={<NotFoundPage />} />
     </Routes>
+    </>
   );
 }
 
