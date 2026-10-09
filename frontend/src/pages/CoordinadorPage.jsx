@@ -2986,16 +2986,46 @@ export default function CoordinadorPage() {
                           </p>
 
                           {tramiteActual.acta_pdf_url && (
-                            <div className="pt-1">
-                              <a
-                                href={tramiteActual.acta_pdf_url.startsWith('http') ? tramiteActual.acta_pdf_url : formatApiUrl(tramiteActual.acta_pdf_url.replace(/^\/+/, ''))}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="inline-flex items-center space-x-2 px-4 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold shadow-xs transition cursor-pointer"
-                              >
-                                <FileCheck className="w-4 h-4" />
-                                <span>Ver / Descargar Acta Firmada Oficial (PDF)</span>
-                              </a>
+                            <div className="pt-2 space-y-3">
+                              <div className="flex items-center justify-between flex-wrap gap-2">
+                                <span className="text-xs font-extrabold text-emerald-900 flex items-center space-x-1.5">
+                                  <FileCheck className="w-4 h-4 text-emerald-700" />
+                                  <span>Visualizador de Acta Oficial de Inspección</span>
+                                </span>
+
+                                <div className="flex items-center space-x-2">
+                                  <a
+                                    href={formatApiUrl(tramiteActual.acta_pdf_url)}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-white hover:bg-emerald-100 text-emerald-900 border border-emerald-300 rounded-xl text-xs font-bold shadow-2xs transition cursor-pointer"
+                                  >
+                                    <ExternalLink className="w-3.5 h-3.5 text-emerald-700" />
+                                    <span>Abrir en Pestaña</span>
+                                  </a>
+                                  <a
+                                    href={formatApiUrl(tramiteActual.acta_pdf_url)}
+                                    download
+                                    className="inline-flex items-center space-x-1.5 px-3.5 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold shadow-xs transition cursor-pointer"
+                                  >
+                                    <Download className="w-3.5 h-3.5" />
+                                    <span>Descargar PDF</span>
+                                  </a>
+                                </div>
+                              </div>
+
+                              {/* Visor Embebido del Acta Oficial */}
+                              <div className="bg-white rounded-2xl shadow-md border border-emerald-200 overflow-hidden">
+                                <div className="bg-slate-800 text-white px-4 py-2 text-xs flex items-center justify-between font-mono">
+                                  <span className="truncate">Acta Oficial de Inspección y Fiscalización Técnica - {tramiteActual.establecimiento}</span>
+                                  <span className="text-emerald-400 text-[11px] font-bold">✓ Firmada y Validada</span>
+                                </div>
+                                <iframe
+                                  src={`${formatApiUrl(tramiteActual.acta_pdf_url)}#toolbar=1&navpanes=0`}
+                                  className="w-full h-[580px] border-0 bg-slate-100"
+                                  title={`Acta de Inspección - ${tramiteActual.establecimiento}`}
+                                />
+                              </div>
                             </div>
                           )}
                         </div>
