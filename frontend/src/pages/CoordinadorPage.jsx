@@ -2172,9 +2172,13 @@ export default function CoordinadorPage() {
                             <div className="flex flex-col sm:flex-row items-center gap-4 bg-slate-50 p-4 rounded-2xl border border-slate-200">
                               <div className="w-36 h-24 rounded-xl overflow-hidden bg-slate-200 border border-slate-300 shrink-0 relative shadow-xs">
                                 <img
-                                  src={tramiteActual.imagen_url || heroBg}
+                                  src={tramiteActual.imagen_url ? formatApiUrl(tramiteActual.imagen_url) : heroBg}
                                   alt="Fotografía del Establecimiento"
                                   className="w-full h-full object-cover"
+                                  onError={(e) => {
+                                    e.target.onerror = null;
+                                    e.target.src = heroBg;
+                                  }}
                                 />
                               </div>
 
@@ -2188,7 +2192,7 @@ export default function CoordinadorPage() {
                                   </span>
                                   {tramiteActual.imagen_url && (
                                     <a
-                                      href={tramiteActual.imagen_url.startsWith('http') ? tramiteActual.imagen_url : `http://localhost:8000${tramiteActual.imagen_url}`}
+                                      href={formatApiUrl(tramiteActual.imagen_url)}
                                       target="_blank"
                                       rel="noreferrer"
                                       className="text-[11px] font-bold text-[#0077c8] hover:underline flex items-center space-x-1"
@@ -2941,7 +2945,7 @@ export default function CoordinadorPage() {
 
                             {tramiteActual.acta_pdf_url && (
                               <a
-                                href={tramiteActual.acta_pdf_url.startsWith('http') ? tramiteActual.acta_pdf_url : `http://localhost:8000/${tramiteActual.acta_pdf_url.replace(/^\/+/, '')}`}
+                                href={tramiteActual.acta_pdf_url.startsWith('http') ? tramiteActual.acta_pdf_url : formatApiUrl(tramiteActual.acta_pdf_url.replace(/^\/+/, ''))}
                                 target="_blank"
                                 rel="noreferrer"
                                 className="px-4 py-2.5 bg-white hover:bg-rose-50 text-rose-800 border border-rose-300 rounded-xl text-xs font-bold transition flex items-center space-x-2 cursor-pointer shadow-xs"
@@ -2977,7 +2981,7 @@ export default function CoordinadorPage() {
                           {tramiteActual.acta_pdf_url && (
                             <div className="pt-1">
                               <a
-                                href={tramiteActual.acta_pdf_url.startsWith('http') ? tramiteActual.acta_pdf_url : `http://localhost:8000/${tramiteActual.acta_pdf_url.replace(/^\/+/, '')}`}
+                                href={tramiteActual.acta_pdf_url.startsWith('http') ? tramiteActual.acta_pdf_url : formatApiUrl(tramiteActual.acta_pdf_url.replace(/^\/+/, ''))}
                                 target="_blank"
                                 rel="noreferrer"
                                 className="inline-flex items-center space-x-2 px-4 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold shadow-xs transition cursor-pointer"
@@ -4232,7 +4236,7 @@ export default function CoordinadorPage() {
                                     href={
                                       tramiteHistorialSeleccionado.acta_pdf_url.startsWith('http')
                                         ? tramiteHistorialSeleccionado.acta_pdf_url
-                                        : `http://localhost:8000/${tramiteHistorialSeleccionado.acta_pdf_url.replace(/^\/+/, '')}`
+                                        : formatApiUrl(tramiteHistorialSeleccionado.acta_pdf_url.replace(/^\/+/, ''))
                                     }
                                     target="_blank"
                                     rel="noopener noreferrer"
@@ -4357,7 +4361,7 @@ export default function CoordinadorPage() {
                                   href={
                                     doc.archivo_url.startsWith('http')
                                       ? doc.archivo_url
-                                      : `http://localhost:8000/${doc.archivo_url.replace(/^\/+/, '')}`
+                                      : formatApiUrl(doc.archivo_url.replace(/^\/+/, ''))
                                   }
                                   target="_blank"
                                   rel="noopener noreferrer"

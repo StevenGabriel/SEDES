@@ -1,3 +1,4 @@
+import { formatApiUrl } from '../services/authInterceptor';
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import {
@@ -3416,7 +3417,7 @@ export default function DirectorPage() {
                                     href={
                                       tramiteBitacoraSeleccionado.acta_pdf_url.startsWith('http')
                                         ? tramiteBitacoraSeleccionado.acta_pdf_url
-                                        : `http://localhost:8000/${tramiteBitacoraSeleccionado.acta_pdf_url.replace(/^\/+/, '')}`
+                                        : formatApiUrl(tramiteBitacoraSeleccionado.acta_pdf_url.replace(/^\/+/, ''))
                                     }
                                     target="_blank"
                                     rel="noopener noreferrer"
@@ -3537,7 +3538,7 @@ export default function DirectorPage() {
                                   href={
                                     doc.archivo_url.startsWith('http')
                                       ? doc.archivo_url
-                                      : `http://localhost:8000/${doc.archivo_url.replace(/^\/+/, '')}`
+                                      : formatApiUrl(doc.archivo_url.replace(/^\/+/, ''))
                                   }
                                   target="_blank"
                                   rel="noopener noreferrer"
@@ -3834,7 +3835,7 @@ export default function DirectorPage() {
                                 href={
                                   insp.acta_pdf_url.startsWith('http')
                                     ? insp.acta_pdf_url
-                                    : `http://localhost:8000/${insp.acta_pdf_url.replace(/^\/+/, '')}`
+                                    : formatApiUrl(insp.acta_pdf_url.replace(/^\/+/, ''))
                                 }
                                 target="_blank"
                                 rel="noopener noreferrer"

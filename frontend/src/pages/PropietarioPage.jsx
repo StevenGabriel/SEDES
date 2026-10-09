@@ -51,6 +51,7 @@ import heroBg from '../assets/hero_bg.jpg';
 import RealMapPicker from '../components/common/RealMapPicker';
 import RealMapView from '../components/common/RealMapView';
 import HorarioPicker from '../components/common/HorarioPicker';
+import { formatApiUrl } from '../services/authInterceptor';
 
 // Obtener iniciales de 2 a 4 letras a partir de nombres y apellidos (ej: Steven Claros Tapia -> SCT, Claudia Silvia Alvarez Lopez -> CSAL)
 const getInitials = (u) => {
@@ -2606,7 +2607,7 @@ export default function PropietarioPage() {
                                         doc.archivo_url ? (
                                           <button
                                             type="button"
-                                            onClick={() => window.open(`http://localhost:8000${doc.archivo_url}`, '_blank')}
+                                            onClick={() => window.open(formatApiUrl(doc.archivo_url), '_blank')}
                                             className="inline-flex items-center space-x-1.5 bg-white hover:bg-slate-100 text-[#19324d] border border-slate-200 text-xs font-bold px-4 py-2 rounded-xl transition shadow-2xs cursor-pointer"
                                             title="Visualizar documento PDF presentado"
                                           >
@@ -2621,7 +2622,7 @@ export default function PropietarioPage() {
                                           {doc.archivo_url && (
                                             <button
                                               type="button"
-                                              onClick={() => window.open(`http://localhost:8000${doc.archivo_url}`, '_blank')}
+                                              onClick={() => window.open(formatApiUrl(doc.archivo_url), '_blank')}
                                               className="inline-flex items-center space-x-1.5 bg-white hover:bg-slate-100 text-[#19324d] border border-slate-200 text-xs font-bold px-3.5 py-1.5 rounded-xl transition shadow-2xs cursor-pointer"
                                               title="Visualizar documento observado"
                                             >
@@ -4272,7 +4273,7 @@ export default function PropietarioPage() {
                                 {doc.archivo_url ? (
                                   <button
                                     type="button"
-                                    onClick={() => window.open(`http://localhost:8000${doc.archivo_url}`, '_blank')}
+                                    onClick={() => window.open(formatApiUrl(doc.archivo_url), '_blank')}
                                     className="inline-flex items-center space-x-1.5 bg-[#005596] hover:bg-[#003e6d] text-white text-xs font-bold px-3 py-1.5 rounded-xl transition shadow-2xs cursor-pointer active:scale-95"
                                     title="Visualizar documento PDF presentado"
                                   >
@@ -4423,7 +4424,7 @@ export default function PropietarioPage() {
                 {modalVerEstablecimiento.imagen_url && (
                   <div className="w-full h-48 rounded-2xl overflow-hidden border border-slate-200 shadow-xs relative">
                     <img
-                      src={`http://localhost:8000${modalVerEstablecimiento.imagen_url}`}
+                      src={formatApiUrl(modalVerEstablecimiento.imagen_url)}
                       alt={modalVerEstablecimiento.nombre_comercial || 'Fachada'}
                       className="w-full h-full object-cover"
                       onError={(e) => { e.currentTarget.style.display = 'none'; }}
