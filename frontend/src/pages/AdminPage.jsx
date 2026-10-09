@@ -609,7 +609,7 @@ export default function AdminPage() {
   const navigate = useNavigate();
   const { seccion } = useParams();
 
-  const SECCIONES_VALIDAS = ['usuarios', 'roles-permisos', 'requisitos', 'editar-documentos'];
+  const SECCIONES_VALIDAS = ['usuarios', 'requisitos', 'editar-documentos'];
   const rawSeccion = seccion || 'usuarios';
   const seccionActiva = SECCIONES_VALIDAS.includes(rawSeccion) ? rawSeccion : 'usuarios';
 
@@ -1186,13 +1186,6 @@ export default function AdminPage() {
       breadcrumb: 'Gestión de Usuarios'
     },
     {
-      id: 'roles-permisos',
-      path: '/admin/roles-permisos',
-      label: 'Roles y Permisos',
-      icon: Shield,
-      breadcrumb: 'Roles y Permisos del Sistema'
-    },
-    {
       id: 'requisitos',
       path: '/admin/requisitos',
       label: 'Requisitos',
@@ -1227,7 +1220,7 @@ export default function AdminPage() {
   const totalUsuarios = usuarios.length;
   const activos = usuarios.filter(u => u.estado === 'Activo').length;
   const inactivos = usuarios.filter(u => u.estado === 'Inactivo').length;
-  const conectadosAhora = usuarios.filter(u => u.estado === 'Activo').length > 0 ? Math.min(3, usuarios.filter(u => u.estado === 'Activo').length) : 0;
+  const conectadosAhora = usuarios.filter(u => u.estado === 'Activo' && (u.ultimaConexion?.toLowerCase().includes('línea') || u.ultimaConexion?.toLowerCase().includes('min') || u.ultimaConexion === 'Activo')).length || (activos > 0 ? 1 : 0);
 
   // Paginación real
   const totalPaginas = Math.ceil(usuariosFiltrados.length / elementosPorPagina) || 1;
@@ -1557,15 +1550,6 @@ export default function AdminPage() {
                 </div>
 
                 <div className="flex items-center space-x-3 self-start sm:self-auto">
-                  <button
-                    type="button"
-                    onClick={() => setModalPermisosOpen(true)}
-                    className="bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs sm:text-sm font-bold px-4 py-2.5 rounded-xl shadow-2xs transition flex items-center space-x-2 cursor-pointer"
-                  >
-                    <Key className="w-4 h-4 text-slate-600" />
-                    <span>Editar Permisos</span>
-                  </button>
-
                   <button
                     type="button"
                     onClick={() => setModalNuevoUsuarioOpen(true)}
