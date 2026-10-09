@@ -108,10 +108,11 @@ export function formatApiUrl(url) {
   if (url.startsWith('http://localhost:8000') || url.startsWith('http://127.0.0.1:8000')) {
     return url.replace(/https?:\/\/(?:localhost|127\.0\.0\.1):8000/, apiBase);
   }
-  if (url.startsWith('/')) {
-    return `${apiBase}${url}`;
+  if (url.startsWith('http://') || url.startsWith('https://')) {
+    return url;
   }
-  return url;
+  const cleanPath = url.startsWith('/') ? url : `/${url}`;
+  return `${apiBase}${cleanPath}`;
 }
 
 if (typeof window !== 'undefined') {
