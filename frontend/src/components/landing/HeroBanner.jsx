@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Eye, ChevronLeft, ChevronRight, FileText, Sparkles, Building2 } from 'lucide-react';
 import heroBg from '../../assets/hero_bg.jpg';
+import { formatApiUrl } from '../../services/authInterceptor';
 
 export default function HeroBanner() {
   const [laboratorios, setLaboratorios] = useState([]);
@@ -79,7 +80,7 @@ export default function HeroBanner() {
         key={labActual.id || currentIndex}
         className="absolute inset-0 bg-cover bg-center transition-all duration-1000 ease-in-out transform scale-105 animate-fadeIn"
         style={{ 
-          backgroundImage: `url(${labActual.imagen_url || heroBg})` 
+          backgroundImage: `url(${labActual.imagen_url ? formatApiUrl(labActual.imagen_url) : heroBg})` 
         }}
       >
         {/* Gradiente oscuro de contraste para legibilidad perfecta */}
