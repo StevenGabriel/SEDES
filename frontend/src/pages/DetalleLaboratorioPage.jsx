@@ -94,6 +94,28 @@ const normalizarEspecialidad = (str) => {
   return str.trim();
 };
 
+const parseEspecialidadesTexto = (raw) => {
+  if (!raw) return 'Clínico General';
+  try {
+    const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    if (typeof parsed === 'object' && parsed !== null) {
+      if (Array.isArray(parsed)) {
+        return parsed.map(p => typeof p === 'string' ? normalizarEspecialidad(p) : normalizarEspecialidad(p.nombre || p.especialidad || '')).filter(Boolean).join(', ');
+      }
+      // Es un diccionario { "Clínico General": { nombre: "...", ci: "..." }, ... }
+      const keys = Object.keys(parsed);
+      if (keys.length > 0) {
+        return keys.map(k => normalizarEspecialidad(k)).join(', ');
+      }
+    }
+  } catch (e) {}
+
+  if (typeof raw === 'string') {
+    return raw.replace(/[{}[\]"]/g, '').split(',').map(s => s.trim()).filter(Boolean).join(', ');
+  }
+  return String(raw);
+};
+
 export default function DetalleLaboratorioPage() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -274,7 +296,7 @@ export default function DetalleLaboratorioPage() {
             <div className="lg:col-span-5">
               <div className="relative rounded-2xl overflow-hidden shadow-lg border border-slate-200 group aspect-4/3 sm:aspect-16/10 lg:aspect-4/3">
                 <img 
-                  src={laboratorio.imagen_url || heroBg} 
+                  src={laboratorio.imagen_url ? formatApiUrl(laboratorio.imagen_url) : heroBg} 
                   alt={laboratorio.nombre_comercial} 
                   onError={(e) => { e.currentTarget.src = heroBg; }}
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
@@ -454,7 +476,7 @@ export default function DetalleLaboratorioPage() {
                   {laboratorio.responsables_areas && (
                     <li className="flex items-start gap-2">
                       <TestTube2 className="w-4 h-4 text-purple-600 shrink-0 mt-0.5" />
-                      <span><strong>Especialidad:</strong> {laboratorio.responsables_areas}</span>
+                      <span><strong>Especialidad:</strong> {parseEspecialidadesTexto(laboratorio.responsables_areas)}</span>
                     </li>
                   )}
 
