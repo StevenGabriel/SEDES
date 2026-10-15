@@ -10,16 +10,21 @@ export default function HeroBanner() {
   const [isPaused, setIsPaused] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
-  // 1. Cargar laboratorios registrados desde el Backend
+  // 1. Cargar laboratorios registrados desde el Backend y seleccionar 10 aleatorios
   useEffect(() => {
     const fetchLaboratorios = async () => {
       try {
         const response = await fetch('http://localhost:8000/api/establecimientos');
         if (response.ok) {
           const data = await response.json();
-          // Filtrar laboratorios habilitados y con datos completos
+          // Seleccionar 10 laboratorios aleatorios en cada carga de página
           if (data && data.length > 0) {
-            setLaboratorios(data);
+            const array = [...data];
+            for (let i = array.length - 1; i > 0; i--) {
+              const j = Math.floor(Math.random() * (i + 1));
+              [array[i], array[j]] = [array[j], array[i]];
+            }
+            setLaboratorios(array.slice(0, 10));
           }
         }
       } catch (err) {
@@ -31,6 +36,7 @@ export default function HeroBanner() {
 
     fetchLaboratorios();
   }, []);
+
 
   // 2. Autoplay: Cambio automático de diapositiva cada 6 segundos
   useEffect(() => {
@@ -178,7 +184,7 @@ export default function HeroBanner() {
 
             {/* Puntos Indicadores (Dots) */}
             <div className="hidden sm:flex items-center space-x-1.5 pl-2">
-              {laboratorios.slice(0, 10).map((_, idx) => (
+              {laboratorios.map((_, idx) => (
                 <button
                   key={idx}
                   onClick={() => setCurrentIndex(idx)}
