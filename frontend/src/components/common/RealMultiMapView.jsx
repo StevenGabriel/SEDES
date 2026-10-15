@@ -1,6 +1,10 @@
 import React, { useEffect, useRef } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import 'leaflet.markercluster';
+import 'leaflet.markercluster/dist/MarkerCluster.css';
+import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
+
 
 // Diccionario oficial de las 8 Especialidades del SEDES con sus colores e iconos SVG
 export const ESPECIALIDADES_MAPA = {
@@ -762,19 +766,23 @@ const createMarkerIcon = (lab, isSelected = false, selectedEspecialidad = null) 
   const isMulti = allSpecialties.length > 1;
   const pinBg = especialidad.colorHex;
   const badgeBg = especialidad.badgeBg;
+  const size = isSelected ? 38 : 30;
 
   return L.divIcon({
     className: 'custom-multi-lab-marker',
     html: `
-      <div style="transform: translate(-50%, -100%); display: flex; flex-direction: column; align-items: center; cursor: pointer;">
-        <div style="background-color: ${badgeBg}; color: white; padding: 2.5px 8px; border-radius: 9999px; font-size: 10px; font-weight: 800; white-space: nowrap; box-shadow: 0 4px 10px rgba(0,0,0,0.35); border: 1.5px solid rgba(255,255,255,0.9); margin-bottom: 2px; display: flex; align-items: center; gap: 4px;">
-          <span style="width: 6px; height: 6px; border-radius: 9999px; background-color: ${estadoHorario.abierto ? '#10b981' : '#ef4444'};"></span>
-          <span>${lab.nombre_comercial}</span>
-          ${isMulti ? `<span style="background-color: rgba(255,255,255,0.25); border-radius: 4px; padding: 0 4px; font-size: 9px; font-weight: 800;" title="${allSpecialties.length} especialidades">+${allSpecialties.length - 1}</span>` : ''}
-        </div>
+      <div style="transform: translate(-50%, -100%); display: flex; flex-direction: column; align-items: center; cursor: pointer; position: relative;">
+        ${isSelected ? `
+          <div style="background-color: ${badgeBg}; color: white; padding: 2.5px 8px; border-radius: 9999px; font-size: 10px; font-weight: 800; white-space: nowrap; box-shadow: 0 4px 10px rgba(0,0,0,0.35); border: 1.5px solid rgba(255,255,255,0.9); margin-bottom: 3px; display: flex; align-items: center; gap: 4px; z-index: 10;">
+            <span style="width: 6px; height: 6px; border-radius: 9999px; background-color: ${estadoHorario.abierto ? '#10b981' : '#ef4444'};"></span>
+            <span>${lab.nombre_comercial}</span>
+            ${isMulti ? `<span style="background-color: rgba(255,255,255,0.25); border-radius: 4px; padding: 0 4px; font-size: 9px; font-weight: 800;" title="${allSpecialties.length} especialidades">+${allSpecialties.length - 1}</span>` : ''}
+          </div>
+        ` : ''}
 
-        <div style="width: ${isSelected ? '38px' : '33px'}; height: ${isSelected ? '38px' : '33px'}; background-color: ${pinBg}; border-radius: 9999px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 14px rgba(0,0,0,0.45); border: 2.5px solid white; transition: all 0.2s; transform: ${isSelected ? 'scale(1.15)' : 'scale(1)'};">
+        <div style="width: ${size}px; height: ${size}px; background-color: ${pinBg}; border-radius: 9999px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(0,0,0,0.35); border: ${isSelected ? '3px solid #38bdf8' : '2.5px solid white'}; transition: all 0.2s; transform: ${isSelected ? 'scale(1.15)' : 'scale(1)'}; position: relative;">
           ${especialidad.svgIcon}
+          <span style="position: absolute; top: -1px; right: -1px; width: 8px; height: 8px; border-radius: 9999px; background-color: ${estadoHorario.abierto ? '#10b981' : '#ef4444'}; border: 1.5px solid white;"></span>
         </div>
       </div>
     `,
@@ -782,6 +790,7 @@ const createMarkerIcon = (lab, isSelected = false, selectedEspecialidad = null) 
     iconAnchor: [0, 0]
   });
 };
+
 
 export default function RealMultiMapView({ 
   laboratorios = [], 
@@ -827,7 +836,56 @@ export default function RealMultiMapView({
       }).addTo(map);
 
       const boundaryLayer = L.layerGroup().addTo(map);
-      const markersLayer = L.layerGroup().addTo(map);
+      const markersLayer = L.markerClusterGroup({
+        showCoverageOnHover: false,
+        maxClusterRadius: 40,
+        spiderfyOnMaxZoom: true,
+        disableClusteringAtZoom: 16,
+        chunkedLoading: true,
+        iconCreateFunction: function (cluster) {
+          const count = cluster.getChildCount();
+          let bg = '#0284c7';
+          let size = 36;
+          let ring = 'rgba(2, 132, 199, 0.25)';
+
+          if (count >= 100) {
+            bg = '#005596';
+            size = 44;
+            ring = 'rgba(0, 85, 150, 0.25)';
+          } else if (count >= 20) {
+            bg = '#0f766e';
+            size = 40;
+            ring = 'rgba(15, 118, 110, 0.25)';
+          }
+
+          return L.divIcon({
+            html: `
+              <div style="
+                width: ${size}px;
+                height: ${size}px;
+                background-color: ${bg};
+                color: #ffffff;
+                border-radius: 9999px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-family: system-ui, -apple-system, sans-serif;
+                font-weight: 900;
+                font-size: ${size > 40 ? '14px' : '12px'};
+                border: 2.5px solid #ffffff;
+                box-shadow: 0 0 0 5px ${ring}, 0 4px 12px rgba(0,0,0,0.3);
+                cursor: pointer;
+                transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+              ">
+                ${count}
+              </div>
+            `,
+            className: 'custom-cluster-marker',
+            iconSize: [size, size],
+            iconAnchor: [size / 2, size / 2]
+          });
+        }
+      }).addTo(map);
 
       boundaryLayerRef.current = boundaryLayer;
       markersLayerRef.current = markersLayer;
@@ -888,6 +946,8 @@ export default function RealMultiMapView({
     markersLayer.clearLayers();
     markersMapRef.current.clear();
 
+    const markersToAdd = [];
+
     laboratorios.forEach((lab) => {
       const lat = parseFloat(lab.latitud);
       const lng = parseFloat(lab.longitud);
@@ -901,6 +961,22 @@ export default function RealMultiMapView({
       const marker = L.marker([lat, lng], {
         icon: createMarkerIcon(lab, isSelected, selectedEspecialidad),
         zIndexOffset: isSelected ? 1000 : 0
+      });
+
+      // Tooltip informativo flotante y limpio al pasar el cursor (evita superposiciones de texto)
+      marker.bindTooltip(`
+        <div style="font-family: system-ui, sans-serif; padding: 1px 3px; text-align: center; max-width: 220px;">
+          <div style="font-weight: 800; font-size: 11px; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+            ${lab.nombre_comercial}
+          </div>
+          <div style="font-size: 10px; color: #64748b; margin-top: 1px;">
+            <span style="color: ${estadoHorario.abierto ? '#059669' : '#dc2626'}; font-weight: 700;">● ${estadoHorario.texto}</span> • ${allSpecialties[0]?.shortName || 'Clínico'}
+          </div>
+        </div>
+      `, {
+        direction: 'top',
+        offset: [0, isSelected ? -42 : -32],
+        opacity: 0.98
       });
 
       const cueText = lab.codigo_cue && lab.codigo_cue !== 'Nuevo' ? lab.codigo_cue : lab.id;
@@ -951,9 +1027,11 @@ export default function RealMultiMapView({
         onSelectLab(lab);
       });
 
-      marker.addTo(markersLayer);
+      markersToAdd.push(marker);
       markersMapRef.current.set(lab.id, marker);
     });
+
+    markersLayer.addLayers(markersToAdd);
   }, [laboratorios, selectedEspecialidad]);
 
   // 4. Enfocar el mapa si se selecciona un laboratorio específico desde la lista
@@ -964,10 +1042,18 @@ export default function RealMultiMapView({
     const lng = parseFloat(selectedLab.longitud);
 
     if (!isNaN(lat) && !isNaN(lng)) {
-      mapInstanceRef.current.setView([lat, lng], 16, { animate: true, duration: 0.8 });
       const marker = markersMapRef.current.get(selectedLab.id);
-      if (marker) {
-        marker.openPopup();
+      const clusterGroup = markersLayerRef.current;
+
+      if (clusterGroup && marker && typeof clusterGroup.zoomToShowLayer === 'function') {
+        clusterGroup.zoomToShowLayer(marker, () => {
+          marker.openPopup();
+        });
+      } else {
+        mapInstanceRef.current.setView([lat, lng], 16, { animate: true, duration: 0.8 });
+        if (marker) {
+          marker.openPopup();
+        }
       }
     }
   }, [selectedLab]);
