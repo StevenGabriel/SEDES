@@ -2,7 +2,8 @@ import logging
 from sqlalchemy import text
 from geoalchemy2 import WKTElement
 from core.database import engine, Base, SessionLocal
-from models.models import Role, Usuario, Establecimiento, CatalogoRequisito, PlantillaDocumento
+from models.models import Role, Usuario, Establecimiento, CatalogoRequisito, PlantillaDocumento, Tramite, Inspeccion
+from datetime import date, timedelta, datetime
 import json
 from core.security import hash_password
 
@@ -224,6 +225,65 @@ def init_database(reset_tables: bool = False, poblar_laboratorios_demo: bool = F
             poblar_laboratorios_reales(db, "stevenclarost@outlook.com")
         except Exception as e_seed:
             logger.error(f"Advertencia al sembrar laboratorios reales: {e_seed}")
+
+        # 8. Ajustar vencimiento de prueba para cuenta Mauro (para habilitar botón de Renovación/Rehabilitación)
+        try:
+            import uuid
+            estab_mauro = db.query(Establecimiento).filter(
+                Establecimiento.nombre_comercial.ilike("%mauro%")
+            ).first()
+            if estab_mauro:
+                hoy = date.today()
+                f_venc = hoy + timedelta(days=15)
+                f_insp = f_venc - timedelta(days=365)
+                tramite_m = db.query(Tramite).filter(
+                    Tramite.establecimiento_id == estab_mauro.id
+                ).order_by(Tramite.fecha_creacion.desc()).first()
+
+                if not tramite_m:
+                    tramite_m = Tramite(
+                        id=uuid.uuid4(),
+                        establecimiento_id=estab_mauro.id,
+                        tipo_tramite="Apertura",
+                        estado_tramite="Aprobado"
+                    )
+                    db.add(tramite_m)
+                    db.flush()
+
+                insp_m = db.query(Inspeccion).filter(
+                    Inspeccion.tramite_id == tramite_m.id
+                ).first()
+
+                if not insp_m:
+                    sup = db.query(Usuario).join(Role).filter(Role.nombre == "Supervisor").first()
+                    sup_id = sup.id if sup else estab_mauro.propietario_id
+                    insp_m = Inspeccion(
+                        id=uuid.uuid4(),
+                        tramite_id=tramite_m.id,
+                        supervisor_id=sup_id,
+                        fecha_programada=datetime.combine(f_insp, datetime.min.time()),
+                        estado_inspeccion="Completada",
+                        veredicto_final="Favorable",
+                        plazo_subsanacion="1 año",
+                        fecha_vencimiento_acta=f_venc,
+                        alerta_30_dias_enviada=False,
+                        alerta_15_dias_enviada=False,
+                        estado=True
+                    )
+                    db.add(insp_m)
+                else:
+                    insp_m.estado_inspeccion = "Completada"
+                    insp_m.veredicto_final = "Favorable"
+                    insp_m.fecha_programada = datetime.combine(f_insp, datetime.min.time())
+                    insp_m.fecha_vencimiento_acta = f_venc
+                    insp_m.alerta_30_dias_enviada = False
+                    insp_m.alerta_15_dias_enviada = False
+
+                estab_mauro.estado_operativo = "Habilitado"
+                db.commit()
+                logger.info(f"✅ Vencimiento de acta para '{estab_mauro.nombre_comercial}' configurado a {f_venc.strftime('%d/%m/%Y')} (15 días restantes).")
+        except Exception as e_mauro:
+            logger.warning(f"Aviso al configurar vencimiento para cuenta Mauro: {e_mauro}")
 
         if poblar_laboratorios_demo:
             poblar_laboratorios_y_tramites_demo(db)

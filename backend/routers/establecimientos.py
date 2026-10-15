@@ -554,3 +554,98 @@ def importar_lote_laboratorios_reales(
         "propietario_email": propietario_email
     }
 
+@router.post(
+    "/ajustar-vencimiento",
+    summary="Ajustar fecha de vencimiento y habilitar renovación para pruebas o trámites"
+)
+def ajustar_vencimiento_establecimiento(
+    establecimiento_id: Optional[str] = Query(None, description="UUID o nombre del establecimiento"),
+    dias_restantes: int = Query(15, description="Días restantes para el vencimiento (<= 30 activa renovación)"),
+    db: Session = Depends(get_db)
+):
+    import uuid
+    from datetime import date, timedelta, datetime
+
+    estab = None
+    if establecimiento_id:
+        try:
+            u = uuid.UUID(establecimiento_id)
+            estab = db.query(models.Establecimiento).filter(models.Establecimiento.id == u).first()
+        except ValueError:
+            pass
+        
+        if not estab:
+            estab = db.query(models.Establecimiento).filter(
+                models.Establecimiento.nombre_comercial.ilike(f"%{establecimiento_id.strip()}%")
+            ).first()
+
+    if not estab:
+        estab = db.query(models.Establecimiento).filter(
+            models.Establecimiento.nombre_comercial.ilike("%mauro%")
+        ).first()
+
+    if not estab:
+        raise HTTPException(status_code=404, detail="Establecimiento no encontrado.")
+
+    tramite = db.query(models.Tramite).filter(
+        models.Tramite.establecimiento_id == estab.id,
+        models.Tramite.estado == True
+    ).order_by(models.Tramite.fecha_creacion.desc()).first()
+
+    if not tramite:
+        tramite = models.Tramite(
+            id=uuid.uuid4(),
+            establecimiento_id=estab.id,
+            tipo_tramite="Apertura",
+            estado_tramite="Aprobado"
+        )
+        db.add(tramite)
+        db.flush()
+
+    hoy = date.today()
+    f_venc = hoy + timedelta(days=dias_restantes)
+    f_insp = f_venc - timedelta(days=365)
+
+    insp = db.query(models.Inspeccion).filter(
+        models.Inspeccion.tramite_id == tramite.id,
+        models.Inspeccion.estado == True
+    ).order_by(models.Inspeccion.fecha_creacion.desc()).first()
+
+    if not insp:
+        supervisor = db.query(models.Usuario).join(models.Role).filter(models.Role.nombre == "Supervisor").first()
+        sup_id = supervisor.id if supervisor else estab.propietario_id
+
+        insp = models.Inspeccion(
+            id=uuid.uuid4(),
+            tramite_id=tramite.id,
+            supervisor_id=sup_id,
+            fecha_programada=datetime.combine(f_insp, datetime.min.time()),
+            estado_inspeccion="Completada",
+            veredicto_final="Favorable",
+            plazo_subsanacion="1 año",
+            fecha_vencimiento_acta=f_venc,
+            alerta_30_dias_enviada=False,
+            alerta_15_dias_enviada=False,
+            estado=True
+        )
+        db.add(insp)
+    else:
+        insp.estado_inspeccion = "Completada"
+        insp.veredicto_final = "Favorable"
+        insp.fecha_programada = datetime.combine(f_insp, datetime.min.time())
+        insp.fecha_vencimiento_acta = f_venc
+        insp.alerta_30_dias_enviada = False
+        insp.alerta_15_dias_enviada = False
+
+    estab.estado_operativo = "Habilitado"
+    estab.estado = True
+
+    db.commit()
+    db.refresh(estab)
+
+    return {
+        "mensaje": f"Fecha de vencimiento ajustada exitosamente a {f_venc.strftime('%d/%m/%Y')} ({dias_restantes} días restantes).",
+        "establecimiento": serializar_establecimiento(estab, db)
+    }
+
+
