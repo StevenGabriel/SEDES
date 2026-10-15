@@ -219,6 +219,12 @@ def init_database(reset_tables: bool = False, poblar_laboratorios_demo: bool = F
             db.commit()
             logger.info("✅ Plantilla oficial de Comunicación Interna CODELAB inicializada.")
 
+        # 7. Poblar laboratorios reales para Steven Claros (Habilitados para Landing Page y Mapa)
+        try:
+            poblar_laboratorios_reales(db, "stevenclarost@outlook.com")
+        except Exception as e_seed:
+            logger.error(f"Advertencia al sembrar laboratorios reales: {e_seed}")
+
         if poblar_laboratorios_demo:
             poblar_laboratorios_y_tramites_demo(db)
         else:
@@ -231,5 +237,114 @@ def init_database(reset_tables: bool = False, poblar_laboratorios_demo: bool = F
         logger.error(f"❌ Error al inicializar la base de datos: {e}")
         raise e
 
+def poblar_laboratorios_reales(db, propietario_email: str = "stevenclarost@outlook.com", forzar_actualizacion: bool = False):
+    """
+    Importa el catálogo oficial de laboratorios clínicos reales desde laboratorios_reales.json
+    y los asigna a la cuenta de propietario indicada en estado 'Habilitado'.
+    """
+    import os
+    import json
+    import uuid
+    from sqlalchemy import func
+
+    email_norm = propietario_email.strip().lower()
+    propietario = db.query(Usuario).filter(func.lower(Usuario.email) == email_norm).first()
+
+    if not propietario:
+        logger.warning(f"⚠️ Propietario con email '{propietario_email}' no encontrado en base de datos. Creando usuario...")
+        rol_prop = db.query(Role).filter(Role.nombre == "Propietario").first()
+        if not rol_prop:
+            rol_prop = Role(nombre="Propietario")
+            db.add(rol_prop)
+            db.commit()
+            db.refresh(rol_prop)
+
+        propietario = Usuario(
+            id=uuid.uuid4(),
+            rol_id=rol_prop.id,
+            nombres="Steven",
+            apellidos="Claros Tapia",
+            ci_nit="8726834",
+            email=email_norm,
+            password_hash=hash_password("Sedes2026!"),
+            telefono="+591 70000000",
+            estado=True
+        )
+        db.add(propietario)
+        db.commit()
+        db.refresh(propietario)
+        logger.info(f"✅ Usuario Propietario '{email_norm}' creado exitosamente.")
+
+    # Verificar si ya existen suficientes laboratorios cargados
+    count_existentes = db.query(Establecimiento).filter(
+        Establecimiento.propietario_id == propietario.id
+    ).count()
+    if count_existentes >= 100 and not forzar_actualizacion:
+        logger.info(f"ℹ️ El propietario {propietario.email} ya cuenta con {count_existentes} laboratorios. Omitiendo siembra.")
+        return count_existentes
+
+    # Cargar JSON
+    json_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "laboratorios_reales.json")
+    if not os.path.exists(json_path):
+        logger.warning(f"⚠️ Archivo {json_path} no encontrado.")
+        return 0
+
+    with open(json_path, "r", encoding="utf-8") as f:
+        labs_data = json.load(f)
+
+    contador = 0
+    for lab in labs_data:
+        nombre = lab["nombre_comercial"].strip()
+        mun = lab["municipio"].strip()
+
+        # Buscar si ya existe por nombre comercial y municipio
+        estab = db.query(Establecimiento).filter(
+            func.lower(Establecimiento.nombre_comercial) == nombre.lower(),
+            func.lower(Establecimiento.municipio) == mun.lower()
+        ).first()
+
+        if estab:
+            estab.propietario_id = propietario.id
+            estab.estado_operativo = "Habilitado"
+            estab.estado = True
+            if lab.get("ci_responsable"):
+                estab.ci_responsable = lab["ci_responsable"]
+            if lab.get("codigo_cue") and lab["codigo_cue"] != "Nuevo":
+                estab.codigo_cue = lab["codigo_cue"]
+            if lab.get("responsables_areas"):
+                estab.responsables_areas = lab["responsables_areas"]
+            if lab.get("servicios"):
+                estab.servicios = lab["servicios"]
+            contador += 1
+        else:
+            nuevo = Establecimiento(
+                id=uuid.uuid4(),
+                propietario_id=propietario.id,
+                codigo_cue=lab.get("codigo_cue") or "Nuevo",
+                nombre_comercial=nombre,
+                tipo=lab.get("tipo") or "Privado",
+                nivel=lab.get("nivel") or "Nivel 1",
+                municipio=mun,
+                responsable_laboratorio=lab.get("responsable_laboratorio") or f"{propietario.nombres} {propietario.apellidos}",
+                ci_responsable=lab.get("ci_responsable"),
+                responsables_areas=lab.get("responsables_areas"),
+                servicios=lab.get("servicios") or "Análisis Clínicos Generales, Toma de Muestras",
+                direccion=lab["direccion"],
+                coordenadas=f"SRID=4326;POINT({lab['longitud']} {lab['latitud']})",
+                horario="Lun-Vie 7:00 - 19:00, Sáb 8:00 - 13:00",
+                telefono=propietario.telefono or "+591 4 4000000",
+                email_contacto=propietario.email or "contacto@sedescbba.gob.bo",
+                descripcion="Establecimiento de salud acreditado para la toma de muestras y diagnóstico clínico bajo normativa sanitaria de Cochabamba.",
+                estado_operativo="Habilitado",
+                estado=True
+            )
+            db.add(nuevo)
+            contador += 1
+
+    db.commit()
+    logger.info(f"✅ {contador} laboratorios reales procesados para la cuenta {propietario.email}.")
+    return contador
+
 if __name__ == "__main__":
     init_database(reset_tables=True)
+

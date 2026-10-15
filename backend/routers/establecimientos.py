@@ -536,3 +536,21 @@ async def subir_imagen_establecimiento(
         "imagen_url": url_publica,
         "establecimiento": serializar_establecimiento(estab, db)
     }
+
+@router.post(
+    "/importar-lote-real",
+    summary="Importar lote oficial de laboratorios reales hacia la cuenta del propietario"
+)
+def importar_lote_laboratorios_reales(
+    propietario_email: str = Query("stevenclarost@outlook.com", description="Correo del propietario al que se asignarán"),
+    forzar: bool = Query(False, description="Forzar actualización de datos"),
+    db: Session = Depends(get_db)
+):
+    from services.init_db import poblar_laboratorios_reales
+    total = poblar_laboratorios_reales(db, propietario_email=propietario_email, forzar_actualizacion=forzar)
+    return {
+        "mensaje": "Importación completada exitosamente.",
+        "total_procesados": total,
+        "propietario_email": propietario_email
+    }
+
