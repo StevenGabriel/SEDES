@@ -1312,7 +1312,7 @@ def listar_supervisores_campo(db: Session = Depends(get_db)):
             "telefono": s.telefono or "+591 4 4256789",
             "especialidad": "Laboratorios Clínicos / Farmacias",
             "asignados": asignados_count,
-            "maxCapacidad": 5,
+            "maxCapacidad": None,
             "zona": "Cochabamba - Departamental"
         })
 

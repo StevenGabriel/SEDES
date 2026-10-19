@@ -835,10 +835,6 @@ export default function CoordinadorPage() {
     }
 
     const supervisor = supervisoresDisponibles.find(s => s.nombre === supervisorElegido);
-    if (supervisor && supervisor.asignados >= supervisor.maxCapacidad) {
-      mostrarToast(`El supervisor ${supervisor.nombre} ha alcanzado su capacidad máxima (5/5). Seleccione otro supervisor disponible.`, 'warning');
-      return;
-    }
 
     try {
       const response = await fetch('http://localhost:8000/api/coordinador/asignar-supervisor', {
@@ -890,7 +886,7 @@ export default function CoordinadorPage() {
         if (supervisor) {
           setSupervisoresDisponibles(prev => prev.map(s => {
             if (s.id === supervisor.id || s.nombre === supervisor.nombre) {
-              return { ...s, asignados: Math.min(s.maxCapacidad, s.asignados + 1) };
+              return { ...s, asignados: (s.asignados || 0) + 1 };
             }
             return s;
           }));
@@ -3167,9 +3163,6 @@ export default function CoordinadorPage() {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                   {supervisoresDisponibles.map((sup) => {
-                    const isFull = sup.asignados >= sup.maxCapacidad;
-                    const porcentaje = Math.min(100, Math.round((sup.asignados / sup.maxCapacidad) * 100));
-
                     return (
                       <div
                         key={sup.id}
@@ -3177,20 +3170,12 @@ export default function CoordinadorPage() {
                       >
                         {/* Fila superior: Badge de Iniciales y Badge de Estado */}
                         <div className="flex items-center justify-between mb-3">
-                          <div className={`w-8 h-8 rounded-lg font-bold text-xs flex items-center justify-center ${
-                            isFull 
-                              ? 'bg-rose-50 text-rose-600 border border-rose-200' 
-                              : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                          }`}>
+                          <div className="w-8 h-8 rounded-lg font-bold text-xs flex items-center justify-center bg-indigo-50 text-indigo-700 border border-indigo-200">
                             {sup.iniciales}
                           </div>
 
-                          <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border ${
-                            isFull
-                              ? 'bg-rose-50 text-rose-600 border-rose-200'
-                              : 'bg-emerald-50 text-emerald-600 border-emerald-200'
-                          }`}>
-                            {isFull ? 'Capacidad Llena' : 'Disponible'}
+                          <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full border bg-emerald-50 text-emerald-700 border-emerald-200">
+                            Habilitado
                           </span>
                         </div>
 
@@ -3207,18 +3192,16 @@ export default function CoordinadorPage() {
                         {/* Carga de Trabajo y Barra de Progreso */}
                         <div>
                           <div className="flex items-center justify-between text-xs mb-1.5">
-                            <span className="text-slate-400 text-[11px] font-medium">Carga Operativa</span>
-                            <span className={`text-[11px] font-bold ${isFull ? 'text-rose-600' : 'text-slate-700'}`}>
-                              {sup.asignados}/{sup.maxCapacidad} trámites
+                            <span className="text-slate-400 text-[11px] font-medium">Asignaciones Activas</span>
+                            <span className="text-[11px] font-bold text-slate-800">
+                              {sup.asignados || 0} {(sup.asignados || 0) === 1 ? 'inspección' : 'inspecciones'}
                             </span>
                           </div>
 
                           <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
                             <div
-                              className={`h-full rounded-full transition-all duration-300 ${
-                                isFull ? 'bg-rose-500' : 'bg-[#0077c8]'
-                              }`}
-                              style={{ width: `${porcentaje}%` }}
+                              className="h-full rounded-full transition-all duration-300 bg-[#0077c8]"
+                              style={{ width: `${Math.min(100, Math.max(8, (sup.asignados || 0) * 15))}%` }}
                             />
                           </div>
                         </div>
@@ -3303,18 +3286,14 @@ export default function CoordinadorPage() {
                                   className="w-full bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-[#0077c8] cursor-pointer appearance-none pr-8"
                                 >
                                   <option value="">Seleccionar supervisor...</option>
-                                  {supervisoresDisponibles.map((s) => {
-                                    const supActual = supervisoresSeleccionados[item.codigo] ?? (item.tramite_uuid ? supervisoresSeleccionados[item.tramite_uuid] : null) ?? item.supervisorAsignado;
-                                    return (
-                                      <option
-                                        key={s.id}
-                                        value={s.nombre}
-                                        disabled={s.asignados >= s.maxCapacidad && supActual !== s.nombre}
-                                      >
-                                        {s.nombre} ({s.asignados}/{s.maxCapacidad}{s.asignados >= s.maxCapacidad ? ' - Lleno' : ''})
-                                      </option>
-                                    );
-                                  })}
+                                  {supervisoresDisponibles.map((s) => (
+                                    <option
+                                      key={s.id}
+                                      value={s.nombre}
+                                    >
+                                      {s.nombre} ({s.asignados || 0} {(s.asignados || 0) === 1 ? 'inspección activa' : 'inspecciones activas'})
+                                    </option>
+                                  ))}
                                 </select>
                                 <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-slate-400">
                                   <ChevronRight className="w-3.5 h-3.5 rotate-90" />
