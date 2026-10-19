@@ -287,8 +287,8 @@ def eliminar_usuario(
         )
 
         # 3. Desvincular de resoluciones asignadas
-        db.query(models.Resolucion).filter(models.Resolucion.abogado_id == u_uuid).update(
-            {models.Resolucion.abogado_id: None},
+        db.query(models.ResolucionAdministrativa).filter(models.ResolucionAdministrativa.abogado_id == u_uuid).update(
+            {models.ResolucionAdministrativa.abogado_id: None},
             synchronize_session=False
         )
 
