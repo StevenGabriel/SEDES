@@ -6,3 +6,5 @@ psycopg2-binary
 pydantic
 pydantic[email]
 python-multipart
+Pillow>=10.0.0
+pypdf>=4.0.0

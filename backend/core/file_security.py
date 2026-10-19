@@ -4,6 +4,113 @@ import re
 from typing import List, Tuple
 from fastapi import UploadFile, HTTPException, status
 
+import io
+import logging
+from PIL import Image, ImageOps
+
+logger = logging.getLogger("sedes.optimizador_archivos")
+
+def optimize_image_content(content: bytes, ext: str, max_dimension: int = 2560, quality: int = 86) -> bytes:
+    """
+    Optimiza imágenes preservando máxima nitidez y alta resolución para pantallas 2K/4K y carruseles.
+    - Corrige orientación EXIF (fotos tomadas con smartphones).
+    - Mantiene resolución nativa hasta 2560px (Ultra-HD / QHD) sin pixelar.
+    - Calidad visual del 86%: indistinguible al ojo humano, reduciendo drásticamente el peso.
+    - Aplica remuestreo de alta calidad Lanczos.
+    """
+    try:
+        ext_clean = ext.lower().lstrip(".")
+        with Image.open(io.BytesIO(content)) as img:
+            # 1. Corregir orientación basada en EXIF si corresponde
+            img = ImageOps.exif_transpose(img)
+            
+            # 2. Redimensionar únicamente si excede dimensiones Ultra-HD (2560px)
+            w, h = img.size
+            if max(w, h) > max_dimension:
+                img.thumbnail((max_dimension, max_dimension), Image.Resampling.LANCZOS)
+            
+            output = io.BytesIO()
+            if ext_clean in ("jpg", "jpeg"):
+                if img.mode in ("RGBA", "P"):
+                    img = img.convert("RGB")
+                img.save(output, format="JPEG", quality=quality, optimize=True, progressive=True)
+            elif ext_clean == "png":
+                # Optimización PNG sin pérdida manteniendo transparencia
+                img.save(output, format="PNG", optimize=True)
+            elif ext_clean == "webp":
+                img.save(output, format="WEBP", quality=quality, optimize=True)
+            else:
+                return content
+            
+            compressed = output.getvalue()
+            # Conservar la versión optimizada únicamente si es menor al archivo original
+            if 0 < len(compressed) < len(content):
+                ahorro = round((1 - len(compressed) / len(content)) * 100, 1)
+                logger.info(f"Imagen optimizada con alta resolución: {len(content)}B -> {len(compressed)}B (-{ahorro}%)")
+                return compressed
+    except Exception as e:
+        logger.warning(f"Aviso: no se pudo optimizar imagen ({e}), conservando original intacto.")
+    return content
+
+def optimize_pdf_content(content: bytes) -> bytes:
+    """
+    Optimiza documentos PDF comprimiendo flujos de contenido, deduplicando objetos
+    y optimizando imágenes escaneadas incrustadas preservando legibilidad jurídica/técnica.
+    """
+    try:
+        from pypdf import PdfReader, PdfWriter
+        reader = PdfReader(io.BytesIO(content))
+        writer = PdfWriter()
+        
+        for page in reader.pages:
+            new_page = writer.add_page(page)
+            # Optimizar imágenes incrustadas dentro de la página del PDF
+            try:
+                for img_file in new_page.images:
+                    try:
+                        pil_img = img_file.image
+                        # Mantener hasta 2048px en imágenes incrustadas dentro del PDF
+                        if max(pil_img.size) > 2048:
+                            pil_img.thumbnail((2048, 2048), Image.Resampling.LANCZOS)
+                        img_file.replace(pil_img, quality=85)
+                    except Exception:
+                        pass
+            except Exception:
+                pass
+
+            try:
+                new_page.compress_content_streams()
+            except Exception:
+                pass
+                
+        try:
+            writer.compress_identical_objects()
+        except Exception:
+            pass
+
+        output = io.BytesIO()
+        writer.write(output)
+        compressed = output.getvalue()
+        
+        if 0 < len(compressed) < len(content):
+            ahorro = round((1 - len(compressed) / len(content)) * 100, 1)
+            logger.info(f"PDF optimizado exitosamente: {len(content)}B -> {len(compressed)}B (-{ahorro}%)")
+            return compressed
+    except Exception as e:
+        logger.warning(f"Aviso: no se pudo optimizar PDF ({e}), conservando original intacto.")
+    return content
+
+def optimize_file_content(content: bytes, ext: str) -> bytes:
+    """
+    Punto de entrada para la optimización inteligente y transparente de archivos subidos.
+    """
+    ext_clean = ext.lower().lstrip(".")
+    if ext_clean == "pdf":
+        return optimize_pdf_content(content)
+    elif ext_clean in ("jpg", "jpeg", "png", "webp"):
+        return optimize_image_content(content, ext)
+    return content
+
 # Límites máximos
 MAX_FILE_SIZE_BYTES = 20 * 1024 * 1024  # 20 MB
 
@@ -115,8 +222,11 @@ async def validate_and_save_upload(
             detail="Ruta de destino inválida detectada (Path Traversal prevenido)."
         )
 
-    # 5. Escribir archivo en disco
+    # 5. Compresión y optimización automática (alta resolución y máxima legibilidad)
+    content_final = optimize_file_content(content, ext)
+
+    # 6. Escribir archivo optimizado en disco
     with open(abs_file_path, "wb") as f:
-        f.write(content)
+        f.write(content_final)
 
     return safe_filename, abs_file_path
