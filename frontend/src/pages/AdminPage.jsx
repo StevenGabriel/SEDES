@@ -37,6 +37,7 @@ import {
   User,
   Check,
   Eye,
+  EyeOff,
   FileText,
   Download,
   PlusCircle,
@@ -1106,12 +1107,45 @@ export default function AdminPage() {
     rol: 'Supervisor',
     password: ''
   });
+  const [showPasswordNuevo, setShowPasswordNuevo] = useState(false);
+  const [guardandoUsuario, setGuardandoUsuario] = useState(false);
+  const [errorModalNuevo, setErrorModalNuevo] = useState(null);
+
+  // Estados para modal de edición
+  const [guardandoEdicion, setGuardandoEdicion] = useState(false);
+  const [errorModalEdicion, setErrorModalEdicion] = useState(null);
+
+  // Generador de contraseña segura
+  const generarPasswordSegura = () => {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@#$';
+    let pass = '';
+    for (let i = 0; i < 10; i++) {
+      pass += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    setFormNuevo(prev => ({ ...prev, password: pass }));
+    setShowPasswordNuevo(true);
+  };
+
+  // Helper para procesar mensajes de error devueltos por el backend (FastAPI, Pydantic, etc.)
+  const parseApiError = (errData) => {
+    if (!errData) return 'Ocurrió un error inesperado al procesar la solicitud.';
+    if (typeof errData === 'string') return errData;
+    if (typeof errData.detail === 'string') return errData.detail;
+    if (Array.isArray(errData.detail)) {
+      return errData.detail
+        .map(d => (typeof d === 'string' ? d : d.msg || JSON.stringify(d)))
+        .join(', ');
+    }
+    if (errData.message) return errData.message;
+    return 'Error al procesar la solicitud.';
+  };
 
   // Cargar usuarios desde la Base de Datos (con soporte para refresco silencioso)
   const cargarUsuariosDesdeBD = async (silencioso = false) => {
     if (!silencioso) setCargando(true);
     try {
-      const res = await fetch('http://localhost:8000/api/admin/usuarios?solo_institucionales=true');
+      // Cargar todos los usuarios (institucionales y propietarios) para gestión integral
+      const res = await fetch('http://localhost:8000/api/admin/usuarios?solo_institucionales=false');
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data) && data.length > 0) {
@@ -1170,10 +1204,14 @@ export default function AdminPage() {
   };
 
   const mostrarToast = (mensaje, tipo = 'success') => {
-    setToastMensaje({ mensaje, tipo });
+    let texto = mensaje;
+    if (typeof mensaje === 'object' && mensaje !== null) {
+      texto = parseApiError(mensaje);
+    }
+    setToastMensaje({ mensaje: String(texto || 'Operación realizada'), tipo });
     setTimeout(() => {
       setToastMensaje(null);
-    }, 3500);
+    }, 5000);
   };
 
   // Menú lateral estructurado
@@ -1255,23 +1293,28 @@ export default function AdminPage() {
   // Crear nuevo usuario en BD
   const handleCrearUsuario = async (e) => {
     e.preventDefault();
+    setErrorModalNuevo(null);
+    setGuardandoUsuario(true);
+
     try {
+      const passwordFinal = formNuevo.password?.trim() || 'Sedes2026!';
       const res = await fetch('http://localhost:8000/api/admin/usuarios', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          nombres: formNuevo.nombres,
-          apellidos: formNuevo.apellidos,
-          ci_nit: formNuevo.ci,
-          email: formNuevo.email,
-          telefono: formNuevo.telefono,
+          nombres: formNuevo.nombres.trim(),
+          apellidos: formNuevo.apellidos.trim(),
+          ci_nit: formNuevo.ci.trim().toUpperCase(),
+          email: formNuevo.email.trim().toLowerCase(),
+          telefono: formNuevo.telefono ? formNuevo.telefono.trim() : null,
           rol: formNuevo.rol,
-          password: formNuevo.password || 'Sedes2026!'
+          password: passwordFinal
         })
       });
+
       if (res.ok) {
         const nuevo = await res.json();
-        setUsuarios(prev => [nuevo, ...prev]);
+        setUsuarios(prev => [nuevo, ...prev.filter(item => item.id !== nuevo.id)]);
         setModalNuevoUsuarioOpen(false);
         setFormNuevo({
           nombres: '',
@@ -1282,32 +1325,57 @@ export default function AdminPage() {
           rol: 'Supervisor',
           password: ''
         });
-        mostrarToast(`Usuario ${nuevo.nombreCompleto} registrado. Correo de activación enviado a ${nuevo.email}.`, 'success');
+        setErrorModalNuevo(null);
+        mostrarToast(`Usuario ${nuevo.nombreCompleto} registrado exitosamente. Contraseña inicial: ${passwordFinal}`, 'success');
         return;
       } else {
-        const errData = await res.json();
-        mostrarToast(errData.detail || 'Error al registrar usuario', 'error');
+        const errData = await res.json().catch(() => ({}));
+        const mensajeError = parseApiError(errData);
+        setErrorModalNuevo(mensajeError);
+        mostrarToast(mensajeError, 'error');
         return;
       }
     } catch (err) {
-      console.warn('Backend offline, creando localmente:', err);
+      console.warn('Backend offline o error de red, creando localmente:', err);
       const nuevo = {
         id: `usr-${Date.now()}`,
-        nombres: formNuevo.nombres,
-        apellidos: formNuevo.apellidos,
-        nombreCompleto: `${formNuevo.nombres} ${formNuevo.apellidos}`,
-        email: formNuevo.email,
+        nombres: formNuevo.nombres.trim(),
+        apellidos: formNuevo.apellidos.trim(),
+        nombreCompleto: `${formNuevo.nombres.trim()} ${formNuevo.apellidos.trim()}`,
+        email: formNuevo.email.trim().toLowerCase(),
         rol: formNuevo.rol,
-        rolBadgeColor: 'bg-amber-50 text-amber-700 border-amber-200',
+        rolBadgeColor: formNuevo.rol === 'Director'
+          ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
+          : formNuevo.rol === 'Coordinador'
+          ? 'bg-sky-50 text-sky-700 border-sky-200'
+          : formNuevo.rol === 'Abogado'
+          ? 'bg-purple-50 text-purple-700 border-purple-200'
+          : formNuevo.rol === 'Administrador'
+          ? 'bg-slate-100 text-slate-800 border-slate-300'
+          : formNuevo.rol === 'Propietario'
+          ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+          : 'bg-amber-50 text-amber-700 border-amber-200',
         ultimaConexion: 'Recién creado',
         estado: 'Activo',
-        ci: formNuevo.ci,
-        telefono: formNuevo.telefono,
+        ci: formNuevo.ci.trim().toUpperCase(),
+        telefono: formNuevo.telefono?.trim() || '',
         avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&auto=format&fit=crop&q=80'
       };
       setUsuarios(prev => [nuevo, ...prev]);
       setModalNuevoUsuarioOpen(false);
-      mostrarToast(`Usuario ${nuevo.nombreCompleto} registrado localmente.`, 'success');
+      setFormNuevo({
+        nombres: '',
+        apellidos: '',
+        ci: '',
+        email: '',
+        telefono: '',
+        rol: 'Supervisor',
+        password: ''
+      });
+      setErrorModalNuevo(null);
+      mostrarToast(`Usuario ${nuevo.nombreCompleto} registrado localmente (servidor fuera de línea).`, 'warning');
+    } finally {
+      setGuardandoUsuario(false);
     }
   };
 
@@ -1315,30 +1383,37 @@ export default function AdminPage() {
   const handleGuardarEdicion = async (e) => {
     e.preventDefault();
     if (!usuarioEditando) return;
+    setErrorModalEdicion(null);
+    setGuardandoEdicion(true);
+
     try {
       const res = await fetch(`http://localhost:8000/api/admin/usuarios/${usuarioEditando.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          nombres: usuarioEditando.nombres,
-          apellidos: usuarioEditando.apellidos,
-          ci_nit: usuarioEditando.ci,
-          email: usuarioEditando.email,
-          telefono: usuarioEditando.telefono,
+          nombres: usuarioEditando.nombres?.trim(),
+          apellidos: usuarioEditando.apellidos?.trim(),
+          ci_nit: usuarioEditando.ci?.trim().toUpperCase(),
+          email: usuarioEditando.email?.trim().toLowerCase(),
+          telefono: usuarioEditando.telefono?.trim() || null,
           rol: usuarioEditando.rol,
           estado: usuarioEditando.estado === 'Activo'
         })
       });
+
       if (res.ok) {
         const editado = await res.json();
         setUsuarios(prev => prev.map(u => u.id === editado.id ? editado : u));
         setModalEditarUsuarioOpen(false);
         setUsuarioEditando(null);
+        setErrorModalEdicion(null);
         mostrarToast(`Usuario ${editado.nombreCompleto} actualizado con éxito.`, 'success');
         return;
       } else {
-        const errData = await res.json();
-        mostrarToast(errData.detail || 'Error al actualizar usuario', 'error');
+        const errData = await res.json().catch(() => ({}));
+        const mensajeError = parseApiError(errData);
+        setErrorModalEdicion(mensajeError);
+        mostrarToast(mensajeError, 'error');
         return;
       }
     } catch (err) {
@@ -1349,7 +1424,10 @@ export default function AdminPage() {
       } : u));
       setModalEditarUsuarioOpen(false);
       setUsuarioEditando(null);
+      setErrorModalEdicion(null);
       mostrarToast(`Usuario actualizado localmente.`, 'success');
+    } finally {
+      setGuardandoEdicion(false);
     }
   };
 
@@ -1516,12 +1594,34 @@ export default function AdminPage() {
           </div>
         </header>
 
-        {/* Notificación Toast */}
+        {/* Notificación Toast Global (siempre por encima de modales con z-[9999]) */}
         {toastMensaje && (
-          <div className="fixed top-20 right-6 z-50 bg-slate-900 text-white px-5 py-3.5 rounded-xl shadow-2xl flex items-center space-x-3 text-xs sm:text-sm animate-bounce">
-            <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
-            <span className="font-medium">{toastMensaje.mensaje}</span>
-            <button onClick={() => setToastMensaje(null)} className="ml-2 text-slate-400 hover:text-white cursor-pointer">
+          <div 
+            className={`fixed top-6 right-6 z-[9999] px-5 py-3.5 rounded-2xl shadow-2xl flex items-center space-x-3 text-xs sm:text-sm animate-bounce border transition-all duration-300 max-w-md ${
+              toastMensaje.tipo === 'error'
+                ? 'bg-rose-950/95 text-white border-rose-700 shadow-rose-950/60'
+                : toastMensaje.tipo === 'warning'
+                ? 'bg-amber-950/95 text-white border-amber-700 shadow-amber-950/60'
+                : toastMensaje.tipo === 'info'
+                ? 'bg-sky-950/95 text-white border-sky-700 shadow-sky-950/60'
+                : 'bg-slate-900/95 text-white border-slate-700 shadow-slate-950/60'
+            }`}
+          >
+            {toastMensaje.tipo === 'error' ? (
+              <AlertCircle className="w-5 h-5 text-rose-400 shrink-0" />
+            ) : toastMensaje.tipo === 'warning' ? (
+              <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0" />
+            ) : toastMensaje.tipo === 'info' ? (
+              <Info className="w-5 h-5 text-sky-400 shrink-0" />
+            ) : (
+              <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
+            )}
+            <span className="font-semibold leading-snug">{toastMensaje.mensaje}</span>
+            <button 
+              onClick={() => setToastMensaje(null)} 
+              className="ml-2 text-slate-400 hover:text-white cursor-pointer p-0.5 rounded-lg hover:bg-white/10 transition shrink-0"
+              title="Cerrar notificación"
+            >
               <X className="w-4 h-4" />
             </button>
           </div>
@@ -1552,7 +1652,10 @@ export default function AdminPage() {
                 <div className="flex items-center space-x-3 self-start sm:self-auto">
                   <button
                     type="button"
-                    onClick={() => setModalNuevoUsuarioOpen(true)}
+                    onClick={() => {
+                      setErrorModalNuevo(null);
+                      setModalNuevoUsuarioOpen(true);
+                    }}
                     className="bg-[#1b2533] hover:bg-[#111827] text-white text-xs sm:text-sm font-bold px-5 py-2.5 rounded-xl shadow-md hover:shadow-lg transition flex items-center space-x-2 cursor-pointer"
                   >
                     <Plus className="w-4 h-4 text-white" />
@@ -1619,6 +1722,7 @@ export default function AdminPage() {
                     <option value="Abogado">Abogado</option>
                     <option value="Supervisor">Supervisor</option>
                     <option value="Administrador">Administrador</option>
+                    <option value="Propietario">Propietario</option>
                   </select>
 
                   <select
@@ -2185,8 +2289,8 @@ export default function AdminPage() {
       {/* 4. MODAL: CREAR NUEVO USUARIO                                         */}
       {/* ===================================================================== */}
       {modalNuevoUsuarioOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fadeIn">
-          <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl border border-slate-100 space-y-5">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fadeIn overflow-y-auto">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl border border-slate-100 space-y-5 my-8">
             <div className="flex items-start justify-between border-b border-slate-100 pb-4">
               <div>
                 <span className="text-[10px] font-extrabold text-[#005596] uppercase tracking-wider">
@@ -2198,12 +2302,26 @@ export default function AdminPage() {
               </div>
               <button
                 type="button"
-                onClick={() => setModalNuevoUsuarioOpen(false)}
+                onClick={() => {
+                  setErrorModalNuevo(null);
+                  setModalNuevoUsuarioOpen(false);
+                }}
                 className="p-1 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
+
+            {/* Alerta de Error en Línea si falla la creación */}
+            {errorModalNuevo && (
+              <div className="p-3.5 bg-rose-50 border border-rose-200/90 rounded-2xl flex items-start space-x-2.5 text-rose-800 animate-fadeIn">
+                <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                <div className="flex-1 text-xs">
+                  <span className="font-bold block text-rose-900">No se pudo registrar el usuario:</span>
+                  <span className="text-[11px] text-rose-700 leading-relaxed block mt-0.5">{errorModalNuevo}</span>
+                </div>
+              </div>
+            )}
 
             <form onSubmit={handleCrearUsuario} className="space-y-4 text-xs">
               
@@ -2214,7 +2332,10 @@ export default function AdminPage() {
                     type="text"
                     required
                     value={formNuevo.nombres}
-                    onChange={(e) => setFormNuevo({ ...formNuevo, nombres: e.target.value })}
+                    onChange={(e) => {
+                      setErrorModalNuevo(null);
+                      setFormNuevo({ ...formNuevo, nombres: e.target.value });
+                    }}
                     placeholder="Ej: Marcelo"
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-[#0077c8]"
                   />
@@ -2226,7 +2347,10 @@ export default function AdminPage() {
                     type="text"
                     required
                     value={formNuevo.apellidos}
-                    onChange={(e) => setFormNuevo({ ...formNuevo, apellidos: e.target.value })}
+                    onChange={(e) => {
+                      setErrorModalNuevo(null);
+                      setFormNuevo({ ...formNuevo, apellidos: e.target.value });
+                    }}
                     placeholder="Ej: Ríos Camacho"
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-[#0077c8]"
                   />
@@ -2240,17 +2364,19 @@ export default function AdminPage() {
                     type="text"
                     required
                     value={formNuevo.ci}
-                    onChange={(e) => setFormNuevo({ ...formNuevo, ci: e.target.value })}
+                    onChange={(e) => {
+                      setErrorModalNuevo(null);
+                      setFormNuevo({ ...formNuevo, ci: e.target.value });
+                    }}
                     placeholder="Ej: 5928102 CB"
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-[#0077c8]"
                   />
                 </div>
 
                 <div className="space-y-1">
-                  <label className="font-bold text-slate-700">Teléfono *</label>
+                  <label className="font-bold text-slate-700">Teléfono</label>
                   <input
                     type="text"
-                    required
                     value={formNuevo.telefono}
                     onChange={(e) => setFormNuevo({ ...formNuevo, telefono: e.target.value })}
                     placeholder="Ej: 71239845"
@@ -2260,13 +2386,16 @@ export default function AdminPage() {
               </div>
 
               <div className="space-y-1">
-                <label className="font-bold text-slate-700">Correo Electrónico Institucional *</label>
+                <label className="font-bold text-slate-700">Correo Electrónico *</label>
                 <input
                   type="email"
                   required
                   value={formNuevo.email}
-                  onChange={(e) => setFormNuevo({ ...formNuevo, email: e.target.value })}
-                  placeholder="Ej: m.rios@sedes.gob.bo"
+                  onChange={(e) => {
+                    setErrorModalNuevo(null);
+                    setFormNuevo({ ...formNuevo, email: e.target.value });
+                  }}
+                  placeholder="Ej: m.rios@sedes.gob.bo o correo@dominio.com"
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-[#0077c8]"
                 />
               </div>
@@ -2283,30 +2412,72 @@ export default function AdminPage() {
                   <option value="Abogado">Abogado</option>
                   <option value="Director">Director</option>
                   <option value="Administrador">Administrador</option>
+                  <option value="Propietario">Propietario / Solicitante</option>
                 </select>
+              </div>
+
+              {/* Campo de Contraseña Inicial */}
+              <div className="space-y-1">
+                <div className="flex items-center justify-between">
+                  <label className="font-bold text-slate-700">Contraseña Inicial de Acceso</label>
+                  <button
+                    type="button"
+                    onClick={generarPasswordSegura}
+                    className="text-[11px] font-bold text-[#0077c8] hover:text-[#005596] hover:underline cursor-pointer flex items-center space-x-1"
+                  >
+                    <Sparkles className="w-3 h-3 text-[#0077c8]" />
+                    <span>Generar clave segura</span>
+                  </button>
+                </div>
+                <div className="relative">
+                  <input
+                    type={showPasswordNuevo ? "text" : "password"}
+                    value={formNuevo.password}
+                    onChange={(e) => setFormNuevo({ ...formNuevo, password: e.target.value })}
+                    placeholder="Sedes2026! (predeterminada si se deja vacío)"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 pr-10 text-slate-800 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-[#0077c8]"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPasswordNuevo(!showPasswordNuevo)}
+                    className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600 cursor-pointer p-0.5 rounded"
+                    tabIndex={-1}
+                    title={showPasswordNuevo ? "Ocultar contraseña" : "Ver contraseña"}
+                  >
+                    {showPasswordNuevo ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+                <p className="text-[10px] text-slate-400">
+                  Deje en blanco para usar la contraseña por defecto: <strong className="text-slate-600">Sedes2026!</strong>
+                </p>
               </div>
 
               {/* Aviso de activación por correo */}
               <div className="p-3 bg-sky-50 border border-sky-200/80 rounded-xl flex items-start space-x-2.5 text-sky-900">
                 <Mail className="w-4 h-4 text-[#0077c8] shrink-0 mt-0.5" />
                 <p className="text-[11px] leading-relaxed">
-                  <strong>Invitación por Correo:</strong> Se enviará un correo automático a la cuenta del funcionario con un enlace para que active su cuenta y configure su contraseña privada de forma segura.
+                  <strong>Activación y Credenciales:</strong> Se enviará un correo automático a la cuenta del usuario para configurar su contraseña personal. Si no dispone de acceso al correo de inmediato, puede proporcionarle la contraseña configurada arriba.
                 </p>
               </div>
 
               <div className="flex items-center justify-end space-x-3 pt-4 border-t border-slate-100">
                 <button
                   type="button"
-                  onClick={() => setModalNuevoUsuarioOpen(false)}
+                  onClick={() => {
+                    setErrorModalNuevo(null);
+                    setModalNuevoUsuarioOpen(false);
+                  }}
                   className="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold px-4 py-2.5 rounded-xl transition cursor-pointer"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  className="bg-[#1b2533] hover:bg-[#111827] text-white text-xs font-bold px-5 py-2.5 rounded-xl transition shadow-md cursor-pointer"
+                  disabled={guardandoUsuario}
+                  className="bg-[#1b2533] hover:bg-[#111827] text-white text-xs font-bold px-5 py-2.5 rounded-xl transition shadow-md cursor-pointer flex items-center space-x-2 disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  Guardar y Activar Usuario
+                  {guardandoUsuario && <Loader2 className="w-4 h-4 animate-spin text-white" />}
+                  <span>{guardandoUsuario ? 'Guardando y Activando...' : 'Guardar y Activar Usuario'}</span>
                 </button>
               </div>
 
@@ -2319,8 +2490,8 @@ export default function AdminPage() {
       {/* 4.5. MODAL: EDITAR USUARIO                                            */}
       {/* ===================================================================== */}
       {modalEditarUsuarioOpen && usuarioEditando && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fadeIn">
-          <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl border border-slate-100 space-y-6">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fadeIn overflow-y-auto">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl border border-slate-100 space-y-6 my-8">
             <div className="flex items-start justify-between border-b border-slate-100 pb-4">
               <div>
                 <span className="text-[10px] font-extrabold text-[#0077c8] uppercase tracking-wider">
@@ -2333,6 +2504,7 @@ export default function AdminPage() {
               <button
                 type="button"
                 onClick={() => {
+                  setErrorModalEdicion(null);
                   setModalEditarUsuarioOpen(false);
                   setUsuarioEditando(null);
                 }}
@@ -2342,6 +2514,17 @@ export default function AdminPage() {
               </button>
             </div>
 
+            {/* Alerta de Error en Edición */}
+            {errorModalEdicion && (
+              <div className="p-3.5 bg-rose-50 border border-rose-200/90 rounded-2xl flex items-start space-x-2.5 text-rose-800 animate-fadeIn">
+                <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                <div className="flex-1 text-xs">
+                  <span className="font-bold block text-rose-900">No se pudo actualizar el usuario:</span>
+                  <span className="text-[11px] text-rose-700 leading-relaxed block mt-0.5">{errorModalEdicion}</span>
+                </div>
+              </div>
+            )}
+
             <form onSubmit={handleGuardarEdicion} className="space-y-4 text-xs">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1">
@@ -2350,7 +2533,10 @@ export default function AdminPage() {
                     type="text"
                     required
                     value={usuarioEditando.nombres || ''}
-                    onChange={(e) => setUsuarioEditando({ ...usuarioEditando, nombres: e.target.value })}
+                    onChange={(e) => {
+                      setErrorModalEdicion(null);
+                      setUsuarioEditando({ ...usuarioEditando, nombres: e.target.value });
+                    }}
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-[#0077c8]"
                   />
                 </div>
@@ -2361,7 +2547,10 @@ export default function AdminPage() {
                     type="text"
                     required
                     value={usuarioEditando.apellidos || ''}
-                    onChange={(e) => setUsuarioEditando({ ...usuarioEditando, apellidos: e.target.value })}
+                    onChange={(e) => {
+                      setErrorModalEdicion(null);
+                      setUsuarioEditando({ ...usuarioEditando, apellidos: e.target.value });
+                    }}
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-[#0077c8]"
                   />
                 </div>
@@ -2374,16 +2563,18 @@ export default function AdminPage() {
                     type="text"
                     required
                     value={usuarioEditando.ci || ''}
-                    onChange={(e) => setUsuarioEditando({ ...usuarioEditando, ci: e.target.value })}
+                    onChange={(e) => {
+                      setErrorModalEdicion(null);
+                      setUsuarioEditando({ ...usuarioEditando, ci: e.target.value });
+                    }}
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-[#0077c8]"
                   />
                 </div>
 
                 <div className="space-y-1">
-                  <label className="font-bold text-slate-700">Teléfono *</label>
+                  <label className="font-bold text-slate-700">Teléfono</label>
                   <input
                     type="text"
-                    required
                     value={usuarioEditando.telefono || ''}
                     onChange={(e) => setUsuarioEditando({ ...usuarioEditando, telefono: e.target.value })}
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-[#0077c8]"
@@ -2392,12 +2583,15 @@ export default function AdminPage() {
               </div>
 
               <div className="space-y-1">
-                <label className="font-bold text-slate-700">Correo Electrónico Institucional *</label>
+                <label className="font-bold text-slate-700">Correo Electrónico *</label>
                 <input
                   type="email"
                   required
                   value={usuarioEditando.email || ''}
-                  onChange={(e) => setUsuarioEditando({ ...usuarioEditando, email: e.target.value })}
+                  onChange={(e) => {
+                    setErrorModalEdicion(null);
+                    setUsuarioEditando({ ...usuarioEditando, email: e.target.value });
+                  }}
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-[#0077c8]"
                 />
               </div>
@@ -2415,6 +2609,7 @@ export default function AdminPage() {
                     <option value="Abogado">Abogado</option>
                     <option value="Director">Director</option>
                     <option value="Administrador">Administrador</option>
+                    <option value="Propietario">Propietario</option>
                   </select>
                 </div>
 
@@ -2435,6 +2630,7 @@ export default function AdminPage() {
                 <button
                   type="button"
                   onClick={() => {
+                    setErrorModalEdicion(null);
                     setModalEditarUsuarioOpen(false);
                     setUsuarioEditando(null);
                   }}
@@ -2444,9 +2640,11 @@ export default function AdminPage() {
                 </button>
                 <button
                   type="submit"
-                  className="bg-[#0077c8] hover:bg-[#0060a8] text-white text-xs font-bold px-5 py-2.5 rounded-xl transition shadow-md cursor-pointer"
+                  disabled={guardandoEdicion}
+                  className="bg-[#0077c8] hover:bg-[#0060a8] text-white text-xs font-bold px-5 py-2.5 rounded-xl transition shadow-md cursor-pointer flex items-center space-x-2 disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  Guardar Cambios
+                  {guardandoEdicion && <Loader2 className="w-4 h-4 animate-spin text-white" />}
+                  <span>{guardandoEdicion ? 'Guardando...' : 'Guardar Cambios'}</span>
                 </button>
               </div>
 
