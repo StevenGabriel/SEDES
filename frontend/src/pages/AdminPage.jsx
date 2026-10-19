@@ -1164,8 +1164,8 @@ export default function AdminPage() {
   const cargarUsuariosDesdeBD = async (silencioso = false) => {
     if (!silencioso) setCargando(true);
     try {
-      // Cargar todos los usuarios (institucionales y propietarios) para gestión integral
-      const res = await fetch('http://localhost:8000/api/admin/usuarios?solo_institucionales=false');
+      // Cargar únicamente el personal institucional oficial de SEDES
+      const res = await fetch('http://localhost:8000/api/admin/usuarios?solo_institucionales=true');
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data) && data.length > 0) {
@@ -1265,8 +1265,9 @@ export default function AdminPage() {
     ? `${usuarioLogueado.nombres} ${usuarioLogueado.apellidos}` 
     : 'Ing. Carlos Quispe';
 
-  // Filtrado de usuarios
-  const usuariosFiltrados = usuarios.filter((u) => {
+  // Filtrado exclusivo de Personal Institucional (excluyendo Propietarios de laboratorios)
+  const usuariosInstitucionales = usuarios.filter(u => (u.rol || '').trim().toLowerCase() !== 'propietario');
+  const usuariosFiltrados = usuariosInstitucionales.filter((u) => {
     const texto = `${u.nombreCompleto || ''} ${u.email || ''} ${u.ci || ''}`.toLowerCase();
     const coincideTexto = texto.includes(busqueda.toLowerCase());
     const coincideRol = filtroRol === 'Todos los Roles' || u.rol.toLowerCase().includes(filtroRol.toLowerCase());
@@ -1274,11 +1275,11 @@ export default function AdminPage() {
     return coincideTexto && coincideRol && coincideEstado;
   });
 
-  // Métricas dinámicas
-  const totalUsuarios = usuarios.length;
-  const activos = usuarios.filter(u => u.estado === 'Activo').length;
-  const inactivos = usuarios.filter(u => u.estado === 'Inactivo').length;
-  const conectadosAhora = usuarios.filter(u => u.estado === 'Activo' && (u.ultimaConexion?.toLowerCase().includes('línea') || u.ultimaConexion?.toLowerCase().includes('min') || u.ultimaConexion === 'Activo')).length || (activos > 0 ? 1 : 0);
+  // Métricas dinámicas para Personal Institucional
+  const totalUsuarios = usuariosInstitucionales.length;
+  const activos = usuariosInstitucionales.filter(u => u.estado === 'Activo').length;
+  const inactivos = usuariosInstitucionales.filter(u => u.estado === 'Inactivo').length;
+  const conectadosAhora = usuariosInstitucionales.filter(u => u.estado === 'Activo' && (u.ultimaConexion?.toLowerCase().includes('línea') || u.ultimaConexion?.toLowerCase().includes('min') || u.ultimaConexion === 'Activo')).length || (activos > 0 ? 1 : 0);
 
   // Paginación real
   const totalPaginas = Math.ceil(usuariosFiltrados.length / elementosPorPagina) || 1;
@@ -1752,7 +1753,6 @@ export default function AdminPage() {
                     <option value="Abogado">Abogado</option>
                     <option value="Supervisor">Supervisor</option>
                     <option value="Administrador">Administrador</option>
-                    <option value="Propietario">Propietario</option>
                   </select>
 
                   <select
@@ -2442,7 +2442,6 @@ export default function AdminPage() {
                   <option value="Abogado">Abogado</option>
                   <option value="Director">Director</option>
                   <option value="Administrador">Administrador</option>
-                  <option value="Propietario">Propietario / Solicitante</option>
                 </select>
               </div>
 
@@ -2639,7 +2638,6 @@ export default function AdminPage() {
                     <option value="Abogado">Abogado</option>
                     <option value="Director">Director</option>
                     <option value="Administrador">Administrador</option>
-                    <option value="Propietario">Propietario</option>
                   </select>
                 </div>
 
