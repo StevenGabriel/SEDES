@@ -1,4 +1,5 @@
 from typing import List, Optional
+from datetime import datetime
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
@@ -66,7 +67,48 @@ def get_current_user(
             detail="Su cuenta de usuario institucional se encuentra desactivada.",
         )
         
+    # Registrar actividad en tiempo real si pasaron más de 30 segundos
+    ahora = datetime.utcnow()
+    if not usuario.ultimo_acceso or (ahora - usuario.ultimo_acceso).total_seconds() > 30:
+        usuario.ultimo_acceso = ahora
+        try:
+            db.commit()
+        except Exception:
+            db.rollback()
+
     return usuario
+
+def get_current_user_optional(
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security_bearer),
+    db: Session = Depends(get_db)
+) -> Optional[models.Usuario]:
+    """
+    Intenta autenticar al usuario si el token Bearer está presente.
+    No lanza excepción si no se envía cabecera de autenticación.
+    """
+    if not credentials or not credentials.credentials:
+        return None
+    try:
+        payload = decode_access_token(credentials.credentials)
+        if not payload:
+            return None
+        user_id_str = payload.get("sub")
+        if not user_id_str:
+            return None
+        user_uuid = uuid.UUID(user_id_str)
+        usuario = db.query(models.Usuario).filter(models.Usuario.id == user_uuid).first()
+        if usuario and usuario.estado:
+            ahora = datetime.utcnow()
+            if not usuario.ultimo_acceso or (ahora - usuario.ultimo_acceso).total_seconds() > 30:
+                usuario.ultimo_acceso = ahora
+                try:
+                    db.commit()
+                except Exception:
+                    db.rollback()
+            return usuario
+    except Exception:
+        return None
+    return None
 
 def get_current_active_user(
     current_user: models.Usuario = Depends(get_current_user)

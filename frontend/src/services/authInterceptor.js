@@ -139,6 +139,30 @@ if (typeof window !== 'undefined') {
   window.getApiBaseUrl = getApiBaseUrl;
   window.formatApiUrl = formatApiUrl;
   window.descargarArchivo = descargarArchivo;
+
+  // Servicio de Presencia y Latido (Heartbeat) en Tiempo Real
+  const enviarHeartbeat = async () => {
+    const token = localStorage.getItem('token');
+    if (!token) return;
+    try {
+      await window.fetch('http://localhost:8000/api/auth/heartbeat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+    } catch (_) {
+      // Silencioso si el servidor o red está temporalmente inaccesible
+    }
+  };
+
+  // Enviar latido cada 60 segundos
+  setInterval(enviarHeartbeat, 60000);
+
+  // Enviar latido al reenfocar la pestaña del navegador
+  window.addEventListener('focus', () => {
+    if (document.visibilityState === 'visible') {
+      enviarHeartbeat();
+    }
+  });
 }
 
 export default window.fetch;

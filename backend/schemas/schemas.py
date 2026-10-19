@@ -162,6 +162,7 @@ class UsuarioAdminResponse(BaseModel):
     rol: str
     rolBadgeColor: str
     ultimaConexion: str
+    conectado: bool = False
     estado: str
     avatar: str
     fecha_creacion: Optional[str] = None

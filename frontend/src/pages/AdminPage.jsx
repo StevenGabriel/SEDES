@@ -110,6 +110,7 @@ const INITIAL_USERS = [
     rol: 'Director',
     rolBadgeColor: 'bg-indigo-50 text-indigo-700 border-indigo-200',
     ultimaConexion: 'Hace 10 min',
+    conectado: false,
     estado: 'Activo',
     avatar: 'https://images.unsplash.com/photo-1537368910025-700350fe46c7?w=100&auto=format&fit=crop&q=80',
     ci: '3489102 CB',
@@ -124,6 +125,7 @@ const INITIAL_USERS = [
     rol: 'Coordinador',
     rolBadgeColor: 'bg-sky-50 text-sky-700 border-sky-200',
     ultimaConexion: 'Hace 5 min',
+    conectado: false,
     estado: 'Activo',
     avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=100&auto=format&fit=crop&q=80',
     ci: '4589201 CB',
@@ -138,6 +140,7 @@ const INITIAL_USERS = [
     rol: 'Administrador',
     rolBadgeColor: 'bg-slate-100 text-slate-800 border-slate-300',
     ultimaConexion: 'Ahora (En línea)',
+    conectado: true,
     estado: 'Activo',
     avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&auto=format&fit=crop&q=80',
     ci: '1000001 CB',
@@ -152,6 +155,7 @@ const INITIAL_USERS = [
     rol: 'Supervisor',
     rolBadgeColor: 'bg-amber-50 text-amber-700 border-amber-200',
     ultimaConexion: 'Hace 2 horas',
+    conectado: false,
     estado: 'Activo',
     avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80',
     ci: '6549871 CB',
@@ -166,6 +170,7 @@ const INITIAL_USERS = [
     rol: 'Abogado',
     rolBadgeColor: 'bg-purple-50 text-purple-700 border-purple-200',
     ultimaConexion: 'Hace 30 min',
+    conectado: false,
     estado: 'Activo',
     avatar: 'https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?w=100&auto=format&fit=crop&q=80',
     ci: '5129384 CB',
@@ -180,6 +185,7 @@ const INITIAL_USERS = [
     rol: 'Supervisor',
     rolBadgeColor: 'bg-amber-50 text-amber-700 border-amber-200',
     ultimaConexion: 'Hace 1 día',
+    conectado: false,
     estado: 'Activo',
     avatar: 'https://images.unsplash.com/photo-1567532939604-b6b5b0db2604?w=100&auto=format&fit=crop&q=80',
     ci: '5291048 CB',
@@ -194,6 +200,7 @@ const INITIAL_USERS = [
     rol: 'Supervisor',
     rolBadgeColor: 'bg-amber-50 text-amber-700 border-amber-200',
     ultimaConexion: 'Hace 1 hora',
+    conectado: false,
     estado: 'Activo',
     avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&auto=format&fit=crop&q=80',
     ci: '5921840 CB',
@@ -208,6 +215,7 @@ const INITIAL_USERS = [
     rol: 'Supervisor',
     rolBadgeColor: 'bg-amber-50 text-amber-700 border-amber-200',
     ultimaConexion: 'Hace 4 horas',
+    conectado: false,
     estado: 'Activo',
     avatar: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=100&auto=format&fit=crop&q=80',
     ci: '4892103 CB',
@@ -1217,7 +1225,10 @@ export default function AdminPage() {
     setPaginaActual(1);
   }, [busqueda, filtroRol, filtroEstado]);
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      await fetch('http://localhost:8000/api/auth/logout', { method: 'POST' });
+    } catch (_) {}
     localStorage.removeItem('usuario');
     localStorage.removeItem('token');
     navigate('/login');
@@ -1279,7 +1290,7 @@ export default function AdminPage() {
   const totalUsuarios = usuariosInstitucionales.length;
   const activos = usuariosInstitucionales.filter(u => u.estado === 'Activo').length;
   const inactivos = usuariosInstitucionales.filter(u => u.estado === 'Inactivo').length;
-  const conectadosAhora = usuariosInstitucionales.filter(u => u.estado === 'Activo' && (u.ultimaConexion?.toLowerCase().includes('línea') || u.ultimaConexion?.toLowerCase().includes('min') || u.ultimaConexion === 'Activo')).length || (activos > 0 ? 1 : 0);
+  const conectadosAhora = usuariosInstitucionales.filter(u => u.estado === 'Activo' && (u.conectado === true || u.ultimaConexion === 'En línea')).length;
 
   // Paginación real
   const totalPaginas = Math.ceil(usuariosFiltrados.length / elementosPorPagina) || 1;
@@ -1851,8 +1862,20 @@ export default function AdminPage() {
                             </td>
 
                             {/* Última Conexión */}
-                            <td className="py-4 px-5 text-slate-500 font-medium">
-                              {u.ultimaConexion}
+                            <td className="py-4 px-5">
+                              {u.estado === 'Activo' && (u.conectado === true || u.ultimaConexion === 'En línea') ? (
+                                <div className="inline-flex items-center space-x-2 px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-200">
+                                  <span className="relative flex h-2 w-2">
+                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                                  </span>
+                                  <span className="text-emerald-700 font-bold text-xs tracking-tight">En línea</span>
+                                </div>
+                              ) : (
+                                <span className="text-xs text-slate-500 font-medium">
+                                  {u.ultimaConexion || 'Sin actividad registrada'}
+                                </span>
+                              )}
                             </td>
 
                             {/* Estado */}

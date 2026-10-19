@@ -50,8 +50,9 @@ class Usuario(Base):
     password_hash = Column(String(255), nullable=False)
     telefono = Column(String(30), nullable=True)
 
-    # Columnas de Auditoría
+    # Columnas de Auditoría y Estado de Conexión
     estado = Column(Boolean, default=True, nullable=False)
+    ultimo_acceso = Column(DateTime, nullable=True)
     fecha_creacion = Column(DateTime, default=func.now(), nullable=False)
     fecha_modificacion = Column(DateTime, default=func.now(), onupdate=func.now(), nullable=False)
 

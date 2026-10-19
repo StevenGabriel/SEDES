@@ -1,4 +1,5 @@
 from typing import List, Optional
+from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Request
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
@@ -51,9 +52,41 @@ def get_avatar_url(email: str, nombres: str) -> str:
         return avatars[email]
     return f"https://ui-avatars.com/api/?name={nombres}&background=0077c8&color=fff&size=100"
 
+def calcular_estado_conexion(ultimo_acceso: Optional[datetime], estado_cuenta: bool) -> tuple[str, bool]:
+    """
+    Determina si un usuario está conectado en este momento
+    y el formato legible de su última conexión.
+    - conectado = True si su último acceso fue hace menos de 5 minutos (300 segundos).
+    """
+    if not estado_cuenta:
+        return "Inactivo", False
+    
+    if not ultimo_acceso:
+        return "Sin actividad registrada", False
+    
+    ahora = datetime.utcnow()
+    diff_segundos = (ahora - ultimo_acceso).total_seconds()
+    
+    if diff_segundos <= 300: # Activo en los últimos 5 minutos
+        return "En línea", True
+    elif diff_segundos < 3600:
+        minutos = max(1, int(diff_segundos // 60))
+        return f"Hace {minutos} min", False
+    elif diff_segundos < 86400:
+        horas = int(diff_segundos // 3600)
+        return f"Hace {horas} h" if horas > 1 else "Hace 1 hora", False
+    elif diff_segundos < 172800:
+        return "Ayer", False
+    else:
+        dias = int(diff_segundos // 86400)
+        if dias <= 7:
+            return f"Hace {dias} días", False
+        return ultimo_acceso.strftime("%d/%m/%Y"), False
+
 def serializar_usuario(u: models.Usuario) -> schemas.UsuarioAdminResponse:
     rol_nombre = u.rol.nombre if u.rol else "Sin Rol"
     nombre_completo = f"{u.nombres} {u.apellidos}".strip()
+    ultima_conexion_texto, esta_conectado = calcular_estado_conexion(u.ultimo_acceso, u.estado)
     return schemas.UsuarioAdminResponse(
         id=str(u.id),
         nombres=u.nombres,
@@ -64,7 +97,8 @@ def serializar_usuario(u: models.Usuario) -> schemas.UsuarioAdminResponse:
         telefono=u.telefono,
         rol=rol_nombre,
         rolBadgeColor=get_rol_badge_color(rol_nombre),
-        ultimaConexion="En línea" if u.estado else "Inactivo",
+        ultimaConexion=ultima_conexion_texto,
+        conectado=esta_conectado,
         estado="Activo" if u.estado else "Inactivo",
         avatar=get_avatar_url(u.email, u.nombres),
         fecha_creacion=u.fecha_creacion.strftime("%Y-%m-%d %H:%M") if u.fecha_creacion else None
