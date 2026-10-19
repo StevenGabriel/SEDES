@@ -13,9 +13,9 @@ services:
     build: ./backend
     restart: unless-stopped
     environment:
-      - DATABASE_URL=postgresql://admin:password123@db:5432/sedes_db
-      - SECRET_KEY=sedes_cochabamba_jwt_secret_key_2026_production
-      - ALLOWED_ORIGINS=*
+      - DATABASE_URL=${DATABASE_URL:-postgresql://admin:password123@db:5432/sedes_db}
+      - SECRET_KEY=${SECRET_KEY:-sedes_cochabamba_jwt_secret_key_2026_production}
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-*}
       - SMTP_HOST=${SMTP_HOST:-smtp.gmail.com}
       - SMTP_PORT=${SMTP_PORT:-587}
       - SMTP_USER=${SMTP_USER:-}
