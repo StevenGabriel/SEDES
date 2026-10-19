@@ -1020,9 +1020,11 @@ export default function AdminPage() {
     }
   };
 
-  // Eliminar requisito
-  const handleEliminarRequisito = async (seccionId, reqId) => {
-    if (!confirm('¿Está seguro de eliminar este requisito normativo?')) return;
+  // Confirmar eliminación de requisito desde el modal personalizado
+  const confirmarEliminarRequisito = async () => {
+    if (!requisitoAEliminar) return;
+    const { seccionId, reqId } = requisitoAEliminar;
+    setEliminandoRequisito(true);
 
     const isNumericId = !isNaN(Number(reqId));
     if (isNumericId) {
@@ -1032,11 +1034,19 @@ export default function AdminPage() {
         });
         if (res.ok) {
           await cargarRequisitosDesdeBD();
-          mostrarToast('Requisito eliminado del catálogo oficial.', 'warning');
+          setRequisitoAEliminar(null);
+          mostrarToast('Requisito eliminado del catálogo oficial.', 'success');
+          return;
+        } else {
+          const errData = await res.json().catch(() => ({}));
+          mostrarToast(parseApiError(errData) || 'No se pudo eliminar el requisito.', 'error');
           return;
         }
       } catch (err) {
         console.error('Error al eliminar requisito de BD:', err);
+        mostrarToast('Error de conexión al eliminar requisito.', 'error');
+      } finally {
+        setEliminandoRequisito(false);
       }
     }
 
@@ -1050,7 +1060,9 @@ export default function AdminPage() {
       return sec;
     }));
 
-    mostrarToast('Requisito eliminado.', 'warning');
+    setRequisitoAEliminar(null);
+    setEliminandoRequisito(false);
+    mostrarToast('Requisito eliminado.', 'info');
   };
 
   // Guardar nueva sección normativa
@@ -1114,6 +1126,14 @@ export default function AdminPage() {
   // Estados para modal de edición
   const [guardandoEdicion, setGuardandoEdicion] = useState(false);
   const [errorModalEdicion, setErrorModalEdicion] = useState(null);
+
+  // Estados para modal de confirmación de eliminación de usuario
+  const [usuarioAEliminar, setUsuarioAEliminar] = useState(null);
+  const [eliminandoUsuario, setEliminandoUsuario] = useState(false);
+
+  // Estados para modal de confirmación de eliminación de requisito
+  const [requisitoAEliminar, setRequisitoAEliminar] = useState(null);
+  const [eliminandoRequisito, setEliminandoRequisito] = useState(false);
 
   // Generador de contraseña segura
   const generarPasswordSegura = () => {
@@ -1431,16 +1451,20 @@ export default function AdminPage() {
     }
   };
 
-  // Eliminar usuario
-  const handleEliminarUsuario = async (u) => {
-    if (!confirm(`¿Está seguro de eliminar permanentemente a ${u.nombreCompleto}?`)) return;
+  // Confirmar eliminación de usuario desde el modal personalizado
+  const confirmarEliminarUsuario = async () => {
+    if (!usuarioAEliminar) return;
+    setEliminandoUsuario(true);
+    const u = usuarioAEliminar;
+
     try {
       const res = await fetch(`http://localhost:8000/api/admin/usuarios/${u.id}`, {
         method: 'DELETE'
       });
       if (res.ok) {
         setUsuarios(prev => prev.filter(item => item.id !== u.id));
-        mostrarToast(`Usuario ${u.nombreCompleto} eliminado correctamente de la base de datos.`, 'success');
+        setUsuarioAEliminar(null);
+        mostrarToast(`Usuario ${u.nombreCompleto} eliminado permanentemente.`, 'success');
         return;
       } else {
         const errData = await res.json().catch(() => ({}));
@@ -1451,6 +1475,8 @@ export default function AdminPage() {
     } catch (err) {
       console.warn('Error al eliminar usuario:', err);
       mostrarToast('Error de conexión con el servidor al intentar eliminar el usuario.', 'error');
+    } finally {
+      setEliminandoUsuario(false);
     }
   };
 
@@ -1878,7 +1904,7 @@ export default function AdminPage() {
                                 {/* Eliminar */}
                                 <button
                                   type="button"
-                                  onClick={() => handleEliminarUsuario(u)}
+                                  onClick={() => setUsuarioAEliminar(u)}
                                   className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-lg transition cursor-pointer"
                                   title="Eliminar usuario"
                                 >
@@ -2223,7 +2249,7 @@ export default function AdminPage() {
                             <div className="flex items-center space-x-1 shrink-0">
                               <button
                                 type="button"
-                                onClick={() => handleEliminarRequisito(sec.id, req.id)}
+                                onClick={() => setRequisitoAEliminar({ seccionId: sec.id, reqId: req.id, texto: req.texto })}
                                 className="p-1.5 text-rose-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition cursor-pointer"
                                 title="Eliminar requisito"
                               >
@@ -3099,6 +3125,138 @@ export default function AdminPage() {
                 </button>
               </div>
             </form>
+
+          </div>
+        </div>
+      )}
+
+      {/* ===================================================================== */}
+      {/* 8. MODAL DE CONFIRMACIÓN: ELIMINAR USUARIO                           */}
+      {/* ===================================================================== */}
+      {usuarioAEliminar && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fadeIn">
+          <div className="bg-white rounded-3xl max-w-sm sm:max-w-md w-full p-6 sm:p-7 shadow-2xl border border-slate-100 space-y-5 text-center">
+            
+            {/* Icono de Alerta */}
+            <div className="w-14 h-14 mx-auto rounded-2xl bg-rose-50 border border-rose-200/80 flex items-center justify-center text-rose-600 shadow-sm">
+              <Trash2 className="w-7 h-7" />
+            </div>
+
+            <div className="space-y-1.5">
+              <h3 className="text-lg font-black text-slate-900 tracking-tight">
+                ¿Eliminar usuario definitivamente?
+              </h3>
+              <p className="text-xs text-slate-500 leading-relaxed">
+                Esta acción no se puede deshacer. Se removerán los accesos y credenciales de la persona en el sistema:
+              </p>
+            </div>
+
+            {/* Tarjeta de Resumen del Usuario */}
+            <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-3.5 flex items-center space-x-3 text-left">
+              <div className={`w-10 h-10 rounded-full ${getAvatarColor(usuarioAEliminar.nombreCompleto)} flex items-center justify-center font-black text-xs text-white shrink-0 shadow-sm`}>
+                {getInitials(usuarioAEliminar)}
+              </div>
+              <div className="flex-1 min-w-0">
+                <h4 className="font-bold text-slate-900 text-xs truncate">
+                  {usuarioAEliminar.nombreCompleto}
+                </h4>
+                <p className="text-[11px] text-slate-500 truncate">
+                  {usuarioAEliminar.email}
+                </p>
+                <span className="inline-block mt-1 text-[10px] font-bold px-2 py-0.5 rounded-md bg-white border border-slate-200 text-slate-700">
+                  Rol: {usuarioAEliminar.rol}
+                </span>
+              </div>
+            </div>
+
+            {/* Botones de Acción */}
+            <div className="grid grid-cols-2 gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setUsuarioAEliminar(null)}
+                disabled={eliminandoUsuario}
+                className="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold py-2.5 rounded-xl transition cursor-pointer disabled:opacity-60"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={confirmarEliminarUsuario}
+                disabled={eliminandoUsuario}
+                className="w-full bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold py-2.5 rounded-xl transition shadow-md shadow-rose-600/20 cursor-pointer flex items-center justify-center space-x-1.5 disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {eliminandoUsuario ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin text-white" />
+                    <span>Eliminando...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-4 h-4" />
+                    <span>Sí, eliminar</span>
+                  </>
+                )}
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* ===================================================================== */}
+      {/* 9. MODAL DE CONFIRMACIÓN: ELIMINAR REQUISITO                           */}
+      {/* ===================================================================== */}
+      {requisitoAEliminar && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fadeIn">
+          <div className="bg-white rounded-3xl max-w-sm sm:max-w-md w-full p-6 sm:p-7 shadow-2xl border border-slate-100 space-y-5 text-center">
+            
+            <div className="w-14 h-14 mx-auto rounded-2xl bg-amber-50 border border-amber-200/80 flex items-center justify-center text-amber-600 shadow-sm">
+              <AlertTriangle className="w-7 h-7" />
+            </div>
+
+            <div className="space-y-1.5">
+              <h3 className="text-lg font-black text-slate-900 tracking-tight">
+                ¿Eliminar requisito normativo?
+              </h3>
+              <p className="text-xs text-slate-500 leading-relaxed">
+                Este requisito ya no aparecerá en las listas oficiales ni en las inspecciones de habilitación:
+              </p>
+            </div>
+
+            <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-3.5 text-left">
+              <p className="text-xs text-slate-700 font-medium leading-relaxed">
+                "{requisitoAEliminar.texto}"
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setRequisitoAEliminar(null)}
+                disabled={eliminandoRequisito}
+                className="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold py-2.5 rounded-xl transition cursor-pointer disabled:opacity-60"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={confirmarEliminarRequisito}
+                disabled={eliminandoRequisito}
+                className="w-full bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold py-2.5 rounded-xl transition shadow-md shadow-rose-600/20 cursor-pointer flex items-center justify-center space-x-1.5 disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {eliminandoRequisito ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin text-white" />
+                    <span>Eliminando...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-4 h-4" />
+                    <span>Eliminar</span>
+                  </>
+                )}
+              </button>
+            </div>
 
           </div>
         </div>
