@@ -268,17 +268,52 @@ def eliminar_usuario(
     if not usuario:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Usuario no encontrado.")
 
+    nombre_completo = f"{usuario.nombres} {usuario.apellidos}".strip()
     email_del = usuario.email
-    db.delete(usuario)
-    db.commit()
 
-    log_security_event(
-        event_type="ADMIN_USER_DELETE",
-        action="Eliminación de Usuario",
-        outcome="SUCCESS",
-        detail=f"Usuario '{email_del}' eliminado permanentemente del sistema.",
-        email=email_del,
-        user_id=str(u_uuid)
-    )
+    # 1. Validar si tiene establecimientos asociados (si es propietario)
+    tiene_establecimientos = db.query(models.Establecimiento).filter(models.Establecimiento.propietario_id == u_uuid).count()
+    if tiene_establecimientos > 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"No se puede eliminar a '{nombre_completo}' porque tiene {tiene_establecimientos} laboratorio(s) asignado(s). Debe reasignar o dar de baja los establecimientos primero."
+        )
 
-    return {"mensaje": f"Usuario {usuario.nombres} {usuario.apellidos} eliminado correctamente."}
+    try:
+        # 2. Desvincular de trámites asignados (poner en None)
+        db.query(models.Tramite).filter(models.Tramite.supervisor_asignado_id == u_uuid).update(
+            {models.Tramite.supervisor_asignado_id: None},
+            synchronize_session=False
+        )
+
+        # 3. Desvincular de resoluciones asignadas
+        db.query(models.Resolucion).filter(models.Resolucion.abogado_id == u_uuid).update(
+            {models.Resolucion.abogado_id: None},
+            synchronize_session=False
+        )
+
+        # 4. Eliminar notificaciones asociadas al usuario
+        db.query(models.Notificacion).filter(models.Notificacion.usuario_id == u_uuid).delete(
+            synchronize_session=False
+        )
+
+        # 5. Eliminar el usuario de la BD
+        db.delete(usuario)
+        db.commit()
+
+        log_security_event(
+            event_type="ADMIN_USER_DELETE",
+            action="Eliminación de Usuario",
+            outcome="SUCCESS",
+            detail=f"Usuario '{email_del}' ({nombre_completo}) eliminado permanentemente del sistema.",
+            email=email_del,
+            user_id=str(u_uuid)
+        )
+
+        return {"mensaje": f"Usuario {nombre_completo} eliminado correctamente.", "id": str(u_uuid)}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error al eliminar usuario en la base de datos: {str(e)}"
+        )

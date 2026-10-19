@@ -1440,14 +1440,18 @@ export default function AdminPage() {
       });
       if (res.ok) {
         setUsuarios(prev => prev.filter(item => item.id !== u.id));
-        mostrarToast(`Usuario ${u.nombreCompleto} eliminado de la base de datos.`, 'warning');
+        mostrarToast(`Usuario ${u.nombreCompleto} eliminado correctamente de la base de datos.`, 'success');
+        return;
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        const mensajeError = parseApiError(errData) || 'No se pudo eliminar el usuario del servidor.';
+        mostrarToast(mensajeError, 'error');
         return;
       }
     } catch (err) {
-      console.warn('Backend offline, eliminando localmente:', err);
+      console.warn('Error al eliminar usuario:', err);
+      mostrarToast('Error de conexión con el servidor al intentar eliminar el usuario.', 'error');
     }
-    setUsuarios(prev => prev.filter(item => item.id !== u.id));
-    mostrarToast(`Usuario ${u.nombreCompleto} eliminado.`, 'warning');
   };
 
   return (
