@@ -283,6 +283,105 @@ const TASAS_ARANCELARIAS = [
   { descripcion: 'CERTIFICADO DE PARTICIPACIÓN EN PEEC (OFICIAL)', monto: 'Bs. 200,00' },
 ];
 
+
+// =========================================================================
+// HELPERS DE INDEXEDDB PARA PERSISTENCIA AUTOMÁTICA DE ARCHIVOS DEL BORRADOR
+// =========================================================================
+const openDraftDB = () => {
+  return new Promise((resolve) => {
+    if (typeof window === 'undefined' || !window.indexedDB) {
+      return resolve(null);
+    }
+    const request = window.indexedDB.open('sedes_draft_files_db', 1);
+    request.onupgradeneeded = (e) => {
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains('files')) {
+        db.createObjectStore('files', { keyPath: 'reqId' });
+      }
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => resolve(null);
+  });
+};
+
+const saveDraftFileToDB = async (reqId, file) => {
+  try {
+    const db = await openDraftDB();
+    if (!db) return;
+    const tx = db.transaction('files', 'readwrite');
+    const store = tx.objectStore('files');
+    store.put({ reqId, file, nombre: file.name, size: file.size });
+  } catch (e) {
+    console.warn('Error guardando archivo en borrador IndexedDB:', e);
+  }
+};
+
+const removeDraftFileFromDB = async (reqId) => {
+  try {
+    const db = await openDraftDB();
+    if (!db) return;
+    const tx = db.transaction('files', 'readwrite');
+    tx.objectStore('files').delete(reqId);
+  } catch (e) {}
+};
+
+const getDraftFilesFromDB = async () => {
+  try {
+    const db = await openDraftDB();
+    if (!db) return {};
+    return new Promise((resolve) => {
+      const tx = db.transaction('files', 'readonly');
+      const store = tx.objectStore('files');
+      const request = store.getAll();
+      request.onsuccess = () => {
+        const map = {};
+        (request.result || []).forEach(item => {
+          if (item.reqId && item.file) {
+            map[item.reqId] = {
+              nombre: item.file.name || item.nombre,
+              size: `${(item.file.size / 1024 / 1024).toFixed(2)} MB`,
+              file: item.file
+            };
+          }
+        });
+        resolve(map);
+      };
+      request.onerror = () => resolve({});
+    });
+  } catch (e) {
+    return {};
+  }
+};
+
+const clearDraftFilesDB = async () => {
+  try {
+    const db = await openDraftDB();
+    if (!db) return;
+    const tx = db.transaction('files', 'readwrite');
+    tx.objectStore('files').clear();
+  } catch (e) {}
+};
+
+const FORM_NUEVA_DEFAULT = {
+  municipio: 'CERCADO',
+  tipo: 'Privado',
+  nombre_comercial: '',
+  nivel: 'Nivel 1',
+  direccion: '',
+  telefono: '',
+  responsable_laboratorio: '',
+  ci_responsable: '',
+  horario: 'Lun-Vie 7:00 - 19:00, Sáb 8:00 - 13:00',
+  email_contacto: '',
+  descripcion: '',
+  servicios: ['Clínico General'],
+  latitud: -17.3895,
+  longitud: -66.1568
+};
+const ENCARGADOS_DEFAULT = {
+  'Clínico General': { nombre: '', ci: '' }
+};
+
 export default function PropietarioPage() {
   const navigate = useNavigate();
   const { seccion } = useParams();
@@ -354,6 +453,12 @@ export default function PropietarioPage() {
   const [isSubmittingNueva, setIsSubmittingNueva] = useState(false);
   const [solicitudEnviadaExito, setSolicitudEnviadaExito] = useState(false);
   const [faltantesModal, setFaltantesModal] = useState([]);
+
+  // Estados para Autoguardado Automático del Borrador de Solicitud
+  const [estadoAutoguardado, setEstadoAutoguardado] = useState('inactivo'); // 'inactivo' | 'guardando' | 'guardado'
+  const [ultimaHoraGuardado, setUltimaHoraGuardado] = useState(null);
+  const [borradorRestaurado, setBorradorRestaurado] = useState(false);
+  const draftLoadedRef = useRef(false);
 
   // Validación de disponibilidad en tiempo real de Nombre Comercial
   const [validacionNombreNueva, setValidacionNombreNueva] = useState({
@@ -1238,6 +1343,106 @@ export default function PropietarioPage() {
     }));
   };
 
+  // =========================================================================
+  // 1. CARGA AUTOMÁTICA DEL BORRADOR AL INGRESAR A NUEVA SOLICITUD
+  // =========================================================================
+  useEffect(() => {
+    if (seccionActiva !== 'nueva-solicitud') return;
+    if (draftLoadedRef.current) return;
+
+    const draftKey = `sedes_borrador_solicitud_${usuario?.id || 'propietario'}`;
+    const rawDraft = localStorage.getItem(draftKey);
+    if (rawDraft) {
+      try {
+        const parsed = JSON.parse(rawDraft);
+        if (parsed.formNueva && (parsed.formNueva.nombre_comercial || parsed.formNueva.direccion || parsed.formNueva.responsable_laboratorio)) {
+          setFormNueva(prev => ({ ...prev, ...parsed.formNueva }));
+          if (parsed.encargadosAreas) {
+            setEncargadosAreas(parsed.encargadosAreas);
+          }
+          if (parsed.guardadoEn) {
+            setUltimaHoraGuardado(parsed.guardadoEn);
+            setBorradorRestaurado(true);
+            setEstadoAutoguardado('guardado');
+          }
+
+          // Cargar archivos PDF previamente adjuntados desde IndexedDB
+          getDraftFilesFromDB().then((archivosRecuperados) => {
+            if (archivosRecuperados && Object.keys(archivosRecuperados).length > 0) {
+              setDocumentosAdjuntos(prev => ({ ...prev, ...archivosRecuperados }));
+            }
+          });
+        }
+      } catch (err) {
+        console.warn('Error al restaurar borrador:', err);
+      }
+    }
+    draftLoadedRef.current = true;
+  }, [seccionActiva, usuario?.id]);
+
+  // =========================================================================
+  // 2. EFECTO DE AUTOGUARDADO AUTOMÁTICO EN SEGUNDO PLANO (CADA VEZ QUE CAMBIA)
+  // =========================================================================
+  useEffect(() => {
+    if (seccionActiva !== 'nueva-solicitud') return;
+    if (!draftLoadedRef.current) return;
+
+    const tieneDatos = Boolean(
+      formNueva.nombre_comercial?.trim() ||
+      formNueva.direccion?.trim() ||
+      formNueva.telefono?.trim() ||
+      formNueva.responsable_laboratorio?.trim() ||
+      formNueva.ci_responsable?.trim() ||
+      formNueva.descripcion?.trim() ||
+      Object.keys(documentosAdjuntos).length > 0
+    );
+
+    if (!tieneDatos) return;
+
+    setEstadoAutoguardado('guardando');
+
+    const timer = setTimeout(() => {
+      try {
+        const draftKey = `sedes_borrador_solicitud_${usuario?.id || 'propietario'}`;
+        const horaStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const dataToSave = {
+          formNueva,
+          encargadosAreas,
+          guardadoEn: horaStr,
+          timestamp: Date.now()
+        };
+        localStorage.setItem(draftKey, JSON.stringify(dataToSave));
+        setUltimaHoraGuardado(horaStr);
+        setEstadoAutoguardado('guardado');
+      } catch (e) {
+        console.warn('Error en autoguardado:', e);
+        setEstadoAutoguardado('guardado');
+      }
+    }, 1200);
+
+    return () => clearTimeout(timer);
+  }, [formNueva, encargadosAreas, documentosAdjuntos, seccionActiva, usuario?.id]);
+
+  // =========================================================================
+  // 3. DESCARTAR BORRADOR Y REINICIAR FORMULARIO
+  // =========================================================================
+  const handleDescartarBorrador = () => {
+    if (!window.confirm('¿Está seguro de que desea descartar el borrador y reiniciar el formulario de apertura?')) {
+      return;
+    }
+    const draftKey = `sedes_borrador_solicitud_${usuario?.id || 'propietario'}`;
+    localStorage.removeItem(draftKey);
+    clearDraftFilesDB();
+    setFormNueva(FORM_NUEVA_DEFAULT);
+    setEncargadosAreas(ENCARGADOS_DEFAULT);
+    setDocumentosAdjuntos({});
+    setNuevaFotoFile(null);
+    setNuevaFotoPreview(null);
+    setUltimaHoraGuardado(null);
+    setBorradorRestaurado(false);
+    setEstadoAutoguardado('inactivo');
+  };
+
   const handleFotoNuevaChange = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -1272,6 +1477,9 @@ export default function PropietarioPage() {
         file: file
       }
     }));
+
+    // Persistir el archivo PDF en el borrador de IndexedDB
+    saveDraftFileToDB(reqId, file);
   };
 
   const handleQuitarPdf = (reqId) => {
@@ -1280,6 +1488,8 @@ export default function PropietarioPage() {
       delete copy[reqId];
       return copy;
     });
+    // Eliminar de IndexedDB
+    removeDraftFileFromDB(reqId);
   };
 
   const handleGuardarBorrador = () => {
@@ -1432,7 +1642,14 @@ export default function PropietarioPage() {
         }
       }
 
-      // 5. Confirmación de éxito
+      // 5. Limpieza automática del borrador tras envío exitoso
+      const draftKey = `sedes_borrador_solicitud_${usuario?.id || 'propietario'}`;
+      localStorage.removeItem(draftKey);
+      clearDraftFilesDB();
+      setUltimaHoraGuardado(null);
+      setBorradorRestaurado(false);
+
+      // Confirmación de éxito
       setSolicitudEnviadaExito(true);
 
       // 6. Actualizar lista de establecimientos del usuario
@@ -2846,6 +3063,41 @@ export default function PropietarioPage() {
                 </div>
               ) : (
                 <form onSubmit={handleEnviarNuevaSolicitud} className="space-y-6">
+
+                  {/* Banner de Borrador Restaurado Automáticamente */}
+                  {borradorRestaurado && (
+                    <div className="bg-emerald-50 border border-emerald-300 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs animate-fadeIn">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-8 h-8 rounded-xl bg-emerald-500 text-white flex items-center justify-center shrink-0 shadow-2xs">
+                          <CheckCircle2 className="w-4 h-4 stroke-[2.5]" />
+                        </div>
+                        <div>
+                          <h5 className="text-xs sm:text-sm font-black text-emerald-950">
+                            Solicitud en progreso recuperada automáticamente
+                          </h5>
+                          <p className="text-[11px] text-emerald-800">
+                            Hemos restaurado tus datos y documentos {ultimaHoraGuardado ? `(última copia guardada a las ${ultimaHoraGuardado})` : ''} para que continúes sin volver a llenar todo.
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center space-x-2 self-end sm:self-auto shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => setBorradorRestaurado(false)}
+                          className="text-[11px] font-bold text-emerald-800 hover:text-emerald-950 hover:bg-emerald-100/70 px-3 py-1.5 rounded-lg transition"
+                        >
+                          Entendido
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleDescartarBorrador}
+                          className="text-[11px] font-bold text-rose-700 hover:text-rose-900 hover:bg-rose-100/70 px-3 py-1.5 rounded-lg transition"
+                        >
+                          Descartar borrador
+                        </button>
+                      </div>
+                    </div>
+                  )}
                   
                   {/* ================================================================= */}
                   {/* CARD 1: DATOS DEL ESTABLECIMIENTO                                 */}
@@ -3412,19 +3664,45 @@ export default function PropietarioPage() {
                       </p>
                     </div>
 
-                    <div className="flex items-center space-x-3 shrink-0 w-full sm:w-auto">
-                      <button
-                        type="button"
-                        onClick={handleGuardarBorrador}
-                        className="flex-1 sm:flex-none bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 text-xs font-bold px-4 py-2.5 rounded-xl transition cursor-pointer shadow-2xs"
-                      >
-                        Guardar Borrador
-                      </button>
+                    <div className="flex flex-col sm:flex-row items-center gap-2.5 shrink-0 w-full sm:w-auto">
+                      {/* Indicador de Autoguardado en Tiempo Real */}
+                      <div className="flex items-center space-x-2 text-xs bg-white border border-slate-200 px-3.5 py-2 rounded-xl shadow-2xs w-full sm:w-auto justify-center">
+                        {estadoAutoguardado === 'guardando' ? (
+                          <>
+                            <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-600" />
+                            <span className="text-[11px] font-bold text-amber-700">Autoguardando...</span>
+                          </>
+                        ) : ultimaHoraGuardado ? (
+                          <>
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 stroke-[2.5]" />
+                            <span className="text-[11px] font-medium text-slate-700">
+                              Autoguardado: <strong className="text-slate-900 font-bold">{ultimaHoraGuardado}</strong>
+                            </span>
+                          </>
+                        ) : (
+                          <>
+                            <UploadCloud className="w-3.5 h-3.5 text-slate-400" />
+                            <span className="text-[11px] font-medium text-slate-500">Autoguardado activo</span>
+                          </>
+                        )}
+                      </div>
+
+                      {/* Opción discreta de descartar borrador */}
+                      {ultimaHoraGuardado && (
+                        <button
+                          type="button"
+                          onClick={handleDescartarBorrador}
+                          title="Descartar borrador y empezar de cero"
+                          className="text-[11px] font-bold text-rose-600 hover:text-rose-800 hover:bg-rose-50 px-2.5 py-1.5 rounded-lg transition cursor-pointer"
+                        >
+                          Descartar
+                        </button>
+                      )}
 
                       <button
                         type="submit"
                         disabled={isSubmittingNueva}
-                        className="flex-1 sm:flex-none bg-[#005596] hover:bg-[#003e6d] text-white text-xs font-bold px-6 py-2.5 rounded-xl transition shadow-md flex items-center justify-center space-x-2 cursor-pointer disabled:opacity-50"
+                        className="w-full sm:w-auto bg-[#005596] hover:bg-[#003e6d] text-white text-xs font-bold px-6 py-2.5 rounded-xl transition shadow-md flex items-center justify-center space-x-2 cursor-pointer disabled:opacity-50"
                       >
                         {isSubmittingNueva ? (
                           <>
