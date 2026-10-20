@@ -164,19 +164,32 @@ const parseEncargadosAreas = (responsablesRaw, fallbackRegente, fallbackCI) => {
   const partes = String(responsablesRaw).split(';');
   let encontroValido = false;
   for (const parte of partes) {
-    if (!parte.includes(':')) continue;
-    const [areaRaw, personaRaw] = parte.split(':');
-    const areaNorm = normalizarEspecialidad(areaRaw.trim());
+    const pTrim = parte.trim();
+    const idxColon = pTrim.indexOf(':');
+    if (idxColon === -1) continue;
+
+    const areaRaw = pTrim.substring(0, idxColon).trim();
+    const personaRaw = pTrim.substring(idxColon + 1).trim();
+    const areaNorm = normalizarEspecialidad(areaRaw);
+
     if (areaNorm && personaRaw) {
-      let nom = personaRaw.trim();
+      let nom = personaRaw;
       let ci = fallbackCI || '';
-      if (nom.includes('(CI:')) {
-        const matchCI = nom.match(/(.*?)\(CI:\s*([^)]+)\)/i);
-        if (matchCI) {
-          nom = matchCI[1].trim();
-          ci = matchCI[2].trim();
-        }
+
+      const matchCI = personaRaw.match(/\((?:CI|C\.I\.)[:\s]*([^)]+)\)/i);
+      if (matchCI) {
+        nom = personaRaw.substring(0, matchCI.index).trim();
+        ci = matchCI[1].trim();
+      } else if (personaRaw.includes(' - ')) {
+        const pParts = personaRaw.split(' - ');
+        nom = pParts[0].trim();
+        ci = pParts[1].trim();
       }
+
+      // Limpiar cualquier residuo de "(CI" o paréntesis incompleto
+      nom = nom.replace(/\s*\((?:CI|C\.I\.)?.*$/i, '').trim();
+      ci = ci.replace(/^[^\d]*/, '').replace(/\)$/, '').trim();
+
       mapResultado[areaNorm] = { nombre: nom, ci: ci };
       encontroValido = true;
     }
@@ -2349,10 +2362,14 @@ export default function CoordinadorPage() {
                                   iconColor: 'text-blue-600',
                                   descripcion: 'Área de análisis clínicos autorizada'
                                 };
-                                const enc = encargadosMap[esp] || {
-                                  nombre: tramiteActual.responsable_laboratorio || tramiteActual.regente || 'DRA. MARIA ELENA VARGAS ROJAS',
-                                  ci: tramiteActual.ci_responsable || tramiteActual.regente_ci || '5489632 CBBA'
-                                };
+                                const rawEnc = encargadosMap[esp] || encargadosMap[normalizarEspecialidad(esp)] || {};
+                                const rawNom = rawEnc.nombre || tramiteActual.responsable_laboratorio || tramiteActual.regente || 'DRA. MARIA ELENA VARGAS ROJAS';
+                                const rawCi = rawEnc.ci || tramiteActual.ci_responsable || tramiteActual.regente_ci || '5489632 CBBA';
+                                const nombreLimpio = String(rawNom).replace(/\s*\((?:CI|C\.I\.)?.*$/i, '').trim();
+                                let ciLimpio = String(rawCi).trim();
+                                if (ciLimpio.startsWith(':')) ciLimpio = ciLimpio.substring(1).trim();
+                                ciLimpio = ciLimpio.replace(/\)$/, '').trim();
+                                const enc = { nombre: nombreLimpio, ci: ciLimpio };
 
                                 return (
                                   <div

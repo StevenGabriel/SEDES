@@ -132,18 +132,53 @@ def parse_responsables_areas_dict(raw: Optional[Union[str, dict]]) -> dict:
     resultado = {}
     partes = str(raw).split(";")
     for parte in partes:
-        if ":" in parte:
-            segs = parte.split(":", 1)
-            area = segs[0].strip()
-            persona_str = segs[1].strip()
+        p_trim = parte.strip()
+        idx_colon = p_trim.find(":")
+        if idx_colon != -1:
+            area = p_trim[:idx_colon].strip()
+            persona_str = p_trim[idx_colon + 1:].strip()
             nom = persona_str
             ci = ""
-            match_ci = re.search(r'\(CI:\s*([^)]+)\)', persona_str, re.IGNORECASE)
+            match_ci = re.search(r'\((?:CI|C\.I\.)[:\s]*([^)]+)\)', persona_str, re.IGNORECASE)
             if match_ci:
                 ci = match_ci.group(1).strip()
                 nom = persona_str[:match_ci.start()].strip()
-            resultado[area] = {"nombre": nom, "ci": ci}
+            elif " - " in persona_str:
+                p_parts = persona_str.split(" - ", 1)
+                nom = p_parts[0].strip()
+                ci = p_parts[1].strip()
+            nom = re.sub(r'\s*\((?:CI|C\.I\.)?.*$', '', nom, flags=re.IGNORECASE).strip()
+            ci = re.sub(r'^[^\d]*', '', ci).strip()
+            if area and nom:
+                resultado[area] = {"nombre": nom, "ci": ci}
     return resultado
+
+def coinciden_personas_sedes(nom1: Optional[str], ci1: Optional[str], nom2: Optional[str], ci2: Optional[str]) -> bool:
+    """
+    Determina si dos personas corresponden al mismo profesional cotejando por C.I.
+    o por similitud sustancial de nombres y apellidos (evitando falsos negativos).
+    """
+    n1 = normalizar_texto_personal(nom1)
+    c1 = normalizar_ci_personal(ci1)
+    n2 = normalizar_texto_personal(nom2)
+    c2 = normalizar_ci_personal(ci2)
+
+    # 1. Coincidencia por CI (ambos con al menos 4 dígitos)
+    if c1 and c2 and len(c1) >= 4 and len(c2) >= 4 and c1 == c2:
+        return True
+
+    # 2. Coincidencia por Nombre Completo
+    if n1 and n2 and len(n1) >= 6 and len(n2) >= 6:
+        if n1 == n2 or n1 in n2 or n2 in n1:
+            return True
+        palabras1 = set([p for p in n1.split() if len(p) > 2])
+        palabras2 = set([p for p in n2.split() if len(p) > 2])
+        if len(palabras1) >= 2 and len(palabras2) >= 2:
+            inter = palabras1.intersection(palabras2)
+            if len(inter) >= 2 and (len(inter) / min(len(palabras1), len(palabras2))) >= 0.6:
+                return True
+
+    return False
 
 def verificar_conflictos_personal_establecimiento(
     db: Session,
@@ -217,15 +252,7 @@ def verificar_conflictos_personal_establecimiento(
         otro_norm_ci = normalizar_ci_personal(otro_resp_ci)
 
         # 1. Comparar con el Responsable Técnico General actual
-        coincide_resp = False
-        if resp_norm_ci and otro_norm_ci and len(resp_norm_ci) >= 4:
-            if resp_norm_ci == otro_norm_ci:
-                coincide_resp = True
-        elif resp_norm_nom and otro_norm_nom and len(resp_norm_nom) >= 6:
-            if resp_norm_nom == otro_norm_nom or resp_norm_nom in otro_norm_nom or otro_norm_nom in resp_norm_nom:
-                coincide_resp = True
-
-        if coincide_resp:
+        if coinciden_personas_sedes(resp_nom, resp_ci, otro_resp_nom, otro_resp_ci):
             c_item = {
                 "establecimiento": otro_nombre_lab,
                 "municipio": otro_mun,
@@ -248,18 +275,7 @@ def verificar_conflictos_personal_establecimiento(
                 o_nom = str(o_datos)
                 o_ci = ""
 
-            o_norm_nom = normalizar_texto_personal(o_nom)
-            o_norm_ci = normalizar_ci_personal(o_ci)
-
-            coincide_como_enc = False
-            if resp_norm_ci and o_norm_ci and len(resp_norm_ci) >= 4:
-                if resp_norm_ci == o_norm_ci:
-                    coincide_como_enc = True
-            elif resp_norm_nom and o_norm_nom and len(resp_norm_nom) >= 6:
-                if resp_norm_nom == o_norm_nom or resp_norm_nom in o_norm_nom:
-                    coincide_como_enc = True
-
-            if coincide_como_enc:
+            if coinciden_personas_sedes(resp_nom, resp_ci, o_nom, o_ci):
                 c_item = {
                     "establecimiento": otro_nombre_lab,
                     "municipio": otro_mun,
@@ -280,22 +296,11 @@ def verificar_conflictos_personal_establecimiento(
                 cur_nom = str(a_info)
                 cur_ci = ""
 
-            cur_norm_nom = normalizar_texto_personal(cur_nom)
-            cur_norm_ci = normalizar_ci_personal(cur_ci)
-
-            if not cur_norm_nom and not cur_norm_ci:
+            if not cur_nom and not cur_ci:
                 continue
 
             # ¿Es Responsable Técnico en el otro lab?
-            coincide_con_otro_resp = False
-            if cur_norm_ci and otro_norm_ci and len(cur_norm_ci) >= 4:
-                if cur_norm_ci == otro_norm_ci:
-                    coincide_con_otro_resp = True
-            elif cur_norm_nom and otro_norm_nom and len(cur_norm_nom) >= 6:
-                if cur_norm_nom == otro_norm_nom or cur_norm_nom in otro_norm_nom:
-                    coincide_con_otro_resp = True
-
-            if coincide_con_otro_resp:
+            if coinciden_personas_sedes(cur_nom, cur_ci, otro_resp_nom, otro_resp_ci):
                 c_item = {
                     "establecimiento": otro_nombre_lab,
                     "municipio": otro_mun,
@@ -316,18 +321,7 @@ def verificar_conflictos_personal_establecimiento(
                     o_nom = str(o_datos)
                     o_ci = ""
 
-                o_norm_nom = normalizar_texto_personal(o_nom)
-                o_norm_ci = normalizar_ci_personal(o_ci)
-
-                coincide_con_otro_enc = False
-                if cur_norm_ci and o_norm_ci and len(cur_norm_ci) >= 4:
-                    if cur_norm_ci == o_norm_ci:
-                        coincide_con_otro_enc = True
-                elif cur_norm_nom and o_norm_nom and len(cur_norm_nom) >= 6:
-                    if cur_norm_nom == o_norm_nom or cur_norm_nom in o_norm_nom:
-                        coincide_con_otro_enc = True
-
-                if coincide_con_otro_enc:
+                if coinciden_personas_sedes(cur_nom, cur_ci, o_nom, o_ci):
                     c_item = {
                         "establecimiento": otro_nombre_lab,
                         "municipio": otro_mun,
