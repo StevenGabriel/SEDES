@@ -109,7 +109,7 @@ const INITIAL_USERS = [
     email: 'director@sedes.gob.bo',
     rol: 'Director',
     rolBadgeColor: 'bg-indigo-50 text-indigo-700 border-indigo-200',
-    ultimaConexion: 'Hace 10 min',
+    ultimaConexion: 'Sin conexión',
     conectado: false,
     estado: 'Activo',
     avatar: 'https://images.unsplash.com/photo-1537368910025-700350fe46c7?w=100&auto=format&fit=crop&q=80',
@@ -124,7 +124,7 @@ const INITIAL_USERS = [
     email: 'coordinador@sedes.gob.bo',
     rol: 'Coordinador',
     rolBadgeColor: 'bg-sky-50 text-sky-700 border-sky-200',
-    ultimaConexion: 'Hace 5 min',
+    ultimaConexion: 'Sin conexión',
     conectado: false,
     estado: 'Activo',
     avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=100&auto=format&fit=crop&q=80',
@@ -139,8 +139,8 @@ const INITIAL_USERS = [
     email: 'admin@sedes.gob.bo',
     rol: 'Administrador',
     rolBadgeColor: 'bg-slate-100 text-slate-800 border-slate-300',
-    ultimaConexion: 'Ahora (En línea)',
-    conectado: true,
+    ultimaConexion: 'Sin conexión',
+    conectado: false,
     estado: 'Activo',
     avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&auto=format&fit=crop&q=80',
     ci: '1000001 CB',
@@ -154,7 +154,7 @@ const INITIAL_USERS = [
     email: 'supervisor@sedes.gob.bo',
     rol: 'Supervisor',
     rolBadgeColor: 'bg-amber-50 text-amber-700 border-amber-200',
-    ultimaConexion: 'Hace 2 horas',
+    ultimaConexion: 'Sin conexión',
     conectado: false,
     estado: 'Activo',
     avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80',
@@ -169,7 +169,7 @@ const INITIAL_USERS = [
     email: 'abogado@sedes.gob.bo',
     rol: 'Abogado',
     rolBadgeColor: 'bg-purple-50 text-purple-700 border-purple-200',
-    ultimaConexion: 'Hace 30 min',
+    ultimaConexion: 'Sin conexión',
     conectado: false,
     estado: 'Activo',
     avatar: 'https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?w=100&auto=format&fit=crop&q=80',
@@ -184,7 +184,7 @@ const INITIAL_USERS = [
     email: 'andrea.torrico@sedes.gob.bo',
     rol: 'Supervisor',
     rolBadgeColor: 'bg-amber-50 text-amber-700 border-amber-200',
-    ultimaConexion: 'Hace 1 día',
+    ultimaConexion: 'Sin conexión',
     conectado: false,
     estado: 'Activo',
     avatar: 'https://images.unsplash.com/photo-1567532939604-b6b5b0db2604?w=100&auto=format&fit=crop&q=80',
@@ -199,7 +199,7 @@ const INITIAL_USERS = [
     email: 'carlos.ruiz@sedes.gob.bo',
     rol: 'Supervisor',
     rolBadgeColor: 'bg-amber-50 text-amber-700 border-amber-200',
-    ultimaConexion: 'Hace 1 hora',
+    ultimaConexion: 'Sin conexión',
     conectado: false,
     estado: 'Activo',
     avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&auto=format&fit=crop&q=80',
@@ -214,7 +214,7 @@ const INITIAL_USERS = [
     email: 'patricia.valenzuela@sedes.gob.bo',
     rol: 'Supervisor',
     rolBadgeColor: 'bg-amber-50 text-amber-700 border-amber-200',
-    ultimaConexion: 'Hace 4 horas',
+    ultimaConexion: 'Sin conexión',
     conectado: false,
     estado: 'Activo',
     avatar: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=100&auto=format&fit=crop&q=80',
@@ -626,8 +626,8 @@ export default function AdminPage() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // Lista de usuarios y filtros
-  const [usuarios, setUsuarios] = useState(INITIAL_USERS);
-  const [cargando, setCargando] = useState(false);
+  const [usuarios, setUsuarios] = useState([]);
+  const [cargando, setCargando] = useState(true);
   const [busqueda, setBusqueda] = useState('');
   const [filtroRol, setFiltroRol] = useState('Todos los Roles');
   const [filtroEstado, setFiltroEstado] = useState('Todos los Estados');
@@ -1176,12 +1176,20 @@ export default function AdminPage() {
       const res = await fetch('http://localhost:8000/api/admin/usuarios?solo_institucionales=true');
       if (res.ok) {
         const data = await res.json();
-        if (Array.isArray(data) && data.length > 0) {
+        if (Array.isArray(data)) {
           setUsuarios(data);
         }
+      } else if (res.status === 401 || res.status === 403) {
+        console.warn('⚠️ [Admin SEDES] Sesión caducada o no autorizada (401/403). Redirigiendo a login.');
+        localStorage.removeItem('token');
+        localStorage.removeItem('usuario');
+        navigate('/login');
+      } else {
+        setUsuarios(prev => prev.length > 0 ? prev : INITIAL_USERS);
       }
     } catch (err) {
-      console.warn('Backend offline, usando datos iniciales:', err);
+      console.warn('Backend offline o inaccesible:', err);
+      setUsuarios(prev => prev.length > 0 ? prev : INITIAL_USERS);
     } finally {
       if (!silencioso) setCargando(false);
     }
