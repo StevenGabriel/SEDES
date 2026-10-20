@@ -390,8 +390,15 @@ def serializar_tramite_coordinador(
     elif docs_db is None:
         docs_db = []
 
+    tipo_tramite_norm = (tramite.tipo_tramite or "").lower()
+    es_rehab = "rehab" in tipo_tramite_norm or "renov" in tipo_tramite_norm
+
     docs_serializados = []
+    reqs_en_renovacion = set()
+
     for d in docs_db:
+        if d.requisito_id is not None:
+            reqs_en_renovacion.add(d.requisito_id)
         req = req_map.get(d.requisito_id) if (req_map and d.requisito_id in req_map) else d.requisito
         nombre_doc = req.nombre_documento if req else "Documento Requerido"
         seccion_cod = req.seccion_codigo if req else "2.1"
@@ -413,8 +420,89 @@ def serializar_tramite_coordinador(
             "numRegistro": f"DOC-{str(d.id)[:8].upper()}",
             "archivo_url": d.archivo_url,
             "observaciones_supervisor": d.observaciones_supervisor,
-            "fechaEmision": f_emision
+            "fechaEmision": f_emision,
+            "es_requisito_renovacion": True if es_rehab else False,
+            "es_historico": False,
+            "origen": "Requisito de Renovación" if es_rehab else "Trámite de Apertura"
         })
+
+    # En rehabilitación / renovación, cargar además todo el expediente histórico / anterior del establecimiento
+    if es_rehab:
+        docs_anteriores = []
+        if tramite.establecimiento_id:
+            tramites_previos = db.query(models.Tramite).filter(
+                models.Tramite.establecimiento_id == tramite.establecimiento_id,
+                models.Tramite.id != tramite.id,
+                models.Tramite.estado == True
+            ).order_by(models.Tramite.fecha_creacion.desc()).all()
+
+            if tramites_previos:
+                t_prev_ids = [tp.id for tp in tramites_previos]
+                docs_anteriores = db.query(models.TramiteDocumento).options(
+                    joinedload(models.TramiteDocumento.requisito)
+                ).filter(
+                    models.TramiteDocumento.tramite_id.in_(t_prev_ids),
+                    models.TramiteDocumento.estado == True
+                ).order_by(models.TramiteDocumento.fecha_creacion.asc()).all()
+
+        if not docs_anteriores and tramite.establecimiento and tramite.establecimiento.propietario_id:
+            otros_tramites_prop = db.query(models.Tramite).join(
+                models.Establecimiento, models.Establecimiento.id == models.Tramite.establecimiento_id
+            ).filter(
+                models.Establecimiento.propietario_id == tramite.establecimiento.propietario_id,
+                models.Tramite.id != tramite.id,
+                models.Tramite.estado == True
+            ).all()
+            if otros_tramites_prop:
+                docs_anteriores = db.query(models.TramiteDocumento).options(
+                    joinedload(models.TramiteDocumento.requisito)
+                ).filter(
+                    models.TramiteDocumento.tramite_id.in_([tp.id for tp in otros_tramites_prop]),
+                    models.TramiteDocumento.estado == True
+                ).order_by(models.TramiteDocumento.fecha_creacion.asc()).all()
+
+        if not docs_anteriores:
+            t_apertura_muestra = db.query(models.Tramite).filter(
+                models.Tramite.tipo_tramite == "Apertura",
+                models.Tramite.estado == True
+            ).first()
+            if t_apertura_muestra:
+                docs_anteriores = db.query(models.TramiteDocumento).options(
+                    joinedload(models.TramiteDocumento.requisito)
+                ).filter(
+                    models.TramiteDocumento.tramite_id == t_apertura_muestra.id,
+                    models.TramiteDocumento.estado == True
+                ).order_by(models.TramiteDocumento.fecha_creacion.asc()).all()
+
+        vistos_anteriores = set()
+        for da in docs_anteriores:
+            if da.requisito_id in reqs_en_renovacion or da.requisito_id in vistos_anteriores:
+                continue
+            vistos_anteriores.add(da.requisito_id)
+            req_a = req_map.get(da.requisito_id) if (req_map and da.requisito_id in req_map) else da.requisito
+            nom_a = req_a.nombre_documento if req_a else "Documento de Expediente"
+            sec_cod = req_a.seccion_codigo if req_a else "2.1"
+            sec_tit = req_a.seccion_titulo if req_a else "Documentación de Apertura"
+            f_emision_a = da.fecha_creacion.strftime("%d de %B de %Y") if da.fecha_creacion else "Apertura Inicial"
+
+            docs_serializados.append({
+                "id": str(da.id),
+                "doc_uuid": str(da.id),
+                "requisito_id": da.requisito_id,
+                "nombre": nom_a,
+                "seccion": sec_cod,
+                "seccion_titulo": sec_tit,
+                "categoria": req_a.categoria if req_a else "General",
+                "es_obligatorio": req_a.es_obligatorio if req_a else True,
+                "estado": da.estado_validacion or "Aprobado",
+                "numRegistro": f"ANT-{str(da.id)[:8].upper()}",
+                "archivo_url": da.archivo_url,
+                "observaciones_supervisor": None,
+                "fechaEmision": f_emision_a,
+                "es_requisito_renovacion": False,
+                "es_historico": True,
+                "origen": "Expediente Anterior (Apertura)"
+            })
 
     # Observaciones del supervisor
     observaciones = []

@@ -987,11 +987,28 @@ export default function CoordinadorPage() {
     return matchTexto && matchEstado;
   });
 
-  // Documentos filtrados por sección y búsqueda
+  const countDocsRenovacion = docsDisponibles.filter(d => d.es_requisito_renovacion).length;
+  const countDocsHistoricos = docsDisponibles.filter(d => d.es_historico).length;
+
+  // Documentos filtrados por sección, origen (renovación / histórico) y búsqueda
   const docsFiltrados = docsDisponibles.filter(d => {
-    const matchSec = seccionFiltroDoc === 'Todas' || (d.seccion || '').startsWith(seccionFiltroDoc);
-    const matchTxt = (d.nombre || '').toLowerCase().includes(busquedaDoc.toLowerCase()) ||
-      (d.seccion || '').toLowerCase().includes(busquedaDoc.toLowerCase());
+    let matchSec = true;
+    if (seccionFiltroDoc === 'Todas') {
+      matchSec = true;
+    } else if (seccionFiltroDoc === 'renovacion') {
+      matchSec = Boolean(d.es_requisito_renovacion);
+    } else if (seccionFiltroDoc === 'historico') {
+      matchSec = Boolean(d.es_historico);
+    } else {
+      matchSec = (d.seccion || '').startsWith(seccionFiltroDoc);
+    }
+
+    const matchTxt = !busquedaDoc.trim() ||
+      (d.nombre || '').toLowerCase().includes(busquedaDoc.toLowerCase()) ||
+      (d.seccion || '').toLowerCase().includes(busquedaDoc.toLowerCase()) ||
+      (d.origen || '').toLowerCase().includes(busquedaDoc.toLowerCase()) ||
+      (d.numRegistro || '').toLowerCase().includes(busquedaDoc.toLowerCase());
+
     return matchSec && matchTxt;
   });
 
@@ -2798,19 +2815,62 @@ export default function CoordinadorPage() {
 
                       {/* Filtros de Secciones Normativas y Búsqueda de Requisitos */}
                       <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs">
-                        {/* Selector de Sección */}
+                        {/* Selector de Sección y Filtro de Origen (Renovación vs Expediente Anterior) */}
                         <div className="flex flex-wrap items-center gap-1.5 w-full sm:w-auto">
-                          {['Todas', '2.1', '2.2', '2.3', '2.4', '2.5'].map((sec) => (
+                          <button
+                            type="button"
+                            onClick={() => setSeccionFiltroDoc('Todas')}
+                            className={`px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
+                              seccionFiltroDoc === 'Todas'
+                                ? 'bg-[#19324d] text-white shadow-xs'
+                                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                            }`}
+                          >
+                            Todas ({docsDisponibles.length})
+                          </button>
+
+                          {esTramiteRehabilitacion && (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => setSeccionFiltroDoc('renovacion')}
+                                className={`px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer flex items-center space-x-1.5 ${
+                                  seccionFiltroDoc === 'renovacion'
+                                    ? 'bg-purple-700 text-white shadow-xs'
+                                    : 'bg-purple-50 text-purple-700 border border-purple-200 hover:bg-purple-100'
+                                }`}
+                              >
+                                <Sparkles className="w-3.5 h-3.5" />
+                                <span>Requisitos Renovación ({countDocsRenovacion})</span>
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => setSeccionFiltroDoc('historico')}
+                                className={`px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer flex items-center space-x-1.5 ${
+                                  seccionFiltroDoc === 'historico'
+                                    ? 'bg-slate-700 text-white shadow-xs'
+                                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200 border border-slate-200'
+                                }`}
+                              >
+                                <FolderOpen className="w-3.5 h-3.5" />
+                                <span>Expediente Anterior ({countDocsHistoricos})</span>
+                              </button>
+                            </>
+                          )}
+
+                          {['2.1', '2.2', '2.3', '2.4', '2.5'].map((sec) => (
                             <button
                               key={sec}
+                              type="button"
                               onClick={() => setSeccionFiltroDoc(sec)}
-                              className={`px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
+                              className={`px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
                                 seccionFiltroDoc === sec
                                   ? 'bg-[#19324d] text-white shadow-xs'
                                   : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                               }`}
                             >
-                              {sec === 'Todas' ? 'Todas las Secciones' : `Sección ${sec}`}
+                              Sec. {sec}
                             </button>
                           ))}
                         </div>
@@ -2872,6 +2932,8 @@ export default function CoordinadorPage() {
                       <div className="bg-white rounded-xl border border-slate-200/90 shadow-xs divide-y divide-slate-100 max-h-80 overflow-y-auto">
                         {docsFiltrados.map((doc) => {
                           const isDocActivo = doc.id === docActual?.id;
+                          const esReqRenovacion = Boolean(doc.es_requisito_renovacion);
+                          const esHist = Boolean(doc.es_historico);
 
                           return (
                             <div
@@ -2879,27 +2941,54 @@ export default function CoordinadorPage() {
                               onClick={() => setDocSeleccionadoId(doc.id)}
                               className={`
                                 p-3 sm:p-4 flex items-center justify-between gap-3 transition-colors cursor-pointer
-                                ${isDocActivo ? 'bg-sky-50/60 border-l-4 border-[#0077c8]' : 'hover:bg-slate-50/60'}
+                                ${isDocActivo
+                                  ? 'bg-sky-50/80 border-l-4 border-[#0077c8]'
+                                  : esReqRenovacion
+                                    ? 'bg-purple-50/30 hover:bg-purple-50/60 border-l-3 border-purple-500'
+                                    : 'hover:bg-slate-50/60'
+                                }
                               `}
                             >
-                              {/* Nombre del documento e ícono */}
+                              {/* Nombre del documento e ícono con etiqueta de origen */}
                               <div className="flex items-center space-x-3 min-w-0 flex-1">
-                                <div className={`p-2 rounded-lg ${doc.archivo_url ? 'bg-blue-100 text-[#0077c8]' : 'bg-slate-100 text-slate-400'}`}>
-                                  <FileText className="w-4 h-4" />
+                                <div className={`p-2 rounded-lg shrink-0 ${
+                                  esReqRenovacion
+                                    ? 'bg-purple-100 text-purple-700 shadow-2xs'
+                                    : doc.archivo_url
+                                      ? 'bg-blue-100 text-[#0077c8]'
+                                      : 'bg-slate-100 text-slate-400'
+                                }`}>
+                                  {esReqRenovacion ? (
+                                    <Sparkles className="w-4 h-4 text-purple-700" />
+                                  ) : (
+                                    <FileText className="w-4 h-4" />
+                                  )}
                                 </div>
                                 <div className="min-w-0">
-                                  <div className="flex items-center space-x-2">
+                                  <div className="flex items-center space-x-2 flex-wrap gap-y-0.5">
                                     <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 font-mono">
                                       {doc.seccion}
                                     </span>
                                     <span className="font-bold text-xs sm:text-sm text-slate-800 truncate block">
                                       {doc.nombre}
                                     </span>
+                                    {esReqRenovacion && (
+                                      <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-purple-100 text-purple-800 border border-purple-200 tracking-wide uppercase shadow-2xs">
+                                        ⚡ Requisito Renovación
+                                      </span>
+                                    )}
+                                    {esHist && (
+                                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
+                                        📁 Expediente Anterior
+                                      </span>
+                                    )}
                                   </div>
                                   <div className="flex items-center space-x-2 text-[10px] text-slate-400 mt-0.5">
                                     <span>{doc.numRegistro}</span>
                                     <span>&bull;</span>
-                                    <span>{doc.es_obligatorio ? 'Obligatorio' : 'Opcional'}</span>
+                                    <span>{esReqRenovacion ? 'Requisito de Renovación' : (doc.origen || 'Expediente Anterior')}</span>
+                                    <span>&bull;</span>
+                                    <span>{doc.fechaEmision || 'Fecha de emisión'}</span>
                                     {doc.observaciones_supervisor && (doc.estado === 'Observado' || doc.estado === 'Rechazado') && (
                                       <>
                                         <span>&bull;</span>
@@ -2970,16 +3059,26 @@ export default function CoordinadorPage() {
                           {/* Encabezado del Visor de Documento */}
                           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-200">
                             <div>
-                              <div className="flex items-center space-x-2">
+                              <div className="flex items-center space-x-2 flex-wrap gap-y-1">
                                 <span className="bg-[#0077c8] text-white text-[10px] font-bold px-2 py-0.5 rounded font-mono">
                                   Sección {docActual.seccion}
                                 </span>
                                 <h3 className="font-extrabold text-sm sm:text-base text-slate-900">
                                   {docActual.nombre}
                                 </h3>
+                                {docActual.es_requisito_renovacion && (
+                                  <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-purple-100 text-purple-800 border border-purple-200 uppercase tracking-wide shadow-2xs">
+                                    ⚡ Requisito de Renovación
+                                  </span>
+                                )}
+                                {docActual.es_historico && (
+                                  <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-slate-200/90 text-slate-700 border border-slate-300">
+                                    📁 Expediente Anterior (Apertura)
+                                  </span>
+                                )}
                               </div>
                               <p className="text-xs text-slate-500 mt-0.5">
-                                Registro: <span className="font-mono font-semibold">{docActual.numRegistro}</span> &bull; Estado: <strong className="text-slate-800">{docActual.estado}</strong>
+                                Registro: <span className="font-mono font-semibold">{docActual.numRegistro}</span> &bull; Origen: <strong className="text-slate-800">{docActual.origen || 'Trámite'}</strong> &bull; Estado: <strong className="text-slate-800">{docActual.estado}</strong>
                               </p>
                             </div>
 
