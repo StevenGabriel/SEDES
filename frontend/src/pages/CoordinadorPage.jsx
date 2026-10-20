@@ -4206,33 +4206,39 @@ export default function CoordinadorPage() {
                 ) : (
                   <div className="border border-slate-200 rounded-xl divide-y divide-slate-100 max-h-60 overflow-y-auto bg-slate-50/50">
                     {reqsCatalogoFiltrados.map((req) => {
-                      const yaSolicitado = docsDisponibles.some(d => d.requisito_id === req.id);
+                      // En rehabilitación, solo bloquear los que YA fueron solicitados activamente para esta renovación
+                      const yaSolicitadoEnRenovacion = Boolean(
+                        docsDisponibles.some(d => d.requisito_id === req.id && (d.es_requisito_renovacion || !esTramiteRehabilitacion))
+                      );
+                      const existeEnExpedienteAnterior = Boolean(
+                        docsDisponibles.some(d => d.requisito_id === req.id && d.es_historico)
+                      );
                       const estaSeleccionado = requisitosSeleccionados.includes(req.id);
 
                       return (
                         <div
                           key={req.id}
                           onClick={() => {
-                            if (!yaSolicitado) handleToggleRequisitoSeleccionado(req.id);
+                            if (!yaSolicitadoEnRenovacion) handleToggleRequisitoSeleccionado(req.id);
                           }}
                           className={`
                             p-3 flex items-start space-x-3 transition select-none
-                            ${yaSolicitado ? 'bg-slate-100/70 opacity-60 cursor-not-allowed' : 'hover:bg-sky-50/50 cursor-pointer'}
+                            ${yaSolicitadoEnRenovacion ? 'bg-slate-100/70 opacity-60 cursor-not-allowed' : 'hover:bg-sky-50/50 cursor-pointer'}
                             ${estaSeleccionado ? 'bg-sky-50/80 border-l-4 border-[#0077c8]' : ''}
                           `}
                         >
                           <input
                             type="checkbox"
-                            checked={yaSolicitado || estaSeleccionado}
-                            disabled={yaSolicitado}
+                            checked={yaSolicitadoEnRenovacion || estaSeleccionado}
+                            disabled={yaSolicitadoEnRenovacion}
                             onChange={() => {
-                              if (!yaSolicitado) handleToggleRequisitoSeleccionado(req.id);
+                              if (!yaSolicitadoEnRenovacion) handleToggleRequisitoSeleccionado(req.id);
                             }}
                             className="mt-0.5 rounded text-[#0077c8] focus:ring-[#0077c8] cursor-pointer"
                           />
 
                           <div className="flex-1 min-w-0">
-                            <div className="flex items-center space-x-2">
+                            <div className="flex items-center space-x-2 flex-wrap gap-y-0.5">
                               <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-slate-200 text-slate-700">
                                 {req.seccion_codigo}
                               </span>
@@ -4247,11 +4253,15 @@ export default function CoordinadorPage() {
                             </div>
                           </div>
 
-                          {yaSolicitado && (
-                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-200 text-slate-600 shrink-0">
-                              Ya Solicitado / Adjunto
+                          {yaSolicitadoEnRenovacion ? (
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-100 text-purple-800 border border-purple-200 shrink-0">
+                              Ya Solicitado en Renovación
                             </span>
-                          )}
+                          ) : existeEnExpedienteAnterior ? (
+                            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200 shrink-0" title="Este documento figura en el expediente anterior. Puede seleccionarlo para solicitar una copia actualizada.">
+                              📁 En Expediente Anterior
+                            </span>
+                          ) : null}
                         </div>
                       );
                     })}
