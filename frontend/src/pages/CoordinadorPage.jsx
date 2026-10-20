@@ -46,7 +46,8 @@ import {
   BadgeCheck,
   UploadCloud,
   CheckSquare,
-  Trash2
+  Trash2,
+  PlusCircle
 } from 'lucide-react';
 
 import logoL1 from '../assets/L1.png';
@@ -364,6 +365,17 @@ export default function CoordinadorPage() {
   const [modalVerDocFull, setModalVerDocFull] = useState(false);
   const [notificacionToast, setNotificacionToast] = useState(null);
 
+  // Modal Solicitar Requisitos Adicionales (Rehabilitación / Renovación)
+  const [modalSolicitarRequisitosOpen, setModalSolicitarRequisitosOpen] = useState(false);
+  const [catalogoRequisitos, setCatalogoRequisitos] = useState([]);
+  const [cargandoCatalogo, setCargandoCatalogo] = useState(false);
+  const [requisitosSeleccionados, setRequisitosSeleccionados] = useState([]);
+  const [seccionFiltroCatalogo, setSeccionFiltroCatalogo] = useState('Todas');
+  const [busquedaCatalogo, setBusquedaCatalogo] = useState('');
+  const [motivoSolicitudRequisitos, setMotivoSolicitudRequisitos] = useState('');
+  const [enviandoSolicitudRequisitos, setEnviandoSolicitudRequisitos] = useState(false);
+  const [eliminandoDocId, setEliminandoDocId] = useState(null);
+
   // Modal de Expediente Digital y Documentos Emitidos (Historial y Trazabilidad)
   const [modalExpedienteHistorialOpen, setModalExpedienteHistorialOpen] = useState(false);
   const [tramiteHistorialSeleccionado, setTramiteHistorialSeleccionado] = useState(null);
@@ -395,6 +407,124 @@ export default function CoordinadorPage() {
     setTimeout(() => {
       setNotificacionToast(null);
     }, 4000);
+  };
+
+  // Cargar catálogo público de requisitos para selección
+  const cargarCatalogoRequisitos = async () => {
+    if (catalogoRequisitos.length > 0) return;
+    setCargandoCatalogo(true);
+    try {
+      const res = await fetch('http://localhost:8000/api/requisitos/publico');
+      if (res.ok) {
+        const data = await res.json();
+        setCatalogoRequisitos(data || []);
+      }
+    } catch (err) {
+      console.error('Error al cargar catálogo de requisitos:', err);
+      mostrarToast('Error al obtener el catálogo de requisitos.', 'error');
+    } finally {
+      setCargandoCatalogo(false);
+    }
+  };
+
+  const handleAbrirModalSolicitarRequisitos = () => {
+    setRequisitosSeleccionados([]);
+    setMotivoSolicitudRequisitos('Requisito complementario requerido para el proceso de renovación / rehabilitación del laboratorio.');
+    setSeccionFiltroCatalogo('Todas');
+    setBusquedaCatalogo('');
+    setModalSolicitarRequisitosOpen(true);
+    cargarCatalogoRequisitos();
+  };
+
+  const handleToggleRequisitoSeleccionado = (reqId) => {
+    setRequisitosSeleccionados(prev =>
+      prev.includes(reqId) ? prev.filter(id => id !== reqId) : [...prev, reqId]
+    );
+  };
+
+  const handleConfirmarSolicitarRequisitos = async () => {
+    if (!tramiteActual) return;
+    if (requisitosSeleccionados.length === 0) {
+      mostrarToast('Debe seleccionar al menos un requisito adicional del catálogo.', 'warning');
+      return;
+    }
+
+    setEnviandoSolicitudRequisitos(true);
+    try {
+      const resp = await fetch(`http://localhost:8000/api/coordinador/tramites/${tramiteActual.tramite_uuid || tramiteActual.id}/solicitar-requisitos-adicionales`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          requisitos_ids: requisitosSeleccionados,
+          observacion_motivo: motivoSolicitudRequisitos || 'Requisito complementario solicitado para la rehabilitación.',
+          responsable: usuario?.nombres ? `${usuario.nombres} ${usuario.apellidos}` : 'Dra. Claudia Morales V.'
+        })
+      });
+
+      if (!resp.ok) {
+        const err = await resp.json();
+        throw new Error(err.detail || 'Error al solicitar requisitos adicionales.');
+      }
+
+      const data = await resp.json();
+      mostrarToast(data.mensaje || 'Requisitos solicitados correctamente. Se notificó al propietario.', 'success');
+
+      if (data.tramite) {
+        setTramites(prev => prev.map(t => (t.id === data.tramite.id || t.tramite_uuid === data.tramite.tramite_uuid) ? data.tramite : t));
+        if (data.tramite.documentos && data.tramite.documentos.length > 0) {
+          const ultimoDoc = data.tramite.documentos[data.tramite.documentos.length - 1];
+          if (ultimoDoc) setDocSeleccionadoId(ultimoDoc.id);
+        }
+      } else {
+        await cargarDatosBackend(true);
+      }
+
+      setModalSolicitarRequisitosOpen(false);
+      setRequisitosSeleccionados([]);
+    } catch (err) {
+      console.error(err);
+      mostrarToast(err.message || 'Error al conectar con el servidor.', 'error');
+    } finally {
+      setEnviandoSolicitudRequisitos(false);
+    }
+  };
+
+  const handleEliminarRequisitoSolicitado = async (docId, nombreDoc, e) => {
+    if (e) e.stopPropagation();
+    if (!tramiteActual) return;
+    if (!window.confirm(`¿Está seguro de retirar el requisito "${nombreDoc}" de este trámite?`)) {
+      return;
+    }
+
+    setEliminandoDocId(docId);
+    try {
+      const resp = await fetch(`http://localhost:8000/api/coordinador/tramites/${tramiteActual.tramite_uuid || tramiteActual.id}/documentos/${docId}`, {
+        method: 'DELETE'
+      });
+      if (!resp.ok) {
+        const err = await resp.json();
+        throw new Error(err.detail || 'Error al retirar el requisito.');
+      }
+      const data = await resp.json();
+      mostrarToast(data.mensaje || 'Requisito retirado con éxito.', 'success');
+
+      if (data.tramite) {
+        setTramites(prev => prev.map(t => (t.id === data.tramite.id || t.tramite_uuid === data.tramite.tramite_uuid) ? data.tramite : t));
+        const restantes = data.tramite.documentos || [];
+        if (restantes.length > 0) {
+          setDocSeleccionadoId(restantes[0].id);
+        } else {
+          setDocSeleccionadoId(null);
+        }
+      } else {
+        await cargarDatosBackend(true);
+      }
+    } catch (err) {
+      console.error(err);
+      mostrarToast(err.message || 'Error al retirar el requisito.', 'error');
+    } finally {
+      setEliminandoDocId(null);
+    }
   };
 
   // Estado de Notificaciones en Tiempo Real
@@ -668,6 +798,13 @@ export default function CoordinadorPage() {
      tramiteActual.supervisorAsignado !== 'PENDIENTE DE ASIGNACIÓN')
   );
 
+  const esTramiteRehabilitacion = Boolean(
+    (tramiteActual?.tipo || '').toLowerCase().includes('rehab') ||
+    (tramiteActual?.tipo || '').toLowerCase().includes('renov') ||
+    (tramiteActual?.tipo_tramite || '').toLowerCase().includes('rehab') ||
+    (tramiteActual?.tipo_tramite || '').toLowerCase().includes('renov')
+  );
+
   const veredictoNorm = (tramiteActual?.veredicto_supervisor_raw || tramiteActual?.veredictoSupervisor || '').toLowerCase();
   const esActaFavorable = veredictoNorm.includes('favorable') || veredictoNorm.includes('aprobado');
   const esActaRechazada = veredictoNorm.includes('desfavorable') || veredictoNorm.includes('rechazado');
@@ -807,6 +944,34 @@ export default function CoordinadorPage() {
       setNotificandoReingreso(false);
     }
   };
+
+  // Catálogo plano de requisitos para el modal de solicitud de adicionales
+  const todosRequisitosCatalogo = useMemo(() => {
+    const lista = [];
+    catalogoRequisitos.forEach(sec => {
+      (sec.requisitos || []).forEach(r => {
+        if (!r.esSubtitulo) {
+          lista.push({
+            ...r,
+            seccion_codigo: sec.codigo,
+            seccion_titulo: sec.titulo
+          });
+        }
+      });
+    });
+    return lista;
+  }, [catalogoRequisitos]);
+
+  const reqsCatalogoFiltrados = useMemo(() => {
+    return todosRequisitosCatalogo.filter(r => {
+      const matchSec = seccionFiltroCatalogo === 'Todas' || r.seccion_codigo === seccionFiltroCatalogo;
+      const matchTxt = !busquedaCatalogo.trim() ||
+        (r.texto || '').toLowerCase().includes(busquedaCatalogo.toLowerCase()) ||
+        (r.categoria || '').toLowerCase().includes(busquedaCatalogo.toLowerCase()) ||
+        (r.seccion_codigo || '').toLowerCase().includes(busquedaCatalogo.toLowerCase());
+      return matchSec && matchTxt;
+    });
+  }, [todosRequisitosCatalogo, seccionFiltroCatalogo, busquedaCatalogo]);
 
   // Documento legal seleccionado actualmente
   const docsDisponibles = tramiteActual?.documentos || [];
@@ -2650,18 +2815,58 @@ export default function CoordinadorPage() {
                           ))}
                         </div>
 
-                        {/* Buscador de documento */}
-                        <div className="relative w-full sm:w-64">
-                          <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
-                          <input
-                            type="text"
-                            placeholder="Filtrar requisito..."
-                            value={busquedaDoc}
-                            onChange={(e) => setBusquedaDoc(e.target.value)}
-                            className="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0077c8]"
-                          />
+                        {/* Buscador de documento y Botón de Requisitos Extra para Rehabilitación */}
+                        <div className="flex items-center gap-2 w-full sm:w-auto">
+                          <div className="relative w-full sm:w-64">
+                            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
+                            <input
+                              type="text"
+                              placeholder="Filtrar requisito..."
+                              value={busquedaDoc}
+                              onChange={(e) => setBusquedaDoc(e.target.value)}
+                              className="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0077c8]"
+                            />
+                          </div>
+                          {esTramiteRehabilitacion && (
+                            <button
+                              type="button"
+                              onClick={handleAbrirModalSolicitarRequisitos}
+                              className="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-[#0077c8] hover:bg-[#005596] text-white text-xs font-bold rounded-lg shadow-2xs transition active:scale-95 cursor-pointer whitespace-nowrap"
+                              title="Solicitar requisitos complementarios del catálogo para este trámite de rehabilitación"
+                            >
+                              <PlusCircle className="w-4 h-4" />
+                              <span>Solicitar Requisitos Extra</span>
+                            </button>
+                          )}
                         </div>
                       </div>
+
+                      {/* Banner informativo de Renovación / Rehabilitación con botón de acción */}
+                      {esTramiteRehabilitacion && (
+                        <div className="bg-gradient-to-r from-sky-50 to-indigo-50/60 p-3.5 rounded-xl border border-sky-200/90 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs shadow-2xs">
+                          <div className="flex items-start sm:items-center space-x-2.5 text-sky-950">
+                            <div className="p-1.5 bg-[#0077c8]/10 text-[#0077c8] rounded-lg shrink-0">
+                              <Sparkles className="w-4 h-4" />
+                            </div>
+                            <div>
+                              <p className="font-extrabold text-slate-900">
+                                Trámite de Rehabilitación / Renovación de Laboratorio
+                              </p>
+                              <p className="text-slate-600 text-[11px] mt-0.5">
+                                Los 3 requisitos base obligatorios (EMSA, COZBES y Memorial) fueron presentados. Si este laboratorio requiere documentos específicos complementarios según su complejidad o áreas, puede solicitarlos desde el catálogo oficial.
+                              </p>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={handleAbrirModalSolicitarRequisitos}
+                            className="inline-flex items-center space-x-1.5 px-3.5 py-2 bg-[#19324d] hover:bg-[#102235] text-white text-xs font-bold rounded-xl shadow-xs transition active:scale-95 cursor-pointer whitespace-nowrap self-end sm:self-auto shrink-0"
+                          >
+                            <PlusCircle className="w-4 h-4 text-sky-400" />
+                            <span>Elegir Requisitos del Catálogo</span>
+                          </button>
+                        </div>
+                      )}
 
                       {/* Lista de Documentos Requeridos */}
                       <div className="bg-white rounded-xl border border-slate-200/90 shadow-xs divide-y divide-slate-100 max-h-80 overflow-y-auto">
@@ -2732,6 +2937,18 @@ export default function CoordinadorPage() {
                                   <Eye className="w-3.5 h-3.5" />
                                   <span>{isDocActivo ? 'Viendo' : 'Ver'}</span>
                                 </button>
+
+                                {esTramiteRehabilitacion && !doc.archivo_url && (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => handleEliminarRequisitoSolicitado(doc.id, doc.nombre, e)}
+                                    disabled={eliminandoDocId === doc.id}
+                                    className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer"
+                                    title="Retirar este requisito complementario solicitado"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                )}
                               </div>
                             </div>
                           );
@@ -2820,6 +3037,19 @@ export default function CoordinadorPage() {
                                     <span>Descargar</span>
                                   </button>
                                 </>
+                              )}
+
+                              {esTramiteRehabilitacion && !docActual.archivo_url && (
+                                <button
+                                  type="button"
+                                  onClick={(e) => handleEliminarRequisitoSolicitado(docActual.id, docActual.nombre, e)}
+                                  disabled={eliminandoDocId === docActual.id}
+                                  className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-white text-rose-700 border border-rose-300 hover:bg-rose-50 transition shadow-2xs cursor-pointer"
+                                  title="Quitar este requisito complementario del trámite"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+                                  <span>Quitar Requisito</span>
+                                </button>
                               )}
                             </div>
                           </div>
@@ -3784,6 +4014,210 @@ export default function CoordinadorPage() {
       {/* ========================================================================= */}
       {/* 6. MODALES Y DIÁLOGOS DE ACCIÓN                                          */}
       {/* ========================================================================= */}
+
+      {/* MODAL: Solicitar Requisitos Adicionales (Rehabilitación / Renovación) */}
+      {modalSolicitarRequisitosOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-2xl w-full max-h-[92vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            {/* Header del Modal */}
+            <div className="p-4 sm:p-5 bg-gradient-to-r from-[#19324d] via-[#005596] to-[#0077c8] text-white flex items-center justify-between shrink-0">
+              <div className="flex items-center space-x-3">
+                <div className="p-2 bg-white/10 rounded-xl">
+                  <PlusCircle className="w-5 h-5 text-sky-300" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-sm sm:text-base tracking-tight">
+                    Solicitar Requisitos Adicionales
+                  </h3>
+                  <p className="text-xs text-sky-100 mt-0.5">
+                    {tramiteActual?.establecimiento} &bull; Rehabilitación / Renovación
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setModalSolicitarRequisitosOpen(false)}
+                className="text-white/80 hover:text-white p-1.5 rounded-lg hover:bg-white/10 transition cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Cuerpo del Modal con Filtros y Checklist */}
+            <div className="p-4 sm:p-6 overflow-y-auto space-y-4 flex-1 text-xs">
+              {/* Nota explicativa */}
+              <div className="bg-sky-50 border border-sky-200 rounded-xl p-3 text-sky-900 flex items-start space-x-2.5">
+                <AlertCircle className="w-4 h-4 text-[#0077c8] shrink-0 mt-0.5" />
+                <p className="text-[11px] leading-relaxed">
+                  Elija los requisitos complementarios del catálogo oficial que el laboratorio debe presentar según su complejidad, equipamiento o áreas. Los requisitos seleccionados se añadirán a la lista del trámite y el propietario será notificado de inmediato para cargar los PDFs.
+                </p>
+              </div>
+
+              {/* Filtro de Secciones del Catálogo */}
+              <div className="space-y-2">
+                <label className="font-bold text-slate-700 block">
+                  Filtrar por Sección Normativa:
+                </label>
+                <div className="flex flex-wrap gap-1.5">
+                  {['Todas', '2.1', '2.2', '2.3', '2.4', '2.5'].map((sec) => (
+                    <button
+                      key={sec}
+                      type="button"
+                      onClick={() => setSeccionFiltroCatalogo(sec)}
+                      className={`px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
+                        seccionFiltroCatalogo === sec
+                          ? 'bg-[#19324d] text-white shadow-xs'
+                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                      }`}
+                    >
+                      {sec === 'Todas' ? 'Todas' : `Sección ${sec}`}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Buscador de Requisito */}
+              <div className="relative">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+                <input
+                  type="text"
+                  placeholder="Buscar requisito por nombre o término..."
+                  value={busquedaCatalogo}
+                  onChange={(e) => setBusquedaCatalogo(e.target.value)}
+                  className="w-full pl-9 pr-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0077c8]"
+                />
+              </div>
+
+              {/* Lista de Requisitos con Checkboxes */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="font-bold text-slate-700">
+                    Requisitos Disponibles en Catálogo ({reqsCatalogoFiltrados.length}):
+                  </span>
+                  <span className="text-[11px] font-bold text-[#0077c8]">
+                    {requisitosSeleccionados.length} seleccionado(s)
+                  </span>
+                </div>
+
+                {cargandoCatalogo ? (
+                  <div className="p-8 text-center text-slate-500 flex flex-col items-center justify-center space-y-2">
+                    <RefreshCw className="w-5 h-5 animate-spin text-[#0077c8]" />
+                    <span>Cargando catálogo oficial de requisitos...</span>
+                  </div>
+                ) : (
+                  <div className="border border-slate-200 rounded-xl divide-y divide-slate-100 max-h-60 overflow-y-auto bg-slate-50/50">
+                    {reqsCatalogoFiltrados.map((req) => {
+                      const yaSolicitado = docsDisponibles.some(d => d.requisito_id === req.id);
+                      const estaSeleccionado = requisitosSeleccionados.includes(req.id);
+
+                      return (
+                        <div
+                          key={req.id}
+                          onClick={() => {
+                            if (!yaSolicitado) handleToggleRequisitoSeleccionado(req.id);
+                          }}
+                          className={`
+                            p-3 flex items-start space-x-3 transition select-none
+                            ${yaSolicitado ? 'bg-slate-100/70 opacity-60 cursor-not-allowed' : 'hover:bg-sky-50/50 cursor-pointer'}
+                            ${estaSeleccionado ? 'bg-sky-50/80 border-l-4 border-[#0077c8]' : ''}
+                          `}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={yaSolicitado || estaSeleccionado}
+                            disabled={yaSolicitado}
+                            onChange={() => {
+                              if (!yaSolicitado) handleToggleRequisitoSeleccionado(req.id);
+                            }}
+                            className="mt-0.5 rounded text-[#0077c8] focus:ring-[#0077c8] cursor-pointer"
+                          />
+
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center space-x-2">
+                              <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-slate-200 text-slate-700">
+                                {req.seccion_codigo}
+                              </span>
+                              <span className="font-semibold text-slate-800 text-xs">
+                                {req.texto}
+                              </span>
+                            </div>
+                            <div className="flex items-center space-x-2 text-[10px] text-slate-400 mt-0.5">
+                              <span>{req.categoria || 'Normativo'}</span>
+                              <span>&bull;</span>
+                              <span>{req.seccion_titulo}</span>
+                            </div>
+                          </div>
+
+                          {yaSolicitado && (
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-200 text-slate-600 shrink-0">
+                              Ya Solicitado / Adjunto
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })}
+
+                    {reqsCatalogoFiltrados.length === 0 && (
+                      <div className="p-6 text-center text-slate-400">
+                        No se encontraron requisitos que coincidan con el filtro.
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Justificación / Observación para el propietario */}
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">
+                  Motivo o Justificación de la Solicitud (visible para el propietario):
+                </label>
+                <textarea
+                  rows={2}
+                  value={motivoSolicitudRequisitos}
+                  onChange={(e) => setMotivoSolicitudRequisitos(e.target.value)}
+                  placeholder="Especifique por qué se requieren estos documentos adicionales..."
+                  className="w-full p-2.5 text-xs bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0077c8] font-medium text-slate-800"
+                />
+              </div>
+            </div>
+
+            {/* Footer con Acciones */}
+            <div className="p-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between shrink-0">
+              <span className="text-xs text-slate-500 font-semibold">
+                {requisitosSeleccionados.length} requisito(s) listo(s) para solicitar
+              </span>
+              <div className="flex items-center space-x-2">
+                <button
+                  type="button"
+                  onClick={() => setModalSolicitarRequisitosOpen(false)}
+                  disabled={enviandoSolicitudRequisitos}
+                  className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-200/80 rounded-xl transition cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmarSolicitarRequisitos}
+                  disabled={requisitosSeleccionados.length === 0 || enviandoSolicitudRequisitos}
+                  className="px-4 py-2 text-xs font-extrabold bg-[#0077c8] hover:bg-[#005596] text-white rounded-xl shadow-xs transition active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2 cursor-pointer"
+                >
+                  {enviandoSolicitudRequisitos ? (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      <span>Solicitando...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Send className="w-3.5 h-3.5" />
+                      <span>Solicitar y Notificar</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* MODAL: Observar Documento con Motivo */}
       {modalObservarDocOpen && (

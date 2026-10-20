@@ -56,6 +56,11 @@ class NotificarReingresoRequest(BaseModel):
     motivo: Optional[str] = "La inspección de campo no fue favorable. Debe subsanar las observaciones y cargar nuevamente todos los requisitos requeridos."
     responsable: Optional[str] = "Dra. Claudia Morales V."
 
+class SolicitarRequisitosAdicionalesRequest(BaseModel):
+    requisitos_ids: List[int]
+    observacion_motivo: Optional[str] = "Requisito complementario solicitado para la rehabilitación."
+    responsable: Optional[str] = "Dra. Claudia Morales V."
+
 class DerivarAreaLegalRequest(BaseModel):
     codigo_cite: Optional[str] = None
     destinatario: Optional[str] = "Dra. Mery D. Loroño V. - ASESOR LEGAL"
@@ -1038,6 +1043,165 @@ def validar_documento_legal(
         "documento_id": str(doc.id),
         "estado": doc.estado_validacion,
         "observaciones": doc.observaciones_supervisor
+    }
+
+@router.post("/tramites/{tramite_id}/solicitar-requisitos-adicionales", summary="Solicitar requisitos adicionales de catálogo para trámite de rehabilitación")
+def solicitar_requisitos_adicionales(
+    tramite_id: str,
+    payload: SolicitarRequisitosAdicionalesRequest,
+    db: Session = Depends(get_db)
+):
+    """Permite al coordinador seleccionar y solicitar requisitos adicionales del catálogo oficial para un trámite en rehabilitación/renovación."""
+    tramite = None
+    try:
+        t_uuid = uuid.UUID(tramite_id)
+        tramite = db.query(models.Tramite).filter(models.Tramite.id == t_uuid).first()
+    except ValueError:
+        pass
+
+    if not tramite:
+        clean_code = tramite_id.replace("TRM-", "").replace("REQ-", "").strip().lower()
+        tramites = db.query(models.Tramite).filter(models.Tramite.estado == True).all()
+        for t in tramites:
+            if str(t.id).lower().startswith(clean_code):
+                tramite = t
+                break
+
+    if not tramite:
+        raise HTTPException(status_code=404, detail="Trámite no encontrado.")
+
+    tipo_norm = (tramite.tipo_tramite or "").strip().lower()
+    es_rehab = "rehab" in tipo_norm or "renov" in tipo_norm
+    if not es_rehab:
+        raise HTTPException(
+            status_code=400,
+            detail="La solicitud de requisitos adicionales solo está permitida para trámites de Renovación / Rehabilitación."
+        )
+
+    if not payload.requisitos_ids:
+        raise HTTPException(status_code=400, detail="Debe especificar al menos un requisito del catálogo.")
+
+    # Requisitos ya asignados al trámite
+    docs_existentes = db.query(models.TramiteDocumento).filter(
+        models.TramiteDocumento.tramite_id == tramite.id,
+        models.TramiteDocumento.estado == True
+    ).all()
+    reqs_existentes_ids = {d.requisito_id for d in docs_existentes if d.requisito_id is not None}
+
+    motivo = payload.observacion_motivo.strip() if (payload.observacion_motivo and payload.observacion_motivo.strip()) else "Requisito complementario solicitado para el proceso de renovación."
+    responsable = payload.responsable or "Dra. Claudia Morales V."
+    estab_nombre = tramite.establecimiento.nombre_comercial if tramite.establecimiento else "Establecimiento"
+    cod_trm = f"TRM-{str(tramite.id)[:8].upper()}"
+    ahora_formato = datetime.now().strftime("%d %b %Y - %H:%M")
+
+    nuevos_docs = []
+    nombres_agregados = []
+
+    for req_id in payload.requisitos_ids:
+        if req_id in reqs_existentes_ids:
+            continue
+        req_db = db.query(models.CatalogoRequisito).filter(models.CatalogoRequisito.id == req_id).first()
+        if not req_db:
+            continue
+
+        nuevo_doc = models.TramiteDocumento(
+            id=uuid.uuid4(),
+            tramite_id=tramite.id,
+            requisito_id=req_db.id,
+            archivo_url="",  # Cadena vacía sin archivo aún
+            estado_validacion="Observado",  # Estado que habilita la carga en la vista del propietario
+            observaciones_supervisor=motivo,
+            estado=True
+        )
+        db.add(nuevo_doc)
+        nuevos_docs.append(nuevo_doc)
+        nombres_agregados.append(req_db.nombre_documento)
+
+        nuevo_log = models.HistorialActividad(
+            id=uuid.uuid4(),
+            codigo_tramite=cod_trm,
+            establecimiento=estab_nombre,
+            accion=f"Requisito adicional solicitado para renovación: {req_db.nombre_documento}. Obs: {motivo}",
+            responsable=responsable,
+            estado_resultado="Requerimiento Adicional",
+            estado_badge="bg-amber-50 text-amber-700 border-amber-200",
+            fecha_hora_formato=ahora_formato
+        )
+        db.add(nuevo_log)
+
+    if not nuevos_docs:
+        return {
+            "mensaje": "Los requisitos seleccionados ya se encontraban solicitados o adjuntos al trámite.",
+            "tramite": serializar_tramite_coordinador(tramite, db)
+        }
+
+    # Notificar en tiempo real al propietario
+    if tramite.establecimiento and tramite.establecimiento.propietario_id:
+        try:
+            from services.notificaciones import crear_notificacion_db
+            resumen_docs = ", ".join(nombres_agregados[:2]) + (f" y {len(nombres_agregados)-2} más" if len(nombres_agregados) > 2 else "")
+            crear_notificacion_db(
+                db,
+                usuario_id=tramite.establecimiento.propietario_id,
+                titulo=f"Requisitos Adicionales Solicitados - {estab_nombre}",
+                mensaje=f"La Coordinación SEDES ha solicitado {len(nuevos_docs)} requisito(s) complementario(s) para su renovación ({cod_trm}): {resumen_docs}. Motivo: '{motivo}'. Por favor ingrese a la sección 'Trámites' para cargar los documentos correspondientes en formato PDF."
+            )
+        except Exception as e:
+            print(f"Error al generar notificación al propietario: {e}")
+
+    db.commit()
+    db.refresh(tramite)
+
+    return {
+        "mensaje": f"Se solicitaron {len(nuevos_docs)} requisito(s) adicional(es) exitosamente.",
+        "tramite": serializar_tramite_coordinador(tramite, db)
+    }
+
+@router.delete("/tramites/{tramite_id}/documentos/{documento_id}", summary="Eliminar requisito solicitado de un trámite")
+def eliminar_requisito_tramite(
+    tramite_id: str,
+    documento_id: str,
+    db: Session = Depends(get_db)
+):
+    """Permite al coordinador retirar un requisito solicitado complementario."""
+    try:
+        d_uuid = uuid.UUID(documento_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="ID de documento inválido.")
+
+    doc = db.query(models.TramiteDocumento).filter(
+        models.TramiteDocumento.id == d_uuid,
+        models.TramiteDocumento.estado == True
+    ).first()
+    if not doc:
+        raise HTTPException(status_code=404, detail="Documento no encontrado.")
+
+    tramite = doc.tramite
+    req = doc.requisito
+    nombre_doc = req.nombre_documento if req else "Documento"
+    estab_nombre = tramite.establecimiento.nombre_comercial if (tramite and tramite.establecimiento) else "Establecimiento"
+    cod_trm = f"TRM-{str(tramite.id)[:8].upper()}" if tramite else "TRM-0000"
+    ahora_formato = datetime.now().strftime("%d %b %Y - %H:%M")
+
+    # Eliminación lógica
+    doc.estado = False
+
+    nuevo_log = models.HistorialActividad(
+        id=uuid.uuid4(),
+        codigo_tramite=cod_trm,
+        establecimiento=estab_nombre,
+        accion=f"Se retiró la solicitud del requisito: {nombre_doc}.",
+        responsable="Coordinador SEDES",
+        estado_resultado="Requisito Retirado",
+        estado_badge="bg-slate-100 text-slate-700 border-slate-200",
+        fecha_hora_formato=ahora_formato
+    )
+    db.add(nuevo_log)
+    db.commit()
+
+    return {
+        "mensaje": f"Requisito '{nombre_doc}' retirado exitosamente del trámite.",
+        "tramite": serializar_tramite_coordinador(tramite, db) if tramite else None
     }
 
 @router.post("/tramites/{tramite_id}/reinspeccion", summary="Agendar Re-Inspección Técnica")
