@@ -18,6 +18,38 @@ router = APIRouter(
     tags=["Establecimientos y Laboratorios"]
 )
 
+def normalizar_nombre_establecimiento(nombre: str) -> str:
+    """Normaliza el nombre comercial eliminando espacios múltiples y caracteres redundantes."""
+    if not nombre:
+        return ""
+    return " ".join(nombre.strip().split())
+
+def verificar_nombre_comercial_disponible(
+    db: Session, 
+    nombre: str, 
+    excluir_id: Optional[uuid.UUID] = None
+) -> tuple[bool, Optional[str]]:
+    """
+    Verifica si un nombre comercial ya se encuentra registrado (activo) en la base de datos de SEDES.
+    Compara de forma insensible a mayúsculas/minúsculas y espacios.
+    Retorna (disponible, nombre_existente_encontrado).
+    """
+    nombre_norm = normalizar_nombre_establecimiento(nombre)
+    if not nombre_norm:
+        return False, None
+
+    query = db.query(models.Establecimiento).filter(
+        models.Establecimiento.estado == True,
+        func.lower(func.trim(models.Establecimiento.nombre_comercial)) == nombre_norm.lower()
+    )
+    if excluir_id:
+        query = query.filter(models.Establecimiento.id != excluir_id)
+
+    existente = query.first()
+    if existente:
+        return False, existente.nombre_comercial
+    return True, None
+
 def serializar_establecimiento(e: models.Establecimiento, db: Session) -> dict:
     lat = None
     lng = None
@@ -169,6 +201,21 @@ def crear_establecimiento(
             detail="Propietario no encontrado en el sistema."
         )
 
+    # 1. Validar que el nombre comercial no esté repetido
+    nombre_limpio = normalizar_nombre_establecimiento(datos.nombre_comercial)
+    if not nombre_limpio or len(nombre_limpio) < 3:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="El nombre comercial del establecimiento debe tener al menos 3 caracteres."
+        )
+
+    disponible, existente = verificar_nombre_comercial_disponible(db, nombre_limpio)
+    if not disponible:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Ya existe un establecimiento registrado con el nombre comercial '{existente}'. Debe elegir un nombre distintivo o indicar la sucursal/zona."
+        )
+
     lat = datos.latitud if datos.latitud is not None else -17.3895
     lng = datos.longitud if datos.longitud is not None else -66.1568
 
@@ -176,7 +223,7 @@ def crear_establecimiento(
         id=uuid.uuid4(),
         propietario_id=prop_uuid,
         codigo_cue="Nuevo",
-        nombre_comercial=datos.nombre_comercial.strip(),
+        nombre_comercial=nombre_limpio,
         tipo=datos.tipo.strip() if datos.tipo else "Privado",
         nivel=datos.nivel.strip() if datos.nivel else "Nivel 1",
         municipio=datos.municipio.strip().upper(),
@@ -290,6 +337,40 @@ def listar_establecimientos(
     return [serializar_establecimiento(e, db) for e in establecimientos]
 
 @router.get(
+    "/verificar-nombre",
+    summary="Verificar disponibilidad de nombre comercial en tiempo real"
+)
+def verificar_nombre_endpoint(
+    nombre: str = Query(..., description="Nombre comercial a verificar"),
+    excluir_id: Optional[str] = Query(None, description="UUID del establecimiento a excluir al editar"),
+    db: Session = Depends(get_db)
+):
+    uuid_excluir = None
+    if excluir_id and excluir_id.strip():
+        try:
+            uuid_excluir = uuid.UUID(excluir_id.strip())
+        except ValueError:
+            pass
+
+    nombre_limpio = normalizar_nombre_establecimiento(nombre)
+    if not nombre_limpio or len(nombre_limpio) < 3:
+        return {
+            "disponible": False,
+            "mensaje": "El nombre comercial debe tener al menos 3 caracteres."
+        }
+
+    disponible, existente = verificar_nombre_comercial_disponible(db, nombre_limpio, uuid_excluir)
+    if not disponible:
+        return {
+            "disponible": False,
+            "mensaje": f"El nombre comercial '{existente}' ya se encuentra registrado en SEDES. Debe elegir un nombre distintivo."
+        }
+    return {
+        "disponible": True,
+        "mensaje": "Nombre comercial disponible para registro."
+    }
+
+@router.get(
     "/propietario/{propietario_id}",
     summary="Obtener los establecimientos registrados pertenecientes a un propietario",
     dependencies=[Depends(get_current_user)]
@@ -394,7 +475,19 @@ def actualizar_establecimiento(
 
     # Actualizar campos de registro institucional (en caso de subsanación o actualización)
     if datos.nombre_comercial is not None and datos.nombre_comercial.strip():
-        estab.nombre_comercial = datos.nombre_comercial.strip()
+        nombre_limpio = normalizar_nombre_establecimiento(datos.nombre_comercial)
+        if len(nombre_limpio) < 3:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="El nombre comercial debe tener al menos 3 caracteres."
+            )
+        disponible, existente = verificar_nombre_comercial_disponible(db, nombre_limpio, excluir_id=uuid_val)
+        if not disponible:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"Ya existe otro establecimiento registrado con el nombre comercial '{existente}'. Ingrese un nombre distintivo."
+            )
+        estab.nombre_comercial = nombre_limpio
     if datos.municipio is not None and datos.municipio.strip():
         estab.municipio = datos.municipio.strip().upper()
     if datos.tipo is not None and datos.tipo.strip():

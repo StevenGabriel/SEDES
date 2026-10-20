@@ -355,6 +355,18 @@ export default function PropietarioPage() {
   const [solicitudEnviadaExito, setSolicitudEnviadaExito] = useState(false);
   const [faltantesModal, setFaltantesModal] = useState([]);
 
+  // Validación de disponibilidad en tiempo real de Nombre Comercial
+  const [validacionNombreNueva, setValidacionNombreNueva] = useState({
+    verificando: false,
+    disponible: null,
+    mensaje: ''
+  });
+  const [validacionNombreEdit, setValidacionNombreEdit] = useState({
+    verificando: false,
+    disponible: null,
+    mensaje: ''
+  });
+
   // =========================================================================
   // Estado para la Vista: "Trámites y Subsanación de Documentos"
   // =========================================================================
@@ -380,6 +392,68 @@ export default function PropietarioPage() {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  // Validación de disponibilidad en tiempo real para Nombre Comercial (Nueva Solicitud)
+  useEffect(() => {
+    const nombre = formNueva.nombre_comercial?.trim();
+    if (!nombre || nombre.length < 3) {
+      setValidacionNombreNueva({ verificando: false, disponible: null, mensaje: '' });
+      return;
+    }
+
+    setValidacionNombreNueva(prev => ({ ...prev, verificando: true }));
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(`http://localhost:8000/api/establecimientos/verificar-nombre?nombre=${encodeURIComponent(nombre)}`);
+        if (res.ok) {
+          const data = await res.json();
+          setValidacionNombreNueva({
+            verificando: false,
+            disponible: data.disponible,
+            mensaje: data.mensaje
+          });
+        }
+      } catch (err) {
+        setValidacionNombreNueva({ verificando: false, disponible: null, mensaje: '' });
+      }
+    }, 450);
+
+    return () => clearTimeout(timer);
+  }, [formNueva.nombre_comercial]);
+
+  // Validación de disponibilidad en tiempo real para Nombre Comercial (Edición / Subsanación)
+  useEffect(() => {
+    if (!modalEditarOpen || !labEditando) return;
+    const nombre = formEdit.nombre_comercial?.trim();
+    if (!nombre || nombre.length < 3) {
+      setValidacionNombreEdit({ verificando: false, disponible: null, mensaje: '' });
+      return;
+    }
+
+    if (nombre.toLowerCase() === (labEditando.nombre_comercial || '').trim().toLowerCase()) {
+      setValidacionNombreEdit({ verificando: false, disponible: true, mensaje: 'Nombre actual del establecimiento' });
+      return;
+    }
+
+    setValidacionNombreEdit(prev => ({ ...prev, verificando: true }));
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(`http://localhost:8000/api/establecimientos/verificar-nombre?nombre=${encodeURIComponent(nombre)}&excluir_id=${encodeURIComponent(labEditando.id)}`);
+        if (res.ok) {
+          const data = await res.json();
+          setValidacionNombreEdit({
+            verificando: false,
+            disponible: data.disponible,
+            mensaje: data.mensaje
+          });
+        }
+      } catch (err) {
+        setValidacionNombreEdit({ verificando: false, disponible: null, mensaje: '' });
+      }
+    }, 450);
+
+    return () => clearTimeout(timer);
+  }, [formEdit.nombre_comercial, modalEditarOpen, labEditando]);
 
   // =========================================================================
   // Estado para Modal de Rehabilitación de Acta (3 requisitos obligatorios)
@@ -1029,6 +1103,11 @@ export default function PropietarioPage() {
       return;
     }
 
+    if (validacionNombreEdit.disponible === false) {
+      setSaveError(validacionNombreEdit.mensaje || 'El nombre comercial ingresado ya pertenece a otro establecimiento en SEDES.');
+      return;
+    }
+
     setIsSaving(true);
     setSaveSuccess('');
     setSaveError('');
@@ -1211,6 +1290,10 @@ export default function PropietarioPage() {
     e.preventDefault();
     if (!formNueva.nombre_comercial.trim()) {
       alert('Por favor ingrese el Nombre Comercial del establecimiento.');
+      return;
+    }
+    if (validacionNombreNueva.disponible === false) {
+      alert(`⚠️ Nombre comercial no disponible:\n\n${validacionNombreNueva.mensaje || 'Ya existe un establecimiento registrado con este nombre en SEDES Cochabamba. Debe elegir un nombre distintivo o indicar sucursal.'}`);
       return;
     }
     if (!formNueva.direccion.trim()) {
@@ -2825,17 +2908,43 @@ export default function PropietarioPage() {
 
                       {/* Nombre Comercial */}
                       <div className="space-y-1.5">
-                        <label className="text-xs font-bold text-slate-700">
-                          NOMBRE COMERCIAL <span className="text-rose-500">*</span>
-                        </label>
+                        <div className="flex items-center justify-between">
+                          <label className="text-xs font-bold text-slate-700">
+                            NOMBRE COMERCIAL <span className="text-rose-500">*</span>
+                          </label>
+                          {validacionNombreNueva.verificando && (
+                            <span className="text-[10px] text-slate-400 font-semibold flex items-center space-x-1">
+                              <RefreshCw className="w-2.5 h-2.5 animate-spin text-[#0077be]" />
+                              <span>Verificando disponibilidad...</span>
+                            </span>
+                          )}
+                        </div>
                         <input
                           type="text"
                           required
                           value={formNueva.nombre_comercial}
                           onChange={(e) => setFormNueva({ ...formNueva, nombre_comercial: e.target.value })}
                           placeholder="Ej: LABORATORIO CLÍNICO BIOMEDICAL"
-                          className="w-full bg-slate-50 border border-slate-200 text-slate-800 text-base sm:text-sm rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#0077be] font-medium"
+                          className={`w-full text-slate-800 text-base sm:text-sm rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 font-medium transition ${
+                            validacionNombreNueva.disponible === false
+                              ? 'bg-rose-50/50 border border-rose-300 focus:ring-rose-500 text-rose-900'
+                              : validacionNombreNueva.disponible === true
+                              ? 'bg-emerald-50/30 border border-emerald-300 focus:ring-emerald-500 text-slate-900'
+                              : 'bg-slate-50 border border-slate-200 focus:ring-[#0077be]'
+                          }`}
                         />
+                        {validacionNombreNueva.disponible === false && (
+                          <div className="flex items-start space-x-1.5 text-xs text-rose-700 font-bold bg-rose-50 border border-rose-200 p-2.5 rounded-xl animate-in fade-in">
+                            <AlertTriangle className="w-4 h-4 shrink-0 text-rose-500 mt-0.5" />
+                            <span>{validacionNombreNueva.mensaje}</span>
+                          </div>
+                        )}
+                        {validacionNombreNueva.disponible === true && (
+                          <div className="flex items-center space-x-1.5 text-[11px] text-emerald-700 font-bold px-1 animate-in fade-in">
+                            <Check className="w-3.5 h-3.5 text-emerald-600 stroke-[3]" />
+                            <span>Nombre comercial disponible para registro en SEDES</span>
+                          </div>
+                        )}
                       </div>
 
                       {/* Nivel */}
@@ -3462,17 +3571,43 @@ export default function PropietarioPage() {
 
                     {/* Nombre Comercial */}
                     <div className="sm:col-span-2">
-                      <label className="block text-xs font-bold text-slate-700 mb-1">
-                        Nombre Comercial del Laboratorio <span className="text-rose-500">*</span>
-                      </label>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block text-xs font-bold text-slate-700">
+                          Nombre Comercial del Laboratorio <span className="text-rose-500">*</span>
+                        </label>
+                        {validacionNombreEdit.verificando && (
+                          <span className="text-[10px] text-slate-400 font-semibold flex items-center space-x-1">
+                            <RefreshCw className="w-2.5 h-2.5 animate-spin text-[#0073c6]" />
+                            <span>Verificando...</span>
+                          </span>
+                        )}
+                      </div>
                       <input
                         type="text"
                         required
                         value={formEdit.nombre_comercial}
                         onChange={(e) => setFormEdit({ ...formEdit, nombre_comercial: e.target.value })}
                         placeholder="Ej. Laboratorio Clínico Central"
-                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm text-slate-900 font-bold focus:outline-none focus:ring-2 focus:ring-[#0073c6]"
+                        className={`w-full px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-bold focus:outline-none focus:ring-2 transition ${
+                          validacionNombreEdit.disponible === false
+                            ? 'bg-rose-50/50 border border-rose-300 focus:ring-rose-500 text-rose-900'
+                            : validacionNombreEdit.disponible === true && formEdit.nombre_comercial.trim().toLowerCase() !== (labEditando?.nombre_comercial || '').trim().toLowerCase()
+                            ? 'bg-emerald-50/30 border border-emerald-300 focus:ring-emerald-500 text-slate-900'
+                            : 'border border-slate-200 text-slate-900 focus:ring-[#0073c6]'
+                        }`}
                       />
+                      {validacionNombreEdit.disponible === false && (
+                        <div className="flex items-start space-x-1.5 text-xs text-rose-700 font-bold bg-rose-50 border border-rose-200 p-2.5 rounded-xl mt-1.5 animate-in fade-in">
+                          <AlertTriangle className="w-4 h-4 shrink-0 text-rose-500 mt-0.5" />
+                          <span>{validacionNombreEdit.mensaje}</span>
+                        </div>
+                      )}
+                      {validacionNombreEdit.disponible === true && formEdit.nombre_comercial.trim().toLowerCase() !== (labEditando?.nombre_comercial || '').trim().toLowerCase() && (
+                        <div className="flex items-center space-x-1.5 text-[11px] text-emerald-700 font-bold px-1 mt-1 animate-in fade-in">
+                          <Check className="w-3.5 h-3.5 text-emerald-600 stroke-[3]" />
+                          <span>Nombre disponible</span>
+                        </div>
+                      )}
                     </div>
 
                     {/* Nivel de Complejidad */}
