@@ -2840,17 +2840,38 @@ export default function PropietarioPage() {
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
-                              {tramiteActual.documentos.map((doc, idx) => {
-                                const docKey = doc.documento_id || String(doc.requisito_id);
-                                const estado = doc.estado_validacion || (doc.tiene_archivo ? 'En Revisión' : 'Pendiente');
-                                const esRechazado = estado === 'Rechazado' || estado === 'Observado';
-                                const esAprobado = estado === 'Aprobado';
-                                const esEnRevision = estado === 'En Revisión';
-                                const archivoSeleccionado = archivosSubsanacion[docKey];
-                                const isSubmittingThis = subsanandoDocId === docKey || subsanandoDocId === 'ALL';
+                              {(() => {
+                                const esRehabilitacion = Boolean(
+                                  (tramiteActual?.tipo_tramite || '').toLowerCase().includes('rehab') ||
+                                  (tramiteActual?.tipo_tramite || '').toLowerCase().includes('renov')
+                                );
 
-                                return (
-                                  <tr key={doc.documento_id || doc.requisito_id || idx} className="hover:bg-slate-50/70 transition-colors">
+                                // Si es trámite de rehabilitación, mostrar estrictamente los documentos pertenecientes a este trámite (los 3 base + los solicitados por el coordinador)
+                                const docsFiltrados = esRehabilitacion
+                                  ? (tramiteActual?.documentos || []).filter(d => Boolean(d.documento_id || d.tiene_archivo || d.archivo_url || d.estado_validacion === 'Observado' || d.estado_validacion === 'Rechazado'))
+                                  : (tramiteActual?.documentos || []);
+
+                                if (docsFiltrados.length === 0) {
+                                  return (
+                                    <tr>
+                                      <td colSpan="3" className="py-8 text-center text-slate-400 text-xs">
+                                        No hay documentos registrados para este trámite.
+                                      </td>
+                                    </tr>
+                                  );
+                                }
+
+                                return docsFiltrados.map((doc, idx) => {
+                                  const docKey = doc.documento_id || String(doc.requisito_id);
+                                  const estado = doc.estado_validacion || (doc.tiene_archivo ? 'En Revisión' : 'Pendiente');
+                                  const esRechazado = estado === 'Rechazado' || estado === 'Observado';
+                                  const esAprobado = estado === 'Aprobado';
+                                  const esEnRevision = estado === 'En Revisión';
+                                  const archivoSeleccionado = archivosSubsanacion[docKey];
+                                  const isSubmittingThis = subsanandoDocId === docKey || subsanandoDocId === 'ALL';
+
+                                  return (
+                                    <tr key={doc.documento_id || doc.requisito_id || idx} className="hover:bg-slate-50/70 transition-colors">
                                     
                                     {/* Columna 1: Documento Requerido */}
                                     <td className="py-4 px-4 align-top">
@@ -2959,8 +2980,9 @@ export default function PropietarioPage() {
                                     </td>
 
                                   </tr>
-                                );
-                              })}
+                                  );
+                                });
+                              })()}
                             </tbody>
                           </table>
                         </div>

@@ -110,6 +110,15 @@ async def subir_documento_tramite(
         models.TramiteDocumento.estado == True
     ).first()
 
+    tipo_tramite_norm = (tramite.tipo_tramite or "").lower()
+    es_rehab = "rehab" in tipo_tramite_norm or "renov" in tipo_tramite_norm
+
+    if es_rehab and not doc_existente:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Este requisito no ha sido solicitado por la Coordinación para este trámite de rehabilitación."
+        )
+
     if doc_existente:
         doc_existente.archivo_url = archivo_url
         doc_existente.estado_validacion = "En Revisión"
@@ -186,40 +195,63 @@ def obtener_tramites_propietario(
         ).all()
         docs_map = {d.requisito_id: d for d in docs_db}
 
-        # Generar lista estructurada con todos los requisitos del catálogo
+        tipo_tramite_norm = (t.tipo_tramite or "").lower()
+        es_rehab = "rehab" in tipo_tramite_norm or "renov" in tipo_tramite_norm
+
         documentos_lista = []
-        for req in cat_requisitos:
-            doc = docs_map.get(req.id)
-            if doc:
-                estado_actual = doc.estado_validacion
+        if es_rehab:
+            # En rehabilitación/renovación, SOLO listar los documentos propios del trámite (los 3 base + los solicitados por coordinación)
+            for doc in docs_db:
+                req = doc.requisito
+                estado_actual = doc.estado_validacion or "Pendiente"
                 if doc.archivo_url and estado_actual == "Pendiente":
                     estado_actual = "En Revisión"
 
                 documentos_lista.append({
                     "documento_id": str(doc.id),
-                    "requisito_id": req.id,
-                    "requisito_nombre": req.nombre_documento,
-                    "seccion_codigo": req.seccion_codigo or "2.1",
-                    "es_obligatorio": req.es_obligatorio,
+                    "requisito_id": doc.requisito_id,
+                    "requisito_nombre": req.nombre_documento if req else "Documento de Renovación",
+                    "seccion_codigo": req.seccion_codigo if req else "2.3",
+                    "es_obligatorio": req.es_obligatorio if req else True,
                     "archivo_url": doc.archivo_url,
-                    "estado_validacion": estado_actual, # 'En Revisión', 'Aprobado', 'Rechazado'
+                    "estado_validacion": estado_actual,
                     "observaciones_supervisor": doc.observaciones_supervisor,
                     "fecha_creacion": doc.fecha_creacion.isoformat() if doc.fecha_creacion else None,
                     "tiene_archivo": bool(doc.archivo_url)
                 })
-            else:
-                documentos_lista.append({
-                    "documento_id": None,
-                    "requisito_id": req.id,
-                    "requisito_nombre": req.nombre_documento,
-                    "seccion_codigo": req.seccion_codigo or "2.1",
-                    "es_obligatorio": req.es_obligatorio,
-                    "archivo_url": None,
-                    "estado_validacion": "Pendiente",
-                    "observaciones_supervisor": None,
-                    "fecha_creacion": None,
-                    "tiene_archivo": False
-                })
+        else:
+            for req in cat_requisitos:
+                doc = docs_map.get(req.id)
+                if doc:
+                    estado_actual = doc.estado_validacion
+                    if doc.archivo_url and estado_actual == "Pendiente":
+                        estado_actual = "En Revisión"
+
+                    documentos_lista.append({
+                        "documento_id": str(doc.id),
+                        "requisito_id": req.id,
+                        "requisito_nombre": req.nombre_documento,
+                        "seccion_codigo": req.seccion_codigo or "2.1",
+                        "es_obligatorio": req.es_obligatorio,
+                        "archivo_url": doc.archivo_url,
+                        "estado_validacion": estado_actual, # 'En Revisión', 'Aprobado', 'Rechazado'
+                        "observaciones_supervisor": doc.observaciones_supervisor,
+                        "fecha_creacion": doc.fecha_creacion.isoformat() if doc.fecha_creacion else None,
+                        "tiene_archivo": bool(doc.archivo_url)
+                    })
+                else:
+                    documentos_lista.append({
+                        "documento_id": None,
+                        "requisito_id": req.id,
+                        "requisito_nombre": req.nombre_documento,
+                        "seccion_codigo": req.seccion_codigo or "2.1",
+                        "es_obligatorio": req.es_obligatorio,
+                        "archivo_url": None,
+                        "estado_validacion": "Pendiente",
+                        "observaciones_supervisor": None,
+                        "fecha_creacion": None,
+                        "tiene_archivo": False
+                    })
 
         codigo_tramite = f"TRÁMITE Nº {str(t.id)[:8].upper()}-A"
         resultado.append({
