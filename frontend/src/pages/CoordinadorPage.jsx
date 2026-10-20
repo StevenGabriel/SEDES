@@ -2814,9 +2814,9 @@ export default function CoordinadorPage() {
                     <div className="space-y-6 max-w-5xl mx-auto">
 
                       {/* Filtros de Secciones Normativas y Búsqueda de Requisitos */}
-                      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs">
+                      <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3 bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs">
                         {/* Selector de Sección y Filtro de Origen (Renovación vs Expediente Anterior) */}
-                        <div className="flex flex-wrap items-center gap-1.5 w-full sm:w-auto">
+                        <div className="flex flex-wrap items-center gap-1.5 w-full lg:w-auto">
                           <button
                             type="button"
                             onClick={() => setSeccionFiltroDoc('Todas')}
@@ -2875,29 +2875,16 @@ export default function CoordinadorPage() {
                           ))}
                         </div>
 
-                        {/* Buscador de documento y Botón de Requisitos Extra para Rehabilitación */}
-                        <div className="flex items-center gap-2 w-full sm:w-auto">
-                          <div className="relative w-full sm:w-64">
-                            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
-                            <input
-                              type="text"
-                              placeholder="Filtrar requisito..."
-                              value={busquedaDoc}
-                              onChange={(e) => setBusquedaDoc(e.target.value)}
-                              className="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0077c8]"
-                            />
-                          </div>
-                          {esTramiteRehabilitacion && (
-                            <button
-                              type="button"
-                              onClick={handleAbrirModalSolicitarRequisitos}
-                              className="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-[#0077c8] hover:bg-[#005596] text-white text-xs font-bold rounded-lg shadow-2xs transition active:scale-95 cursor-pointer whitespace-nowrap"
-                              title="Solicitar requisitos complementarios del catálogo para este trámite de rehabilitación"
-                            >
-                              <PlusCircle className="w-4 h-4" />
-                              <span>Solicitar Requisitos Extra</span>
-                            </button>
-                          )}
+                        {/* Buscador de documento */}
+                        <div className="relative w-full lg:w-64 shrink-0">
+                          <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
+                          <input
+                            type="text"
+                            placeholder="Buscar en requisitos..."
+                            value={busquedaDoc}
+                            onChange={(e) => setBusquedaDoc(e.target.value)}
+                            className="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0077c8]"
+                          />
                         </div>
                       </div>
 
@@ -2920,7 +2907,7 @@ export default function CoordinadorPage() {
                           <button
                             type="button"
                             onClick={handleAbrirModalSolicitarRequisitos}
-                            className="inline-flex items-center space-x-1.5 px-3.5 py-2 bg-[#19324d] hover:bg-[#102235] text-white text-xs font-bold rounded-xl shadow-xs transition active:scale-95 cursor-pointer whitespace-nowrap self-end sm:self-auto shrink-0"
+                            className="inline-flex items-center justify-center space-x-1.5 px-3.5 py-2 bg-[#19324d] hover:bg-[#102235] text-white text-xs font-bold rounded-xl shadow-xs transition active:scale-95 cursor-pointer whitespace-nowrap self-stretch sm:self-auto shrink-0"
                           >
                             <PlusCircle className="w-4 h-4 text-sky-400" />
                             <span>Elegir Requisitos del Catálogo</span>
@@ -2940,7 +2927,7 @@ export default function CoordinadorPage() {
                               key={doc.id}
                               onClick={() => setDocSeleccionadoId(doc.id)}
                               className={`
-                                p-3 sm:p-4 flex items-center justify-between gap-3 transition-colors cursor-pointer
+                                p-3 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-3 transition-colors cursor-pointer
                                 ${isDocActivo
                                   ? 'bg-sky-50/80 border-l-4 border-[#0077c8]'
                                   : esReqRenovacion
@@ -3000,7 +2987,7 @@ export default function CoordinadorPage() {
                               </div>
 
                               {/* Badge de estado y Botón Ver PDF */}
-                              <div className="flex items-center space-x-2 shrink-0">
+                              <div className="flex items-center justify-end space-x-2 shrink-0 self-end sm:self-auto pt-1 sm:pt-0">
                                 <span className={`
                                   text-[11px] font-bold px-2 py-0.5 rounded-md
                                   ${doc.estado === 'Aprobado' ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' : ''}
@@ -3162,7 +3149,7 @@ export default function CoordinadorPage() {
                               </div>
                               <iframe
                                 src={`${formatApiUrl(docActual.archivo_url)}#toolbar=1&navpanes=0`}
-                                className="w-full h-[540px] border-0 bg-slate-100"
+                                className="w-full h-[400px] sm:h-[540px] border-0 bg-slate-100"
                                 title={docActual.nombre}
                               />
                             </div>
@@ -4291,16 +4278,16 @@ export default function CoordinadorPage() {
             </div>
 
             {/* Footer con Acciones */}
-            <div className="p-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between shrink-0">
-              <span className="text-xs text-slate-500 font-semibold">
+            <div className="p-3.5 sm:p-4 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shrink-0">
+              <span className="text-xs text-slate-500 font-semibold text-center sm:text-left">
                 {requisitosSeleccionados.length} requisito(s) listo(s) para solicitar
               </span>
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center justify-end space-x-2 w-full sm:w-auto">
                 <button
                   type="button"
                   onClick={() => setModalSolicitarRequisitosOpen(false)}
                   disabled={enviandoSolicitudRequisitos}
-                  className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-200/80 rounded-xl transition cursor-pointer"
+                  className="flex-1 sm:flex-none px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-200/80 rounded-xl transition cursor-pointer text-center"
                 >
                   Cancelar
                 </button>
@@ -4308,7 +4295,7 @@ export default function CoordinadorPage() {
                   type="button"
                   onClick={handleConfirmarSolicitarRequisitos}
                   disabled={requisitosSeleccionados.length === 0 || enviandoSolicitudRequisitos}
-                  className="px-4 py-2 text-xs font-extrabold bg-[#0077c8] hover:bg-[#005596] text-white rounded-xl shadow-xs transition active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2 cursor-pointer"
+                  className="flex-1 sm:flex-none justify-center px-4 py-2 text-xs font-extrabold bg-[#0077c8] hover:bg-[#005596] text-white rounded-xl shadow-xs transition active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2 cursor-pointer text-center"
                 >
                   {enviandoSolicitudRequisitos ? (
                     <>
