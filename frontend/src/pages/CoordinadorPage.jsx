@@ -158,6 +158,32 @@ const parseEncargadosAreas = (responsablesRaw, fallbackRegente, fallbackCI) => {
     const parsed = JSON.parse(responsablesRaw);
     if (typeof parsed === 'object' && parsed !== null) return parsed;
   } catch (e) {}
+
+  // Parsear formato texto separado por punto y coma: "Área: Nombre (CI: ...); Área: ..."
+  const mapResultado = {};
+  const partes = String(responsablesRaw).split(';');
+  let encontroValido = false;
+  for (const parte of partes) {
+    if (!parte.includes(':')) continue;
+    const [areaRaw, personaRaw] = parte.split(':');
+    const areaNorm = normalizarEspecialidad(areaRaw.trim());
+    if (areaNorm && personaRaw) {
+      let nom = personaRaw.trim();
+      let ci = fallbackCI || '';
+      if (nom.includes('(CI:')) {
+        const matchCI = nom.match(/(.*?)\(CI:\s*([^)]+)\)/i);
+        if (matchCI) {
+          nom = matchCI[1].trim();
+          ci = matchCI[2].trim();
+        }
+      }
+      mapResultado[areaNorm] = { nombre: nom, ci: ci };
+      encontroValido = true;
+    }
+  }
+
+  if (encontroValido) return mapResultado;
+
   return {
     'Clínico General': { nombre: fallbackRegente || 'Dra. María Elena Vargas Rojas', ci: fallbackCI || '5489632 CBBA' }
   };
@@ -2084,6 +2110,55 @@ export default function CoordinadorPage() {
                               </div>
                             </div>
 
+                            {/* Advertencia de Conflicto de Asignación / Regencia Múltiple si aplica */}
+                            {(() => {
+                              const confResp = tramiteActual.conflictos_personal?.responsable_general;
+                              if (!confResp || !confResp.tiene_conflicto) return null;
+                              return (
+                                <div className="col-span-1 sm:col-span-2 bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-300/90 rounded-2xl p-4 sm:p-5 shadow-xs space-y-3 animate-in fade-in">
+                                  <div className="flex items-start sm:items-center justify-between gap-2">
+                                    <div className="flex items-center space-x-2.5">
+                                      <div className="p-2 bg-amber-500 text-white rounded-xl shadow-xs shrink-0">
+                                        <AlertTriangle className="w-5 h-5 stroke-[2.5]" />
+                                      </div>
+                                      <div>
+                                        <h5 className="text-xs sm:text-sm font-black text-amber-950 uppercase tracking-wide">
+                                          Advertencia: Asignación Simultánea / Regencia Detectada
+                                        </h5>
+                                        <p className="text-[11px] text-amber-800 font-medium">
+                                          El profesional registrado figura en otro(s) establecimiento(s) de salud en Cochabamba
+                                        </p>
+                                      </div>
+                                    </div>
+                                    <span className="text-[10px] font-extrabold uppercase px-2.5 py-1 rounded-full bg-amber-200 text-amber-900 border border-amber-300 shrink-0">
+                                      Alerta de Regencia
+                                    </span>
+                                  </div>
+
+                                  <div className="space-y-1.5 pt-1">
+                                    {confResp.coincidencias.map((c, idx) => (
+                                      <div key={idx} className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 text-xs bg-white/95 border border-amber-200 rounded-xl px-3.5 py-2 shadow-2xs">
+                                        <div className="flex items-center space-x-2.5">
+                                          <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0" />
+                                          <span className="font-extrabold text-slate-900 text-xs sm:text-sm">{c.establecimiento}</span>
+                                          <span className="text-slate-500 font-medium text-[11px]">({c.municipio})</span>
+                                        </div>
+                                        <div className="flex items-center space-x-2">
+                                          <span className="text-[11px] font-bold text-amber-900 bg-amber-100/90 px-2.5 py-0.5 rounded-lg border border-amber-200">
+                                            {c.rol}
+                                          </span>
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+
+                                  <p className="text-[11px] text-amber-800/90 font-medium italic pt-0.5">
+                                    * Nota para el Coordinador: Verifique con la normativa sanitaria SEDES la compatibilidad horaria y exclusividad del Responsable Técnico / Regente.
+                                  </p>
+                                </div>
+                              );
+                            })()}
+
                           </div>
                         </div>
 
@@ -2323,6 +2398,40 @@ export default function CoordinadorPage() {
                                       </div>
 
                                     </div>
+
+                                    {/* Advertencia de Conflicto de Asignación en esta Área */}
+                                    {(() => {
+                                      const confAreas = tramiteActual.conflictos_personal?.areas;
+                                      const confArea = confAreas ? (confAreas[esp] || confAreas[normalizarEspecialidad(esp)]) : null;
+                                      if (!confArea || !confArea.tiene_conflicto) return null;
+                                      return (
+                                        <div className="bg-amber-50/90 border border-amber-300 rounded-xl p-3 sm:p-3.5 space-y-2 shadow-2xs animate-in fade-in">
+                                          <div className="flex items-center justify-between">
+                                            <div className="flex items-center space-x-2 text-amber-900 font-bold text-xs">
+                                              <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                                              <span>Advertencia: Asignación simultánea detectada en esta área</span>
+                                            </div>
+                                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-200 text-amber-900 border border-amber-300">
+                                              Múltiple Laboratorio
+                                            </span>
+                                          </div>
+                                          <p className="text-[11px] text-amber-950 font-medium leading-relaxed">
+                                            El profesional asignado ({enc.nombre}) también figura registrado en:
+                                          </p>
+                                          <div className="space-y-1">
+                                            {confArea.coincidencias.map((c, idx) => (
+                                              <div key={idx} className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-[11px] bg-white/90 border border-amber-200 rounded-lg px-2.5 py-1.5 shadow-2xs">
+                                                <span className="font-bold text-slate-800">• {c.establecimiento} ({c.municipio})</span>
+                                                <span className="text-amber-800 font-semibold">{c.rol}</span>
+                                              </div>
+                                            ))}
+                                          </div>
+                                          <p className="text-[10px] text-amber-800 italic">
+                                            * Verifique que los horarios de atención y funciones técnicas no interfieran entre los establecimientos asignados.
+                                          </p>
+                                        </div>
+                                      );
+                                    })()}
                                   </div>
                                 );
                               })}

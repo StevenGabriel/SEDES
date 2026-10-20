@@ -1,7 +1,9 @@
 import uuid
 import re
 from datetime import datetime, date
-from typing import List, Optional
+from typing import List, Optional, Union, Any
+import json
+import unicodedata
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session, joinedload
@@ -96,6 +98,258 @@ def get_tipo_badge_color(tipo: str) -> str:
         return "bg-purple-50 text-purple-700 border-purple-200"
     return "bg-indigo-50 text-indigo-700 border-indigo-200"
 
+
+def normalizar_texto_personal(texto: Optional[str]) -> str:
+    if not texto:
+        return ""
+    s = unicodedata.normalize('NFKD', str(texto)).encode('ASCII', 'ignore').decode('utf-8')
+    s = s.upper().strip()
+    for prefijo in ["DRA.", "DR.", "LIC.", "ING.", "BIOQ.", "REGENTE", "BIOQUIMICO", "BIOQUIMICA"]:
+        if s.startswith(prefijo + " "):
+            s = s[len(prefijo) + 1:].strip()
+    return re.sub(r'\s+', ' ', s)
+
+def normalizar_ci_personal(ci: Optional[str]) -> str:
+    if not ci:
+        return ""
+    s = str(ci).upper().strip()
+    for ext in ["CBBA", "CBB", "CB", "LPZ", "LP", "SCZ", "SC", "ORU", "OR", "PTS", "PT", "TJA", "TJ", "CHQ", "CH", "BEN", "BN", "PAN", "PA"]:
+        s = re.sub(rf'\b{ext}\b', '', s)
+    digits = re.sub(r'[^0-9]', '', s)
+    return digits if len(digits) >= 4 else s.replace(" ", "")
+
+def parse_responsables_areas_dict(raw: Optional[Union[str, dict]]) -> dict:
+    if not raw:
+        return {}
+    if isinstance(raw, dict):
+        return raw
+    try:
+        parsed = json.loads(raw)
+        if isinstance(parsed, dict):
+            return parsed
+    except Exception:
+        pass
+    resultado = {}
+    partes = str(raw).split(";")
+    for parte in partes:
+        if ":" in parte:
+            segs = parte.split(":", 1)
+            area = segs[0].strip()
+            persona_str = segs[1].strip()
+            nom = persona_str
+            ci = ""
+            match_ci = re.search(r'\(CI:\s*([^)]+)\)', persona_str, re.IGNORECASE)
+            if match_ci:
+                ci = match_ci.group(1).strip()
+                nom = persona_str[:match_ci.start()].strip()
+            resultado[area] = {"nombre": nom, "ci": ci}
+    return resultado
+
+def verificar_conflictos_personal_establecimiento(
+    db: Session,
+    estab_actual_id: Optional[int],
+    responsable_laboratorio: Optional[str],
+    ci_responsable: Optional[str],
+    responsables_areas_raw: Optional[Union[str, dict]],
+    todos_estabs: Optional[List[Any]] = None
+) -> dict:
+    """
+    Verifica si el Responsable Técnico o los Encargados de Áreas de este establecimiento
+    ya figuran registrados en otro establecimiento activo del departamento de Cochabamba.
+    """
+    conflictos = {
+        "responsable_general": {
+            "tiene_conflicto": False,
+            "coincidencias": [],
+            "mensaje": None
+        },
+        "areas": {}
+    }
+
+    if not responsable_laboratorio and not ci_responsable and not responsables_areas_raw:
+        return conflictos
+
+    if todos_estabs is None:
+        query = db.query(
+            models.Establecimiento.id,
+            models.Establecimiento.nombre_comercial,
+            models.Establecimiento.responsable_laboratorio,
+            models.Establecimiento.ci_responsable,
+            models.Establecimiento.responsables_areas,
+            models.Establecimiento.municipio
+        ).filter(models.Establecimiento.estado == True)
+        if estab_actual_id:
+            query = query.filter(models.Establecimiento.id != estab_actual_id)
+        otros_estabs = query.all()
+    else:
+        otros_estabs = [e for e in todos_estabs if not (estab_actual_id and e.id == estab_actual_id)]
+
+    resp_nom = responsable_laboratorio or ""
+    resp_ci = ci_responsable or ""
+    if " - " in resp_nom and not resp_ci:
+        partes = resp_nom.split(" - ", 1)
+        resp_nom = partes[0].strip()
+        resp_ci = partes[1].strip()
+
+    resp_norm_nom = normalizar_texto_personal(resp_nom)
+    resp_norm_ci = normalizar_ci_personal(resp_ci)
+
+    areas_actuales = parse_responsables_areas_dict(responsables_areas_raw)
+    for area in areas_actuales.keys():
+        conflictos["areas"][area] = {
+            "tiene_conflicto": False,
+            "coincidencias": [],
+            "mensaje": None
+        }
+
+    for otro in otros_estabs:
+        otro_nombre_lab = otro.nombre_comercial or "Laboratorio Registrado"
+        otro_mun = otro.municipio or "Cochabamba"
+
+        otro_resp_nom = otro.responsable_laboratorio or ""
+        otro_resp_ci = otro.ci_responsable or ""
+        if " - " in otro_resp_nom and not otro_resp_ci:
+            p = otro_resp_nom.split(" - ", 1)
+            otro_resp_nom = p[0].strip()
+            otro_resp_ci = p[1].strip()
+
+        otro_norm_nom = normalizar_texto_personal(otro_resp_nom)
+        otro_norm_ci = normalizar_ci_personal(otro_resp_ci)
+
+        # 1. Comparar con el Responsable Técnico General actual
+        coincide_resp = False
+        if resp_norm_ci and otro_norm_ci and len(resp_norm_ci) >= 4:
+            if resp_norm_ci == otro_norm_ci:
+                coincide_resp = True
+        elif resp_norm_nom and otro_norm_nom and len(resp_norm_nom) >= 6:
+            if resp_norm_nom == otro_norm_nom or resp_norm_nom in otro_norm_nom or otro_norm_nom in resp_norm_nom:
+                coincide_resp = True
+
+        if coincide_resp:
+            c_item = {
+                "establecimiento": otro_nombre_lab,
+                "municipio": otro_mun,
+                "rol": "Responsable Técnico / Bioquímico Regente",
+                "nombre_registrado": otro_resp_nom,
+                "ci_registrado": otro_resp_ci
+            }
+            if c_item not in conflictos["responsable_general"]["coincidencias"]:
+                conflictos["responsable_general"]["coincidencias"].append(c_item)
+                conflictos["responsable_general"]["tiene_conflicto"] = True
+
+        otros_areas = parse_responsables_areas_dict(otro.responsables_areas)
+
+        # ¿El Responsable General figura como encargado en el otro lab?
+        for o_area, o_datos in otros_areas.items():
+            if isinstance(o_datos, dict):
+                o_nom = o_datos.get("nombre", "")
+                o_ci = o_datos.get("ci", "")
+            else:
+                o_nom = str(o_datos)
+                o_ci = ""
+
+            o_norm_nom = normalizar_texto_personal(o_nom)
+            o_norm_ci = normalizar_ci_personal(o_ci)
+
+            coincide_como_enc = False
+            if resp_norm_ci and o_norm_ci and len(resp_norm_ci) >= 4:
+                if resp_norm_ci == o_norm_ci:
+                    coincide_como_enc = True
+            elif resp_norm_nom and o_norm_nom and len(resp_norm_nom) >= 6:
+                if resp_norm_nom == o_norm_nom or resp_norm_nom in o_norm_nom:
+                    coincide_como_enc = True
+
+            if coincide_como_enc:
+                c_item = {
+                    "establecimiento": otro_nombre_lab,
+                    "municipio": otro_mun,
+                    "rol": f"Encargado de Área ({o_area})",
+                    "nombre_registrado": o_nom,
+                    "ci_registrado": o_ci
+                }
+                if c_item not in conflictos["responsable_general"]["coincidencias"]:
+                    conflictos["responsable_general"]["coincidencias"].append(c_item)
+                    conflictos["responsable_general"]["tiene_conflicto"] = True
+
+        # 2. Comparar cada Encargado de Área actual
+        for a_nombre, a_info in areas_actuales.items():
+            if isinstance(a_info, dict):
+                cur_nom = a_info.get("nombre", "")
+                cur_ci = a_info.get("ci", "")
+            else:
+                cur_nom = str(a_info)
+                cur_ci = ""
+
+            cur_norm_nom = normalizar_texto_personal(cur_nom)
+            cur_norm_ci = normalizar_ci_personal(cur_ci)
+
+            if not cur_norm_nom and not cur_norm_ci:
+                continue
+
+            # ¿Es Responsable Técnico en el otro lab?
+            coincide_con_otro_resp = False
+            if cur_norm_ci and otro_norm_ci and len(cur_norm_ci) >= 4:
+                if cur_norm_ci == otro_norm_ci:
+                    coincide_con_otro_resp = True
+            elif cur_norm_nom and otro_norm_nom and len(cur_norm_nom) >= 6:
+                if cur_norm_nom == otro_norm_nom or cur_norm_nom in otro_norm_nom:
+                    coincide_con_otro_resp = True
+
+            if coincide_con_otro_resp:
+                c_item = {
+                    "establecimiento": otro_nombre_lab,
+                    "municipio": otro_mun,
+                    "rol": "Responsable Técnico / Regente",
+                    "nombre_registrado": otro_resp_nom,
+                    "ci_registrado": otro_resp_ci
+                }
+                if c_item not in conflictos["areas"][a_nombre]["coincidencias"]:
+                    conflictos["areas"][a_nombre]["coincidencias"].append(c_item)
+                    conflictos["areas"][a_nombre]["tiene_conflicto"] = True
+
+            # ¿Es Encargado de Área en el otro lab?
+            for o_area, o_datos in otros_areas.items():
+                if isinstance(o_datos, dict):
+                    o_nom = o_datos.get("nombre", "")
+                    o_ci = o_datos.get("ci", "")
+                else:
+                    o_nom = str(o_datos)
+                    o_ci = ""
+
+                o_norm_nom = normalizar_texto_personal(o_nom)
+                o_norm_ci = normalizar_ci_personal(o_ci)
+
+                coincide_con_otro_enc = False
+                if cur_norm_ci and o_norm_ci and len(cur_norm_ci) >= 4:
+                    if cur_norm_ci == o_norm_ci:
+                        coincide_con_otro_enc = True
+                elif cur_norm_nom and o_norm_nom and len(cur_norm_nom) >= 6:
+                    if cur_norm_nom == o_norm_nom or cur_norm_nom in o_norm_nom:
+                        coincide_con_otro_enc = True
+
+                if coincide_con_otro_enc:
+                    c_item = {
+                        "establecimiento": otro_nombre_lab,
+                        "municipio": otro_mun,
+                        "rol": f"Encargado de Área ({o_area})",
+                        "nombre_registrado": o_nom,
+                        "ci_registrado": o_ci
+                    }
+                    if c_item not in conflictos["areas"][a_nombre]["coincidencias"]:
+                        conflictos["areas"][a_nombre]["coincidencias"].append(c_item)
+                        conflictos["areas"][a_nombre]["tiene_conflicto"] = True
+
+    if conflictos["responsable_general"]["tiene_conflicto"]:
+        labs_str = ", ".join([f"{c['establecimiento']} ({c['rol']})" for c in conflictos["responsable_general"]["coincidencias"]])
+        conflictos["responsable_general"]["mensaje"] = f"Este profesional ya figura registrado en: {labs_str}."
+
+    for a_nombre, a_conf in conflictos["areas"].items():
+        if a_conf["tiene_conflicto"]:
+            labs_str = ", ".join([f"{c['establecimiento']} ({c['rol']})" for c in a_conf["coincidencias"]])
+            a_conf["mensaje"] = f"Este encargado técnico ya figura registrado en: {labs_str}."
+
+    return conflictos
+
 def serializar_tramite_coordinador(
     tramite: models.Tramite,
     db: Session,
@@ -103,7 +357,8 @@ def serializar_tramite_coordinador(
     ultima_inspeccion: Optional[models.Inspeccion] = None,
     docs_db: Optional[List[models.TramiteDocumento]] = None,
     resol: Optional[models.ResolucionAdministrativa] = None,
-    usar_preloaded: bool = False
+    usar_preloaded: bool = False,
+    todos_estabs: Optional[List[Any]] = None
 ) -> dict:
     estab = tramite.establecimiento
     propietario = estab.propietario if estab else None
@@ -312,6 +567,16 @@ def serializar_tramite_coordinador(
     else:
         estado_visual = "En Revisión"
 
+    # Verificar advertencias de asignación múltiple / regencia cruzada de personal
+    conflictos_personal = verificar_conflictos_personal_establecimiento(
+        db=db,
+        estab_actual_id=estab.id if estab else None,
+        responsable_laboratorio=estab.responsable_laboratorio if estab else None,
+        ci_responsable=estab.ci_responsable if estab else None,
+        responsables_areas_raw=estab.responsables_areas if estab else None,
+        todos_estabs=todos_estabs
+    )
+
     # Extraer coordenadas geográficas PostGIS si existen
     lat = None
     lng = None
@@ -391,7 +656,8 @@ def serializar_tramite_coordinador(
         "resolucion_numero": resol.numero_resolucion if resol else None,
         "resolucion_estado": resol.estado_resolucion if resol else None,
         "resolucion": resolucion_dict,
-        "observacionesSupervisor": observaciones
+        "observacionesSupervisor": observaciones,
+        "conflictos_personal": conflictos_personal
     }
 
 
@@ -506,6 +772,16 @@ def listar_tramites_coordinador(db: Session = Depends(get_db)):
         if res.tramite_id not in resoluciones_map:
             resoluciones_map[res.tramite_id] = res
 
+    # Pre-cargar todos los establecimientos para verificación ultra rápida de regencia cruzada
+    todos_estabs = db.query(
+        models.Establecimiento.id,
+        models.Establecimiento.nombre_comercial,
+        models.Establecimiento.responsable_laboratorio,
+        models.Establecimiento.ci_responsable,
+        models.Establecimiento.responsables_areas,
+        models.Establecimiento.municipio
+    ).filter(models.Establecimiento.estado == True).all()
+
     tramites_serializados = [
         serializar_tramite_coordinador(
             t, 
@@ -514,7 +790,8 @@ def listar_tramites_coordinador(db: Session = Depends(get_db)):
             ultima_inspeccion=inspecciones_map.get(t.id),
             docs_db=docs_map.get(t.id, []),
             resol=resoluciones_map.get(t.id),
-            usar_preloaded=True
+            usar_preloaded=True,
+            todos_estabs=todos_estabs
         ) for t in tramites
     ]
 
@@ -522,6 +799,36 @@ def listar_tramites_coordinador(db: Session = Depends(get_db)):
         "total": len(tramites_serializados),
         "tramites": tramites_serializados
     }
+
+@router.get("/tramites/{tramite_id}/conflictos-personal", summary="Verificar advertencias de conflicto de regencia de personal")
+def obtener_conflictos_personal_tramite(tramite_id: str, db: Session = Depends(get_db)):
+    """Obtiene los conflictos y advertencias de regencia simultánea para un trámite."""
+    tramite = None
+    try:
+        t_uuid = uuid.UUID(tramite_id)
+        tramite = db.query(models.Tramite).filter(models.Tramite.id == t_uuid).first()
+    except ValueError:
+        pass
+
+    if not tramite:
+        clean_code = tramite_id.replace("TRM-", "").replace("REQ-", "").strip().lower()
+        tramites = db.query(models.Tramite).filter(models.Tramite.estado == True).all()
+        for t in tramites:
+            if str(t.id).lower().startswith(clean_code):
+                tramite = t
+                break
+
+    if not tramite or not tramite.establecimiento:
+        return {"responsable_general": {"tiene_conflicto": False, "coincidencias": []}, "areas": {}}
+
+    estab = tramite.establecimiento
+    return verificar_conflictos_personal_establecimiento(
+        db=db,
+        estab_actual_id=estab.id,
+        responsable_laboratorio=estab.responsable_laboratorio,
+        ci_responsable=estab.ci_responsable,
+        responsables_areas_raw=estab.responsables_areas
+    )
 
 @router.get("/tramites/{tramite_id}", summary="Obtener detalle completo de un trámite por ID o código")
 def obtener_detalle_tramite(tramite_id: str, db: Session = Depends(get_db)):
