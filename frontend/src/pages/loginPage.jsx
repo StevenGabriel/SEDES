@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Eye, EyeOff, FlaskConical, ArrowLeft, Check, Sparkles, X } from 'lucide-react';
+import { Eye, EyeOff, FlaskConical, ArrowLeft, Check } from 'lucide-react';
 import logoCiudadaniaDigital from '../assets/ciudadania_digital.png';
 
 export default function LoginPage() {
@@ -12,7 +12,6 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
-  const [showCiudadaniaModal, setShowCiudadaniaModal] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -86,10 +85,10 @@ export default function LoginPage() {
       {/* ========================================================================= */}
       <section className="relative lg:w-1/2 min-h-[220px] sm:min-h-[280px] lg:min-h-screen bg-gradient-to-br from-[#006cb8] via-[#0080d0] to-[#0094e6] text-white p-5 sm:p-8 md:p-10 lg:p-12 xl:p-14 flex flex-col justify-between overflow-hidden shadow-xl lg:shadow-2xl">
         
-        {/* Curvas y Ondas de Fondo Abstractas (Diseño Figma / Mockup) */}
+        {/* Curvas y Ondas de Fondo Abstractas */}
         <div className="absolute inset-0 pointer-events-none opacity-20 overflow-hidden">
           <svg className="absolute -right-24 -top-20 w-[400px] sm:w-[600px] h-[400px] sm:h-[600px] text-white" viewBox="0 0 600 600" fill="currentColor">
-            <path d="M 0,300 C 150,150 350,450 600,300 L 600,0 L 0,0 Z" />
+            <path d="M 0,300 C 150,150 350,450 600,300 L 600,0 Z" />
           </svg>
           <svg className="absolute -left-20 -bottom-24 w-[450px] sm:w-[700px] h-[450px] sm:h-[700px] text-white" viewBox="0 0 700 700" fill="currentColor">
             <path d="M 0,350 C 200,500 450,200 700,450 L 700,700 L 0,700 Z" />
@@ -142,29 +141,14 @@ export default function LoginPage() {
           </p>
         </div>
 
-        {/* 3. Footer Inferior: Pie Institucional con Respaldo Ciudadanía Digital */}
-        <div className="relative z-10 border-t border-white/15 pt-3 sm:pt-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          <div>
-            <p className="text-[10px] sm:text-xs font-bold tracking-wider uppercase text-cyan-200">
-              SERVICIO DEPARTAMENTAL DE SALUD
-            </p>
-            <p className="text-[10px] sm:text-xs text-blue-100 font-medium mt-0.5">
-              Cochabamba • Bolivia
-            </p>
-          </div>
-
-          <div 
-            className="inline-flex items-center space-x-2 bg-white/95 backdrop-blur-md px-3 py-1.5 rounded-xl border border-white/40 shadow-sm self-start sm:self-auto cursor-pointer hover:bg-white transition"
-            title="Plataforma en integración con Ciudadanía Digital Bolivia"
-            onClick={() => setShowCiudadaniaModal(true)}
-          >
-            <span className="text-[10px] font-bold text-slate-700 uppercase tracking-tight">Compatible con:</span>
-            <img 
-              src={logoCiudadaniaDigital} 
-              alt="Ciudadanía Digital Bolivia" 
-              className="h-5 sm:h-5.5 w-auto object-contain" 
-            />
-          </div>
+        {/* 3. Footer Inferior: Pie Institucional */}
+        <div className="relative z-10 border-t border-white/15 pt-3 sm:pt-4">
+          <p className="text-[10px] sm:text-xs font-bold tracking-wider uppercase text-cyan-200">
+            SERVICIO DEPARTAMENTAL DE SALUD
+          </p>
+          <p className="text-[10px] sm:text-xs text-blue-100 font-medium mt-0.5">
+            Cochabamba • Bolivia
+          </p>
         </div>
       </section>
 
@@ -308,35 +292,6 @@ export default function LoginPage() {
             </div>
           </form>
 
-          {/* Separador de Métodos Oficiales */}
-          <div className="relative my-5">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-slate-200" />
-            </div>
-            <div className="relative flex justify-center text-xs">
-              <span className="bg-white px-3 text-slate-400 font-medium uppercase tracking-wider text-[10px]">
-                O accede con identidad digital
-              </span>
-            </div>
-          </div>
-
-          {/* Botón de Acceso Ciudadanía Digital */}
-          <button
-            type="button"
-            onClick={() => setShowCiudadaniaModal(true)}
-            className="w-full py-2.5 px-4 rounded-xl border border-slate-200/90 hover:border-emerald-500/60 bg-gradient-to-r from-slate-50 via-white to-slate-50 hover:from-emerald-50/40 hover:via-white hover:to-emerald-50/40 transition-all duration-200 flex items-center justify-center space-x-2.5 group cursor-pointer shadow-xs hover:shadow-sm"
-            title="Ingresar con Ciudadanía Digital Bolivia"
-          >
-            <span className="text-xs font-semibold text-slate-600 group-hover:text-slate-900 transition-colors">
-              Ingresar con
-            </span>
-            <img 
-              src={logoCiudadaniaDigital} 
-              alt="Ciudadanía Digital Bolivia" 
-              className="h-6 sm:h-7 w-auto object-contain transition-transform duration-200 group-hover:scale-105" 
-            />
-          </button>
-
           {/* Enlace para Registro */}
           <div className="mt-5 text-center">
             <p className="text-xs sm:text-sm text-slate-500 font-normal">
@@ -350,8 +305,17 @@ export default function LoginPage() {
             </p>
           </div>
 
+          {/* Logotipo Ciudadanía Digital Bolivia (Tal cual, sin botón ni funcionalidad) */}
+          <div className="mt-5 pt-4 border-t border-slate-100 flex flex-col items-center justify-center">
+            <img 
+              src={logoCiudadaniaDigital} 
+              alt="Ciudadanía Digital Bolivia" 
+              className="h-10 sm:h-11 w-auto object-contain select-none" 
+            />
+          </div>
+
           {/* Botón secundario: Volver al inicio */}
-          <div className="mt-4 pt-3.5 border-t border-slate-100 text-center">
+          <div className="mt-3 text-center">
             <Link
               to="/"
               className="inline-flex items-center text-xs font-medium text-slate-400 hover:text-slate-600 transition-colors py-1"
@@ -363,71 +327,6 @@ export default function LoginPage() {
 
         </div>
       </section>
-
-      {/* ========================================================================= */}
-      {/* MODAL INFORMATIVO: Ciudadanía Digital Bolivia                             */}
-      {/* ========================================================================= */}
-      {showCiudadaniaModal && (
-        <div 
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200"
-          role="dialog"
-          aria-modal="true"
-        >
-          <div className="w-full max-w-md bg-white rounded-3xl p-6 sm:p-7 shadow-2xl border border-slate-200 space-y-4 animate-in zoom-in-95 duration-200">
-            
-            {/* Header del Modal */}
-            <div className="flex items-start justify-between">
-              <div className="bg-slate-50 px-3 py-2 rounded-2xl border border-slate-200/80">
-                <img 
-                  src={logoCiudadaniaDigital} 
-                  alt="Ciudadanía Digital Bolivia" 
-                  className="h-8 w-auto object-contain" 
-                />
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowCiudadaniaModal(false)}
-                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition cursor-pointer"
-                title="Cerrar"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Contenido */}
-            <div className="space-y-2.5">
-              <h3 className="text-base sm:text-lg font-extrabold text-slate-900 leading-snug">
-                Acceso con Ciudadanía Digital Bolivia
-              </h3>
-              <p className="text-xs sm:text-sm text-slate-600 leading-relaxed font-normal">
-                La interoperabilidad y el inicio de sesión único con la plataforma nacional de <strong>Ciudadanía Digital (AGETIC)</strong> se encuentra en etapa de homologación técnica institucional.
-              </p>
-
-              <div className="p-3.5 bg-emerald-50/80 rounded-2xl border border-emerald-200/80 text-emerald-900 text-xs flex items-start space-x-2.5">
-                <Sparkles className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-                <div className="space-y-0.5">
-                  <p className="font-bold text-emerald-950">Próxima habilitación</p>
-                  <p className="text-[11px] text-emerald-800 leading-tight">
-                    Pronto podrá ingresar y firmar digitalmente sus solicitudes de apertura y renovación directamente con su cuenta ciudadana.
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Botón de Cierre */}
-            <div className="pt-2 flex justify-end">
-              <button
-                type="button"
-                onClick={() => setShowCiudadaniaModal(false)}
-                className="w-full py-2.5 px-4 rounded-xl bg-[#19324d] hover:bg-[#122438] text-white text-xs sm:text-sm font-bold transition shadow-sm cursor-pointer"
-              >
-                Entendido, continuar con correo y contraseña
-              </button>
-            </div>
-
-          </div>
-        </div>
-      )}
 
     </div>
   );
