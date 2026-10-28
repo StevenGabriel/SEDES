@@ -1276,6 +1276,13 @@ export default function AdminPage() {
       label: 'Editar Documentos',
       icon: Edit2,
       breadcrumb: 'Plantilla de Comunicación Interna'
+    },
+    {
+      id: 'laboratorios-no-regulados',
+      path: '/admin/laboratorios-no-regulados',
+      label: 'Laboratorios no regulados',
+      icon: AlertTriangle,
+      breadcrumb: 'Laboratorios No Regulados'
     }
   ];
 
@@ -2339,6 +2346,15 @@ export default function AdminPage() {
           {seccionActiva === 'editar-documentos' && (
             <EditarPlantillasView
               usuario={usuarioLogueado}
+              mostrarToast={mostrarToast}
+            />
+          )}
+
+          {/* =================================================================== */}
+          {/* SECCIÓN 5: LABORATORIOS NO REGULADOS (EXTERNOS)                     */}
+          {/* =================================================================== */}
+          {seccionActiva === 'laboratorios-no-regulados' && (
+            <LaboratoriosNoReguladosView
               mostrarToast={mostrarToast}
             />
           )}
