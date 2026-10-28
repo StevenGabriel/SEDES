@@ -1,201 +1,227 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { Link } from 'react-router-dom';
-import { Eye, ChevronLeft, ChevronRight, FileText, Sparkles, Building2 } from 'lucide-react';
+import { 
+  ShieldCheck, 
+  FileText, 
+  MapPin, 
+  Building2, 
+  Sparkles, 
+  CheckCircle2, 
+  Award, 
+  Microscope,
+  ArrowRight
+} from 'lucide-react';
 import heroBg from '../../assets/hero_bg.jpg';
-import { formatApiUrl } from '../../services/authInterceptor';
+import logoSedes from '../../assets/LogoSedes.png';
+import escudoCochabamba from '../../assets/Escudo_del_Cochabamba.svg.webp';
 
 export default function HeroBanner() {
-  const [laboratorios, setLaboratorios] = useState([]);
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [isPaused, setIsPaused] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-
-  // 1. Cargar laboratorios registrados desde el Backend y seleccionar 10 aleatorios
-  useEffect(() => {
-    const fetchLaboratorios = async () => {
-      try {
-        const response = await fetch('http://localhost:8000/api/establecimientos');
-        if (response.ok) {
-          const data = await response.json();
-          // Seleccionar 10 laboratorios aleatorios en cada carga de página
-          if (data && data.length > 0) {
-            const array = [...data];
-            for (let i = array.length - 1; i > 0; i--) {
-              const j = Math.floor(Math.random() * (i + 1));
-              [array[i], array[j]] = [array[j], array[i]];
-            }
-            setLaboratorios(array.slice(0, 10));
-          }
-        }
-      } catch (err) {
-        console.error('Error al cargar laboratorios para el carrusel:', err);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchLaboratorios();
-  }, []);
-
-
-  // 2. Autoplay: Cambio automático de diapositiva cada 6 segundos
-  useEffect(() => {
-    if (isPaused || laboratorios.length <= 1) return;
-
-    const interval = setInterval(() => {
-      setCurrentIndex((prev) => (prev + 1) % laboratorios.length);
-    }, 6000);
-
-    return () => clearInterval(interval);
-  }, [isPaused, laboratorios.length]);
-
-  // Controles de navegación manual
-  const handlePrev = () => {
-    setCurrentIndex((prev) => (prev === 0 ? laboratorios.length - 1 : prev - 1));
+  const scrollToMap = (e) => {
+    e.preventDefault();
+    const mapEl = document.getElementById('mapa-laboratorios');
+    if (mapEl) {
+      mapEl.scrollIntoView({ behavior: 'smooth' });
+    }
   };
-
-  const handleNext = () => {
-    setCurrentIndex((prev) => (prev + 1) % laboratorios.length);
-  };
-
-  // Laboratorio por defecto si aún está cargando o no hay datos
-  const labDefault = {
-    id: '3L0267',
-    codigo_cue: '3L0267',
-    nombre_comercial: 'Laboratorio Central BioTest',
-    municipio: 'CERCADO',
-    nivel: 'Nivel 2',
-    descripcion: 'Especialistas en microbiología y análisis clínicos de alta complejidad. Resultados en línea en 24 horas.',
-    imagen_url: null
-  };
-
-  const labActual = laboratorios.length > 0 ? laboratorios[currentIndex] : labDefault;
-  const totalSlides = laboratorios.length > 0 ? laboratorios.length : 1;
-
-  // URL del detalle público del laboratorio actual
-  const detalleUrl = `/laboratorio/${encodeURIComponent(labActual.codigo_cue && labActual.codigo_cue !== 'Nuevo' ? labActual.codigo_cue : labActual.id)}`;
 
   return (
-    <section 
-      className="relative w-full min-h-[440px] sm:min-h-[480px] lg:h-[500px] bg-slate-900 overflow-hidden text-white group flex flex-col justify-between"
-      onMouseEnter={() => setIsPaused(true)}
-      onMouseLeave={() => setIsPaused(false)}
-    >
-      {/* 1. Fondo Dinámico con Imagen y Gradiente Institucional */}
+    <section className="relative w-full bg-slate-950 overflow-hidden text-white py-10 sm:py-14 lg:py-16">
+      {/* 1. Fondo Institucional con Imagen y Gradiente */}
       <div 
-        key={labActual.id || currentIndex}
-        className="absolute inset-0 bg-cover bg-center transition-all duration-1000 ease-in-out transform scale-105 animate-fadeIn"
-        style={{ 
-          backgroundImage: `url(${labActual.imagen_url ? formatApiUrl(labActual.imagen_url) : heroBg})` 
-        }}
+        className="absolute inset-0 bg-cover bg-center transition-all duration-700 ease-out transform scale-100"
+        style={{ backgroundImage: `url(${heroBg})` }}
       >
-        {/* Gradiente oscuro de contraste para legibilidad perfecta */}
-        <div className="absolute inset-0 bg-gradient-to-r from-slate-950/95 via-slate-900/85 to-slate-900/50" />
+        <div className="absolute inset-0 bg-gradient-to-r from-slate-950/95 via-[#072444]/90 to-[#021124]/95" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(0,180,216,0.15),transparent_60%)]" />
       </div>
 
-      {/* 2. Contenido Central */}
-      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full flex-1 flex flex-col justify-between py-8 sm:py-12 z-10">
+      {/* Orbes decorativos sutiles */}
+      <div className="absolute -top-24 -left-24 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute -bottom-24 right-0 w-96 h-96 bg-blue-600/10 rounded-full blur-3xl pointer-events-none" />
+
+      {/* 2. Contenedor Principal */}
+      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full z-10">
         
-        {/* Información del Laboratorio Destacado */}
-        <div className="max-w-2xl mt-2 sm:mt-4 space-y-3 sm:space-y-4">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
           
-          {/* Badges Oficiales */}
-          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
-            <span className="inline-flex items-center space-x-1.5 px-2.5 sm:px-3 py-0.5 sm:py-1 rounded-full text-[11px] sm:text-xs font-bold bg-[#0073c6]/30 text-cyan-200 border border-cyan-400/30 backdrop-blur-md">
-              <Sparkles className="w-3 sm:w-3.5 h-3 sm:h-3.5 text-cyan-300 shrink-0" />
-              <span>Acreditado SEDES</span>
-            </span>
-
-            {labActual.municipio && (
-              <span className="inline-flex items-center px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full text-[11px] sm:text-xs font-semibold bg-white/10 text-white/90 backdrop-blur-md border border-white/20">
-                {labActual.municipio} • {labActual.nivel || 'Nivel 1'}
-              </span>
-            )}
-
-            {labActual.codigo_cue && labActual.codigo_cue !== 'Nuevo' && (
-              <span className="hidden xs:inline-flex items-center px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full text-[11px] sm:text-xs font-semibold bg-white/10 text-cyan-300 backdrop-blur-md border border-white/20 font-mono">
-                CUE: {labActual.codigo_cue}
-              </span>
-            )}
-          </div>
-
-          {/* Nombre Comercial */}
-          <h1 className="text-2xl xs:text-3xl sm:text-4xl md:text-5xl font-black tracking-tight text-white drop-shadow-md leading-tight">
-            {labActual.nombre_comercial}
-          </h1>
-
-          {/* Descripción / Servicios */}
-          <p className="text-xs sm:text-sm md:text-base text-slate-200 leading-relaxed font-normal max-w-xl line-clamp-2 sm:line-clamp-3">
-            {labActual.descripcion || 'Establecimiento de salud acreditado para la toma de muestras, diagnóstico clínico y análisis microbiológicos bajo normativa sanitaria vigente del Departamento de Cochabamba.'}
-          </p>
-
-          {/* Botones de Acción */}
-          <div className="flex flex-wrap items-center gap-2.5 sm:gap-3 pt-2 sm:pt-3">
-            <Link 
-              to={detalleUrl}
-              className="flex-1 xs:flex-none justify-center bg-white hover:bg-slate-100 text-[#005596] font-bold text-xs sm:text-sm tracking-wide px-4 sm:px-5 py-2.5 rounded-xl shadow-lg hover:shadow-xl flex items-center space-x-2 transition-all cursor-pointer transform hover:-translate-y-0.5"
-            >
-              <Eye className="w-4 h-4 text-[#005596]" />
-              <span>VER DETALLES</span>
-            </Link>
-
-            <Link 
-              to="/requisitos"
-              className="flex-1 xs:flex-none justify-center bg-white/15 hover:bg-white/25 text-white font-bold text-xs sm:text-sm tracking-wide px-4 sm:px-5 py-2.5 rounded-xl border border-white/30 backdrop-blur-md transition-all cursor-pointer flex items-center space-x-2 text-center"
-            >
-              <FileText className="w-4 h-4 text-white/90" />
-              <span>REQUISITOS</span>
-            </Link>
-          </div>
-
-        </div>
-
-        {/* 3. Controles del Carrusel (Flechas e Indicadores) */}
-        <div className="flex items-center justify-between sm:justify-end sm:space-x-6 pb-2 pt-4 border-t border-white/10 sm:border-t-0">
-          
-          {/* Contador de diapositiva (ej: 1 / 10) */}
-          <span className="text-xs font-semibold text-white/70 tracking-wider">
-            {currentIndex + 1} / {totalSlides}
-          </span>
-
-          <div className="flex items-center space-x-4">
-            {/* Flechas de Navegación */}
-            <div className="flex items-center space-x-2">
-              <button 
-                type="button"
-                onClick={handlePrev}
-                className="w-9 h-9 rounded-xl bg-white/20 hover:bg-white/35 active:bg-white/40 backdrop-blur-md border border-white/30 flex items-center justify-center text-white transition-all cursor-pointer shadow-sm"
-                aria-label="Laboratorio anterior"
-                title="Laboratorio anterior"
-              >
-                <ChevronLeft className="w-5 h-5" />
-              </button>
-
-              <button 
-                type="button"
-                onClick={handleNext}
-                className="w-9 h-9 rounded-xl bg-white/20 hover:bg-white/35 active:bg-white/40 backdrop-blur-md border border-white/30 flex items-center justify-center text-white transition-all cursor-pointer shadow-sm"
-                aria-label="Siguiente laboratorio"
-                title="Siguiente laboratorio"
-              >
-                <ChevronRight className="w-5 h-5" />
-              </button>
+          {/* Columna Izquierda: Información Institucional y Acciones (7 cols en desktop) */}
+          <div className="lg:col-span-7 space-y-6">
+            
+            {/* Badges Institucionales */}
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full text-xs font-semibold bg-white/10 text-cyan-200 border border-cyan-400/30 backdrop-blur-md">
+                <Sparkles className="w-3.5 h-3.5 text-cyan-300 shrink-0" />
+                <span>GOBIERNO AUTÓNOMO DEPARTAMENTAL DE COCHABAMBA</span>
+              </div>
+              <div className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full text-xs font-bold bg-[#0073c6]/40 text-white border border-[#0099e6]/40 backdrop-blur-md">
+                <ShieldCheck className="w-3.5 h-3.5 text-cyan-300 shrink-0" />
+                <span>SEDES COCHABAMBA</span>
+              </div>
             </div>
 
-            {/* Puntos Indicadores (Dots) */}
-            <div className="hidden sm:flex items-center space-x-1.5 pl-2">
-              {laboratorios.map((_, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => setCurrentIndex(idx)}
-                  className={`transition-all duration-300 rounded-full cursor-pointer ${
-                    idx === currentIndex 
-                      ? 'w-6 h-2 bg-cyan-300 shadow-md' 
-                      : 'w-2 h-2 bg-white/40 hover:bg-white/70'
-                  }`}
-                  aria-label={`Ir al laboratorio ${idx + 1}`}
-                />
-              ))}
+            {/* Título Principal */}
+            <div className="space-y-2">
+              <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight text-white drop-shadow-md leading-[1.15]">
+                Regulación y Vigilancia de <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 via-sky-200 to-blue-300">Laboratorios Clínicos</span>
+              </h1>
+              <p className="text-sm sm:text-base font-semibold text-cyan-200/90 tracking-wide uppercase">
+                Sistema Oficial de Acreditación, Licencias y Consulta Departamental (SI_Lab)
+              </p>
+            </div>
+
+            {/* Texto Informativo del SEDES */}
+            <p className="text-sm sm:text-base text-slate-200/90 leading-relaxed font-normal max-w-2xl">
+              El Servicio Departamental de Salud (<strong className="text-white font-semibold">SEDES Cochabamba</strong>), a través del Área de Control y Regulación de Laboratorios, tiene la misión de normar, fiscalizar, evaluar y autorizar el funcionamiento técnico y legal de todos los establecimientos de diagnóstico clínico públicos, de la seguridad social y privados en las 5 regiones del departamento, garantizando a la ciudadanía análisis confiables, bioseguros y bajo estricta normativa sanitaria vigente.
+            </p>
+
+            {/* 3 Pilares Informativos Clave */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+              <div className="bg-white/5 border border-white/10 rounded-xl p-3.5 backdrop-blur-sm hover:bg-white/10 transition-colors">
+                <div className="w-8 h-8 rounded-lg bg-cyan-500/20 text-cyan-300 flex items-center justify-center mb-2">
+                  <Award className="w-4 h-4" />
+                </div>
+                <h3 className="text-xs font-bold text-white uppercase tracking-wider mb-1">
+                  Habilitación y Licencia
+                </h3>
+                <p className="text-[11px] text-slate-300 leading-tight">
+                  Autorización de apertura, traslado y rehabilitación para funcionamiento legal.
+                </p>
+              </div>
+
+              <div className="bg-white/5 border border-white/10 rounded-xl p-3.5 backdrop-blur-sm hover:bg-white/10 transition-colors">
+                <div className="w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-300 flex items-center justify-center mb-2">
+                  <Microscope className="w-4 h-4" />
+                </div>
+                <h3 className="text-xs font-bold text-white uppercase tracking-wider mb-1">
+                  Control y Calidad
+                </h3>
+                <p className="text-[11px] text-slate-300 leading-tight">
+                  Supervisión in-situ de bioseguridad, equipamiento y regencia profesional.
+                </p>
+              </div>
+
+              <div className="bg-white/5 border border-white/10 rounded-xl p-3.5 backdrop-blur-sm hover:bg-white/10 transition-colors">
+                <div className="w-8 h-8 rounded-lg bg-sky-500/20 text-sky-300 flex items-center justify-center mb-2">
+                  <MapPin className="w-4 h-4" />
+                </div>
+                <h3 className="text-xs font-bold text-white uppercase tracking-wider mb-1">
+                  Transparencia Pública
+                </h3>
+                <p className="text-[11px] text-slate-300 leading-tight">
+                  Padrón georreferenciado para verificar establecimientos autorizados.
+                </p>
+              </div>
+            </div>
+
+            {/* Botones de Acción */}
+            <div className="flex flex-wrap items-center gap-3 pt-2">
+              <button 
+                type="button"
+                onClick={scrollToMap}
+                className="bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-bold text-xs sm:text-sm tracking-wide px-5 py-3 rounded-xl shadow-lg shadow-cyan-900/30 hover:shadow-cyan-900/50 flex items-center space-x-2 transition-all cursor-pointer transform hover:-translate-y-0.5"
+              >
+                <MapPin className="w-4 h-4" />
+                <span>VER MAPA DE LABORATORIOS</span>
+              </button>
+
+              <Link 
+                to="/requisitos"
+                className="bg-white/10 hover:bg-white/20 text-white font-bold text-xs sm:text-sm tracking-wide px-5 py-3 rounded-xl border border-white/25 backdrop-blur-md transition-all cursor-pointer flex items-center space-x-2"
+              >
+                <FileText className="w-4 h-4 text-cyan-300" />
+                <span>CONSULTAR REQUISITOS</span>
+              </Link>
+
+              <Link 
+                to="/login"
+                className="bg-white/5 hover:bg-white/15 text-slate-200 hover:text-white font-semibold text-xs sm:text-sm tracking-wide px-4 py-3 rounded-xl border border-white/15 backdrop-blur-md transition-all cursor-pointer flex items-center space-x-1.5"
+              >
+                <Building2 className="w-4 h-4 text-slate-300" />
+                <span>Portal de Trámites</span>
+                <ArrowRight className="w-3.5 h-3.5 text-slate-400" />
+              </Link>
+            </div>
+
+          </div>
+
+          {/* Columna Derecha: Tarjeta Institucional de Respaldo y Cobertura (5 cols en desktop) */}
+          <div className="lg:col-span-5 flex justify-center lg:justify-end">
+            <div className="w-full max-w-md bg-gradient-to-b from-white/15 via-white/10 to-white/5 border border-white/20 rounded-2xl p-6 sm:p-7 backdrop-blur-xl shadow-2xl relative overflow-hidden">
+              
+              {/* Resplandor interno */}
+              <div className="absolute top-0 right-0 w-40 h-40 bg-cyan-400/10 rounded-full blur-2xl pointer-events-none" />
+
+              {/* Encabezado de la Tarjeta */}
+              <div className="flex items-center space-x-4 border-b border-white/15 pb-5">
+                <div className="w-16 h-16 sm:w-20 sm:h-20 bg-white rounded-2xl p-2 shadow-md shrink-0 flex items-center justify-center">
+                  <img 
+                    src={logoSedes} 
+                    alt="Logo SEDES Cochabamba" 
+                    className="w-full h-full object-contain" 
+                  />
+                </div>
+                <div className="min-w-0">
+                  <span className="text-[10px] font-bold tracking-widest uppercase text-cyan-300 block">
+                    Autoridad Sanitaria Departamental
+                  </span>
+                  <h2 className="text-base sm:text-lg font-bold text-white leading-snug">
+                    SEDES Cochabamba
+                  </h2>
+                  <p className="text-xs text-slate-300">
+                    Unidad de Redes de Servicios y Calidad
+                  </p>
+                </div>
+              </div>
+
+              {/* Indicadores Institucionales */}
+              <div className="grid grid-cols-2 gap-3 py-5 border-b border-white/15">
+                <div className="bg-black/20 rounded-xl p-3 border border-white/10 text-center">
+                  <span className="text-2xl sm:text-3xl font-black text-cyan-300 block leading-none">
+                    47
+                  </span>
+                  <span className="text-[11px] font-medium text-slate-300 mt-1 block">
+                    Municipios Regulados
+                  </span>
+                </div>
+                <div className="bg-black/20 rounded-xl p-3 border border-white/10 text-center">
+                  <span className="text-2xl sm:text-3xl font-black text-emerald-300 block leading-none">
+                    5
+                  </span>
+                  <span className="text-[11px] font-medium text-slate-300 mt-1 block">
+                    Regiones Sanitarias
+                  </span>
+                </div>
+              </div>
+
+              {/* Garantías y Respaldo Institucional */}
+              <div className="space-y-2.5 pt-4 text-xs text-slate-200">
+                <div className="flex items-start space-x-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                  <span>Laboratorios con Código Único de Establecimiento (CUE).</span>
+                </div>
+                <div className="flex items-start space-x-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                  <span>Inspecciones técnicas de infraestructura y bioseguridad.</span>
+                </div>
+                <div className="flex items-start space-x-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                  <span>Verificación de regencia profesional y bioética.</span>
+                </div>
+              </div>
+
+              {/* Pie de la Tarjeta con Escudo de Cochabamba */}
+              <div className="mt-5 pt-3.5 border-t border-white/10 flex items-center justify-between text-[11px] text-slate-400">
+                <div className="flex items-center space-x-2">
+                  <img 
+                    src={escudoCochabamba} 
+                    alt="Escudo de Cochabamba" 
+                    className="w-5 h-6 object-contain opacity-80" 
+                  />
+                  <span>Departamento de Cochabamba</span>
+                </div>
+                <span className="font-semibold text-cyan-300">Normativa Vigente</span>
+              </div>
+
             </div>
           </div>
 

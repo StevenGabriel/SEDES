@@ -164,7 +164,7 @@ export default function MapSection() {
     : (labCountByMun[normalizeMun(selectedMunicipio)] || 0);
 
   return (
-    <section className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-6 sm:py-10 space-y-6 sm:space-y-8">
+    <section id="mapa-laboratorios" className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-6 sm:py-10 space-y-6 sm:space-y-8 scroll-mt-24">
       {/* Title & Subtitle */}
       <div className="space-y-1">
         <h2 className="text-xl sm:text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight">
