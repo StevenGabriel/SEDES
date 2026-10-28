@@ -76,6 +76,22 @@ class EstablecimientoCreate(BaseModel):
     latitud: Optional[float] = -17.3895
     longitud: Optional[float] = -66.1568
 
+class EstablecimientoNoReguladoCreate(BaseModel):
+    nombre_comercial: str
+    municipio: Optional[str] = "CERCADO"
+    direccion: Optional[str] = "Ubicación en mapa"
+    latitud: float
+    longitud: float
+    observaciones: Optional[str] = "Establecimiento no regulado por SEDES"
+
+class EstablecimientoNoReguladoUpdate(BaseModel):
+    nombre_comercial: Optional[str] = None
+    municipio: Optional[str] = None
+    direccion: Optional[str] = None
+    latitud: Optional[float] = None
+    longitud: Optional[float] = None
+    observaciones: Optional[str] = None
+
 class EstablecimientoUpdate(BaseModel):
     nombre_comercial: Optional[str] = None
     municipio: Optional[str] = None

@@ -62,7 +62,7 @@ def serializar_establecimiento(e: models.Establecimiento, db: Session) -> dict:
         except Exception:
             pass
 
-    prop_nombre = f"{e.propietario.nombres} {e.propietario.apellidos}" if e.propietario else "No asignado"
+    prop_nombre = f"{e.propietario.nombres} {e.propietario.apellidos}" if e.propietario else ("No regulado / Externo" if getattr(e, 'es_regulado', True) is False else "No asignado")
 
     # Consultar última inspección completada para control de vencimiento y rehabilitación
     ultima_insp = db.query(models.Inspeccion).join(models.Tramite).filter(
@@ -159,6 +159,7 @@ def serializar_establecimiento(e: models.Establecimiento, db: Session) -> dict:
         "servicios": e.servicios or "Análisis Clínicos Generales",
         "observaciones": e.observaciones,
         "estado_operativo": e.estado_operativo,
+        "es_regulado": getattr(e, 'es_regulado', True) is not False,
         "latitud": float(lat) if lat is not None else -17.3895,
         "longitud": float(lng) if lng is not None else -66.1568,
         "propietario_id": str(e.propietario_id),
@@ -742,3 +743,160 @@ def ajustar_vencimiento_establecimiento(
     }
 
 
+
+# ==============================================================================
+# ENDPOINTS PARA ADMINISTRACIÓN DE LABORATORIOS NO REGULADOS (EXTERNOS)
+# ==============================================================================
+
+@router.get(
+    "/no-regulados",
+    summary="Obtener listado de laboratorios no regulados registrados por el Administrador",
+    dependencies=[Depends(get_current_user)]
+)
+def listar_laboratorios_no_regulados(
+    municipio: Optional[str] = Query(None, description="Filtrar por municipio"),
+    db: Session = Depends(get_db)
+):
+    query = db.query(models.Establecimiento).filter(
+        models.Establecimiento.es_regulado == False,
+        models.Establecimiento.estado == True
+    )
+    if municipio and municipio != "Todos":
+        query = query.filter(models.Establecimiento.municipio.ilike(f"%{municipio.strip()}%"))
+    
+    labs = query.order_by(models.Establecimiento.fecha_creacion.desc()).all()
+    return [serializar_establecimiento(lab, db) for lab in labs]
+
+
+@router.post(
+    "/no-regulados",
+    status_code=status.HTTP_201_CREATED,
+    summary="Registrar un laboratorio no regulado en el mapa interactivo",
+    dependencies=[Depends(get_current_user)]
+)
+def crear_laboratorio_no_regulado(
+    datos: schemas.EstablecimientoNoReguladoCreate,
+    current_user: models.Usuario = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    nombre_limpio = normalizar_nombre_establecimiento(datos.nombre_comercial)
+    if not nombre_limpio or len(nombre_limpio) < 2:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="El nombre del laboratorio no regulado debe tener al menos 2 caracteres."
+        )
+
+    lat = float(datos.latitud)
+    lng = float(datos.longitud)
+    mun = (datos.municipio or "CERCADO").strip().upper()
+    dir_texto = (datos.direccion or "Ubicación en mapa interactivo").strip()
+
+    nuevo_no_reg = models.Establecimiento(
+        id=uuid.uuid4(),
+        propietario_id=current_user.id if current_user else None,
+        codigo_cue="NO-REGULADO",
+        nombre_comercial=nombre_limpio,
+        tipo="Laboratorio Externo (No Regulado)",
+        nivel="No Regulado",
+        municipio=mun,
+        responsable_laboratorio="Sin Regencia SEDES",
+        ci_responsable=None,
+        responsables_areas="No Supervisado",
+        direccion=dir_texto,
+        coordenadas=f"SRID=4326;POINT({lng} {lat})",
+        horario="No registrado / Variable",
+        telefono=None,
+        email_contacto=None,
+        descripcion="Establecimiento no regulado por el SEDES Cochabamba. No cuenta con acreditación sanitaria oficial ni supervisión técnica.",
+        imagen_url=None,
+        servicios="No Verificado por SEDES",
+        observaciones=(datos.observaciones or "Establecimiento no regulado / externo registrado por administración.").strip(),
+        estado_operativo="No Regulado",
+        es_regulado=False,
+        estado=True
+    )
+
+    db.add(nuevo_no_reg)
+    db.commit()
+    db.refresh(nuevo_no_reg)
+
+    return {
+        "mensaje": "Laboratorio no regulado registrado exitosamente.",
+        "laboratorio": serializar_establecimiento(nuevo_no_reg, db)
+    }
+
+
+@router.put(
+    "/no-regulados/{lab_id}",
+    summary="Actualizar datos de un laboratorio no regulado",
+    dependencies=[Depends(get_current_user)]
+)
+def actualizar_laboratorio_no_regulado(
+    lab_id: str,
+    datos: schemas.EstablecimientoNoReguladoUpdate,
+    db: Session = Depends(get_db)
+):
+    try:
+        u_id = uuid.UUID(lab_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="ID de laboratorio inválido.")
+
+    lab = db.query(models.Establecimiento).filter(
+        models.Establecimiento.id == u_id,
+        models.Establecimiento.es_regulado == False,
+        models.Establecimiento.estado == True
+    ).first()
+
+    if not lab:
+        raise HTTPException(status_code=404, detail="Laboratorio no regulado no encontrado.")
+
+    if datos.nombre_comercial:
+        lab.nombre_comercial = normalizar_nombre_establecimiento(datos.nombre_comercial)
+    if datos.municipio:
+        lab.municipio = datos.municipio.strip().upper()
+    if datos.direccion:
+        lab.direccion = datos.direccion.strip()
+    if datos.latitud is not None and datos.longitud is not None:
+        lat = float(datos.latitud)
+        lng = float(datos.longitud)
+        lab.coordenadas = f"SRID=4326;POINT({lng} {lat})"
+    if datos.observaciones is not None:
+        lab.observaciones = datos.observaciones.strip()
+
+    db.commit()
+    db.refresh(lab)
+
+    return {
+        "mensaje": "Laboratorio no regulado actualizado exitosamente.",
+        "laboratorio": serializar_establecimiento(lab, db)
+    }
+
+
+@router.delete(
+    "/no-regulados/{lab_id}",
+    summary="Eliminar o dar de baja un laboratorio no regulado",
+    dependencies=[Depends(get_current_user)]
+)
+def eliminar_laboratorio_no_regulado(
+    lab_id: str,
+    db: Session = Depends(get_db)
+):
+    try:
+        u_id = uuid.UUID(lab_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="ID de laboratorio inválido.")
+
+    lab = db.query(models.Establecimiento).filter(
+        models.Establecimiento.id == u_id,
+        models.Establecimiento.es_regulado == False,
+        models.Establecimiento.estado == True
+    ).first()
+
+    if not lab:
+        raise HTTPException(status_code=404, detail="Laboratorio no regulado no encontrado.")
+
+    # Marcar como inactivo
+    lab.estado = False
+    db.commit()
+
+    return {"mensaje": f"Laboratorio no regulado '{lab.nombre_comercial}' eliminado exitosamente."}

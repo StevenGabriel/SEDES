@@ -55,6 +55,7 @@ import logoSedes from '../assets/LogoSedes.png';
 import logoL2 from '../assets/L2.png';
 import { generarComunicacionInternaPDF } from '../components/coordinador/ComunicacionInternaPDF';
 import EditarPlantillasView from '../components/common/EditarPlantillasView';
+import LaboratoriosNoReguladosView from '../components/admin/LaboratoriosNoReguladosView';
 
 // Obtener iniciales de 2 a 3 letras a partir de nombres y apellidos (ej: Steven Claros Tapia -> SCT)
 const getInitials = (u) => {
@@ -618,7 +619,7 @@ export default function AdminPage() {
   const navigate = useNavigate();
   const { seccion } = useParams();
 
-  const SECCIONES_VALIDAS = ['usuarios', 'requisitos', 'editar-documentos'];
+  const SECCIONES_VALIDAS = ['usuarios', 'requisitos', 'editar-documentos', 'laboratorios-no-regulados'];
   const rawSeccion = seccion || 'usuarios';
   const seccionActiva = SECCIONES_VALIDAS.includes(rawSeccion) ? rawSeccion : 'usuarios';
 

@@ -72,7 +72,7 @@ class Establecimiento(Base):
     __tablename__ = "establecimientos"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
-    propietario_id = Column(UUID(as_uuid=True), ForeignKey("usuarios.id"), nullable=False)
+    propietario_id = Column(UUID(as_uuid=True), ForeignKey("usuarios.id"), nullable=True)
     codigo_cue = Column(String(50), nullable=True, index=True)  # Código CUE oficial (ej: '3L0267', 'Nuevo')
     nombre_comercial = Column(String(200), nullable=False)
     tipo = Column(String(100), nullable=False)  # Ej: 'Laboratorio Clínico Privado', 'Privado'
@@ -90,7 +90,8 @@ class Establecimiento(Base):
     imagen_url = Column(Text, nullable=True)
     servicios = Column(Text, nullable=True)
     observaciones = Column(Text, nullable=True)
-    estado_operativo = Column(String(50), default="Habilitado", nullable=False) # 'Habilitado', 'En Trámite', 'Renovación', 'Clausurado'
+    estado_operativo = Column(String(50), default="Habilitado", nullable=False) # 'Habilitado', 'En Tr�mite', 'Renovaci�n', 'Clausurado', 'No Regulado'
+    es_regulado = Column(Boolean, default=True, nullable=False)
 
     # Columnas de Auditoría
     estado = Column(Boolean, default=True, nullable=False)

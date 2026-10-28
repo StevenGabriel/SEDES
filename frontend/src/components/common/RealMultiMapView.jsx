@@ -760,13 +760,21 @@ export const getLabSpecialty = (lab, selectedEspecialidad = null) => {
 
 // Generador de iconos personalizados para marcadores de laboratorio
 const createMarkerIcon = (lab, isSelected = false, selectedEspecialidad = null) => {
+  const isNoRegulado = lab.es_regulado === false;
   const estadoHorario = checkEstaAbierto(lab.horario);
   const especialidad = getLabSpecialty(lab, selectedEspecialidad);
   const allSpecialties = getLabSpecialties(lab);
   const isMulti = allSpecialties.length > 1;
-  const pinBg = especialidad.colorHex;
-  const badgeBg = especialidad.badgeBg;
+  const pinBg = isNoRegulado ? '#ea580c' : especialidad.colorHex;
+  const badgeBg = isNoRegulado ? '#9a3412' : especialidad.badgeBg;
   const size = isSelected ? 38 : 30;
+  const warningSvgIcon = `
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:17px;height:17px;color:white;">
+      <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/>
+      <line x1="12" y1="9" x2="12" y2="13"/>
+      <line x1="12" y1="17" x2="12.01" y2="17"/>
+    </svg>
+  `;
 
   return L.divIcon({
     className: 'custom-multi-lab-marker',
@@ -780,8 +788,8 @@ const createMarkerIcon = (lab, isSelected = false, selectedEspecialidad = null) 
           </div>
         ` : ''}
 
-        <div style="width: ${size}px; height: ${size}px; background-color: ${pinBg}; border-radius: 9999px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(0,0,0,0.35); border: ${isSelected ? '3px solid #38bdf8' : '2.5px solid white'}; transition: all 0.2s; transform: ${isSelected ? 'scale(1.15)' : 'scale(1)'}; position: relative;">
-          ${especialidad.svgIcon}
+        <div style="width: ${size}px; height: ${size}px; background-color: ${pinBg}; border-radius: 9999px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px ${isNoRegulado ? 'rgba(234,88,12,0.5)' : 'rgba(0,0,0,0.35)'}; border: ${isNoRegulado ? '2.5px solid #fed7aa' : (isSelected ? '3px solid #38bdf8' : '2.5px solid white')}; transition: all 0.2s; transform: ${isSelected ? 'scale(1.15)' : 'scale(1)'}; position: relative;">
+          ${isNoRegulado ? warningSvgIcon : especialidad.svgIcon}
           <span style="position: absolute; top: -1px; right: -1px; width: 8px; height: 8px; border-radius: 9999px; background-color: ${estadoHorario.abierto ? '#10b981' : '#ef4444'}; border: 1.5px solid white;"></span>
         </div>
       </div>
@@ -963,14 +971,15 @@ export default function RealMultiMapView({
         zIndexOffset: isSelected ? 1000 : 0
       });
 
+      const isNoReg = lab.es_regulado === false;
       // Tooltip informativo flotante y limpio al pasar el cursor (evita superposiciones de texto)
       marker.bindTooltip(`
-        <div style="font-family: system-ui, sans-serif; padding: 1px 3px; text-align: center; max-width: 220px;">
-          <div style="font-weight: 800; font-size: 11px; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
-            ${lab.nombre_comercial}
+        <div style="font-family: system-ui, sans-serif; padding: 1px 3px; text-align: center; max-width: 230px;">
+          <div style="font-weight: 800; font-size: 11px; color: ${isNoReg ? '#c2410c' : '#0f172a'}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+            ${isNoReg ? '⚠️ ' : ''}${lab.nombre_comercial}
           </div>
           <div style="font-size: 10px; color: #64748b; margin-top: 1px;">
-            <span style="color: ${estadoHorario.abierto ? '#059669' : '#dc2626'}; font-weight: 700;">● ${estadoHorario.texto}</span> • ${allSpecialties[0]?.shortName || 'Clínico'}
+            ${isNoReg ? '<span style=\"color:#ea580c; font-weight:800;\">● NO REGULADO POR SEDES</span>' : `<span style=\"color: ${estadoHorario.abierto ? '#059669' : '#dc2626'}; font-weight: 700;\">● ${estadoHorario.texto}</span> • ${allSpecialties[0]?.shortName || 'Clínico'}`}
           </div>
         </div>
       `, {
@@ -988,7 +997,54 @@ export default function RealMultiMapView({
         </span>
       `).join('');
 
-      const popupHtml = `
+      const popupHtml = isNoReg ? `
+        <div style="font-family: system-ui, sans-serif; min-width: 230px; max-width: 290px; padding: 2px;">
+          <div style="background-color: #fff7ed; border: 1.5px solid #fed7aa; border-radius: 8px; padding: 5px 8px; margin-bottom: 6px; display: flex; align-items: center; gap: 6px;">
+            <span style="font-size: 15px;">⚠️</span>
+            <div>
+              <div style="color: #c2410c; font-weight: 900; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px;">
+                Establecimiento No Regulado
+              </div>
+              <div style="color: #9a3412; font-size: 9.5px; font-weight: 600;">
+                Sin acreditación ni control del SEDES
+              </div>
+            </div>
+          </div>
+
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 4px;">
+            <span style="font-size: 10px; font-weight: 800; text-transform: uppercase; color: #ea580c;">
+              ${lab.municipio || 'Cochabamba'} • Externo
+            </span>
+            <span style="font-size: 9px; font-weight: 800; padding: 1.5px 6px; border-radius: 9999px; background-color: #fee2e2; color: #991b1b; border: 1px solid #fecaca;">
+              ● No Regulado
+            </span>
+          </div>
+
+          <h4 style="font-size: 13.5px; font-weight: 900; color: #0f172a; margin: 0 0 5px 0; line-height: 1.25;">
+            ${lab.nombre_comercial}
+          </h4>
+
+          <div style="display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 6px;">
+            <span style="display: inline-flex; align-items: center; gap: 3px; padding: 2px 7px; border-radius: 6px; background-color: #ea580c15; color: #c2410c; font-size: 9.5px; font-weight: 800; border: 1px solid #ea580c30;">
+              ⚠️ Sin Licencia Sanitaria Oficial
+            </span>
+          </div>
+
+          <p style="font-size: 11px; color: #64748b; margin: 0 0 5px 0; line-height: 1.3;">
+            📍 ${lab.direccion || 'Ubicación georreferenciada'}
+          </p>
+
+          ${lab.observaciones ? `
+            <p style="font-size: 10px; color: #78350f; background-color: #fefce8; padding: 4px 6px; border-radius: 6px; border: 1px solid #fef08a; margin: 0 0 8px 0; line-height: 1.3;">
+              <strong>Detalle:</strong> ${lab.observaciones}
+            </p>
+          ` : ''}
+
+          <div style="display: flex; align-items: center; justify-content: center; width: 100%; padding: 6px 10px; background-color: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; border-radius: 8px; font-size: 10px; font-weight: 800; text-align: center;">
+            ⚠️ Fuera de Vigilancia Oficial SEDES
+          </div>
+        </div>
+      ` : `
         <div style="font-family: system-ui, sans-serif; min-width: 220px; max-width: 280px; padding: 2px;">
           <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 4px;">
             <span style="font-size: 10px; font-weight: 800; text-transform: uppercase; color: #005596;">

@@ -51,6 +51,8 @@ def init_database(reset_tables: bool = False, poblar_laboratorios_demo: bool = F
                 conn.execute(text("ALTER TABLE inspecciones ADD COLUMN IF NOT EXISTS alerta_15_dias_enviada BOOLEAN DEFAULT FALSE;"))
                 conn.execute(text("ALTER TABLE establecimientos ADD COLUMN IF NOT EXISTS ci_responsable VARCHAR(50);"))
                 conn.execute(text("ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS ultimo_acceso TIMESTAMP WITHOUT TIME ZONE;"))
+                conn.execute(text("ALTER TABLE establecimientos ADD COLUMN IF NOT EXISTS es_regulado BOOLEAN DEFAULT TRUE;"))
+                conn.execute(text("ALTER TABLE establecimientos ALTER COLUMN propietario_id DROP NOT NULL;"))
                 conn.commit()
                 logger.info("✅ Esquema de usuarios (ultimo_acceso), catálogo de requisitos, establecimientos, inspecciones y resoluciones administrativas verificado.")
             except Exception as e_mig:
