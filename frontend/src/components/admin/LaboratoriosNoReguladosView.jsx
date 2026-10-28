@@ -1,21 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  AlertTriangle, 
   Plus, 
   Search, 
-  Filter, 
   MapPin, 
   Edit2, 
   Trash2, 
   X, 
-  Check, 
   Loader2, 
   AlertCircle, 
   Building2, 
   Navigation,
-  Globe,
-  ExternalLink,
-  ShieldAlert
+  ShieldAlert,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import RealMapPicker from '../common/RealMapPicker';
 import { CATALOGO_MUNICIPIOS } from '../landing/MapSection';
@@ -25,6 +22,10 @@ export default function LaboratoriosNoReguladosView({ mostrarToast = () => {} })
   const [cargando, setCargando] = useState(true);
   const [busqueda, setBusqueda] = useState('');
   const [filtroMunicipio, setFiltroMunicipio] = useState('Todos');
+
+  // Paginación
+  const [paginaActual, setPaginaActual] = useState(1);
+  const [elementosPorPagina, setElementosPorPagina] = useState(10);
 
   // Estados de Modales
   const [modalFormOpen, setModalFormOpen] = useState(false);
@@ -74,6 +75,11 @@ export default function LaboratoriosNoReguladosView({ mostrarToast = () => {} })
     cargarLaboratorios();
   }, []);
 
+  // Reiniciar a la página 1 ante cambios en filtros o cantidad por página
+  useEffect(() => {
+    setPaginaActual(1);
+  }, [busqueda, filtroMunicipio, elementosPorPagina]);
+
   // Abrir modal para crear
   const handleAbrirNuevo = () => {
     setLabEditando(null);
@@ -118,10 +124,9 @@ export default function LaboratoriosNoReguladosView({ mostrarToast = () => {} })
         mostrarToast(`Ubicación GPS capturada: ${lat}, ${lng}`, 'info');
       },
       (err) => {
-        console.warn('Error GPS:', err);
-        mostrarToast('No se pudo obtener la señal GPS. Puede marcar el mapa manualmente.', 'warning');
+        mostrarToast(`Error al obtener geolocalización: ${err.message}`, 'error');
       },
-      { enableHighAccuracy: true, timeout: 8000 }
+      { enableHighAccuracy: true, timeout: 10000 }
     );
   };
 
@@ -131,8 +136,13 @@ export default function LaboratoriosNoReguladosView({ mostrarToast = () => {} })
     setErrorForm(null);
 
     const nombreLimpio = form.nombre_comercial.trim();
-    if (!nombreLimpio || nombreLimpio.length < 2) {
-      setErrorForm('Por favor ingrese el nombre del laboratorio (al menos 2 caracteres).');
+    if (!nombreLimpio) {
+      setErrorForm('Debe ingresar el nombre del establecimiento.');
+      return;
+    }
+
+    if (!form.latitud || !form.longitud) {
+      setErrorForm('Debe seleccionar la ubicación geográfica en el mapa.');
       return;
     }
 
@@ -146,7 +156,7 @@ export default function LaboratoriosNoReguladosView({ mostrarToast = () => {} })
 
       const payload = {
         nombre_comercial: nombreLimpio,
-        municipio: form.municipio,
+        municipio: form.municipio || 'CERCADO',
         direccion: form.direccion.trim() || 'Ubicación georreferenciada en mapa',
         latitud: form.latitud,
         longitud: form.longitud,
@@ -223,10 +233,12 @@ export default function LaboratoriosNoReguladosView({ mostrarToast = () => {} })
     return coincideTexto && coincideMun;
   });
 
-  // Métricas
-  const totalNoRegulados = laboratorios.length;
-  const municipiosUnicos = new Set(laboratorios.map(l => (l.municipio || '').toUpperCase())).size;
-  const georreferenciados = laboratorios.filter(l => l.latitud && l.longitud).length;
+  // Cálculos de Paginación
+  const totalElementos = labsFiltrados.length;
+  const totalPaginas = Math.ceil(totalElementos / elementosPorPagina) || 1;
+  const indiceInicio = (paginaActual - 1) * elementosPorPagina;
+  const indiceFin = Math.min(indiceInicio + elementosPorPagina, totalElementos);
+  const labsPaginados = labsFiltrados.slice(indiceInicio, indiceFin);
 
   return (
     <div className="space-y-6 animate-fadeIn">
@@ -235,8 +247,8 @@ export default function LaboratoriosNoReguladosView({ mostrarToast = () => {} })
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="space-y-1">
           <div className="flex items-center space-x-2">
-            <span className="inline-flex items-center space-x-1.5 px-2.5 py-0.5 rounded-full text-xs font-extrabold bg-amber-50 text-amber-800 border border-amber-200 shadow-2xs">
-              <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
+            <span className="inline-flex items-center space-x-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-50 text-[#0060a8] border border-blue-200/80 shadow-2xs">
+              <ShieldAlert className="w-3.5 h-3.5 text-[#0077c8]" />
               <span>Vigilancia y Fiscalización Sanitaria</span>
             </span>
           </div>
@@ -251,46 +263,14 @@ export default function LaboratoriosNoReguladosView({ mostrarToast = () => {} })
         <button
           type="button"
           onClick={handleAbrirNuevo}
-          className="bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white text-xs sm:text-sm font-bold px-5 py-2.5 rounded-xl shadow-md hover:shadow-lg transition flex items-center space-x-2 cursor-pointer self-start sm:self-auto shrink-0"
+          className="bg-[#0077c8] hover:bg-[#0060a8] active:bg-[#004b85] text-white text-xs sm:text-sm font-bold px-5 py-2.5 rounded-xl shadow-md hover:shadow-lg transition flex items-center space-x-2 cursor-pointer self-start sm:self-auto shrink-0"
         >
           <Plus className="w-4 h-4 text-white stroke-[2.5]" />
           <span>Registrar Laboratorio No Regulado</span>
         </button>
       </div>
 
-      {/* 2. Tarjetas de Indicadores (KPIs) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-        
-        <div className="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-2xs space-y-1 border-l-4 border-l-amber-500">
-          <span className="text-xs font-semibold text-slate-500 block">Total No Regulados</span>
-          <div className="text-3xl font-black text-slate-900 tracking-tight">{totalNoRegulados}</div>
-          <span className="text-[11px] text-amber-700 block pt-1 font-semibold">Identificados en campo</span>
-        </div>
-
-        <div className="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-2xs space-y-1 border-l-4 border-l-orange-500">
-          <span className="text-xs font-semibold text-slate-500 block">Georreferenciados</span>
-          <div className="text-3xl font-black text-slate-900 tracking-tight">{georreferenciados}</div>
-          <span className="text-[11px] text-orange-600 block pt-1 font-semibold">Con coordenadas GPS</span>
-        </div>
-
-        <div className="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-2xs space-y-1 border-l-4 border-l-sky-500">
-          <span className="text-xs font-semibold text-slate-500 block">Municipios Afectados</span>
-          <div className="text-3xl font-black text-slate-900 tracking-tight">{municipiosUnicos}</div>
-          <span className="text-[11px] text-slate-400 block pt-1 font-medium">Jurisdicciones con presencia</span>
-        </div>
-
-        <div className="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-2xs space-y-1 border-l-4 border-l-rose-500">
-          <span className="text-xs font-semibold text-slate-500 block">Visibilidad en Mapa</span>
-          <div className="text-lg font-black text-rose-600 tracking-tight flex items-center space-x-1 pt-1">
-            <ShieldAlert className="w-5 h-5 shrink-0" />
-            <span>Distintivo ⚠️ Activo</span>
-          </div>
-          <span className="text-[11px] text-slate-400 block pt-1 font-medium">Identificación pública clara</span>
-        </div>
-
-      </div>
-
-      {/* 3. Barra de Búsqueda y Filtros */}
+      {/* 2. Barra de Búsqueda y Filtros */}
       <div className="bg-white p-4 rounded-2xl border border-slate-200/90 shadow-2xs flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
         <div className="relative flex-1">
           <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
@@ -299,7 +279,7 @@ export default function LaboratoriosNoReguladosView({ mostrarToast = () => {} })
             value={busqueda}
             onChange={(e) => setBusqueda(e.target.value)}
             placeholder="Buscar por nombre comercial, municipio o dirección..."
-            className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition"
+            className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#0077c8]/20 focus:border-[#0077c8] transition"
           />
           {busqueda && (
             <button
@@ -316,7 +296,7 @@ export default function LaboratoriosNoReguladosView({ mostrarToast = () => {} })
             <select
               value={filtroMunicipio}
               onChange={(e) => setFiltroMunicipio(e.target.value)}
-              className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-500/20 cursor-pointer"
+              className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#0077c8]/20 focus:border-[#0077c8] cursor-pointer"
             >
               <option value="Todos">Todos los Municipios</option>
               {listaMunicipiosForm.map(mun => (
@@ -327,11 +307,11 @@ export default function LaboratoriosNoReguladosView({ mostrarToast = () => {} })
         </div>
       </div>
 
-      {/* 4. Tabla de Laboratorios No Regulados */}
+      {/* 3. Tabla de Laboratorios No Regulados */}
       <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden">
         {cargando ? (
           <div className="p-12 text-center text-slate-400 space-y-3">
-            <Loader2 className="w-8 h-8 animate-spin mx-auto text-amber-600" />
+            <Loader2 className="w-8 h-8 animate-spin mx-auto text-[#0077c8]" />
             <p className="text-xs font-semibold">Cargando registros de laboratorios no regulados...</p>
           </div>
         ) : labsFiltrados.length === 0 ? (
@@ -351,7 +331,7 @@ export default function LaboratoriosNoReguladosView({ mostrarToast = () => {} })
               <button
                 type="button"
                 onClick={handleAbrirNuevo}
-                className="inline-flex items-center space-x-1.5 px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs shadow-sm transition"
+                className="inline-flex items-center space-x-1.5 px-4 py-2 rounded-xl bg-[#0077c8] hover:bg-[#0060a8] text-white font-bold text-xs shadow-sm transition"
               >
                 <Plus className="w-3.5 h-3.5" />
                 <span>Registrar el primero</span>
@@ -359,94 +339,188 @@ export default function LaboratoriosNoReguladosView({ mostrarToast = () => {} })
             )}
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs sm:text-sm">
-              <thead className="bg-slate-50 border-b border-slate-200/80 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                <tr>
-                  <th className="py-3 px-4">Establecimiento</th>
-                  <th className="py-3 px-4">Municipio</th>
-                  <th className="py-3 px-4">Dirección / Referencia</th>
-                  <th className="py-3 px-4">Coordenadas GPS</th>
-                  <th className="py-3 px-4">Observación de Alerta</th>
-                  <th className="py-3 px-4 text-right">Acciones</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {labsFiltrados.map((lab) => (
-                  <tr key={lab.id} className="hover:bg-slate-50/80 transition-colors">
-                    
-                    {/* Nombre y Badge */}
-                    <td className="py-3.5 px-4">
-                      <div className="space-y-1">
-                        <div className="font-extrabold text-slate-900 leading-tight">
-                          {lab.nombre_comercial}
-                        </div>
-                        <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
-                          <AlertTriangle className="w-3 h-3 text-amber-600" />
-                          <span>No Regulado</span>
-                        </span>
-                      </div>
-                    </td>
-
-                    {/* Municipio */}
-                    <td className="py-3.5 px-4">
-                      <span className="font-bold text-slate-700 uppercase text-xs">
-                        {lab.municipio || 'CERCADO'}
-                      </span>
-                    </td>
-
-                    {/* Dirección */}
-                    <td className="py-3.5 px-4 text-slate-600 max-w-xs truncate" title={lab.direccion}>
-                      {lab.direccion || 'Ubicación en mapa'}
-                    </td>
-
-                    {/* Coordenadas */}
-                    <td className="py-3.5 px-4">
-                      <div className="font-mono text-[11px] text-slate-700 bg-slate-100 px-2 py-1 rounded-lg inline-block border border-slate-200">
-                        {lab.latitud?.toFixed(5)}, {lab.longitud?.toFixed(5)}
-                      </div>
-                    </td>
-
-                    {/* Observación */}
-                    <td className="py-3.5 px-4 text-slate-500 text-xs max-w-xs truncate" title={lab.observaciones}>
-                      {lab.observaciones || 'Sin observaciones registradas.'}
-                    </td>
-
-                    {/* Acciones */}
-                    <td className="py-3.5 px-4 text-right">
-                      <div className="flex items-center justify-end space-x-1.5">
-                        <button
-                          type="button"
-                          onClick={() => handleAbrirEditar(lab)}
-                          className="p-1.5 text-slate-600 hover:text-amber-700 hover:bg-amber-50 rounded-lg transition"
-                          title="Editar información"
-                        >
-                          <Edit2 className="w-4 h-4" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setLabAEliminar(lab);
-                            setModalEliminarOpen(true);
-                          }}
-                          className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition"
-                          title="Eliminar de la lista"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </td>
-
+          <>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs sm:text-sm">
+                <thead className="bg-slate-50 border-b border-slate-200/80 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                  <tr>
+                    <th className="py-3 px-4">Establecimiento</th>
+                    <th className="py-3 px-4">Municipio</th>
+                    <th className="py-3 px-4">Dirección / Referencia</th>
+                    <th className="py-3 px-4">Coordenadas GPS</th>
+                    <th className="py-3 px-4">Observación de Alerta</th>
+                    <th className="py-3 px-4 text-right">Acciones</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {labsPaginados.map((lab) => (
+                    <tr key={lab.id} className="hover:bg-slate-50/80 transition-colors">
+                      
+                      {/* Nombre y Badge */}
+                      <td className="py-3.5 px-4">
+                        <div className="space-y-1">
+                          <div className="font-extrabold text-slate-900 leading-tight">
+                            {lab.nombre_comercial}
+                          </div>
+                          <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
+                            <AlertCircle className="w-3 h-3 text-slate-500" />
+                            <span>No Regulado</span>
+                          </span>
+                        </div>
+                      </td>
+
+                      {/* Municipio */}
+                      <td className="py-3.5 px-4">
+                        <span className="font-bold text-slate-700 uppercase text-xs">
+                          {lab.municipio || 'CERCADO'}
+                        </span>
+                      </td>
+
+                      {/* Dirección */}
+                      <td className="py-3.5 px-4 text-slate-600 max-w-xs truncate" title={lab.direccion}>
+                        {lab.direccion || 'Ubicación en mapa'}
+                      </td>
+
+                      {/* Coordenadas */}
+                      <td className="py-3.5 px-4">
+                        <div className="font-mono text-[11px] text-slate-700 bg-slate-100 px-2 py-1 rounded-lg inline-block border border-slate-200">
+                          {lab.latitud?.toFixed(5)}, {lab.longitud?.toFixed(5)}
+                        </div>
+                      </td>
+
+                      {/* Observación */}
+                      <td className="py-3.5 px-4 text-slate-500 text-xs max-w-xs truncate" title={lab.observaciones}>
+                        {lab.observaciones || 'Sin observaciones registradas.'}
+                      </td>
+
+                      {/* Acciones */}
+                      <td className="py-3.5 px-4 text-right">
+                        <div className="flex items-center justify-end space-x-1.5">
+                          <button
+                            type="button"
+                            onClick={() => handleAbrirEditar(lab)}
+                            className="p-1.5 text-slate-600 hover:text-[#0077c8] hover:bg-blue-50 rounded-lg transition"
+                            title="Editar información"
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setLabAEliminar(lab);
+                              setModalEliminarOpen(true);
+                            }}
+                            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition"
+                            title="Eliminar de la lista"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </td>
+
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Paginación y Selector de Elementos */}
+            <div className="p-4 border-t border-slate-100 bg-slate-50/50 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs">
+              
+              {/* Izquierda: Info y Selector de Elementos por vista */}
+              <div className="flex flex-wrap items-center gap-3 text-slate-600 font-medium">
+                <span>
+                  Mostrando <strong className="text-slate-800">{totalElementos === 0 ? 0 : indiceInicio + 1}</strong> a{' '}
+                  <strong className="text-slate-800">{indiceFin}</strong> de{' '}
+                  <strong className="text-slate-800">{totalElementos}</strong> laboratorios
+                </span>
+
+                <div className="flex items-center space-x-1.5 pl-2 border-l border-slate-200">
+                  <span className="text-slate-500 font-semibold">Mostrar:</span>
+                  <select
+                    value={elementosPorPagina}
+                    onChange={(e) => setElementosPorPagina(Number(e.target.value))}
+                    className="bg-white border border-slate-200 rounded-lg px-2 py-1 font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#0077c8]/20 focus:border-[#0077c8] cursor-pointer"
+                  >
+                    <option value={5}>5</option>
+                    <option value={10}>10</option>
+                    <option value={20}>20</option>
+                    <option value={50}>50</option>
+                  </select>
+                  <span className="text-slate-500 font-semibold">por página</span>
+                </div>
+              </div>
+
+              {/* Derecha: Botones de Paginación */}
+              <div className="flex items-center space-x-1.5 font-bold">
+                <button
+                  type="button"
+                  disabled={paginaActual === 1}
+                  onClick={() => setPaginaActual(p => Math.max(1, p - 1))}
+                  className={`px-3 py-1.5 border border-slate-200 rounded-xl transition flex items-center space-x-1 ${
+                    paginaActual === 1 
+                      ? 'opacity-40 cursor-not-allowed bg-slate-50 text-slate-400' 
+                      : 'hover:bg-slate-100 text-slate-700 cursor-pointer shadow-2xs'
+                  }`}
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                  <span className="hidden sm:inline">Anterior</span>
+                </button>
+
+                <div className="flex items-center space-x-1">
+                  {Array.from({ length: totalPaginas }, (_, i) => i + 1)
+                    .filter(num => {
+                      if (totalPaginas <= 7) return true;
+                      return num === 1 || num === totalPaginas || Math.abs(num - paginaActual) <= 1;
+                    })
+                    .map((num, idx, arr) => {
+                      const prev = arr[idx - 1];
+                      const showEllipsis = prev && num - prev > 1;
+                      return (
+                        <React.Fragment key={num}>
+                          {showEllipsis && (
+                            <span className="w-8 h-8 flex items-center justify-center text-slate-400 font-bold select-none">
+                              ...
+                            </span>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => setPaginaActual(num)}
+                            className={`w-8 h-8 rounded-xl flex items-center justify-center transition cursor-pointer text-xs font-bold ${
+                              paginaActual === num
+                                ? 'bg-[#0077c8] text-white shadow-xs'
+                                : 'hover:bg-slate-100 text-slate-700'
+                            }`}
+                          >
+                            {num}
+                          </button>
+                        </React.Fragment>
+                      );
+                    })}
+                </div>
+
+                <button
+                  type="button"
+                  disabled={paginaActual === totalPaginas}
+                  onClick={() => setPaginaActual(p => Math.min(totalPaginas, p + 1))}
+                  className={`px-3 py-1.5 border border-slate-200 rounded-xl transition flex items-center space-x-1 ${
+                    paginaActual === totalPaginas 
+                      ? 'opacity-40 cursor-not-allowed bg-slate-50 text-slate-400' 
+                      : 'hover:bg-slate-100 text-slate-700 cursor-pointer shadow-2xs'
+                  }`}
+                >
+                  <span className="hidden sm:inline">Siguiente</span>
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+
+            </div>
+          </>
         )}
       </div>
 
       {/* ======================================================================= */}
-      {/* 5. MODAL: REGISTRAR / EDITAR LABORATORIO NO REGULADO                    */}
+      {/* 4. MODAL: REGISTRAR / EDITAR LABORATORIO NO REGULADO                    */}
       {/* ======================================================================= */}
       {modalFormOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-fadeIn overflow-y-auto">
@@ -455,8 +529,8 @@ export default function LaboratoriosNoReguladosView({ mostrarToast = () => {} })
             {/* Header del Modal */}
             <div className="flex items-start justify-between border-b border-slate-100 pb-4">
               <div className="space-y-0.5">
-                <span className="text-[10px] font-extrabold text-amber-700 uppercase tracking-wider flex items-center space-x-1">
-                  <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
+                <span className="text-[10px] font-bold text-[#0060a8] uppercase tracking-wider flex items-center space-x-1">
+                  <ShieldAlert className="w-3.5 h-3.5 text-[#0077c8]" />
                   <span>Vigilancia Sanitaria Externa</span>
                 </span>
                 <h3 className="text-lg sm:text-xl font-black text-slate-900 tracking-tight">
@@ -466,7 +540,7 @@ export default function LaboratoriosNoReguladosView({ mostrarToast = () => {} })
               <button
                 type="button"
                 onClick={() => setModalFormOpen(false)}
-                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition"
+                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -493,8 +567,8 @@ export default function LaboratoriosNoReguladosView({ mostrarToast = () => {} })
                   required
                   value={form.nombre_comercial}
                   onChange={(e) => setForm(prev => ({ ...prev, nombre_comercial: e.target.value }))}
-                  placeholder="Ej: Laboratorio Clínico Central (Sin Registro)"
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition"
+                  placeholder="Ej: Laboratorio Clínico Central"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#0077c8]/20 focus:border-[#0077c8] transition"
                 />
               </div>
 
@@ -507,7 +581,7 @@ export default function LaboratoriosNoReguladosView({ mostrarToast = () => {} })
                   <select
                     value={form.municipio}
                     onChange={(e) => setForm(prev => ({ ...prev, municipio: e.target.value }))}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition cursor-pointer"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-[#0077c8]/20 focus:border-[#0077c8] transition cursor-pointer"
                   >
                     {listaMunicipiosForm.map(mun => (
                       <option key={mun} value={mun}>{mun}</option>
@@ -524,7 +598,7 @@ export default function LaboratoriosNoReguladosView({ mostrarToast = () => {} })
                     value={form.direccion}
                     onChange={(e) => setForm(prev => ({ ...prev, direccion: e.target.value }))}
                     placeholder="Ej: Av. Blanco Galindo km 4, acera sur"
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#0077c8]/20 focus:border-[#0077c8] transition"
                   />
                 </div>
               </div>
@@ -533,13 +607,13 @@ export default function LaboratoriosNoReguladosView({ mostrarToast = () => {} })
               <div className="space-y-2 pt-1">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
                   <label className="text-xs font-bold text-slate-700 flex items-center space-x-1.5">
-                    <MapPin className="w-4 h-4 text-amber-600" />
+                    <MapPin className="w-4 h-4 text-[#0077c8]" />
                     <span>Ubicación en el Mapa Interactivo (Haga clic o mueva el marcador)</span>
                   </label>
                   <button
                     type="button"
                     onClick={handleCapturarGPS}
-                    className="inline-flex items-center space-x-1 text-[11px] font-bold text-sky-700 hover:text-sky-800 self-start sm:self-auto cursor-pointer"
+                    className="inline-flex items-center space-x-1 text-[11px] font-bold text-[#0077c8] hover:text-[#0060a8] self-start sm:self-auto cursor-pointer"
                   >
                     <Navigation className="w-3 h-3" />
                     <span>Capturar mi GPS actual</span>
@@ -576,7 +650,7 @@ export default function LaboratoriosNoReguladosView({ mostrarToast = () => {} })
                   value={form.observaciones}
                   onChange={(e) => setForm(prev => ({ ...prev, observaciones: e.target.value }))}
                   placeholder="Ej: Notificado en inspección de oficio. No cuenta con regente bioquímico registrado ante el SEDES."
-                  className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition resize-none"
+                  className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#0077c8]/20 focus:border-[#0077c8] transition resize-none"
                 />
               </div>
 
@@ -593,7 +667,7 @@ export default function LaboratoriosNoReguladosView({ mostrarToast = () => {} })
                 <button
                   type="submit"
                   disabled={guardando}
-                  className="px-5 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-bold text-xs shadow-md transition flex items-center space-x-2 cursor-pointer disabled:opacity-60"
+                  className="px-5 py-2.5 rounded-xl bg-[#0077c8] hover:bg-[#0060a8] active:bg-[#004b85] text-white font-bold text-xs shadow-md transition flex items-center space-x-2 cursor-pointer disabled:opacity-60"
                 >
                   {guardando ? (
                     <>
@@ -613,7 +687,7 @@ export default function LaboratoriosNoReguladosView({ mostrarToast = () => {} })
       )}
 
       {/* ======================================================================= */}
-      {/* 6. MODAL: CONFIRMAR ELIMINACIÓN                                         */}
+      {/* 5. MODAL: CONFIRMAR ELIMINACIÓN                                         */}
       {/* ======================================================================= */}
       {modalEliminarOpen && labAEliminar && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fadeIn">
