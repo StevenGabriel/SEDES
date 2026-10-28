@@ -12,8 +12,8 @@ import {
   ArrowRight
 } from 'lucide-react';
 import heroBg from '../../assets/hero_bg.jpg';
-import logoSedes from '../../assets/LogoSedes.png';
 import escudoCochabamba from '../../assets/Escudo_del_Cochabamba.svg.webp';
+import escudoBolivia from '../../assets/Escudo_de_Bolivia.svg.webp';
 
 export default function HeroBanner() {
   const scrollToMap = (e) => {
@@ -153,11 +153,11 @@ export default function HeroBanner() {
 
               {/* Encabezado de la Tarjeta */}
               <div className="flex items-center space-x-4 border-b border-white/15 pb-5">
-                <div className="w-16 h-16 sm:w-20 sm:h-20 bg-white rounded-2xl p-2 shadow-md shrink-0 flex items-center justify-center">
+                <div className="w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-br from-white/20 via-white/10 to-white/5 border border-white/25 rounded-2xl p-2.5 shadow-xl backdrop-blur-md shrink-0 flex items-center justify-center">
                   <img 
-                    src={logoSedes} 
-                    alt="Logo SEDES Cochabamba" 
-                    className="w-full h-full object-contain" 
+                    src={escudoCochabamba} 
+                    alt="Escudo Oficial de Cochabamba" 
+                    className="w-full h-full object-contain drop-shadow-md" 
                   />
                 </div>
                 <div className="min-w-0">
@@ -209,15 +209,15 @@ export default function HeroBanner() {
                 </div>
               </div>
 
-              {/* Pie de la Tarjeta con Escudo de Cochabamba */}
-              <div className="mt-5 pt-3.5 border-t border-white/10 flex items-center justify-between text-[11px] text-slate-400">
+              {/* Pie de la Tarjeta con Escudo del Estado Plurinacional */}
+              <div className="mt-5 pt-3.5 border-t border-white/10 flex items-center justify-between text-[11px] text-slate-300">
                 <div className="flex items-center space-x-2">
                   <img 
-                    src={escudoCochabamba} 
-                    alt="Escudo de Cochabamba" 
-                    className="w-5 h-6 object-contain opacity-80" 
+                    src={escudoBolivia} 
+                    alt="Escudo de Bolivia" 
+                    className="w-5 h-5 object-contain" 
                   />
-                  <span>Departamento de Cochabamba</span>
+                  <span>Estado Plurinacional • SEDES</span>
                 </div>
                 <span className="font-semibold text-cyan-300">Normativa Vigente</span>
               </div>
