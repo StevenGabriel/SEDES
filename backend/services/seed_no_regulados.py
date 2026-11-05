@@ -9,7 +9,7 @@ from models.models import Establecimiento
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("seed_no_regulados")
 
-def poblar_laboratorios_no_regulados():
+def poblar_laboratorios_no_regulados(db=None, forzar_actualizacion: bool = False):
     json_path = os.path.join(os.path.dirname(__file__), "..", "data", "laboratorios_no_regulados.json")
     if not os.path.exists(json_path):
         logger.error(f"Archivo {json_path} no existe.")
@@ -18,13 +18,26 @@ def poblar_laboratorios_no_regulados():
     with open(json_path, "r", encoding="utf-8") as f:
         labs_data = json.load(f)
 
-    db = SessionLocal()
-    try:
-        # Asegurar columnas si hiciera falta
+    cerrar_sesion = False
+    if db is None:
+        # Solo si se ejecuta como script independiente aseguramos columnas antes de abrir sesión
         with engine.connect() as conn:
             conn.execute(text("ALTER TABLE establecimientos ADD COLUMN IF NOT EXISTS es_regulado BOOLEAN DEFAULT TRUE;"))
             conn.execute(text("ALTER TABLE establecimientos ALTER COLUMN propietario_id DROP NOT NULL;"))
             conn.commit()
+        db = SessionLocal()
+        cerrar_sesion = True
+
+    try:
+        # Verificar si ya están cargados para arranque ultrarrápido
+        existentes_count = db.query(Establecimiento).filter(
+            Establecimiento.es_regulado == False
+        ).count()
+        db.commit()
+
+        if existentes_count >= len(labs_data) and not forzar_actualizacion:
+            logger.info(f"ℹ️ Ya existen {existentes_count} laboratorios no regulados en la base de datos. Omitiendo siembra.")
+            return existentes_count
 
         insertados = 0
         actualizados = 0
@@ -78,14 +91,15 @@ def poblar_laboratorios_no_regulados():
                 insertados += 1
 
         db.commit()
-        logger.info(f"✅ Población completada: {insertados} insertados, {actualizados} actualizados.")
+        logger.info(f"✅ Población de no regulados completada: {insertados} insertados, {actualizados} actualizados.")
         return insertados + actualizados
     except Exception as e:
         db.rollback()
         logger.error(f"Error poblando laboratorios no regulados: {e}")
         raise e
     finally:
-        db.close()
+        if cerrar_sesion:
+            db.close()
 
 if __name__ == "__main__":
-    poblar_laboratorios_no_regulados()
+    poblar_laboratorios_no_regulados(forzar_actualizacion=True)

@@ -231,7 +231,7 @@ def init_database(reset_tables: bool = False, poblar_laboratorios_demo: bool = F
         # 7.1. Poblar catálogo oficial de laboratorios no regulados (Vigilancia Sanitaria)
         try:
             from services.seed_no_regulados import poblar_laboratorios_no_regulados
-            poblar_laboratorios_no_regulados()
+            poblar_laboratorios_no_regulados(db)
         except Exception as e_unreg:
             logger.error(f"Advertencia al sembrar laboratorios no regulados: {e_unreg}")
 
@@ -349,6 +349,7 @@ def poblar_laboratorios_reales(db, propietario_email: str = "stevenclarost@outlo
         Establecimiento.propietario_id == propietario.id
     ).count()
     if count_existentes >= 100 and not forzar_actualizacion:
+        db.commit()
         logger.info(f"ℹ️ El propietario {propietario.email} ya cuenta con {count_existentes} laboratorios. Omitiendo siembra.")
         return count_existentes
 
