@@ -1,0 +1,692 @@
+[
+  {
+    "nombre_comercial": "C.S. CERRO VERDE",
+    "municipio": "Cercado",
+    "codigo_cue": "300028",
+    "red": "R-01",
+    "latitud": -17.414722,
+    "longitud": -66.143611,
+    "direccion": "Ubicación georreferenciada en Cercado",
+    "observaciones": "Red Sanitaria R-01 (Cód: 300028) - Establecimiento no regulado bajo supervisión técnica del SEDES"
+  },
+  {
+    "nombre_comercial": "C.S. EDGAR MONTAÑO",
+    "municipio": "Cercado",
+    "codigo_cue": "300419",
+    "red": "R-01",
+    "latitud": -17.345311,
+    "longitud": -66.174869,
+    "direccion": "Ubicación georreferenciada en Cercado",
+    "observaciones": "Red Sanitaria R-01 (Cód: 300419) - Establecimiento no regulado bajo supervisión técnica del SEDES"
+  },
+  {
+    "nombre_comercial": "C.S. SENNFIELD",
+    "municipio": "Cercado",
+    "codigo_cue": "300082",
+    "red": "R-01",
+    "latitud": -17.406449,
+    "longitud": -66.152521,
+    "direccion": "Ubicación georreferenciada en Cercado",
+    "observaciones": "Red Sanitaria R-01 (Cód: 300082) - Establecimiento no regulado bajo supervisión técnica del SEDES"
+  },
+  {
+    "nombre_comercial": "POLITECNICO MILITAR",
+    "municipio": "Cercado",
+    "codigo_cue": "NO-REGULADO",
+    "red": "R-01",
+    "latitud": -17.448430188814,
+    "longitud": -66.1399740127686,
+    "direccion": "Ubicación georreferenciada en Cercado",
+    "observaciones": "Red Sanitaria R-01 - Establecimiento no regulado bajo supervisión técnica del SEDES"
+  },
+  {
+    "nombre_comercial": "CLINICA POLICIAL VIRGEN DE COPACABANA",
+    "municipio": "Cercado",
+    "codigo_cue": "300459",
+    "red": "R-01",
+    "latitud": -17.3923,
+    "longitud": -66.14898,
+    "direccion": "Ubicación georreferenciada en Cercado",
+    "observaciones": "Red Sanitaria R-01 (Cód: 300459) - Establecimiento no regulado bajo supervisión técnica del SEDES"
+  },
+  {
+    "nombre_comercial": "C.S. CHAVEZ RANCHO",
+    "municipio": "Cercado",
+    "codigo_cue": "300029",
+    "red": "R-01",
+    "latitud": -17.394839,
+    "longitud": -66.190327,
+    "direccion": "Ubicación georreferenciada en Cercado",
+    "observaciones": "Red Sanitaria R-01 (Cód: 300029) - Establecimiento no regulado bajo supervisión técnica del SEDES"
+  },
+  {
+    "nombre_comercial": "C.S. ARANI",
+    "municipio": "Arani",
+    "codigo_cue": "300158",
+    "red": "R-02",
+    "latitud": -17.575435,
+    "longitud": -65.774156,
+    "direccion": "Ubicación georreferenciada en Arani",
+    "observaciones": "Red Sanitaria R-02 (Cód: 300158) - Establecimiento no regulado bajo supervisión técnica del SEDES"
+  },
+  {
+    "nombre_comercial": "C.S. TIRAQUE",
+    "municipio": "Tiraque",
+    "codigo_cue": "300414",
+    "red": "R-02",
+    "latitud": -17.427856,
+    "longitud": -65.721221,
+    "direccion": "Ubicación georreferenciada en Tiraque",
+    "observaciones": "Red Sanitaria R-02 (Cód: 300414) - Establecimiento no regulado bajo supervisión técnica del SEDES"
+  },
+  {
+    "nombre_comercial": "C.S. TACACHI",
+    "municipio": "Tacachi",
+    "codigo_cue": "300394",
+    "red": "R-02",
+    "latitud": -17.393379,
+    "longitud": -66.227756,
+    "direccion": "Ubicación georreferenciada en Tacachi",
+    "observaciones": "Red Sanitaria R-02 (Cód: 300394) - Establecimiento no regulado bajo supervisión técnica del SEDES"
+  },
+  {
+    "nombre_comercial": "C.S. VACAS",
+    "municipio": "Vacas",
+    "codigo_cue": "300165",
+    "red": "R-02",
+    "latitud": -17.54141,
+    "longitud": -65.668052,
+    "direccion": "Ubicación georreferenciada en Vacas",
+    "observaciones": "Red Sanitaria R-02 (Cód: 300165) - Establecimiento no regulado bajo supervisión técnica del SEDES"
+  },
+  {
+    "nombre_comercial": "C.S. CUCHU MUELA",
+    "municipio": "Cuchumuela",
+    "codigo_cue": "300395",
+    "red": "R-02",
+    "latitud": -17.655079,
+    "longitud": -65.796227,
+    "direccion": "Ubicación georreferenciada en Cuchumuela",
+    "observaciones": "Red Sanitaria R-02 (Cód: 300395) - Establecimiento no regulado bajo supervisión técnica del SEDES"
+  },
+  {
+    "nombre_comercial": "C.S. SAN BENITO",
+    "municipio": "San Benito",
+    "codigo_cue": "300390",
+    "red": "R-02",
+    "latitud": -17.419412,
+    "longitud": -66.364495,
+    "direccion": "Ubicación georreferenciada en San Benito",
+    "observaciones": "Red Sanitaria R-02 (Cód: 300390) - Establecimiento no regulado bajo supervisión técnica del SEDES"
+  },
+  {
+    "nombre_comercial": "C.S. VILLA RIVERO",
+    "municipio": "Villa Rivero",
+    "codigo_cue": "300386",
+    "red": "R-02",
+    "latitud": -17.758515,
+    "longitud": -65.42936,
+    "direccion": "Ubicación georreferenciada en Villa Rivero",
+    "observaciones": "Red Sanitaria R-02 (Cód: 300386) - Establecimiento no regulado bajo supervisión técnica del SEDES"
+  },
+  {
+    "nombre_comercial": "C.S. ETERAZAMA",
+    "municipio": "Villa Tunari",
+    "codigo_cue": "300269",
+    "red": "R-03",
+    "latitud": -17.83285,
+    "longitud": -65.51675,
+    "direccion": "Ubicación georreferenciada en Villa Tunari",
+    "observaciones": "Red Sanitaria R-03 (Cód: 300269) - Establecimiento no regulado bajo supervisión técnica del SEDES"
+  },
+  {
+    "nombre_comercial": "P.S. BUEN PASTOR",
+    "municipio": "Villa Tunari",
+    "codigo_cue": "300656",
+    "red": "R-03",
+    "latitud": -16.288232,
+    "longitud": -75.784052,
+    "direccion": "Ubicación georreferenciada en Villa Tunari",
+    "observaciones": "Red Sanitaria R-03 (Cód: 300656) - Establecimiento no regulado bajo supervisión técnica del SEDES"
+  },
+  {
+    "nombre_comercial": "P.S. SAN BENITO",
+    "municipio": "Villa Tunari",
+    "codigo_cue": "300650",
+    "red": "R-03",
+    "latitud": -16.53328,
+    "longitud": -65.50296,
+    "direccion": "Ubicación georreferenciada en Villa Tunari",
+    "observaciones": "Red Sanitaria R-03 (Cód: 300650) - Establecimiento no regulado bajo supervisión técnica del SEDES"
+  },
+  {
+    "nombre_comercial": "P.S. SANTA ROSA DE LA BOCA",
+    "municipio": "Villa Tunari",
+    "codigo_cue": "300651",
+    "red": "R-03",
+    "latitud": -17.6501,
+    "longitud": -65.3659,
+    "direccion": "Ubicación georreferenciada en Villa Tunari",
+    "observaciones": "Red Sanitaria R-03 (Cód: 300651) - Establecimiento no regulado bajo supervisión técnica del SEDES"
+  },
+  {
+    "nombre_comercial": "P.S. TRES DE MAYO",
+    "municipio": "Villa Tunari",
+    "codigo_cue": "300653",
+    "red": "R-03",
+    "latitud": -18.388595,
+    "longitud": -65.054432,
+    "direccion": "Ubicación georreferenciada en Villa Tunari",
+    "observaciones": "Red Sanitaria R-03 (Cód: 300653) - Establecimiento no regulado bajo supervisión técnica del SEDES"
+  },
+  {
+    "nombre_comercial": "P.S. SAN MIGUELITO",
+    "municipio": "Villa Tunari",
+    "codigo_cue": "300654",
+    "red": "R-03",
+    "latitud": -16.511699,
+    "longitud": -65.438125,
+    "direccion": "Ubicación georreferenciada en Villa Tunari",
+    "observaciones": "Red Sanitaria R-03 (Cód: 300654) - Establecimiento no regulado bajo supervisión técnica del SEDES"
+  },
+  {
+    "nombre_comercial": "C.S. SANTA ROSA DEL ISIBORO",
+    "municipio": "Villa Tunari",
+    "codigo_cue": "300655",
+    "red": "R-03",
+    "latitud": -16.260468,
+    "longitud": -65.207424,
+    "direccion": "Ubicación georreferenciada en Villa Tunari",
+    "observaciones": "Red Sanitaria R-03 (Cód: 300655) - Establecimiento no regulado bajo supervisión técnica del SEDES"
+  },
+  {
+    "nombre_comercial": "C.S. ISINUTA",
+    "municipio": "Villa Tunari",
+    "codigo_cue": "300271",
+    "red": "R-03",
+    "latitud": -16.7324,
+    "longitud": -65.63977,
+    "direccion": "Ubicación georreferenciada en Villa Tunari",
+    "observaciones": "Red Sanitaria R-03 (Cód: 300271) - Establecimiento no regulado bajo supervisión técnica del SEDES"
+  },
+  {
+    "nombre_comercial": "C.S. SAN GABRIEL",
+    "municipio": "Villa Tunari",
+    "codigo_cue": "300280",
+    "red": "R-03",
+    "latitud": -16.681904,
+    "longitud": -65.692039,
+    "direccion": "Ubicación georreferenciada en Villa Tunari",
+    "observaciones": "Red Sanitaria R-03 (Cód: 300280) - Establecimiento no regulado bajo supervisión técnica del SEDES"
+  },
+  {
+    "nombre_comercial": "C.S. VILLA 14 DE SEPTIEMBRE",
+    "municipio": "Villa Tunari",
+    "codigo_cue": "300286",
+    "red": "R-03",
+    "latitud": -17.314518,
+    "longitud": -66.535058,
+    "direccion": "Ubicación georreferenciada en Villa Tunari",
+    "observaciones": "Red Sanitaria R-03 (Cód: 300286) - Establecimiento no regulado bajo supervisión técnica del SEDES"
+  },
+  {
+    "nombre_comercial": "C.S. LA MISION",
+    "municipio": "Chimoré",
+    "codigo_cue": "300335",
+    "red": "R-04",
+    "latitud": -16.8741,
+    "longitud": -65.47417,
+    "direccion": "Ubicación georreferenciada en Chimoré",
+    "observaciones": "Red Sanitaria R-04 (Cód: 300335) - Establecimiento no regulado bajo supervisión técnica del SEDES"
+  },
+  {
+    "nombre_comercial": "C.S. TRINIDADCITO",
+    "municipio": "Chimoré",
+    "codigo_cue": "300637",
+    "red": "R-04",
+    "latitud": -17.4479,
+    "longitud": -66.1257,
+    "direccion": "Ubicación georreferenciada en Chimoré",
+    "observaciones": "Red Sanitaria R-04 (Cód: 300637) - Establecimiento no regulado bajo supervisión técnica del SEDES"
+  },
+  {
+    "nombre_comercial": "P.S. EL CARMEN",
+    "municipio": "Chimoré",
+    "codigo_cue": "300337",
+    "red": "R-04",
+    "latitud": -16.5784,
+    "longitud": -65.02868,
+    "direccion": "Ubicación georreferenciada en Chimoré",
+    "observaciones": "Red Sanitaria R-04 (Cód: 300337) - Establecimiento no regulado bajo supervisión técnica del SEDES"
+  },
+  {
+    "nombre_comercial": "P.S. SANTA ANITA",
+    "municipio": "Chimoré",
+    "codigo_cue": "300599",
+    "red": "R-04",
+    "latitud": -16.11615,
+    "longitud": -64.826695,
+    "direccion": "Ubicación georreferenciada en Chimoré",
+    "observaciones": "Red Sanitaria R-04 (Cód: 300599) - Establecimiento no regulado bajo supervisión técnica del SEDES"
+  },
+  {
+    "nombre_comercial": "P.S. SANTA ISABEL",
+    "municipio": "Chimoré",
+    "codigo_cue": "300338",
+    "red": "R-04",
+    "latitud": -16.334656,
+    "longitud": -64.964863,
+    "direccion": "Ubicación georreferenciada en Chimoré",
+    "observaciones": "Red Sanitaria R-04 (Cód: 300338) - Establecimiento no regulado bajo supervisión técnica del SEDES"
+  },
+  {
+    "nombre_comercial": "C.S. ENTRE RIOS",
+    "municipio": "Entre Ríos",
+    "codigo_cue": "300315",
+    "red": "R-04",
+    "latitud": -17.197818,
+    "longitud": -64.534011,
+    "direccion": "Ubicación georreferenciada en Entre Ríos",
+    "observaciones": "Red Sanitaria R-04 (Cód: 300315) - Establecimiento no regulado bajo supervisión técnica del SEDES"
+  },
+  {
+    "nombre_comercial": "HOSPITAL ENTRE RIOS",
+    "municipio": "Entre Ríos",
+    "codigo_cue": "300700",
+    "red": "R-04",
+    "latitud": -17.192407,
+    "longitud": -64.554744,
+    "direccion": "Ubicación georreferenciada en Entre Ríos",
+    "observaciones": "Red Sanitaria R-04 (Cód: 300700) - Establecimiento no regulado bajo supervisión técnica del SEDES"
+  },
+  {
+    "nombre_comercial": "C.S. BULO BULO",
+    "municipio": "Entre Ríos",
+    "codigo_cue": "300311",
+    "red": "R-04",
+    "latitud": -17.2519626238686,
+    "longitud": -64.3709529646323,
+    "direccion": "Ubicación georreferenciada en Entre Ríos",
+    "observaciones": "Red Sanitaria R-04 (Cód: 300311) - Establecimiento no regulado bajo supervisión técnica del SEDES"
+  },
+  {
+    "nombre_comercial": "C.S. PUERTO VILLARROEL",
+    "municipio": "Puerto Villarroel",
+    "codigo_cue": "300349",
+    "red": "R-04",
+    "latitud": -17.387763,
+    "longitud": -66.179255,
+    "direccion": "Ubicación georreferenciada en Puerto Villarroel",
+    "observaciones": "Red Sanitaria R-04 (Cód: 300349) - Establecimiento no regulado bajo supervisión técnica del SEDES"
+  },
+  {
+    "nombre_comercial": "C.S. RIO BLANCO",
+    "municipio": "Entre Ríos",
+    "codigo_cue": "300323",
+    "red": "R-04",
+    "latitud": -17.2262439,
+    "longitud": -64.4527008,
+    "direccion": "Ubicación georreferenciada en Entre Ríos",
+    "observaciones": "Red Sanitaria R-04 (Cód: 300323) - Establecimiento no regulado bajo supervisión técnica del SEDES"
+  },
+  {
+    "nombre_comercial": "C.S. VALLE IVIRSA",
+    "municipio": "Puerto Villarroel",
+    "codigo_cue": "300353",
+    "red": "R-04",
+    "latitud": -16.470532,
+    "longitud": -65.873006,
+    "direccion": "Ubicación georreferenciada en Puerto Villarroel",
+    "observaciones": "Red Sanitaria R-04 (Cód: 300353) - Establecimiento no regulado bajo supervisión técnica del SEDES"
+  },
+  {
+    "nombre_comercial": "C.S. VALLE SAJTA",
+    "municipio": "Puerto Villarroel",
+    "codigo_cue": "300350",
+    "red": "R-04",
+    "latitud": -17.120748,
+    "longitud": -64.772324,
+    "direccion": "Ubicación georreferenciada en Puerto Villarroel",
+    "observaciones": "Red Sanitaria R-04 (Cód: 300350) - Establecimiento no regulado bajo supervisión técnica del SEDES"
+  },
+  {
+    "nombre_comercial": "C.S. VALLE HERMOSO",
+    "municipio": "Cercado",
+    "codigo_cue": "300541",
+    "red": "R-04",
+    "latitud": -17.373177,
+    "longitud": -66.30695,
+    "direccion": "Ubicación georreferenciada en Cercado",
+    "observaciones": "Red Sanitaria R-04 (Cód: 300541) - Establecimiento no regulado bajo supervisión técnica del SEDES"
+  },
+  {
+    "nombre_comercial": "C.S. MARIPOSAS",
+    "municipio": "Puerto Villarroel",
+    "codigo_cue": "300347",
+    "red": "R-04",
+    "latitud": -18.545877,
+    "longitud": -64.293513,
+    "direccion": "Ubicación georreferenciada en Puerto Villarroel",
+    "observaciones": "Red Sanitaria R-04 (Cód: 300347) - Establecimiento no regulado bajo supervisión técnica del SEDES"
+  },
+  {
+    "nombre_comercial": "C.S. MOROCHATA",
+    "municipio": "Morochata",
+    "codigo_cue": "300128",
+    "red": "R-05",
+    "latitud": -17.403423,
+    "longitud": -66.157027,
+    "direccion": "Ubicación georreferenciada en Morochata",
+    "observaciones": "Red Sanitaria R-05 (Cód: 300128) - Establecimiento no regulado bajo supervisión técnica del SEDES"
+  },
+  {
+    "nombre_comercial": "C.S. PAROTANI",
+    "municipio": "Sipe Sipe",
+    "codigo_cue": "300220",
+    "red": "R-05",
+    "latitud": -17.20125,
+    "longitud": -66.13027,
+    "direccion": "Ubicación georreferenciada en Sipe Sipe",
+    "observaciones": "Red Sanitaria R-05 (Cód: 300220) - Establecimiento no regulado bajo supervisión técnica del SEDES"
+  },
+  {
+    "nombre_comercial": "C.S. CALVARIO",
+    "municipio": "Quillacollo",
+    "codigo_cue": "300216",
+    "red": "R-05",
+    "latitud": -17.084482,
+    "longitud": -66.427774,
+    "direccion": "Ubicación georreferenciada en Quillacollo",
+    "observaciones": "Red Sanitaria R-05 (Cód: 300216) - Establecimiento no regulado bajo supervisión técnica del SEDES"
+  },
+  {
+    "nombre_comercial": "C.S. VILLA MARIA",
+    "municipio": "Quillacollo",
+    "codigo_cue": "300206",
+    "red": "R-05",
+    "latitud": -17.38567,
+    "longitud": -66.14846,
+    "direccion": "Ubicación georreferenciada en Quillacollo",
+    "observaciones": "Red Sanitaria R-05 (Cód: 300206) - Establecimiento no regulado bajo supervisión técnica del SEDES"
+  },
+  {
+    "nombre_comercial": "C.S. IRONCOLLO",
+    "municipio": "Quillacollo",
+    "codigo_cue": "300208",
+    "red": "R-05",
+    "latitud": -17.360896,
+    "longitud": -66.28424,
+    "direccion": "Ubicación georreferenciada en Quillacollo",
+    "observaciones": "Red Sanitaria R-05 (Cód: 300208) - Establecimiento no regulado bajo supervisión técnica del SEDES"
+  },
+  {
+    "nombre_comercial": "C.S. APOTE",
+    "municipio": "Quillacollo",
+    "codigo_cue": "300500",
+    "red": "R-05",
+    "latitud": -17.33007,
+    "longitud": -66.242395,
+    "direccion": "Ubicación georreferenciada en Quillacollo",
+    "observaciones": "Red Sanitaria R-05 (Cód: 300500) - Establecimiento no regulado bajo supervisión técnica del SEDES"
+  },
+  {
+    "nombre_comercial": "C.S. EL PASO",
+    "municipio": "Quillacollo",
+    "codigo_cue": "300207",
+    "red": "R-05",
+    "latitud": -17.361934,
+    "longitud": -66.253562,
+    "direccion": "Ubicación georreferenciada en Quillacollo",
+    "observaciones": "Red Sanitaria R-05 (Cód: 300207) - Establecimiento no regulado bajo supervisión técnica del SEDES"
+  },
+  {
+    "nombre_comercial": "C.S MISICUNI",
+    "municipio": "Quillacollo",
+    "codigo_cue": "300666",
+    "red": "R-05",
+    "latitud": -17.567074,
+    "longitud": -65.676934,
+    "direccion": "Ubicación georreferenciada en Quillacollo",
+    "observaciones": "Red Sanitaria R-05 (Cód: 300666) - Establecimiento no regulado bajo supervisión técnica del SEDES"
+  },
+  {
+    "nombre_comercial": "COCAPATA",
+    "municipio": "Cocapata",
+    "codigo_cue": "300123",
+    "red": "R-05",
+    "latitud": -17.380293,
+    "longitud": -66.269821,
+    "direccion": "Ubicación georreferenciada en Cocapata",
+    "observaciones": "Red Sanitaria R-05 (Cód: 300123) - Establecimiento no regulado bajo supervisión técnica del SEDES"
+  },
+  {
+    "nombre_comercial": "C.S. COLOMI",
+    "municipio": "Colomi",
+    "codigo_cue": "300259",
+    "red": "R-06",
+    "latitud": -17.338051,
+    "longitud": -65.870935,
+    "direccion": "Ubicación georreferenciada en Colomi",
+    "observaciones": "Red Sanitaria R-06 (Cód: 300259) - Establecimiento no regulado bajo supervisión técnica del SEDES"
+  },
+  {
+    "nombre_comercial": "C.S. QUINTANILLA",
+    "municipio": "Sacaba",
+    "codigo_cue": "300683",
+    "red": "R-06",
+    "latitud": -17.382211,
+    "longitud": -66.109544,
+    "direccion": "Ubicación georreferenciada en Sacaba",
+    "observaciones": "Red Sanitaria R-06 (Cód: 300683) - Establecimiento no regulado bajo supervisión técnica del SEDES"
+  },
+  {
+    "nombre_comercial": "C.S. BOLIVAR",
+    "municipio": "Bolívar",
+    "codigo_cue": "300397",
+    "red": "R-07",
+    "latitud": -18.056067,
+    "longitud": -66.384016,
+    "direccion": "Ubicación georreferenciada en Bolívar",
+    "observaciones": "Red Sanitaria R-07 (Cód: 300397) - Establecimiento no regulado bajo supervisión técnica del SEDES"
+  },
+  {
+    "nombre_comercial": "C.S. TACOPAYA",
+    "municipio": "Tacopaya",
+    "codigo_cue": "300177",
+    "red": "R-07",
+    "latitud": -17.387909,
+    "longitud": -66.250168,
+    "direccion": "Ubicación georreferenciada en Tacopaya",
+    "observaciones": "Red Sanitaria R-07 (Cód: 300177) - Establecimiento no regulado bajo supervisión técnica del SEDES"
+  },
+  {
+    "nombre_comercial": "C.S. TOTORA PAMPA",
+    "municipio": "Tacopaya",
+    "codigo_cue": "300178",
+    "red": "R-07",
+    "latitud": -17.884655,
+    "longitud": -66.61694,
+    "direccion": "Ubicación georreferenciada en Tacopaya",
+    "observaciones": "Red Sanitaria R-07 (Cód: 300178) - Establecimiento no regulado bajo supervisión técnica del SEDES"
+  },
+  {
+    "nombre_comercial": "C.S. ARQUE",
+    "municipio": "Arque",
+    "codigo_cue": "300167",
+    "red": "R-07",
+    "latitud": -17.821595,
+    "longitud": -66.403458,
+    "direccion": "Ubicación georreferenciada en Arque",
+    "observaciones": "Red Sanitaria R-07 (Cód: 300167) - Establecimiento no regulado bajo supervisión técnica del SEDES"
+  },
+  {
+    "nombre_comercial": "C.S. SICAYA",
+    "municipio": "Sicaya",
+    "codigo_cue": "300195",
+    "red": "R-07",
+    "latitud": -17.800589,
+    "longitud": -66.333564,
+    "direccion": "Ubicación georreferenciada en Sicaya",
+    "observaciones": "Red Sanitaria R-07 (Cód: 300195) - Establecimiento no regulado bajo supervisión técnica del SEDES"
+  },
+  {
+    "nombre_comercial": "C.S. SANTIVAÑEZ",
+    "municipio": "Santiváñez",
+    "codigo_cue": "300192",
+    "red": "R-07",
+    "latitud": -17.40117,
+    "longitud": -66.17204,
+    "direccion": "Ubicación georreferenciada en Santiváñez",
+    "observaciones": "Red Sanitaria R-07 (Cód: 300192) - Establecimiento no regulado bajo supervisión técnica del SEDES"
+  },
+  {
+    "nombre_comercial": "C.S. PONGO KHASA",
+    "municipio": "Tapacarí",
+    "codigo_cue": "300498",
+    "red": "R-07",
+    "latitud": -17.712561,
+    "longitud": -66.551783,
+    "direccion": "Ubicación georreferenciada en Tapacarí",
+    "observaciones": "Red Sanitaria R-07 (Cód: 300498) - Establecimiento no regulado bajo supervisión técnica del SEDES"
+  },
+  {
+    "nombre_comercial": "C.S. POCONA",
+    "municipio": "Pocona",
+    "codigo_cue": "300329",
+    "red": "R-07",
+    "latitud": -17.77846,
+    "longitud": -65.48774,
+    "direccion": "Ubicación georreferenciada en Pocona",
+    "observaciones": "Red Sanitaria R-07 (Cód: 300329) - Establecimiento no regulado bajo supervisión técnica del SEDES"
+  },
+  {
+    "nombre_comercial": "C.S. POJO",
+    "municipio": "Pojo",
+    "codigo_cue": "300476",
+    "red": "R-08",
+    "latitud": -17.7361,
+    "longitud": -64.926,
+    "direccion": "Ubicación georreferenciada en Pojo",
+    "observaciones": "Red Sanitaria R-08 (Cód: 300476) - Establecimiento no regulado bajo supervisión técnica del SEDES"
+  },
+  {
+    "nombre_comercial": "C.S. OMEREQUE",
+    "municipio": "Omereque",
+    "codigo_cue": "300099",
+    "red": "R-08",
+    "latitud": -18.1052,
+    "longitud": -64.90726,
+    "direccion": "Ubicación georreferenciada en Omereque",
+    "observaciones": "Red Sanitaria R-08 (Cód: 300099) - Establecimiento no regulado bajo supervisión técnica del SEDES"
+  },
+  {
+    "nombre_comercial": "C.S. PASORAPA",
+    "municipio": "Pasorapa",
+    "codigo_cue": "300095",
+    "red": "R-08",
+    "latitud": -17.381051,
+    "longitud": -65.785799,
+    "direccion": "Ubicación georreferenciada en Pasorapa",
+    "observaciones": "Red Sanitaria R-08 (Cód: 300095) - Establecimiento no regulado bajo supervisión técnica del SEDES"
+  },
+  {
+    "nombre_comercial": "C.S. ALALAY",
+    "municipio": "Cercado",
+    "codigo_cue": "300003",
+    "red": "R-09",
+    "latitud": -17.4221,
+    "longitud": -66.1376,
+    "direccion": "Ubicación georreferenciada en Cercado",
+    "observaciones": "Red Sanitaria R-09 (Cód: 300003) - Establecimiento no regulado bajo supervisión técnica del SEDES"
+  },
+  {
+    "nombre_comercial": "C.S. RAQAYPAMPA",
+    "municipio": "Raqaypampa",
+    "codigo_cue": "300362",
+    "red": "R-09",
+    "latitud": -18.112617,
+    "longitud": -65.230132,
+    "direccion": "Ubicación georreferenciada en Raqaypampa",
+    "observaciones": "Red Sanitaria R-09 (Cód: 300362) - Establecimiento no regulado bajo supervisión técnica del SEDES"
+  },
+  {
+    "nombre_comercial": "C.S. VILA VILA",
+    "municipio": "Vila Vila",
+    "codigo_cue": "300372",
+    "red": "R-09",
+    "latitud": -17.983047,
+    "longitud": -65.630017,
+    "direccion": "Ubicación georreferenciada en Vila Vila",
+    "observaciones": "Red Sanitaria R-09 (Cód: 300372) - Establecimiento no regulado bajo supervisión técnica del SEDES"
+  },
+  {
+    "nombre_comercial": "C.S. INDEPENDENCIA SAN JUAN DE DIOS",
+    "municipio": "Independencia",
+    "codigo_cue": "300108",
+    "red": "R-11",
+    "latitud": -17.204952,
+    "longitud": -66.837,
+    "direccion": "Ubicación georreferenciada en Independencia",
+    "observaciones": "Red Sanitaria R-11 (Cód: 300108) - Establecimiento no regulado bajo supervisión técnica del SEDES"
+  },
+  {
+    "nombre_comercial": "HOSPITAL KAMI",
+    "municipio": "Independencia",
+    "codigo_cue": "300109",
+    "red": "R-11",
+    "latitud": -17.39014,
+    "longitud": -66.26094,
+    "direccion": "Ubicación georreferenciada en Independencia",
+    "observaciones": "Red Sanitaria R-11 (Cód: 300109) - Establecimiento no regulado bajo supervisión técnica del SEDES"
+  },
+  {
+    "nombre_comercial": "C.S. TAPACARI",
+    "municipio": "Tapacarí",
+    "codigo_cue": "300300",
+    "red": "R-12",
+    "latitud": -17.516933,
+    "longitud": -66.618093,
+    "direccion": "Ubicación georreferenciada en Tapacarí",
+    "observaciones": "Red Sanitaria R-12 (Cód: 300300) - Establecimiento no regulado bajo supervisión técnica del SEDES"
+  },
+  {
+    "nombre_comercial": "C.S. RAMADAS",
+    "municipio": "Tapacarí",
+    "codigo_cue": "300299",
+    "red": "R-12",
+    "latitud": -17.708146,
+    "longitud": -65.20798,
+    "direccion": "Ubicación georreferenciada en Tapacarí",
+    "observaciones": "Red Sanitaria R-12 (Cód: 300299) - Establecimiento no regulado bajo supervisión técnica del SEDES"
+  },
+  {
+    "nombre_comercial": "C.S. SACABAMBA",
+    "municipio": "Sacabamba",
+    "codigo_cue": "300156",
+    "red": "R-13",
+    "latitud": -17.6501,
+    "longitud": -65.3659,
+    "direccion": "Ubicación georreferenciada en Sacabamba",
+    "observaciones": "Red Sanitaria R-13 (Cód: 300156) - Establecimiento no regulado bajo supervisión técnica del SEDES"
+  },
+  {
+    "nombre_comercial": "C.S. TOCO",
+    "municipio": "Toco",
+    "codigo_cue": "300203",
+    "red": "R-13",
+    "latitud": -17.666154,
+    "longitud": -65.313065,
+    "direccion": "Ubicación georreferenciada en Toco",
+    "observaciones": "Red Sanitaria R-13 (Cód: 300203) - Establecimiento no regulado bajo supervisión técnica del SEDES"
+  },
+  {
+    "nombre_comercial": "C.S. TOLATA",
+    "municipio": "Tolata",
+    "codigo_cue": "300205",
+    "red": "R-13",
+    "latitud": -17.5296,
+    "longitud": -65.9661,
+    "direccion": "Ubicación georreferenciada en Tolata",
+    "observaciones": "Red Sanitaria R-13 (Cód: 300205) - Establecimiento no regulado bajo supervisión técnica del SEDES"
+  }
+]

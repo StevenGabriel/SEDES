@@ -27,12 +27,12 @@ export const REGIONES_MUNICIPIOS = [
   {
     region: 'Región Metropolitana',
     icono: '🏙️',
-    municipios: ['Cercado', 'Sacaba', 'Quillacollo', 'Colcapirhua', 'Tiquipaya', 'Vinto', 'Sipe Sipe']
+    municipios: ['Cercado', 'Sacaba', 'Quillacollo', 'Colcapirhua', 'Tiquipaya', 'Vinto', 'Sipe Sipe', 'Colomi']
   },
   {
     region: 'Valle Alto',
     icono: '🌾',
-    municipios: ['Punata', 'Cliza', 'Tarata', 'Arani', 'Arbieto', 'Tolata', 'San Benito', 'Toco', 'Villa Rivero', 'Tacachi', 'Cuchumuela', 'Anzaldo', 'Santiváñez']
+    municipios: ['Punata', 'Cliza', 'Tarata', 'Arani', 'Arbieto', 'Tolata', 'San Benito', 'Toco', 'Tiraque', 'Villa Rivero', 'Tacachi', 'Cuchumuela', 'Anzaldo', 'Santiváñez', 'Sacabamba']
   },
   {
     region: 'Trópico de Cochabamba',
@@ -42,7 +42,7 @@ export const REGIONES_MUNICIPIOS = [
   {
     region: 'Cono Sur',
     icono: '⛰️',
-    municipios: ['Aiquile', 'Mizque', 'Totora', 'Pasorapa', 'Omereque', 'Pocona', 'Pojo', 'Vacas', 'Alalay', 'Vila Vila']
+    municipios: ['Aiquile', 'Mizque', 'Totora', 'Pasorapa', 'Omereque', 'Pocona', 'Pojo', 'Vacas', 'Alalay', 'Vila Vila', 'Raqaypampa']
   },
   {
     region: 'Zona Andina y Valles',

@@ -228,6 +228,12 @@ def init_database(reset_tables: bool = False, poblar_laboratorios_demo: bool = F
             poblar_laboratorios_reales(db, "stevenclarost@outlook.com")
         except Exception as e_seed:
             logger.error(f"Advertencia al sembrar laboratorios reales: {e_seed}")
+        # 7.1. Poblar catálogo oficial de laboratorios no regulados (Vigilancia Sanitaria)
+        try:
+            from services.seed_no_regulados import poblar_laboratorios_no_regulados
+            poblar_laboratorios_no_regulados()
+        except Exception as e_unreg:
+            logger.error(f"Advertencia al sembrar laboratorios no regulados: {e_unreg}")
 
         # 8. Ajustar vencimiento de prueba para cuenta Mauro (para habilitar botón de Renovación/Rehabilitación)
         try:
