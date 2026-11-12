@@ -47,7 +47,7 @@ export const REGIONES_MUNICIPIOS = [
   {
     region: 'Zona Andina y Valles',
     icono: '🏔️',
-    municipios: ['Capinota', 'Arque', 'Tapacarí', 'Bolívar', 'Independencia', 'Morochata', 'Cocapata', 'Sicaya', 'Tacopaya']
+    municipios: ['Capinota', 'Arque', 'Tapacarí', 'Challa', 'Bolívar', 'Independencia', 'Morochata', 'Cocapata', 'Sicaya', 'Tacopaya']
   }
 ];
 
@@ -229,7 +229,7 @@ export default function MapSection() {
             <div className="space-y-1.5 relative" ref={munDropdownRef}>
               <div className="flex items-center justify-between">
                 <label className="text-[11px] font-bold tracking-wider text-slate-400 uppercase">
-                  MUNICIPIO (47 OFICIALES)
+                  MUNICIPIO ({CATALOGO_MUNICIPIOS.length - 1} OFICIALES)
                 </label>
                 {selectedMunicipio !== 'Todos' && (
                   <button

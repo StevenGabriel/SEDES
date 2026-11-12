@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import municipioChallaData from '../../data/municipioChalla.json';
 
 // Configurar icono de marcador personalizado de alta fidelidad
 const pinIcon = L.divIcon({
@@ -70,6 +71,17 @@ export default function RealMapPicker({ latitud, longitud, onChange, onChangeCoo
         noWrap: true,
         bounds: boliviaBounds
       }).addTo(map);
+
+      // Delimitación SIG oficial del Municipio de Challa
+      if (municipioChallaData?.coordenadas?.length) {
+        L.polygon(municipioChallaData.coordenadas, {
+          color: '#005596',
+          weight: 2,
+          fillColor: '#0284c7',
+          fillOpacity: 0.14,
+          interactive: false
+        }).addTo(map);
+      }
 
       // Añadir marcador (arrastrable sólo si no es readOnly)
       const marker = L.marker([initialLat, initialLng], {

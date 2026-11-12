@@ -4,6 +4,7 @@ import 'leaflet/dist/leaflet.css';
 import 'leaflet.markercluster';
 import 'leaflet.markercluster/dist/MarkerCluster.css';
 import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
+import municipioChallaData from '../../data/municipioChalla.json';
 
 
 // Diccionario oficial de las 8 Especialidades del SEDES con sus colores e iconos SVG
@@ -569,6 +570,41 @@ export const LIMITES_TERRITORIALES = {
     zoom: 12,
     color: '#005596',
     coordenadas: createBoundingPolygon(-17.7500, -66.7167, 0.06, 0.07)
+  },
+  CHALLA: {
+    nombre: 'Municipio de Challa',
+    centro: municipioChallaData.centro || [-17.65637, -66.73946],
+    zoom: 11,
+    color: '#005596',
+    coordenadas: municipioChallaData.coordenadas
+  },
+  COLOMI: {
+    nombre: 'Municipio de Colomi',
+    centro: [-17.3381, -65.8709],
+    zoom: 12,
+    color: '#005596',
+    coordenadas: createBoundingPolygon(-17.3381, -65.8709, 0.055, 0.065)
+  },
+  TIRAQUE: {
+    nombre: 'Municipio de Tiraque',
+    centro: [-17.4279, -65.7212],
+    zoom: 12,
+    color: '#005596',
+    coordenadas: createBoundingPolygon(-17.4279, -65.7212, 0.055, 0.065)
+  },
+  SACABAMBA: {
+    nombre: 'Municipio de Sacabamba',
+    centro: [-17.6501, -65.3659],
+    zoom: 12,
+    color: '#005596',
+    coordenadas: createBoundingPolygon(-17.6501, -65.3659, 0.045, 0.055)
+  },
+  RAQAYPAMPA: {
+    nombre: 'Municipio / Territorio de Raqaypampa',
+    centro: [-18.1126, -65.2301],
+    zoom: 12,
+    color: '#005596',
+    coordenadas: createBoundingPolygon(-18.1126, -65.2301, 0.05, 0.06)
   }
 };
 
@@ -924,16 +960,51 @@ export default function RealMultiMapView({
     const limiteData = getMunicipioLimite(selectedMunicipio);
 
     // Crear polígono territorial no interactivo (evita recuadros de foco y permite clics directos al mapa)
+    const isChalla = normalizeMunKey(selectedMunicipio) === 'CHALLA';
     const polygon = L.polygon(limiteData.coordenadas, {
       color: isGlobal ? '#0284c7' : '#005596',
-      weight: isGlobal ? 2 : 2.5,
-      dashArray: isGlobal ? '6, 6' : '7, 7',
+      weight: isGlobal ? 2 : (isChalla ? 2.5 : 2.5),
+      dashArray: isGlobal ? '6, 6' : (isChalla ? null : '7, 7'),
       fillColor: isGlobal ? '#38bdf8' : '#0073c6',
-      fillOpacity: isGlobal ? 0.05 : 0.14,
+      fillOpacity: isGlobal ? 0.05 : 0.16,
       interactive: false // Desactiva captura de eventos para eliminar el recuadro negro al hacer clic
     });
 
     polygon.addTo(boundaryLayer);
+
+    // En la vista general del departamento, superponer también la capa SIG oficial del Municipio de Challa
+    if (isGlobal && municipioChallaData?.coordenadas?.length) {
+      const challaPoly = L.polygon(municipioChallaData.coordenadas, {
+        color: '#005596',
+        weight: 2,
+        fillColor: '#0284c7',
+        fillOpacity: 0.15,
+        interactive: false
+      });
+      challaPoly.addTo(boundaryLayer);
+
+      const challaLabel = L.marker(municipioChallaData.centro || [-17.65637, -66.73946], {
+        interactive: false,
+        icon: L.divIcon({
+          className: 'challa-gis-label',
+          html: `<div style="transform: translate(-50%, -50%); background: rgba(0, 85, 150, 0.88); color: #fff; font-size: 9.5px; font-weight: 800; padding: 2px 7px; border-radius: 9999px; white-space: nowrap; border: 1.5px solid #fff; box-shadow: 0 2px 6px rgba(0,0,0,0.25); pointer-events: none;">Municipio de Challa</div>`,
+          iconSize: [0, 0],
+          iconAnchor: [0, 0]
+        })
+      });
+      challaLabel.addTo(boundaryLayer);
+    } else if (isChalla) {
+      const challaLabel = L.marker(municipioChallaData.centro || [-17.65637, -66.73946], {
+        interactive: false,
+        icon: L.divIcon({
+          className: 'challa-gis-label',
+          html: `<div style="transform: translate(-50%, -50%); background: rgba(0, 85, 150, 0.92); color: #fff; font-size: 11px; font-weight: 800; padding: 3px 10px; border-radius: 9999px; white-space: nowrap; border: 1.5px solid #fff; box-shadow: 0 3px 8px rgba(0,0,0,0.3); pointer-events: none;">Municipio de Challa</div>`,
+          iconSize: [0, 0],
+          iconAnchor: [0, 0]
+        })
+      });
+      challaLabel.addTo(boundaryLayer);
+    }
 
     // Ajustar zoom y encuadre
     if (!selectedLab) {

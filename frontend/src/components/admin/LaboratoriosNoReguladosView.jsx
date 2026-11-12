@@ -15,6 +15,7 @@ import {
   ChevronRight
 } from 'lucide-react';
 import RealMapPicker from '../common/RealMapPicker';
+import { getMunicipioLimite } from '../common/RealMultiMapView';
 import { CATALOGO_MUNICIPIOS } from '../landing/MapSection';
 
 export default function LaboratoriosNoReguladosView({ mostrarToast = () => {} }) {
@@ -580,7 +581,18 @@ export default function LaboratoriosNoReguladosView({ mostrarToast = () => {} })
                   </label>
                   <select
                     value={form.municipio}
-                    onChange={(e) => setForm(prev => ({ ...prev, municipio: e.target.value }))}
+                    onChange={(e) => {
+                      const nuevoMun = e.target.value;
+                      const limite = getMunicipioLimite(nuevoMun);
+                      setForm(prev => ({
+                        ...prev,
+                        municipio: nuevoMun,
+                        ...(!labEditando && limite?.centro ? {
+                          latitud: Number(limite.centro[0].toFixed(6)),
+                          longitud: Number(limite.centro[1].toFixed(6))
+                        } : {})
+                      }));
+                    }}
                     className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-[#0077c8]/20 focus:border-[#0077c8] transition cursor-pointer"
                   >
                     {listaMunicipiosForm.map(mun => (
