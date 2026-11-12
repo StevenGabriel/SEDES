@@ -163,8 +163,10 @@ export const LIMITES_TERRITORIALES = {
       [-18.25, -65.92],
       [-18.10, -66.18], // Límite con Potosí (Arque / Capinota)
       [-17.95, -66.42], // Bolívar
-      [-17.78, -66.68], // Límite con Oruro
-      [-17.58, -66.88], // Tapacarí
+      [-17.80, -66.75], // Sur de Challa (Límite con Oruro)
+      [-17.74, -66.86], // Suroeste de Challa
+      [-17.64, -66.93], // Extremo Oeste de Challa
+      [-17.55, -66.88], // Tapacarí
       [-17.38, -66.95],
       [-17.15, -66.98], // Ayopaya (Límite con La Paz)
       [-16.85, -66.85], // Cordillera de Cocapata
@@ -987,7 +989,7 @@ export default function RealMultiMapView({
         interactive: false,
         icon: L.divIcon({
           className: 'challa-gis-label',
-          html: `<div style="transform: translate(-50%, -50%); background: rgba(0, 85, 150, 0.88); color: #fff; font-size: 9.5px; font-weight: 800; padding: 2px 7px; border-radius: 9999px; white-space: nowrap; border: 1.5px solid #fff; box-shadow: 0 2px 6px rgba(0,0,0,0.25); pointer-events: none;">Municipio de Challa</div>`,
+          html: `<div style="transform: translate(-50%, -50%); width: max-content; display: inline-flex; align-items: center; gap: 5px; background: rgba(255, 255, 255, 0.94); color: #004b85; font-family: system-ui, -apple-system, sans-serif; font-size: 10px; font-weight: 800; letter-spacing: 0.2px; padding: 3px 9px; border-radius: 9999px; white-space: nowrap; border: 1.5px solid #005596; box-shadow: 0 2px 8px rgba(0, 85, 150, 0.22); pointer-events: none;"><span style="width: 6px; height: 6px; border-radius: 9999px; background-color: #0077c8; display: inline-block; flex-shrink: 0;"></span><span>Municipio de Challa</span></div>`,
           iconSize: [0, 0],
           iconAnchor: [0, 0]
         })
@@ -998,7 +1000,7 @@ export default function RealMultiMapView({
         interactive: false,
         icon: L.divIcon({
           className: 'challa-gis-label',
-          html: `<div style="transform: translate(-50%, -50%); background: rgba(0, 85, 150, 0.92); color: #fff; font-size: 11px; font-weight: 800; padding: 3px 10px; border-radius: 9999px; white-space: nowrap; border: 1.5px solid #fff; box-shadow: 0 3px 8px rgba(0,0,0,0.3); pointer-events: none;">Municipio de Challa</div>`,
+          html: `<div style="transform: translate(-50%, -50%); width: max-content; display: inline-flex; align-items: center; gap: 6px; background: rgba(255, 255, 255, 0.96); color: #004b85; font-family: system-ui, -apple-system, sans-serif; font-size: 11px; font-weight: 800; letter-spacing: 0.25px; padding: 4px 11px; border-radius: 9999px; white-space: nowrap; border: 1.5px solid #005596; box-shadow: 0 3px 10px rgba(0, 85, 150, 0.28); pointer-events: none;"><span style="width: 7px; height: 7px; border-radius: 9999px; background-color: #0077c8; display: inline-block; flex-shrink: 0;"></span><span>Municipio de Challa</span></div>`,
           iconSize: [0, 0],
           iconAnchor: [0, 0]
         })
