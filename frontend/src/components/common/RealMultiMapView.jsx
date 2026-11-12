@@ -153,9 +153,9 @@ export const LIMITES_TERRITORIALES = {
       [-17.42, -64.45], // Parque Carrasco
       [-17.68, -64.62],
       [-17.92, -64.55],
-      [-18.15, -64.42], // Pasorapa
-      [-18.42, -64.48],
-      [-18.62, -64.65], // Extremo Sureste (Río Grande)
+      [-18.15, -64.35], // Pasorapa
+      [-18.48, -64.24],
+      [-18.62, -64.38], // Extremo Sureste (Río Grande)
       [-18.68, -64.88], // Límite con Chuquisaca
       [-18.65, -65.15], // Omereque / Aiquile
       [-18.52, -65.38],
@@ -975,16 +975,42 @@ export default function RealMultiMapView({
     polygon.addTo(boundaryLayer);
 
     // En la vista general del departamento, superponer también la capa SIG oficial del Municipio de Challa
+    let cleanupZoomListener = null;
+
     if (isGlobal && municipioChallaData?.coordenadas?.length) {
       const challaPoly = L.polygon(municipioChallaData.coordenadas, {
         color: '#005596',
-        weight: 2,
+        weight: 1.8,
         fillColor: '#0284c7',
-        fillOpacity: 0.15,
-        interactive: false
+        fillOpacity: 0.14,
+        interactive: true
       });
+
+      // Tooltip flotante al pasar el cursor por la zona del Municipio de Challa
+      challaPoly.bindTooltip(
+        `<div style="display: inline-flex; align-items: center; gap: 5px; font-family: system-ui, -apple-system, sans-serif; font-size: 11px; font-weight: 800; color: #004b85; padding: 1px 4px;">
+          <span style="width: 7px; height: 7px; border-radius: 9999px; background-color: #0077c8; display: inline-block;"></span>
+          <span>Municipio de Challa</span>
+        </div>`,
+        {
+          sticky: true,
+          direction: 'top',
+          offset: [0, -8],
+          opacity: 0.96
+        }
+      );
+
+      challaPoly.on('mouseover', () => {
+        challaPoly.setStyle({ weight: 2.5, fillOpacity: 0.28, color: '#004b85' });
+      });
+
+      challaPoly.on('mouseout', () => {
+        challaPoly.setStyle({ weight: 1.8, fillOpacity: 0.14, color: '#005596' });
+      });
+
       challaPoly.addTo(boundaryLayer);
 
+      // Etiqueta central que solo aparece al acercar el zoom (>= 10) para no tapar los marcadores en vista lejana
       const challaLabel = L.marker(municipioChallaData.centro || [-17.65637, -66.73946], {
         interactive: false,
         icon: L.divIcon({
@@ -994,7 +1020,25 @@ export default function RealMultiMapView({
           iconAnchor: [0, 0]
         })
       });
-      challaLabel.addTo(boundaryLayer);
+
+      const syncLabelWithZoom = () => {
+        const currentZoom = map.getZoom();
+        if (currentZoom >= 10) {
+          if (!boundaryLayer.hasLayer(challaLabel)) {
+            challaLabel.addTo(boundaryLayer);
+          }
+        } else {
+          if (boundaryLayer.hasLayer(challaLabel)) {
+            boundaryLayer.removeLayer(challaLabel);
+          }
+        }
+      };
+
+      syncLabelWithZoom();
+      map.on('zoomend', syncLabelWithZoom);
+      cleanupZoomListener = () => {
+        map.off('zoomend', syncLabelWithZoom);
+      };
     } else if (isChalla) {
       const challaLabel = L.marker(municipioChallaData.centro || [-17.65637, -66.73946], {
         interactive: false,
@@ -1016,6 +1060,12 @@ export default function RealMultiMapView({
         map.fitBounds(polygon.getBounds().pad(0.08), { animate: true, duration: 0.8 });
       }
     }
+
+    return () => {
+      if (cleanupZoomListener) {
+        cleanupZoomListener();
+      }
+    };
   }, [selectedMunicipio]);
 
   // 3. Renderizar y actualizar marcadores según la lista de laboratorios y filtro de especialidad
